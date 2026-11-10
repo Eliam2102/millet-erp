@@ -1167,3 +1167,115 @@ resource ceAlmacenP20Filter 'Microsoft.ServiceBus/namespaces/topics/subscription
     }
   }
 }
+
+// ============================================================================
+// Topic: producto-terminado-events (módulo Millet.ProductoTerminado) · M-046
+// Publicado por OutboxPublisherWorker<ProductoTerminadoDbContext>. Cada suscripción la consume un
+// ServiceBusConsumerWorker (backend/src/SharedKernel/Infrastructure/Outbox) con la misma lógica que la entrega local (C1.8).
+// Además, PT escucha dos topics ajenos: la decisión de CxC y la factura/cobro de Facturación.
+// ============================================================================
+
+resource ptEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
+  parent: serviceBus
+  name: 'producto-terminado-events'
+  properties: {
+    defaultMessageTimeToLive: 'P1D'
+    enableBatchedOperations: true
+    enablePartitioning: false
+    maxSizeInMegabytes: 1024
+    requiresDuplicateDetection: false
+    supportOrdering: true
+  }
+}
+
+var ptSubscriptions = [
+  {
+    name: 'cuentas-por-cobrar-pt-sub'
+    types: ['producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.contra-entrega.no-liquidada.v1']
+  }
+  {
+    name: 'integraciones-aw-pt-sub'
+    types: ['producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.pedido.facturado-entregado.v1']
+  }
+  {
+    name: 'contabilidad-producto-terminado-sub'
+    types: ['producto_terminado.entrega.confirmada.v1']
+  }
+]
+
+resource ptSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = [for s in ptSubscriptions: {
+  parent: ptEventsTopic
+  name: s.name
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}]
+
+resource ptSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = [for (s, i) in ptSubscriptions: {
+  parent: ptSubscription[i]
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (${join(map(s.types, t => '\'${t}\''), ', ')})'
+      compatibilityLevel: 20
+    }
+  }
+}]
+
+// PT aplica la decisión de liberación de CxC (CxcDecisionLocalConsumer).
+resource ptCxcDecisionSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: cxcEventsTopic
+  name: 'producto-terminado-cxc-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource ptCxcDecisionSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptCxcDecisionSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'cuentas_por_cobrar.decision-liberacion.emitida.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+// PT pasa a 115 con la factura timbrada y concilia el voucher del cobro de caja (FacturacionLocalConsumer).
+resource ptFacturacionSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: facturacionEventsTopic
+  name: 'producto-terminado-facturacion-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource ptFacturacionSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptFacturacionSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.cobro-mostrador.registrado.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}

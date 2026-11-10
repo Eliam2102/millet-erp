@@ -21,6 +21,17 @@ El servidor de pruebas del ERP vive en Azure. SER-DATA (192.168.1.8, instancia `
 
 Ningún paso modifica datos de `MILMAIN`. El ERP solo lee de `MILMAIN`; los scripts 04 y 09 únicamente agregan usuarios de lectura y sus permisos. El ERP escribe solo en `MILLET_INTEGRACION_DEV`: anota el resultado de cada aviso y, en pruebas, también puede agregar y borrar avisos de prueba.
 
+### Qué base lee cada ambiente (M-032)
+
+| Ambiente | Base de integración | Aviso de pedidos (job 07) |
+|---|---|---|
+| Pruebas / QA | `MILLET_INTEGRACION_DEV` | Corre cada 15 s en `_DEV` hoy |
+| Producción | `MILLET_INTEGRACION` | Job de producción y `MilletAwPedidoNotify` entran en la ventana de corte I13.4 (16-20 nov) |
+
+Pruebas/QA nunca debe leer `MILLET_INTEGRACION`. La cadena no está en el repo (`infra/modules/appservice.bicep` sólo referencia el secreto de Key Vault y `infra/parameters/*.bicepparam` no la parametriza).
+
+Pendiente manual (Eliam con Jorge, sin despliegue de código): en el Key Vault del ambiente de pruebas, secreto `aw-integracion-connection-string` (App Setting `ConnectionStrings__AwIntegracionDb`) con `Database=MILLET_INTEGRACION_DEV` y el usuario `millet_erp_integracion` de esa base; reiniciar el App Service y confirmar en logs que conecta a `_DEV`. El secreto de producción conserva `Database=MILLET_INTEGRACION`.
+
 ## 2. Prerrequisitos en SER-DATA
 
 - [ ] El **SQL Server Agent** de `AWBUSINESS` está en ejecución y con inicio automático (la tarea de aviso es un job del Agent).

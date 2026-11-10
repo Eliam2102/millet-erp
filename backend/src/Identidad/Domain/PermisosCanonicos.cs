@@ -542,6 +542,7 @@ public static class PermisosCanonicos
     public const string TesoreriaMovimientosVer                 = "tesoreria.movimientos.ver";
     public const string TesoreriaMovimientosRegistrar           = "tesoreria.movimientos.registrar";
     public const string TesoreriaMovimientosVerCuentaCompleta   = "tesoreria.movimientos.ver-cuenta-completa";
+    public const string TesoreriaMovimientosAutorizarReclasificacion = "tesoreria.movimientos.autorizar-reclasificacion";
     public const string TesoreriaPagosAplicar                   = "tesoreria.pagos.aplicar";
     public const string TesoreriaPagosRevertir                  = "tesoreria.pagos.revertir";
     public const string TesoreriaPagosCuentaRegistrar           = "tesoreria.pagos-cuenta.registrar";
@@ -1001,6 +1002,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0002-0000-0000-000000000001"), TesoreriaMovimientosVer,               "Consultar el libro de movimientos bancarios"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000002"), TesoreriaMovimientosRegistrar,         "Registrar movimientos bancarios de ingreso (alta manual)"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000003"), TesoreriaMovimientosVerCuentaCompleta, "Des-enmascarar CLABE y número de cuenta (PII, ADR-0018)"),
+        (Guid.Parse("0000000b-0002-0000-0000-000000000004"), TesoreriaMovimientosAutorizarReclasificacion, "Autorizar o rechazar la reclasificación de un movimiento bancario; no puede firmarla quien la solicitó"),
         (Guid.Parse("0000000b-0003-0000-0000-000000000001"), TesoreriaPagosAplicar,                 "Registrar pagos a proveedor contra pasivos autorizados por CxP"),
         (Guid.Parse("0000000b-0003-0000-0000-000000000002"), TesoreriaPagosRevertir,                "Revertir pagos aplicados (contramovimiento, RN-10)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000001"), TesoreriaPagosCuentaRegistrar,         "Registrar pagos a cuenta (egreso sin documento, gate RN-2)"),

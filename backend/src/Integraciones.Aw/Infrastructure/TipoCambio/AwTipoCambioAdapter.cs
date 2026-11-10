@@ -46,8 +46,37 @@ public sealed class AwTipoCambioAdapter(
         """;
 
     public const string SqlTipoCambioVigenteAw = """
-        SELECT valutakurs FROM sysadm.ka_waehrungen WHERE UPPER(fremd_key) = @moneda OR UPPER(waehrung) = @moneda
+        SELECT valutakurs FROM sysadm.ka_waehrungen WHERE waehrung = @moneda
         """;
+
+    /// <summary>
+    /// ISO del ERP → valor de A+W (KA_WAEHRUNGEN.WAEHRUNG: USD, Euro, CAN) con <see cref="AwPedidosOptions.MapeoMonedaAw"/>,
+    /// la misma equivalencia que usa aw_retorno. Sin equivalencias configuradas se deja el ISO tal cual.
+    /// </summary>
+    private string MonedaAw(string moneda)
+    {
+        var iso = moneda.Trim().ToUpperInvariant();
+        var mapeo = options.Value.MapeoMonedaAw;
+        if (mapeo.Count == 0) return iso;
+        return mapeo.TryGetValue(iso, out var aw)
+            ? aw
+            : throw new InvalidOperationException($"Sin equivalencia de moneda «{iso}» hacia A+W (IntegracionesAw:MapeoMonedaAw).");
+    }
+
+    /// <summary>Valor de A+W leído de la tabla puente → ISO del ERP (inverso de <see cref="MonedaAw"/>).</summary>
+    private string MonedaErp(string valorAw)
+    {
+        var v = valorAw.Trim();
+        var par = options.Value.MapeoMonedaAw.FirstOrDefault(kv => string.Equals(kv.Value, v, StringComparison.OrdinalIgnoreCase));
+        return par.Key is null ? v.ToUpperInvariant() : par.Key.ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Valor ERP (MXN por unidad extranjera) → VALUTAKURS de A+W (unidades extranjeras por 1 MXN), 8 decimales half-up.
+    /// A+W guarda el inverso: EUR 0.04804228 ⇒ 20.81 MXN por EUR.
+    /// </summary>
+    public static decimal ValutakursDe(decimal valorMxnPorUnidad) =>
+        Math.Round(1m / valorMxnPorUnidad, 8, MidpointRounding.AwayFromZero);
 
     public static string RecursoCandado(string moneda) =>
         $"erp_tipo_cambio:{moneda?.Trim().ToUpperInvariant()}";
@@ -55,6 +84,7 @@ public sealed class AwTipoCambioAdapter(
     public async Task<int?> PublicarFilaAsync(AwTipoCambioFila fila, CancellationToken ct = default)
     {
         var moneda = fila.Moneda.Trim().ToUpperInvariant();
+        var monedaAw = MonedaAw(moneda);
         await using var cn = await AbrirAsync(ct);
         await using var tx = await cn.BeginTransactionAsync(ct);
 
@@ -65,7 +95,7 @@ public sealed class AwTipoCambioAdapter(
 
         await using (var cmd = Comando(cn, tx, SqlUltimaVersion))
         {
-            P(cmd, "@moneda", DbType.String, moneda);
+            P(cmd, "@moneda", DbType.String, monedaAw);
             P(cmd, "@fecha", DbType.Date, fila.FechaAplicacion);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (await reader.ReadAsync(ct))
@@ -92,7 +122,7 @@ public sealed class AwTipoCambioAdapter(
 
         await using (var ins = Comando(cn, tx, SqlInsertar))
         {
-            P(ins, "@moneda", DbType.String, moneda);
+            P(ins, "@moneda", DbType.String, monedaAw);
             P(ins, "@fecha", DbType.Date, fila.FechaAplicacion);
             P(ins, "@version", DbType.Int32, targetVersion);
             P(ins, "@valor", DbType.Decimal, fila.Valor);
@@ -127,7 +157,7 @@ public sealed class AwTipoCambioAdapter(
         await using var r = await cmd.ExecuteReaderAsync(ct);
         while (await r.ReadAsync(ct))
         {
-            var moneda = r.GetString(0).Trim().ToUpperInvariant();
+            var moneda = MonedaErp(r.GetString(0));
             if (filtro is not null && filtro.Count > 0 && !filtro.Contains(moneda))
             {
                 continue;
@@ -159,7 +189,7 @@ public sealed class AwTipoCambioAdapter(
     {
         await using var cn = await AbrirAsync(ct);
         await using var cmd = Comando(cn, null, SqlTipoCambioVigenteAw);
-        P(cmd, "@moneda", DbType.String, moneda.Trim().ToUpperInvariant());
+        P(cmd, "@moneda", DbType.String, MonedaAw(moneda));
         var res = await cmd.ExecuteScalarAsync(ct);
         if (res is null or DBNull) return null;
         return Convert.ToDecimal(res, CultureInfo.InvariantCulture);

@@ -50,6 +50,8 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.Property(e => e.BeneficiarioRef);
         builder.Property(e => e.ContramovimientoDe);
         builder.Property(e => e.MotivoNoAplicado).HasMaxLength(400);
+        builder.Property(e => e.TraspasoId);
+        builder.Property(e => e.TraspasoMotivo).HasMaxLength(400);
         builder.Property(e => e.AutorizadoPor);
         builder.Property(e => e.AutorizadoEn);
         builder.Property(e => e.MotivoReversa).HasMaxLength(400);
@@ -72,6 +74,10 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
             .WithMany()
             .HasForeignKey(e => e.ContramovimientoDe)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(e => e.TraspasoId)
+            .HasDatabaseName("ix_movimiento_bancario_traspaso")
+            .HasFilter("traspaso_id IS NOT NULL");
 
         // §5.1: auxiliares por cuenta/periodo y matching de conciliación.
         builder.HasIndex(e => new { e.CuentaBancariaId, e.FechaValor })

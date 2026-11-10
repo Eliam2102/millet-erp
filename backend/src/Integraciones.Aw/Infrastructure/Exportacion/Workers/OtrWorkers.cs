@@ -26,8 +26,8 @@ public sealed class OtrOptions
     // Sólo origen Real. El significado de los estatus de ruta lo confirma TI de Millet: por eso son opciones y no reglas fijas.
     /// <summary>Estatus de ruta que no se leen, separados por coma. 50 = en edición (TI).</summary>
     public string EstatusRutaExcluidos { get; set; } = "50";
-    /// <summary>Estatus de ruta que cancelan el envío, separados por coma. Vacío hasta que TI diga cómo se marca una ruta cancelada.</summary>
-    public string EstatusRutaCancelada { get; set; } = "";
+    /// <summary>Estatus de ruta que cancelan el envío, separados por coma. 890 = Cancelado (Jorge 5-nov; Guadalupe Polanco 6-nov: no se modifica, se cancela y se crea uno nuevo).</summary>
+    public string EstatusRutaCancelada { get; set; } = "890";
     /// <summary>Sólo cuentan las posiciones cuyo pedido de A+W tenga STATUS menor a este valor (consulta de TI: &lt; 900).</summary>
     public int EstatusPedidoMenorA { get; set; } = 900;
     /// <summary>Código de unidad de las líneas; debe coincidir con la unidad de la posición del pedido en el ERP.</summary>
