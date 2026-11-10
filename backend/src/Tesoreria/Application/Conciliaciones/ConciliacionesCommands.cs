@@ -905,6 +905,15 @@ internal static class ConciliacionCalculos
 
         return (cuenta.SaldoInicial ?? 0m) + saldoMovs;
     }
+
+    /// <summary>
+    /// Saldo en libros para mostrar: abierta = calculado al momento (un movimiento registrado desde Movimientos bancarios no
+    /// toca la conciliación, así que el guardado podía quedar viejo); cerrada = el congelado al cerrar.
+    /// </summary>
+    public static Task<decimal> SaldoLibrosVigenteAsync(TesoreriaDbContext db, Conciliacion c, CuentaBancaria cuenta, CancellationToken ct) =>
+        c.Estado == EstadoConciliacion.Cerrada
+            ? Task.FromResult(c.SaldoLibros)
+            : CalcularSaldoLibrosAsync(db, cuenta, c.PeriodoAnio, c.PeriodoMes, ct);
 }
 
 internal static class ConciliacionMapper

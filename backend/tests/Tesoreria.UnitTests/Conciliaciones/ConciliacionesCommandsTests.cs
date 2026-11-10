@@ -259,4 +259,27 @@ public sealed class ConciliacionesCommandsTests
             return Task.CompletedTask;
         }
     }
+
+    [Fact]
+    public async Task Saldo_en_libros_de_una_conciliacion_abierta_incluye_movimientos_registrados_despues_y_la_cerrada_queda_congelada()
+    {
+        // Un ingreso dado de alta desde Movimientos bancarios no toca la conciliación; el saldo guardado se quedaba viejo.
+        await using var db = Db();
+        var cuenta = await CrearCuentaAsync(db);
+        var conc = Conciliacion.Crear(Empresa, cuenta.Id, 2026, 9, 10_000m);
+        db.Conciliaciones.Add(conc);
+        await db.SaveChangesAsync();
+        db.MovimientosBancarios.Add(MovimientoBancario.RegistrarIngreso(Empresa, cuenta, 41_987.41m, new DateOnly(2026, 9, 2), "7100001", null, null, null, Usuario, Ahora));
+        await db.SaveChangesAsync();
+
+        var detalle = await new ObtenerConciliacionDetalleHandler(db).Handle(new ObtenerConciliacionDetalleQuery(conc.Id), default);
+        detalle.SaldoLibros.Should().Be(10_000m + 41_987.41m);
+        detalle.Diferencia.Should().Be(detalle.SaldoExtracto - detalle.SaldoLibros);
+
+        var guardada = await db.Conciliaciones.AsNoTracking().SingleAsync(c => c.Id == conc.Id);
+        var cerrada = Conciliacion.Crear(Empresa, cuenta.Id, 2026, 9, 10_000m);
+        typeof(Conciliacion).GetProperty(nameof(Conciliacion.Estado))!.SetValue(cerrada, EstadoConciliacion.Cerrada);
+        (await ConciliacionCalculos.SaldoLibrosVigenteAsync(db, cerrada, cuenta, default)).Should().Be(cerrada.SaldoLibros);
+        guardada.SaldoLibros.Should().NotBe(detalle.SaldoLibros);
+    }
 }
