@@ -230,6 +230,9 @@ public sealed class SolicitudViaticosAggregateTests
         s.AutorizarPorDireccionFinanzas(Guid.NewGuid(), DateTimeOffset.UtcNow);
         s.MarcarAnticipoPagado(DateTimeOffset.UtcNow);
         AgregarLinea(s, total: 7500m);
+        // M-449: DF autorizó 7,000 al solicitar; los 500 de más piden otra autorización antes de liberar.
+        s.ExcesoComprobacion.Should().Be(500m);
+        s.AutorizarExcesoComprobacion(Guid.NewGuid(), DateTimeOffset.UtcNow);
         s.LiberarComprobacion(DateTimeOffset.UtcNow);
 
         s.Estado.Should().Be(EstadoSolicitudViaticos.Liquidada);

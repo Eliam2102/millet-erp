@@ -46,3 +46,7 @@ param postgresAdminPassword = az.getSecret(
   'rg-millet-prod-mxc-01',
   'kv-millet-prod-mxc-01',
   'postgres-admin-password')
+
+// M-185: estatus SAT real vía FiscalAPI (requiere el SDK encendido y la
+// consulta habilitada en la cuenta productiva).
+param consultaEstatusSatProveedor = 'FiscalApi'

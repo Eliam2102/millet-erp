@@ -6,8 +6,7 @@ namespace Millet.Contabilidad.Application.PublicPorts;
 /// H1 pasos 3 y 4 (86e3z5w25): área (Dim2) y equipo (Dim3) capturados en la pantalla de un movimiento de otro módulo cuya póliza
 /// automática carga a una cuenta con la regla C-03 (conceptos bancarios que van a gasto, costo de importación). Contabilidad dice
 /// qué exige la cuenta, ofrece los centros de la sucursal y valida lo capturado; el centro viaja en el evento y el motor lo pone en
-/// la póliza (la ubicación, Dim1, se deriva del área o del equipo). Sin el dato el módulo acepta el movimiento y la póliza queda en
-/// Rechazos, como hasta hoy. Mismo criterio que el paso 1 (<see cref="IDimensionesSalidaInventarioPort"/>), con ids en vez de claves
+/// la póliza (la ubicación, Dim1, se deriva del área o del equipo). M-450: sin el dato exigido el módulo no acepta el movimiento. Mismo criterio que el paso 1 (<see cref="IDimensionesSalidaInventarioPort"/>), con ids en vez de claves
 /// porque aquí captura una persona con selector.
 /// </summary>
 public interface IDimensionesCapturaPort
@@ -35,7 +34,7 @@ public sealed record ExigenciaDimensiones(bool ExigeArea, bool ExigeEquipo, stri
 
 /// <summary>
 /// <c>Error</c>: dato inválido (no existe, inactivo, de otra sucursal, equipo de otra área): el movimiento no se acepta.
-/// <c>Faltante</c>: la cuenta exige un dato que no se capturó; el movimiento se acepta y la póliza queda en Rechazos.
+/// <c>Faltante</c>: la cuenta exige un dato que no se capturó; M-450: el módulo no acepta el movimiento hasta capturarlo.
 /// <c>CentroCostoId</c>: el que viaja en el evento (el equipo si se capturó; si no, el área).
 /// </summary>
 public sealed record DimensionesCapturaResultado(string? Error, string? Faltante, Guid? CentroCostoId, ExigenciaDimensiones Exigencia);

@@ -38,6 +38,7 @@ import {
 import { AreaEquipoCaptura } from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
 import {
   areaEquipoIds,
+  faltaAreaEquipo,
   type AreaEquipoValor,
 } from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import type { ExpedienteDetalle } from '../api/types';
@@ -121,6 +122,9 @@ function Gastos({
   const importacion = data.expediente.tipo === 1;
   const [dimensiones, setDimensiones] = useState<AreaEquipoValor>({ area: null, equipo: null });
   const exigencias = useDimensionesDistribucion(id, !!previa && importacion).data;
+  // M-450 (86e3zr7ft): sin el área o el equipo que exige la cuenta, la distribución no procede.
+  const faltaDimensionDistribucion =
+    importacion && !!exigencias && faltaAreaEquipo(dimensiones, exigencias.exigeArea, exigencias.exigeEquipo);
   const preview = useMutation({
     mutationFn: async () => ({
       resultado: (
@@ -425,10 +429,12 @@ function Gastos({
             />
           )}
           <Button
-            disabled={accion.isPending || previa.etag !== etag}
+            disabled={accion.isPending || previa.etag !== etag || faltaDimensionDistribucion}
             title={
               previa.etag !== etag
                 ? 'El expediente cambió. Vuelve a calcular la vista previa.'
+                : faltaDimensionDistribucion
+                  ? 'Captura el área y el equipo que exige la cuenta del gasto de importación.'
                 : accion.isPending
                   ? 'Guardando distribución.'
                   : undefined

@@ -136,6 +136,14 @@ Tesorería confirma no nacen en una sucursal física y el folio se reserva
 por sucursal. Default dev: CON (CONKAL, única con serie CFDI activa).''')
 param reppAutomaticoSucursalClave string = 'CON'
 
+@description('''Fuente del estatus SAT de los CFDI emitidos (Facturacion:ConsultaEstatusSat,
+F6.7 · M-185): FiscalApi consulta el SAT real vía FiscalAPI; Simulado es el
+adaptador de prueba. Default Simulado (espejo de appsettings.json); los
+ambientes de pruebas y producción lo ponen en FiscalApi en su .bicepparam.
+Va aquí porque el deploy re-aplica la lista completa de app settings.''')
+@allowed([ 'Simulado', 'FiscalApi' ])
+param consultaEstatusSatProveedor string = 'Simulado'
+
 @description('''Apaga el SDK de FiscalAPI (IntegracionesFiscal:Sdk:Disabled).
 Default true (SDK en NoOp — catálogos SAT responden 503 degradable y el
 timbrado falla visible: desde F12-PR3 no hay stub de emisión). Se enciende
@@ -304,6 +312,11 @@ var awIntegrationAppSettings = [
     // dispara tesoreria.pago-cliente.confirmado.v1.
     name: 'Facturacion__ReppAutomatico__SucursalClave'
     value: reppAutomaticoSucursalClave
+  }
+  {
+    // M-185: estatus SAT real (FiscalApi) o simulado, por ambiente.
+    name: 'Facturacion__ConsultaEstatusSat__Proveedor'
+    value: consultaEstatusSatProveedor
   }
   {
     // Nudge de baja latencia (PR7): la manda MilletAwPedidoNotify.exe desde

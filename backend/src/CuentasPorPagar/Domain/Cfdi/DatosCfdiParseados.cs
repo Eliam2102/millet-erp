@@ -42,7 +42,27 @@ public sealed record DatosCfdiParseados(
     // G1.6 (P2): desglose de <cfdi:Impuestos>/<cfdi:Retenciones> del
     // Comprobante. Nullable: XML sin retenciones parsea sin romper.
     IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
-    decimal Descuentos = 0m);
+    decimal Descuentos = 0m,
+    // M-209: base e IVA trasladado por tratamiento (TASA16, TASA8, TASA0, EXENTO, NOOBJETO), de los conceptos del CFDI.
+    IReadOnlyList<TrasladoIvaCfdi>? TrasladosIva = null);
+
+/// <summary>
+/// M-209 (86e3zr7mp) · base e IVA trasladado de un tratamiento, sumados de los conceptos del CFDI: <c>Impuesto</c> 002 con
+/// <c>TipoFactor</c> Tasa (16 %, 8 %, 0 %) o Exento, y conceptos con <c>ObjetoImp</c> 01 (no objeto). Contabilidad lleva cada tratamiento a
+/// su cuenta y la DIOT usa las bases.
+/// </summary>
+public sealed record TrasladoIvaCfdi(string Tratamiento, decimal Base, decimal Iva)
+{
+    public const string Tasa16 = "TASA16", Tasa8 = "TASA8", Tasa0 = "TASA0", Exento = "EXENTO", NoObjeto = "NOOBJETO";
+
+    /// <summary>Tratamiento de un traslado: Exento, tasa 0.16/0.08/0 o, sin traslado de IVA y ObjetoImp 01, no objeto. Otra tasa → null.</summary>
+    public static string? De(string? objetoImp, string? tipoFactor, decimal? tasa)
+    {
+        if (string.Equals(objetoImp?.Trim(), "01", StringComparison.Ordinal)) return NoObjeto;
+        if (string.Equals(tipoFactor?.Trim(), "Exento", StringComparison.OrdinalIgnoreCase)) return Exento;
+        return tasa switch { 0.16m => Tasa16, 0.08m => Tasa8, 0m => Tasa0, _ => null };
+    }
+}
 
 /// <summary>
 /// Retención del comprobante: <c>Impuesto</c> = código SAT (001 ISR,

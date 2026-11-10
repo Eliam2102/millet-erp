@@ -120,3 +120,9 @@ export const useReporteAuxiliar = makeReporteHook<{
   proveedorId?: string;
   sucursalId?: string;
 }>('auxiliar-proveedores', '/api/v1/cuentas-por-pagar/reportes/auxiliar-proveedores');
+
+// F1-CXP-10 · DIOT del mes (flujo de efectivo)
+export const useReporteDiot = makeReporteHook<{
+  anio: number;
+  mes: number;
+}>('diot', '/api/v1/cuentas-por-pagar/reportes/diot');

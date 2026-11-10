@@ -33,4 +33,6 @@ public sealed record NotaCreditoProveedorRegistradaDomainEvent(
     IReadOnlyList<RetencionCfdi>? Retenciones = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
-    Guid? SucursalId = null) : INotification;
+    Guid? SucursalId = null,
+    // M-209: base e IVA por tratamiento del CFDI de la nota; null si no viene de un XML.
+    IReadOnlyList<TrasladoIvaCfdi>? Impuestos = null) : INotification;

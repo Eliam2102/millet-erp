@@ -68,7 +68,7 @@ public sealed class DimensionesCaptura(
         if (exigencia.ExigeArea && centro is null) faltan.Add("el área");
         if (exigencia.ExigeEquipo && equipo is null) faltan.Add("el equipo");
         var faltante = faltan.Count == 0 ? null
-            : $"Falta {string.Join(" y ", faltan)}: la cuenta {exigencia.CuentaCodigo} lo exige (regla de dimensiones C-03). La póliza quedará en Rechazos.";
+            : $"Falta {string.Join(" y ", faltan)}: la cuenta {exigencia.CuentaCodigo} lo exige (regla de dimensiones C-03). Captúrelo para continuar.";
         return new(null, faltante, centro, exigencia);
     }
 

@@ -42,15 +42,17 @@ public static partial class NormalizadorEventos
     // ---------------------------------------------------------------- Tesorería
 
     /// <summary>
-    /// DE: una ficha de depósito del corte de efectivo. Cargo BANCOS · abono EFECTIVO_CAJA_COBRANZA (la caja que cargó la liquidación
-    /// #11b). Una póliza por ficha (supuesto a validar: el evento sugiere agrupar por día y sucursal, pero cada ficha es un movimiento
+    /// DE: una ficha de depósito del corte de efectivo. Cargo BANCOS · abono EFECTIVO_CAJA_COBRANZA (la caja que cargó cada cobro en
+    /// efectivo, M-174). M-174: el cargo va a la cuenta contable de la cuenta bancaria de la ficha (Tesorería la manda en el evento, como
+    /// B8 en el pago de cliente); sin ese dato, al rol BANCOS. Una póliza por ficha (supuesto a validar: el evento sugiere agrupar por día y sucursal, pero cada ficha es un movimiento
     /// de banco distinto). Fecha contable = la de la ficha.
     /// </summary>
     private static EventoContable DepositoCaja(Guid eventoId, string payload)
     {
         var d = Leer<DepositoCajaContrato>(payload);
         return new(DepositoCajaConfirmado, eventoId, d.EmpresaId, d.FechaFicha, Doc(DocDepositoCaja, d.DepositoId, d.NumeroFicha),
-            d.SucursalId, null, null, null, null, MonedaDe(d.Moneda), null, new Dictionary<string, decimal?> { ["Total"] = d.Importe }, [], payload);
+            d.SucursalId, null, null, null, null, MonedaDe(d.Moneda), null, new Dictionary<string, decimal?> { ["Total"] = d.Importe }, [], payload,
+            CuentaPorRol: CuentaBanco(d.CuentaContableRef));
     }
 
     /// <summary>
@@ -117,7 +119,7 @@ public static partial class NormalizadorEventos
     // ---- Espejos de contrato ----
 
     private sealed record DepositoCajaContrato(Guid EmpresaId, Guid DepositoId, Guid? SucursalId, decimal Importe, string? Moneda,
-        DateOnly FechaFicha, string? NumeroFicha);
+        DateOnly FechaFicha, string? NumeroFicha, string? CuentaContableRef = null);
 
     private sealed record DiferenciaCorteContrato(Guid EmpresaId, Guid DiferenciaId, DateOnly DiaCorte, Guid SucursalId, string? Tipo,
         decimal Importe, string? Moneda);
