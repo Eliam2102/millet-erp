@@ -43,7 +43,9 @@ public sealed record FacturaProveedorRegistradaDomainEvent(
     // 86e3tfedr: recepción elegida; null = sin elección (Almacén conserva el vínculo a todas las variante B pendientes de la OC).
     Guid? RecepcionId = null,
     // 86e3zcbjw: concepto fiscal de retención de la factura (perfil del proveedor): Contabilidad lleva cada retención a su cuenta.
-    string? ConceptoRetencion = null) : INotification;
+    string? ConceptoRetencion = null,
+    // M-209: base e IVA por tratamiento del CFDI (16 %, 8 %, 0 %, exento, no objeto); null si la factura no viene de un XML.
+    IReadOnlyList<TrasladoIvaCfdi>? Impuestos = null) : INotification;
 
 public sealed record LineaFacturada(
     Guid LineaFacturaId,

@@ -46,6 +46,8 @@ public sealed record LineaEventoContable(Guid? LineaOcId, decimal Importe, Guid?
     Guid? ClienteId = null, string? Clasificador = null, Guid? CuentaId = null, Guid? ArticuloId = null, string? Grupo = null)
 {
     public const string GrupoRetencion = "RETENCION";
+    /// <summary>M-209: IVA del documento (o el que reclasifica un pago o cobro) por tratamiento; clasificador = TASA16, TASA8, etc.</summary>
+    public const string GrupoIva = "IVA";
 }
 
 /// <summary>El payload no se puede leer como el contrato del tipo (no es rechazo de negocio: es un evento corrupto).</summary>
@@ -106,6 +108,8 @@ public static partial class NormalizadorEventos
         };
         var lineas = (f.Lineas ?? []).Select(l => new LineaEventoContable(l.LineaOcId, l.Importe, l.CentroCostoId, l.EsServicio ?? false)).ToList();
         lineas.AddRange(RetencionesContables.Lineas(f.Retenciones, f.ConceptoRetencion));
+        // M-209: el IVA por tratamiento (16 %, 8 %…) a su rol {IVA_ACREDITABLE_PENDIENTE}_{tratamiento}; sin detalle, como hoy.
+        lineas.AddRange(ImpuestosTrasladados.LineasDocumento(ImpuestosTrasladados.Agrupar(f.Impuestos), f.Iva));
         return new(FacturaProveedorRegistrada, eventoId, f.EmpresaId, FechaContable.HoyLocal(f.OcurridoEn),
             new DocumentoOrigenPoliza("cuentas_por_pagar", "factura_proveedor", f.FacturaProveedorId, null, f.Uuid),
             f.SucursalId, f.ProveedorId, null, f.CentroCostoId, f.OrdenCompraId == Guid.Empty ? null : f.OrdenCompraId,
@@ -121,7 +125,8 @@ public static partial class NormalizadorEventos
         Guid EmpresaId, DateTimeOffset OcurridoEn, Guid FacturaProveedorId, Guid OrdenCompraId, decimal TotalFactura,
         IReadOnlyList<LineaFacturaContrato>? Lineas, Guid? ProveedorId, string? Uuid, decimal? Subtotal, decimal? Iva,
         decimal? RetencionesTotal, string? Moneda, decimal? TipoCambio, Guid? SucursalId, Guid? CentroCostoId,
-        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null, string? ConceptoRetencion = null);
+        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null, string? ConceptoRetencion = null,
+        IReadOnlyList<ImpuestosTrasladados.ImpuestoTrasladoContrato>? Impuestos = null);
 
     private sealed record LineaFacturaContrato(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool? EsServicio);
 }
