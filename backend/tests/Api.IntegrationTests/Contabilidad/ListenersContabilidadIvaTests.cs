@@ -187,11 +187,14 @@ public sealed partial class ListenersContabilidadTests
             var sesion = Guid.NewGuid();
             var cobro = CobroDe(e, sesion, e.Clientes[1], mostrador, ("04", 1_000m), ("01", 1_320m));
             await Facturacion(cobro);
-            (await PolizasAsync(cobro.CobroMostradorId)).Should().ContainSingle().Which.Partidas
-                .Should().Contain(x => x.CuentaId == e.Cuentas["IVA_TRASLADADO_COBRADO"] && x.Abono == 137.93m);
             await Facturacion(SesionCerrada(e, sesion, 1_320m));
-            (await PolizasAsync(sesion)).Should().ContainSingle().Which.Partidas
-                .Should().Contain(x => x.CuentaId == e.Cuentas["IVA_TRASLADADO_COBRADO"] && x.Abono == 182.07m, "el efectivo salda el remanente");
+            // M-174: el efectivo tiene su póliza al cobrar (se contabiliza antes que la tarjeta y toma su IVA en proporción);
+            // la tarjeta salda el remanente. El cierre de sesión no genera asiento.
+            var polizasCobro = await PolizasAsync(cobro.CobroMostradorId);
+            polizasCobro.Should().HaveCount(2);
+            polizasCobro.SelectMany(p => p.Partidas).Where(x => x.CuentaId == e.Cuentas["IVA_TRASLADADO_COBRADO"]).Select(x => x.Abono)
+                .Should().HaveCount(2).And.Contain(182.07m).And.Contain(137.93m);
+            (await PolizasAsync(sesion)).Should().BeEmpty();
 
             var partidas = await PartidasSucursalAsync(e.Sucursal);
             Saldo(partidas, e.Cuentas["IVA_TRASLADADO_NO_COBRADO"]).Should().Be(-160m, "queda solo la mitad sin cobrar de la factura a crédito");
