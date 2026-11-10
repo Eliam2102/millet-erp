@@ -104,7 +104,9 @@ public sealed record SuscripcionServiceBus(string Topic, string Suscripcion)
         new("facturacion-events", "activos-fijos-ventas"),
         new("facturacion-events", "contabilidad-facturacion-sub"),
         new("facturacion-events", "comercio-exterior-facturacion-sub"),
+        new("facturacion-events", "producto-terminado-facturacion-sub"),
         new("cuentas-por-cobrar-events", "tesoreria-subscription"),
+        new("cuentas-por-cobrar-events", "producto-terminado-cxc-sub"),
         new("tesoreria-events", "cuentas-por-pagar-tesoreria-sub"),
         new("tesoreria-events", "facturacion-tesoreria-sub"),
         new("tesoreria-events", "cuentas-por-cobrar-tesoreria-sub"),
@@ -115,5 +117,9 @@ public sealed record SuscripcionServiceBus(string Topic, string Suscripcion)
         // Solo en Azure (el emulador local aún no las declara): en local su lectura falla y se omite.
         new("comercio-exterior-events", "almacen-comercio-exterior-sub"),
         new("comercio-exterior-events", "facturacion-ce-sub"),
+        // Producto terminado (M-046, #577).
+        new("producto-terminado-events", "cuentas-por-cobrar-pt-sub"),
+        new("producto-terminado-events", "integraciones-aw-pt-sub"),
+        new("producto-terminado-events", "contabilidad-producto-terminado-sub"),
     ];
 }

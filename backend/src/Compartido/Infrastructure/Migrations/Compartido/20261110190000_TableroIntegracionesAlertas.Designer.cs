@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 {
     [DbContext(typeof(CompartidoDbContext))]
-    [Migration("20261108040500_TableroIntegracionesAlertas")]
+    [Migration("20261110190000_TableroIntegracionesAlertas")]
     partial class TableroIntegracionesAlertas
     {
         /// <inheritdoc />
