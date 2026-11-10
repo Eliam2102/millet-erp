@@ -90,6 +90,7 @@ const DEFAULT_MIME_WHITELIST: readonly string[] = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
   'application/msword', // doc
   'text/plain',
+  'text/csv', // K10.11: archivo origen de la póliza de nómina externa
 ];
 
 export interface AdjuntosManagerProps<
@@ -192,7 +193,7 @@ export function AdjuntosManager<
   puedeVerBajas = false,
   verBajas = false,
   onVerBajasChange,
-  ayudaFormatos = 'PDF, imágenes, Office',
+  ayudaFormatos = 'PDF, imágenes, Office, CSV',
   adjuntosLoading = false,
   adjuntosError = null,
 }: AdjuntosManagerProps<TItem, TTipo>) {
@@ -219,6 +220,10 @@ export function AdjuntosManager<
   const tipoConVigencia = tipoActual?.vigenciaMeses != null;
 
   function validarArchivo(file: File): string | null {
+    if (file.size === 0) return 'El archivo está vacío. Selecciona otro archivo.';
+    if (file.name.toLowerCase().endsWith('.pdf') !== (file.type === 'application/pdf')) {
+      return 'El nombre y el formato deben corresponder a un archivo PDF.';
+    }
     if (file.size > maxBytes) {
       return `Archivo demasiado grande (${formatBytes(file.size)}). Máximo ${formatBytes(maxBytes)}.`;
     }
@@ -354,9 +359,11 @@ export function AdjuntosManager<
                 onChange={handleInputChange}
                 className="sr-only"
                 accept={mimeWhitelist.join(',')}
+                aria-describedby={`${fileInputId}-formatos${validationError ? ` ${fileInputId}-error` : ''}`}
+                aria-invalid={validationError !== null}
               />
             </label>
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p id={`${fileInputId}-formatos`} className="mt-2 text-xs text-muted-foreground">
               Máximo {formatBytes(maxBytes)}. Tipos permitidos: {ayudaFormatos}.
             </p>
           </div>
@@ -466,6 +473,7 @@ export function AdjuntosManager<
             <p
               role="alert"
               className="text-xs text-danger-fg"
+              id={`${fileInputId}-error`}
               data-component="adjuntos-validation-error"
             >
               {validationError}

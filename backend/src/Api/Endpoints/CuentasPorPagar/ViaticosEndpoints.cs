@@ -121,6 +121,29 @@ public static class ViaticosEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
+        // M-449: Dirección de Finanzas autoriza el exceso de una comprobación fuera de política.
+        group.MapPost("/{id:guid}/autorizar-exceso-comprobacion", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+
+            var response = await mediator.Send(new AutorizarExcesoComprobacionViaticosCommand(id, v), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarViaticosAutorizarDf)
+        .WithName("AutorizarExcesoComprobacionViaticos")
+        .WithSummary("Dirección de Finanzas autoriza el exceso de una comprobación fuera de política")
+        .Produces<TransicionViaticosResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
         group.MapPost("/{id:guid}/marcar-pagado", async (
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,

@@ -74,7 +74,7 @@ En *Contabilidad › Motor › Rechazos*, filtrar por causa «Rol sin cuenta» y
 
 | Rol | Por qué |
 |---|---|
-| EFECTIVO_CAJA_COBRANZA, CAJA | Contabilidad dice que el corte de caja no genera asiento (renglones 42 y 43). Sigue pendiente decidir si la póliza del efectivo se hace por cobro o por corte. La cuenta 101.01.02.00 está confirmada para el depósito al banco (S12) |
+| EFECTIVO_CAJA_COBRANZA, CAJA | **Ya asignados (M-174):** 101.01.02.00, por la migración `M174EfectivoPorCobro`, si la cuenta existe y el rol no tenía cuenta. Contabilidad (6-nov): una póliza por cada cobro, también en efectivo; el corte de caja no genera asiento y el depósito confirmado va contra la cuenta contable de su cuenta bancaria |
 | DEUDORES_FUNCIONARIOS_EMPLEADOS | Faltante o sobrante del arqueo (S13): Contabilidad no respondió |
 | RETENCIONES_POR_PAGAR, RETENCIONES_CLIENTES | Rol base. Desde 86e3zcbjw cada concepto tiene su rol (§4.1) y su script |
 | BANCOS, BANCOS_MN, GASTO, CONSUMO, INVENTARIO | Dependen de otro catálogo (§4) |
@@ -153,7 +153,7 @@ En la configuración del libro de Activos Fijos:
 | Utilidad y pérdida en venta o baja (renglones 65 y 66) | Contabilidad las quiere **por clase** | Hoy es una sola cuenta de utilidad y una de pérdida para toda la empresa. Se necesita un campo por clase |
 
 ## 6. Pendientes con Contabilidad (mismo hilo del 5-nov)
-- Póliza del efectivo de caja: por cobro o por corte.
+- ~~Póliza del efectivo de caja: por cobro o por corte.~~ Resuelto el 6-nov: por cobro (M-174).
 - Cuentas de retención que faltan en el catálogo (§4.1).
 - Área y equipo por omisión (tarea H1, 86e3z5w25).
 - Faltante o sobrante del arqueo de caja (S13).

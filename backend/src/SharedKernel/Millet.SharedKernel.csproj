@@ -32,6 +32,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Serilog" />
+    <PackageReference Include="PdfPig" />
     <!--
       Application infra (CQRS, validación, mapping). Las extension
       methods AddMilletApplication(...) en SharedKernel.Application

@@ -1,4 +1,5 @@
 using Millet.SharedKernel.Application.Exceptions;
+using UglyToad.PdfPig;
 
 namespace Millet.SharedKernel.Application.Adjuntos;
 
@@ -41,7 +42,9 @@ public sealed class AdjuntosPoliticaOptions
         ".xls",
         ".docx",
         ".doc",
-        ".txt"
+        ".txt",
+        // K10.11 (QA H1): la póliza de nómina externa adjunta su archivo origen, que suele ser CSV.
+        ".csv"
     ];
 
     /// <summary>
@@ -58,7 +61,9 @@ public sealed class AdjuntosPoliticaOptions
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
-        "text/plain"
+        "text/plain",
+        "text/csv",
+        "application/csv"
     ];
 
     /// <summary>
@@ -82,6 +87,55 @@ public sealed class AdjuntosPoliticaOptions
             ContentTypes = o.ContentTypes is { Count: > 0 } ? o.ContentTypes : ContentTypes
         };
     }
+
+    /// <summary>Valida el contenido antes de persistirlo y deja el stream listo para guardar.</summary>
+    public async Task ValidarContenidoAsync(string nombre, string mime, Stream contenido, CancellationToken ct)
+    {
+        if (contenido.Length == 0)
+            throw new BusinessRuleException("ADJUNTO_ARCHIVO_VACIO", "El archivo está vacío.");
+
+        contenido.Position = 0;
+        try
+        {
+            var cabecera = new byte[16];
+            var leidos = await contenido.ReadAtLeastAsync(cabecera, cabecera.Length, throwOnEndOfStream: false, ct);
+            ValidarInstancia(nombre, mime, contenido.Length, cabecera.AsSpan(0, leidos));
+            if (!Path.GetExtension(nombre).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            contenido.Position = 0;
+            var bytes = new byte[checked((int)contenido.Length)];
+            await contenido.ReadExactlyAsync(bytes, ct);
+            if (!EsPdfValido(bytes))
+                throw PdfInvalido();
+        }
+        finally
+        {
+            contenido.Position = 0;
+        }
+    }
+
+    public static bool EsPdfValido(byte[] bytes)
+    {
+        var fin = bytes.Length;
+        while (fin > 0 && bytes[fin - 1] is (byte)' ' or (byte)'\r' or (byte)'\n' or (byte)'\t' or (byte)'\f')
+            fin--;
+        if (!bytes.AsSpan().StartsWith("%PDF-"u8) || !bytes.AsSpan(0, fin).EndsWith("%%EOF"u8))
+            return false;
+
+        try
+        {
+            using var pdf = PdfDocument.Open(bytes, new ParsingOptions { UseLenientParsing = false });
+            return !pdf.IsEncrypted && pdf.NumberOfPages > 0;
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            return false;
+        }
+    }
+
+    private static BusinessRuleException PdfInvalido() =>
+        new("ADJUNTO_PDF_INVALIDO", "Cargue un PDF completo, sin contraseña y con al menos una página.");
 
     private static readonly AdjuntosPoliticaOptions DefaultOptions = new();
 
@@ -167,12 +221,9 @@ public sealed class AdjuntosPoliticaOptions
 
         if (esPdf)
         {
-            // Firma PDF: %PDF (0x25, 0x50, 0x44, 0x46)
-            if (cabecera.Length < 4
-                || cabecera[0] != 0x25
-                || cabecera[1] != 0x50
-                || cabecera[2] != 0x44
-                || cabecera[3] != 0x46)
+            if (!extensionNormalizada.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+                || !contentType.Trim().Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
+                || !cabecera.StartsWith("%PDF-"u8))
             {
                 throw new BusinessRuleException(
                     "ADJUNTO_FORMATO_NO_PERMITIDO",

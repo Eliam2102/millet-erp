@@ -112,6 +112,21 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
             .Where(id => proveedorIds.Contains(id)).ToListAsync(cancellationToken)).ToHashSet();
     }
 
+    public async Task<IReadOnlyDictionary<Guid, ProveedorFiscalDto>> ObtenerFiscalesPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new Dictionary<Guid, ProveedorFiscalDto>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Proveedores
+            .AsNoTracking()
+            .Where(p => proveedorIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => new ProveedorFiscalDto(p.Id, p.Rfc, p.RazonSocial,
+                p.Origen == Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero, p.Pais, p.TaxId), cancellationToken);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerBloqueadosPorIdsAsync(
         IReadOnlyCollection<Guid> proveedorIds,
         CancellationToken cancellationToken)

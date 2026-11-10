@@ -23,6 +23,7 @@ import {
   useDevolverSolicitudViaticos,
   useReenviarSolicitudViaticos,
   useLiberarComprobacionViaticos,
+  useAutorizarExcesoComprobacionViaticos,
   useMarcarAnticipoPagadoViaticos,
   useRechazarSolicitudViaticos,
 } from '@/features/cxp/api/useViaticos';
@@ -43,9 +44,16 @@ export type SolicitudAccionable = Pick<
   fechaSalida?: string;
   fechaRegreso?: string;
   comentarioDevolucion?: string | null;
+  /** M-449: solo el detalle los trae; sin ellos el servidor sigue bloqueando la liberación fuera de política. */
+  comprobacionFueraDePolitica?: boolean;
+  excesoComprobacion?: number;
+  excesoAutorizadoPor?: string | null;
 };
 
-type Dialogo = 'autJefe' | 'autDf' | 'pagado' | 'liberar' | 'rechazar' | 'devolver' | 'reenviar' | null;
+type Dialogo = 'autJefe' | 'autDf' | 'autExceso' | 'pagado' | 'liberar' | 'rechazar' | 'devolver' | 'reenviar' | null;
+
+export const MOTIVO_EXCESO_SIN_AUTORIZAR =
+  'La comprobación excede la política: Dirección de Finanzas debe autorizar el exceso antes de liberarla.';
 
 export const MOTIVO_SIN_EMPLEADO =
   'Tu usuario no está ligado a un empleado; pide que lo liguen en Administración → Empleados.';
@@ -74,6 +82,7 @@ export function AccionesViatico({
   const autDf = useAutorizarPorDfViaticos();
   const marcarPagado = useMarcarAnticipoPagadoViaticos();
   const liberar = useLiberarComprobacionViaticos();
+  const autExceso = useAutorizarExcesoComprobacionViaticos();
   const rechazar = useRechazarSolicitudViaticos();
   const devolver = useDevolverSolicitudViaticos();
   const reenviar = useReenviarSolicitudViaticos();
@@ -89,7 +98,8 @@ export function AccionesViatico({
 
   const pendiente =
     autJefe.isPending || autDf.isPending || marcarPagado.isPending ||
-    liberar.isPending || rechazar.isPending || devolver.isPending || reenviar.isPending;
+    liberar.isPending || autExceso.isPending || rechazar.isPending || devolver.isPending || reenviar.isPending;
+  const excesoPendiente = s.comprobacionFueraDePolitica === true && !s.excesoAutorizadoPor;
   const sinEmpleado = tieneEmpleado === false;
   const base = { id: s.id, versionEsperada: s.version };
 
@@ -119,6 +129,11 @@ export function AccionesViatico({
           'Anticipo marcado como pagado (Tesorería)',
           marcarPagado.mutateAsync({ ...base, idempotencyKey }),
         );
+      case 'autExceso':
+        return ejecutar(
+          'Exceso de la comprobación autorizado (Dirección de Finanzas)',
+          autExceso.mutateAsync({ ...base, idempotencyKey }),
+        );
       case 'liberar':
         return ejecutar(
           'Comprobación liberada (calculó diferencia)',
@@ -146,6 +161,16 @@ export function AccionesViatico({
       texto: (
         <>
           Autorizas el exceso de política de los viáticos{quien} a {s.destino} por {monto}.
+        </>
+      ),
+    },
+    autExceso: {
+      titulo: 'Autorizar exceso de la comprobación',
+      verbo: 'Autorizar exceso',
+      texto: (
+        <>
+          Autorizas que la comprobación de los viáticos{quien} a {s.destino} exceda la política por{' '}
+          <MoneyDisplay amount={s.excesoComprobacion ?? 0} currency={moneda} strong />.
         </>
       ),
     },
@@ -218,8 +243,20 @@ export function AccionesViatico({
           Comprobar
         </Button>
       )}
+      {s.estado === EstadoSolicitudViaticos.ComprobacionCapturada && excesoPendiente && puedeAutDf && (
+        <Button variant="outline" size="sm" onClick={() => setDialogo('autExceso')} disabled={pendiente}>
+          <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
+          Autorizar exceso
+        </Button>
+      )}
       {s.estado === EstadoSolicitudViaticos.ComprobacionCapturada && puedeLiberar && (
-        <Button variant="outline" size="sm" onClick={() => setDialogo('liberar')} disabled={pendiente}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setDialogo('liberar')}
+          disabled={pendiente || excesoPendiente}
+          title={excesoPendiente ? MOTIVO_EXCESO_SIN_AUTORIZAR : undefined}
+        >
           <Unlock className="mr-1 size-3.5" aria-hidden="true" />
           Liberar
         </Button>

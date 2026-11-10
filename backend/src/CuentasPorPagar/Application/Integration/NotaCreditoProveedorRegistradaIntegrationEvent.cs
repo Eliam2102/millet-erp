@@ -23,5 +23,7 @@ public sealed record NotaCreditoProveedorRegistradaIntegrationEvent(
     IReadOnlyList<RetencionDetallePayload>? Retenciones = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
-    Guid? SucursalId = null)
+    Guid? SucursalId = null,
+    // M-209 (aditivo): base e IVA por tratamiento de los conceptos del CFDI de la nota.
+    IReadOnlyList<ImpuestoTrasladoPayload>? Impuestos = null)
     : IntegrationEvent("cuentas_por_pagar.nota-credito.registrada.v1", EmpresaId, OcurridoEn);

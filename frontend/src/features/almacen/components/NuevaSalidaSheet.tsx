@@ -71,6 +71,7 @@ import { saldosPorUbicacionQueryOptions } from '@/features/almacen/api/useSaldos
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { MedidaSalidaSelect } from '@/features/almacen/components/MedidaSalidaSelect';
 import { LoteSalidaSelect } from '@/features/almacen/components/LoteSalidaSelect';
+import { LineaTamborSelect } from '@/features/almacen/components/LineaTamborSelect';
 import { useRequisicion } from '@/features/compras/api/useRequisicion';
 import { cn } from '@/lib/utils';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
@@ -253,6 +254,7 @@ function NuevaSalidaFormBody({
           ubicacionReferencia: f.ubicacionReferencia ?? null,
           ubicacionId: f.ubicacionId ?? null,
           comentario: f.comentario ?? null,
+          lineaProduccionId: f.lineaProduccionId ?? null,
         }));
       registrarA.mutate(
         {
@@ -331,6 +333,7 @@ function NuevaSalidaFormBody({
             ubicacionReferencia: l.ubicacionReferencia ?? null,
             ubicacionId: l.ubicacionId ?? null,
             comentario: l.comentario ?? null,
+            lineaProduccionId: l.lineaProduccionId ?? null,
           })),
         },
         idempotencyKey,
@@ -928,6 +931,20 @@ function FilaLineaRq({
                   )}
                 />
               </FormCampo>
+              <FormCampo span={12}>
+                <Controller
+                  name={`filas.${index}.lineaProduccionId` as const}
+                  control={control}
+                  render={({ field }) => (
+                    <LineaTamborSelect
+                      articuloId={fila.articuloId}
+                      value={field.value}
+                      onChange={field.onChange}
+                      ariaLabel={`Línea de producción destino, partida ${fila.posicion}`}
+                    />
+                  )}
+                />
+              </FormCampo>
               {!varianteId && (
               <FormCampo span={6}>
                 <Field label="Unidad capturada (opcional)">
@@ -1330,6 +1347,21 @@ function LineaLibreForm({
           />
         </FormCampo>
 
+        <FormCampo span={12}>
+          <Controller
+            name={`lineas.${index}.lineaProduccionId` as const}
+            control={control}
+            render={({ field }) => (
+              <LineaTamborSelect
+                articuloId={articuloId}
+                value={field.value}
+                onChange={field.onChange}
+                ariaLabel={`Línea de producción destino, partida ${index + 1}`}
+              />
+            )}
+          />
+        </FormCampo>
+
         {!varianteId && (
         <FormCampo span={6}>
           <Field label="Unidad capturada (opcional)">
@@ -1558,6 +1590,7 @@ type SalidaFormValues = {
     unidadCapturada?: string | null;
     productoAwVarianteId?: string | null;
     lote?: string | null;
+    lineaProduccionId?: string | null;
     lineaRqId?: string | null;
     cantidad: number;
     centroCostoId?: string | null;

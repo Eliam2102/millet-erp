@@ -162,18 +162,51 @@ export function useRechazarConteo() {
   });
 }
 
+/** M-450 (86e3zr7ft): si la cuenta del ajuste exige área o equipo (regla C-03) en la sucursal del conteo. */
+export interface DimensionesConteo {
+  sucursalId: string | null;
+  exigeArea: boolean;
+  exigeEquipo: boolean;
+  cuentaCodigo: string | null;
+}
+
+export function useDimensionesConteo(conteoId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: almacenKeys.dimensionesConteo(conteoId ?? ''),
+    enabled: !!conteoId && enabled,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<DimensionesConteo>(`/api/v1/almacen/conteos/${conteoId}/dimensiones`, { signal });
+      return data;
+    },
+  });
+}
+
+/** M-450: falta un dato que la cuenta del ajuste exige (con el equipo, el área se toma de él). */
+export function faltaAreaEquipoConteo(
+  areaClave: string,
+  equipoClave: string,
+  exigeArea: boolean,
+  exigeEquipo: boolean,
+): boolean {
+  const area = areaClave.trim();
+  const equipo = equipoClave.trim();
+  return (exigeArea && !area && !equipo) || (exigeEquipo && !equipo);
+}
+
 export function useAplicarConteo() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
       conteoId: string;
       idempotencyKey: string;
+      areaClave?: string | null;
+      equipoClave?: string | null;
     }) => {
       const { data } = await apiRequest<AplicarConteoResponse>(
         `/api/v1/almacen/conteos/${args.conteoId}/aplicar`,
         {
           method: 'POST',
-          body: {},
+          body: { areaClave: args.areaClave ?? null, equipoClave: args.equipoClave ?? null },
           idempotencyKey: args.idempotencyKey,
         },
       );

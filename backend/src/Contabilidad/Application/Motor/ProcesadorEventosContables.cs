@@ -22,8 +22,8 @@ public interface IEnriquecedorEventoContable
 /// C1.5 · entrada única de los listeners y de «Reprocesar» de la bandeja. Enruta por tipo:
 /// <list type="bullet">
 ///   <item>cancelaciones (#1b, #3, #6, #10) → anulación en negativo por documento (K10.3);</item>
-///   <item>cobro de mostrador (#11a) → póliza de la parte no efectivo; el efectivo se guarda para la liquidación;</item>
-///   <item>sesión de caja cerrada (#11b) → una póliza con los cobros en efectivo de la sesión;</item>
+///   <item>cobro de mostrador (#11a) → póliza de la parte no efectivo y, M-174, póliza propia del efectivo al momento;</item>
+///   <item>sesión de caja cerrada (#11b) → sin asiento; M-174: solo liquida, uno por uno, el efectivo que siga pendiente;</item>
 ///   <item>cobro cancelado (#11c) → anula su póliza; el efectivo pendiente se excluye y el ya liquidado se reversa;</item>
 ///   <item>el resto → plantilla del motor (C1.4). La salida (#14) guarda además la cuenta de consumo de cada línea (V64).</item>
 /// </list>
@@ -141,37 +141,64 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
                     "Falta la póliza del comprobante cobrado (de ahí sale el cliente); el cobro se contabiliza en cuanto se registre.", ct);
         }
 
+        // M-174 (Contabilidad, 6-nov): una póliza por cada cobro, también en efectivo (cargo EFECTIVO_CAJA_COBRANZA · abono CLIENTES), al
+        // registrarse; el corte de caja ya no genera asiento. Si la póliza falla, el cobro queda pendiente y se reintenta al reprocesar
+        // este evento o al cerrar la sesión; la llave por cobro evita duplicarla.
+        ResultadoMotor resultadoEfectivo = Nada;
         var efectivo = (c.FormasPago ?? []).Where(f => f.FormaPago == NormalizadorEventos.FormaEfectivo).Sum(f => f.Importe);
-        if (efectivo != 0m && !await db.CobrosEfectivoCaja.IgnoreQueryFilters().AnyAsync(x => x.CobroId == c.CobroMostradorId, ct))
+        if (efectivo != 0m)
         {
-            var cobro = new CobroEfectivoCaja(c.CobroMostradorId, c.EmpresaId, c.CajaSesionId, c.SucursalId, cliente, efectivo, c.OcurridoEn,
-                c.ComprobanteId);
-            db.CobrosEfectivoCaja.Add(cobro);
-            await db.SaveChangesAsync(ct);
-            // Cobro que llega después de liquidada su sesión: su propia póliza de efectivo (no se reabre la liquidación).
-            if (await SesionLiquidadaAsync(c.EmpresaId, c.CajaSesionId, ct))
+            var cobro = await db.CobrosEfectivoCaja.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.CobroId == c.CobroMostradorId, ct);
+            if (cobro is null)
             {
-                var tardio = await GenerarAsync(NormalizadorEventos.Liquidacion(eventoId, c.EmpresaId, FechaContable.HoyLocal(c.OcurridoEn),
-                    NormalizadorEventos.DocCobro, c.CobroMostradorId, null, c.SucursalId, [(cliente, efectivo)], payload,
-                    $"{NormalizadorEventos.CajaSesionCerrada}:cobro:{c.CobroMostradorId}"), usuario, ct, IvaEfectivo([cobro]));
-                if (tardio.Poliza is { } p) await MarcarLiquidadosAsync([c.CobroMostradorId], p.Id, ct);
+                cobro = new CobroEfectivoCaja(c.CobroMostradorId, c.EmpresaId, c.CajaSesionId, c.SucursalId, cliente, efectivo, c.OcurridoEn,
+                    c.ComprobanteId);
+                db.CobrosEfectivoCaja.Add(cobro);
+                await db.SaveChangesAsync(ct);
             }
+            if (cobro.Estado == EstadoCobroEfectivo.Pendiente)
+                resultadoEfectivo = await PolizaEfectivoAsync(eventoId, payload, cobro, usuario, ct);
         }
-        return await GenerarAsync(NormalizadorEventos.Normalizar(tipo, eventoId, payload) with { ClienteId = cliente }, usuario, ct);
+        var resultado = await GenerarAsync(NormalizadorEventos.Normalizar(tipo, eventoId, payload) with { ClienteId = cliente }, usuario, ct);
+        // Cobro solo en efectivo: la parte no efectivo no genera nada; el resultado del cobro es el de su póliza de efectivo.
+        return resultado.Poliza is null && resultado.RechazoId is null ? resultadoEfectivo : resultado;
     }
 
+    /// <summary>
+    /// M-174: cierre de sesión. Ya no hay póliza por sesión; los cobros en efectivo que sigan pendientes (registrados antes del cambio o
+    /// cuya póliza falló) se contabilizan uno por uno con la misma regla que al cobrar. Sin pendientes no se genera nada.
+    /// </summary>
     private async Task<ResultadoMotor> LiquidacionAsync(Guid eventoId, string payload, string usuario, CancellationToken ct)
     {
         var s = NormalizadorEventos.LeerContrato<NormalizadorEventos.CajaSesionCerradaContrato>(payload);
         var cobros = await db.CobrosEfectivoCaja.IgnoreQueryFilters()
             .Where(x => x.EmpresaId == s.EmpresaId && x.CajaSesionId == s.CajaSesionId && x.Estado == EstadoCobroEfectivo.Pendiente)
             .OrderBy(x => x.CobradoEn).ToListAsync(ct);
-        var evento = NormalizadorEventos.Liquidacion(eventoId, s.EmpresaId, s.DiaOperacion, NormalizadorEventos.DocCajaSesion, s.CajaSesionId,
-            null, s.SucursalId, [.. cobros.Select(x => (x.ClienteId, x.Importe))], payload);
-        var resultado = await GenerarAsync(evento, usuario, ct, IvaEfectivo(cobros));
-        if (resultado.Poliza is { } poliza) await MarcarLiquidadosAsync([.. cobros.Select(x => x.CobroId)], poliza.Id, ct);
+        var resultado = Nada;
+        foreach (var cobro in cobros)
+        {
+            var r = await PolizaEfectivoAsync(eventoId, payload, cobro, usuario, ct);
+            // Devuelve el primer rechazo para que el cierre quede en la bandeja; si todo sale, la última póliza.
+            if (resultado.RechazoId is null) resultado = r;
+        }
         return resultado;
     }
+
+    /// <summary>
+    /// M-174: póliza de un cobro en efectivo: cargo EFECTIVO_CAJA_COBRANZA · abono CLIENTES del cliente, con su IVA a cobrado, fecha del
+    /// día del cobro y la llave <c>facturacion.caja-sesion.cerrada.v1:cobro:{CobroMostradorId}</c> (la misma del cobro tardío previo).
+    /// </summary>
+    private async Task<ResultadoMotor> PolizaEfectivoAsync(Guid eventoId, string payload, CobroEfectivoCaja cobro, string usuario,
+        CancellationToken ct)
+    {
+        var resultado = await GenerarAsync(NormalizadorEventos.Liquidacion(eventoId, cobro.EmpresaId, FechaContable.HoyLocal(cobro.CobradoEn),
+            NormalizadorEventos.DocCobro, cobro.CobroId, null, cobro.SucursalId, [(cobro.ClienteId, cobro.Importe)], payload,
+            LlaveEfectivo(cobro.CobroId)), usuario, ct, IvaEfectivo([cobro]));
+        if (resultado.Poliza is { } poliza) await MarcarLiquidadosAsync([cobro.CobroId], poliza.Id, ct);
+        return resultado;
+    }
+
+    internal static string LlaveEfectivo(Guid cobroId) => $"{NormalizadorEventos.CajaSesionCerrada}:cobro:{cobroId}";
 
     private async Task<ResultadoMotor> CobroCanceladoAsync(string tipo, Guid eventoId, string payload, string usuario, CancellationToken ct)
     {
@@ -235,11 +262,6 @@ public sealed class ProcesadorEventosContables(ContabilidadDbContext db, IMediat
         [.. cobros.Where(x => x.ComprobanteId is not null && x.Importe > 0m)
             .Select(x => new ControlIvaDocumentos.Aplicacion(NormalizadorEventos.DocComprobante, x.ComprobanteId!.Value, x.Importe,
                 ControlIvaDocumentos.DocCobroEfectivo, x.CobroId))];
-
-    private Task<bool> SesionLiquidadaAsync(Guid empresaId, Guid sesionId, CancellationToken ct) =>
-        db.Polizas.IgnoreQueryFilters().AsNoTracking().AnyAsync(p => p.EmpresaId == empresaId
-            && p.OrigenModulo == NormalizadorEventos.DocCajaSesion.Modulo && p.OrigenTipo == NormalizadorEventos.DocCajaSesion.Tipo
-            && p.OrigenDocumentoId == sesionId, ct);
 
     private Task<bool> EsPolizaDelCobroAsync(CobroEfectivoCaja cobro, CancellationToken ct) =>
         db.Polizas.IgnoreQueryFilters().AsNoTracking().AnyAsync(p => p.Id == cobro.PolizaLiquidacionId

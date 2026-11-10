@@ -38,7 +38,7 @@ import { resultadoEmision } from './resultado-emision';
 import { TabEncabezado } from './TabEncabezado';
 import { TabPosiciones } from './TabPosiciones';
 import { TabTotales, type AnticipoAmortizar } from './TabTotales';
-import { nullIfEmpty, valoresIniciales } from './valores';
+import { aduanalesDeComercioExterior, nullIfEmpty, valoresIniciales } from './valores';
 
 /**
  * <c>&lt;EmitirFacturaForm/&gt;</c> — form de emisión de CFDI 4.0 con
@@ -609,6 +609,7 @@ function FormInner({
           <TabPosiciones
             form={form}
             esCce={esCce}
+            aduanalesDeCe={aduanalesDeComercioExterior(ce).length > 0}
             tasaIvaDefault={emisor.tasaIvaDefault}
             desdePedido={Boolean(prefill?.lineas?.length)}
             puedeCorregirArticulo={puedeCorregirArticulo}

@@ -322,8 +322,9 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
         finally { await LimpiarAsync(e); }
     }
 
+    /// <summary>M-174 (Contabilidad, 6-nov): una póliza por cada cobro, también en efectivo; el cierre de la sesión no genera asiento.</summary>
     [Fact]
-    public async Task C15c_tres_cobros_en_efectivo_generan_una_sola_poliza_al_cerrar_la_sesion()
+    public async Task M174_tres_cobros_en_efectivo_generan_tres_polizas_y_el_cierre_de_sesion_ninguna()
     {
         Escenario? e = null;
         try
@@ -337,21 +338,47 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
                 Cobro(e, sesion, e.Clientes[2], ("01", 200m)),
             };
             foreach (var c in cobros) await Facturacion(c);
-            foreach (var c in cobros) (await PolizasAsync(c.CobroMostradorId)).Should().BeEmpty("los cobros en efectivo no generan pólizas sueltas");
-
             await Facturacion(SesionCerrada(e, sesion, 1_000m));
 
-            var pr = (await PolizasAsync(sesion)).Should().ContainSingle().Subject;
-            pr.TipoClave.Should().Be("PR");
-            pr.Partidas.Should().ContainSingle(x => x.CuentaId == e.Cuentas["EFECTIVO_CAJA_COBRANZA"]).Which.Cargo.Should().Be(1_000m);
-            pr.Partidas.Where(x => x.CuentaId == e.Cuentas["CLIENTES"]).Select(x => (x.ClienteId, x.Abono))
-                .Should().BeEquivalentTo(new (Guid?, decimal)[] { (e.Clientes[0], 500m), (e.Clientes[1], 300m), (e.Clientes[2], 200m) });
+            (await PolizasAsync(sesion)).Should().BeEmpty("el corte de caja no genera asiento");
+            foreach (var (c, i, importe) in new[] { (cobros[0], 0, 500m), (cobros[1], 1, 300m), (cobros[2], 2, 200m) })
+            {
+                var pr = (await PolizasAsync(c.CobroMostradorId)).Should().ContainSingle().Subject;
+                pr.TipoClave.Should().Be("PR");
+                pr.Partidas.Should().ContainSingle(x => x.CuentaId == e.Cuentas["EFECTIVO_CAJA_COBRANZA"]).Which.Cargo.Should().Be(importe);
+                pr.Partidas.Should().ContainSingle(x => x.CuentaId == e.Cuentas["CLIENTES"])
+                    .Which.Should().Match<PolizaPartida>(x => x.Abono == importe && x.ClienteId == e.Clientes[i]);
+            }
+        }
+        finally { await LimpiarAsync(e); }
+    }
+
+    /// <summary>M-174 CA1: cobro mixto en caja, 1,500 en efectivo y 2,140 con débito → dos pólizas, cada una contra el cliente.</summary>
+    [Fact]
+    public async Task M174_cobro_mixto_efectivo_y_tarjeta_genera_dos_polizas()
+    {
+        Escenario? e = null;
+        try
+        {
+            e = await PrepararAsync();
+            var factura = Guid.NewGuid();
+            await Facturacion(FacturaVenta(e, factura, e.Clientes[0], 3_137.93m, 502.07m));
+            var cobro = CobroDe(e, Guid.NewGuid(), e.Clientes[0], factura, ("01", 1_500m), ("28", 2_140m));
+            var evento = await Facturacion(cobro);
+            await Facturacion(cobro, evento);   // CA5: el mismo aviso reprocesado no duplica
+
+            var polizas = await PolizasAsync(cobro.CobroMostradorId);
+            polizas.Should().HaveCount(2);
+            polizas.Should().ContainSingle(p => p.Partidas.Any(x => x.CuentaId == e.Cuentas["EFECTIVO_CAJA_COBRANZA"] && x.Cargo == 1_500m)
+                && p.Partidas.Any(x => x.CuentaId == e.Cuentas["CLIENTES"] && x.Abono == 1_500m && x.ClienteId == e.Clientes[0]));
+            polizas.Should().ContainSingle(p => p.Partidas.Any(x => x.CuentaId == e.Cuentas["COBROS_TC_TD"] && x.Cargo == 2_140m)
+                && p.Partidas.Any(x => x.CuentaId == e.Cuentas["CLIENTES"] && x.Abono == 2_140m && x.ClienteId == e.Clientes[0]));
         }
         finally { await LimpiarAsync(e); }
     }
 
     [Fact]
-    public async Task C15c_un_cobro_en_efectivo_cancelado_con_la_sesion_abierta_sale_de_la_liquidacion()
+    public async Task M174_un_cobro_en_efectivo_cancelado_se_reversa_solo_y_el_cierre_no_genera_asiento()
     {
         Escenario? e = null;
         try
@@ -366,8 +393,11 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
                 cancelado.ComprobanteId, 300m, ReversadoEnSesion: true));
             await Facturacion(SesionCerrada(e, sesion, 500m));
 
-            var pr = (await PolizasAsync(sesion)).Should().ContainSingle().Subject;
-            pr.Partidas.Should().ContainSingle(x => x.CuentaId == e.Cuentas["EFECTIVO_CAJA_COBRANZA"]).Which.Cargo.Should().Be(500m);
+            // CA4: el cancelado queda con su póliza y su reversa; el vigente con la suya; la sesión sin asiento.
+            (await PolizasAsync(sesion)).Should().BeEmpty();
+            (await PolizasAsync(vigente.CobroMostradorId)).Should().ContainSingle();
+            (await PolizasAsync(cancelado.CobroMostradorId)).Should().HaveCount(2);
+            Saldo(await PartidasSucursalAsync(e.Sucursal), e.Cuentas["EFECTIVO_CAJA_COBRANZA"]).Should().Be(500m);
         }
         finally { await LimpiarAsync(e); }
     }
@@ -388,14 +418,16 @@ public sealed partial class ListenersContabilidadTests(WebApplicationFactory<Pro
 
             var tarjeta = CobroSinCliente(e, sesion, conTarjeta, ("04", 2_320m));
             var tarjetaEvento = await Facturacion(tarjeta);
-            await Facturacion(CobroSinCliente(e, sesion, enEfectivo, ("01", 580m)));
+            var efectivo = CobroSinCliente(e, sesion, enEfectivo, ("01", 580m));
+            await Facturacion(efectivo);
             await Facturacion(SesionCerrada(e, sesion, 580m));
 
             (await RechazoAsync(tarjetaEvento)).Should().BeNull();
             var pr = (await PolizasAsync(tarjeta.CobroMostradorId)).Should().ContainSingle().Subject;
             pr.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["CLIENTES"] && x.Abono == 2_320m && x.ClienteId == e.Clientes[0]);
 
-            var liquidacion = (await PolizasAsync(sesion)).Should().ContainSingle().Subject;
+            (await PolizasAsync(sesion)).Should().BeEmpty();
+            var liquidacion = (await PolizasAsync(efectivo.CobroMostradorId)).Should().ContainSingle().Subject;
             liquidacion.Partidas.Should().ContainSingle(x => x.CuentaId == e.Cuentas["CLIENTES"])
                 .Which.Should().Match<PolizaPartida>(x => x.Abono == 580m && x.ClienteId == e.Clientes[1]);
         }

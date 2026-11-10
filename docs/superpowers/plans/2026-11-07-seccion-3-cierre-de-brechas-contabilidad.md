@@ -67,6 +67,8 @@
 
 ### Task 3: [86e3z5w25] Resolución de Dim1/Dim2 y Exención de Dim3 para Pólizas Automáticas en Cuentas 500 y 600
 
+> **Revertida por M-453 (86e3zr740):** Contabilidad confirmó que el usuario captura área y equipo. El motor ya no asigna área por omisión ni exime el equipo en cuentas 600; la póliza automática sin la dimensión que exige la regla C-03 va a Rechazos («Dato faltante»). Se conserva la ubicación derivada de la sucursal.
+
 **Files:**
 - Modify: `backend/src/Contabilidad/Application/Motor/MotorPolizas.cs`
 - Modify: `backend/src/Contabilidad/Application/Dimensiones/ValidadorDimensiones.cs`

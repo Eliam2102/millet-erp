@@ -15,7 +15,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <summary>
 /// Acuerdo 28-oct con Postgres real y los triggers del ledger: consumibles y refacciones sin A+W,
 /// nuevos o con existencia previa, entran a la ÚNICA ("almacén general") sin asignación.
-/// El rack asignado sigue admitiendo entradas; el vidrio sigue exigiendo rack; cancelar regresa la ÚNICA a 0 y
+/// El rack asignado sigue admitiendo entradas; el vidrio con factura también entra a la ÚNICA (M-159); cancelar regresa la ÚNICA a 0 y
 /// crear un sub-almacén crea su ÚNICA. Reusa el fixture aislado de ALM-04.
 /// </summary>
 [Collection(ApiCompartida.Nombre)]
@@ -89,15 +89,17 @@ public class RecepcionAlmacenGeneralTests(WebApplicationFactory<Program> factory
     }
 
     [Fact]
-    public async Task Vidrio_a_la_unica_se_rechaza_y_no_vidrio_a_rack_sin_asignacion_tambien()
+    public async Task Vidrio_a_la_unica_con_factura_pasa_sin_rack_y_no_vidrio_a_rack_sin_asignacion_se_rechaza()
     {
         await EjecutarAsync(async (db, ctx, unica, otro, lineasOc) =>
         {
-            var vidrioAUnica = () => Recibir(db, ctx, ctx.ArticuloId, lineasOc, Linea(ctx, 20m, VarA) with { UbicacionId = unica });
-            (await vidrioAUnica.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ENTRADA_A_UBICACION_UNICA");
-
+            // Primero el rechazo: una recepción registrada con el mismo CFDI haría que la segunda pidiera motivo (G-3).
             var noVidrioARack = () => Recibir(db, ctx, ctx.ArticuloId, lineasOc, NoVidrio(otro, ctx.RackId));
             (await noVidrioARack.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ENTRADA_SIN_ASIGNACION");
+
+            // M-159: la medida de A+W entra al almacén general de la sucursal en la recepción con factura.
+            await Recibir(db, ctx, ctx.ArticuloId, lineasOc, Linea(ctx, 20m, VarA) with { UbicacionId = unica });
+            (await Fila(db, unica, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(178.6080m);
         });
     }
 

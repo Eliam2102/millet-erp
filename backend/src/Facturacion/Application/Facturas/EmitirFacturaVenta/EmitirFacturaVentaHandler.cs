@@ -102,6 +102,7 @@ public sealed class EmitirFacturaVentaHandler
     private FacturaVenta? _facturaEnCurso;
     private bool _facturaPersistida;
     private bool _pacRespondio;
+    private bool _rechazadaConAnticipos;
 
     public async Task<EmitirFacturaVentaResponse> Handle(
         EmitirFacturaVentaCommand command,
@@ -111,7 +112,8 @@ public sealed class EmitirFacturaVentaHandler
         {
             return await HandleAsync(command, cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException && DebeDejarFolioDescartado())
+        catch (Exception ex) when (ex is not OperationCanceledException
+            && (DebeDejarFolioDescartado() || NoEnviadoTrasGuardar(ex) || _rechazadaConAnticipos))
         {
             await GuardarFolioDescartadoAsync(ex);
             throw;
@@ -202,7 +204,7 @@ public sealed class EmitirFacturaVentaHandler
         if (command.Cce is { } cceSat)
             Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.ValidarDatosSatCce(
                 cceSat.ClaveDePedimento, cceSat.ReceptorDomicilioCalle,
-                cceSat.ReceptorDomicilioEstado, cceSat.ReceptorDomicilioCodigoPostal);
+                cceSat.ReceptorDomicilioEstado, cceSat.ReceptorDomicilioCodigoPostal, cceSat.ReceptorPaisResidencia);
         await TipoCambioFactura.ValidarAsync(
             _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
@@ -393,13 +395,21 @@ public sealed class EmitirFacturaVentaHandler
             if (!string.IsNullOrWhiteSpace(a.FacturaAnticipo.Uuid))
                 factura.AgregarRelacion(a.FacturaAnticipo.Uuid!, "07");
 
+        // [Decisión 01-G] G5: el pedido queda tomado por su factura desde el PRIMER intento
+        // (1 pedido → 1 documento → N intentos). M-173: se toma antes del PAC para que quede
+        // guardado junto con la factura en proceso. FAC-08: una factura de salida no toma el pedido.
+        if (pedido is not null && salida is null)
+            pedido.MarcarFacturado(factura.Id);
+
         // 7. Timbrar contra el PAC. Sellado + timbrado en una sola operación
         // (D11). Asíncrono-tolerante (Decisión 01-C); el ejecutor aplica la FSM
-        // y persiste el XML en el repo común.
+        // y persiste el XML en el repo común. M-173: la factura (folio, pedido o salida
+        // tomados) se guarda en TimbradoEnProceso ANTES de la llamada al PAC.
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura,
             CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, factura, () => _facturaPersistida = true));
         _pacRespondio = true;
 
         // 7.bis FAC-08b: timbrada la sustituta, se solicita la cancelación de la original
@@ -408,12 +418,21 @@ public sealed class EmitirFacturaVentaHandler
             _db, factura, _user.UserId, _user.UserName, ahora, cancellationToken);
 
         // 8. F4-PR2: las NC de amortización solo se emiten sobre una factura
-        // timbrada; si el timbre de la factura falló, se aborta sin guardar nada.
+        // timbrada. B2/B5: si el PAC la rechazó (sin CFDI), la emisión se aborta y la factura
+        // queda Descartada con el motivo (Handle). M-173: si quedó EN PROCESO (el CFDI pudo
+        // existir), se conserva guardada para el worker; los anticipos no se comprometen y,
+        // al quedar timbrada (reintento o adopción), se aplican con «Aplicar anticipo».
         // B5: el motivo del PAC viaja en el mensaje; sin él, el usuario no sabe qué corregir.
         if (anticipos.Count > 0 && factura.Estado != EstadoTimbrado.Timbrado)
+        {
+            if (factura.Estado == EstadoTimbrado.TimbradoFallido)
+                _rechazadaConAnticipos = true;
+            else
+                await _db.SaveChangesAsync(cancellationToken);
             throw new BusinessRuleException(
                 "FACTURA_NO_TIMBRADA_PARA_AMORTIZAR",
                 MensajeNoTimbradaParaAmortizar(factura.TimbradoErrorCodigo, factura.TimbradoErrorMensaje));
+        }
 
         // 9. F10-PR1: evento de integración (al Outbox en la misma TX vía el
         // interceptor); Contabilidad arma la póliza desde el evento (C1.5). Solo si quedó Timbrada.
@@ -436,8 +455,6 @@ public sealed class EmitirFacturaVentaHandler
             await PedidoPorParcialidades.TomarPedidoSiCompletoAsync(_db, factura, pedido, cancellationToken);
         if (pedido is not null && salida is null)
         {
-            pedido.MarcarFacturado(factura.Id);
-
             // TR-01: el aviso a A+W ya no es un UPDATE por pedido (B6): la factura viaja en
             // FacturaVentaTimbradaIntegrationEvent y Integraciones.Aw deja su fila Documento.
             if (pedido.Origen == OrigenPedido.Aw && factura.Estado == EstadoTimbrado.Timbrado)
@@ -455,7 +472,6 @@ public sealed class EmitirFacturaVentaHandler
         // ANTES de emitir sus notas. Cada nota (amortización, ranura) se guarda
         // en su propia operación y, si no timbra, queda pendiente de timbrar
         // ligada a la factura, con el motivo, para reintentarla desde la bandeja.
-        _db.FacturasVenta.Add(factura);
         await _db.SaveChangesAsync(cancellationToken);
         _facturaPersistida = true;
 
@@ -506,6 +522,13 @@ public sealed class EmitirFacturaVentaHandler
         && !(_pacRespondio && _facturaEnCurso?.Estado is EstadoTimbrado.Timbrado or EstadoTimbrado.TimbradoEnProceso);
 
     /// <summary>
+    /// M-173: la factura ya se guardó en proceso, pero el adaptador la rechazó antes de enviarla al PAC
+    /// (p. ej. sin configuración del PAC): es una emisión abortada (B2), no una solicitud ambigua.
+    /// </summary>
+    private bool NoEnviadoTrasGuardar(Exception ex) =>
+        _facturaPersistida && !_pacRespondio && _facturaEnCurso is not null && TimbradoEjecutor.NoSeEnvio(ex);
+
+    /// <summary>
     /// B2: guarda la factura de la emisión abortada en <c>Descartada</c> con su folio y el motivo
     /// (texto del PAC o de la excepción) y la registra descartada en la bitácora de contingencias.
     /// Se descarta todo lo demás que la emisión había preparado (pedido, salida, anticipos,
@@ -517,6 +540,11 @@ public sealed class EmitirFacturaVentaHandler
         try
         {
             _db.ChangeTracker.Clear();
+            if (_facturaPersistida)
+            {
+                await DescartarFacturaGuardadaAsync(ex);
+                return;
+            }
             var factura = _facturaEnCurso ?? _armarFactura!();
             var codigo = factura.TimbradoErrorCodigo
                 ?? (ex is Millet.SharedKernel.Domain.Exceptions.DomainException d ? d.Code : "EMISION_ABORTADA");
@@ -545,6 +573,56 @@ public sealed class EmitirFacturaVentaHandler
                 "No se pudo guardar como Descartada la factura del folio {Folio} tras la emisión abortada.",
                 _folioReservado?.Folio);
         }
+    }
+
+    /// <summary>
+    /// M-173 + B2: la factura guardada antes del PAC y rechazada (por el adaptador sin enviarse, o por el
+    /// PAC cuando lleva anticipos, B5) queda
+    /// <c>Descartada</c> con su folio y motivo; se libera lo que tomó (pedido, autorización de activo)
+    /// y su contingencia queda descartada, igual que una emisión abortada antes de guardar.
+    /// </summary>
+    private async Task DescartarFacturaGuardadaAsync(Exception ex)
+    {
+        var factura = await _db.FacturasVenta.SingleAsync(f => f.Id == _facturaEnCurso!.Id, CancellationToken.None);
+        // El resultado del PAC (rechazo) vive en la entidad en memoria; en la base sigue «en proceso».
+        var codigo = _facturaEnCurso!.TimbradoErrorCodigo ?? factura.TimbradoErrorCodigo
+            ?? (ex is Millet.SharedKernel.Domain.Exceptions.DomainException d ? d.Code : "EMISION_ABORTADA");
+        var mensajePac = _facturaEnCurso.TimbradoErrorMensaje;
+        var motivo = string.IsNullOrWhiteSpace(mensajePac) || ex.Message.Contains(mensajePac, StringComparison.Ordinal)
+            ? $"Emisión abortada: {ex.Message}"
+            : $"Emisión abortada: {ex.Message} Motivo del PAC: {mensajePac}";
+        factura.DescartarPorEmisionAbortada(codigo, motivo);
+
+        if (factura.PedidoFacturableId is Guid pedidoId)
+        {
+            var pedido = await _db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, CancellationToken.None);
+            if (pedido?.ComprobanteVigenteId == factura.Id)
+                pedido.RevertirAFacturable();
+        }
+        if (factura.AutorizacionId is Guid autorizacionId)
+            (await _db.AutorizacionesVentaActivo.FirstOrDefaultAsync(a => a.Id == autorizacionId, CancellationToken.None))
+                ?.LiberarUso(factura.Id);
+
+        var ahora = _clock.UtcNow;
+        var abiertas = await _db.ContingenciasTimbrado
+            .Where(c => c.ComprobanteId == factura.Id && c.Estado == EstadoContingenciaTimbrado.Abierta)
+            .ToListAsync(CancellationToken.None);
+        foreach (var abierta in abiertas)
+            abierta.MarcarDescartada(ahora, null);
+        if (abiertas.Count == 0)
+        {
+            var contingencia = ContingenciaTimbrado.Registrar(
+                factura.EmpresaId, factura.SucursalId,
+                Millet.Facturacion.Application.Timbrado.Contingencias.ContingenciasTimbrado.Clasificar(codigo)
+                    ?? TipoContingenciaTimbrado.Otra,
+                OrigenContingenciaTimbrado.Automatica, motivo, codigo, ahora,
+                factura.Id, factura.Folio, registradaPorId: null, registradaPorNombre: null);
+            contingencia.MarcarDescartada(ahora, null);
+            _db.ContingenciasTimbrado.Add(contingencia);
+        }
+
+        await _db.SaveChangesAsync(CancellationToken.None);
+        _logger?.LogWarning(ex, "Emisión rechazada antes del PAC con el folio {Folio}: la factura queda Descartada.", factura.Folio);
     }
 
     /// <summary>
@@ -778,11 +856,14 @@ public sealed class EmitirFacturaVentaHandler
             // FMT-6 (86e3yxe8f): comentario libre que captura el usuario para esta NC.
             nc.FijarComentarios(a.ComentarioNotaCredito);
 
+            // M-173: el importe se compromete con la factura y la NC se guarda en proceso antes del
+            // PAC; si la llamada se cae, el reintento de la NC encuentra el compromiso y la amortiza.
+            a.Anticipo.Vincular(factura.Id, a.Importe, ahora);
             var timbre = await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
                 nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-                _fiscal, _cfdiRepo, ahora, cancellationToken);
+                _fiscal, _cfdiRepo, ahora, cancellationToken,
+                TimbradoDurable.AntesDelPac(_db, nc));
 
-            _db.NotasCredito.Add(nc);
             if (timbre.Estado == TimbradoEstado.Timbrado && !string.IsNullOrWhiteSpace(timbre.Uuid))
             {
                 a.Anticipo.RegistrarAmortizacion(factura.Id, nc.Id, a.Importe, ahora);
@@ -792,13 +873,9 @@ public sealed class EmitirFacturaVentaHandler
                     nc, ahora, factura.Id, a.Anticipo.Id, a.Anticipo.ClienteId),
                     cancellationToken);
             }
-            else
-            {
-                // U-1: la NC queda pendiente de timbrar. El importe queda comprometido
-                // con esta factura (no se usa en otra) sin reducir el saldo; el
-                // reintento timbrado lo amortiza y descartarla lo libera.
-                a.Anticipo.Vincular(factura.Id, a.Importe, ahora);
-            }
+            // U-1: si no timbró, la NC queda pendiente de timbrar y el importe sigue comprometido
+            // con esta factura (vinculado antes del PAC) sin reducir el saldo; el reintento
+            // timbrado lo amortiza y descartarla lo libera.
             await _db.SaveChangesAsync(cancellationToken);
 
             emitidas.Add(new NotaCreditoAmortizacionEmitida(
