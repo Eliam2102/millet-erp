@@ -12,6 +12,7 @@ namespace Millet.Api.Endpoints.Almacen;
 /// <c>reclamadas</c>, que salen aparte por RECLAMACION_PROVEEDOR: aquí entra el total. La suma de los grupos debe dar las piezas
 /// de la línea y la de las líneas el total. Artículo, medida o sucursal inexistente → ERROR sin mover nada. Con medida,
 /// <c>piezas</c> son hojas enteras y el saldo sube piezas × m² de la hoja (el <c>m2</c> del grupo, si viene, debe coincidir).
+/// Cada grupo lleva su <c>lote</c> (llave del saldo; obligatorio con medida, Eliam E3); <c>pedimento</c> y <c>etiqueta</c> no se guardan.
 /// </summary>
 public static class AlmacenesAppEntrada
 {
@@ -32,7 +33,7 @@ public static class AlmacenesAppEntrada
             || lineas.GetArrayLength() == 0 || lineas.GetArrayLength() > MaxLineas)
             return (null, $"datos.lineas debe traer de 1 a {MaxLineas} líneas.");
 
-        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? M2, string Ruta)>();
+        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? M2, string? Lote, string Ruta)>();
         decimal total = 0;
         var i = 0;
         foreach (var l in lineas.EnumerateArray())
@@ -77,7 +78,7 @@ public static class AlmacenesAppEntrada
                     || ancho is <= 0 || alto is <= 0 || (ancho is null) != (alto is null))
                     return (null, $"{p}.ancho y {p}.alto deben venir juntos y ser mayores que cero, o no venir.");
                 if (!TryNumero(g, "m2", out var m2) || m2 is <= 0) return (null, $"{p}.m2 debe ser numérico y mayor que cero.");
-                items.Add((articulo.Trim(), ancho, alto, piezas.Value, m2, p));
+                items.Add((articulo.Trim(), ancho, alto, piezas.Value, m2, Texto(g, "lote"), p));
                 sumaLinea += piezas.Value;
             }
             if (sumaLinea != piezasLinea)
@@ -104,7 +105,7 @@ public static class AlmacenesAppEntrada
             var cantidad = x.Piezas * (r.AreaHojaM2 ?? 1m);
             if (r.AreaHojaM2 is not null && x.M2 is { } m2 && Math.Abs(m2 - cantidad) > 0.0001m + x.Piezas * 0.00005m)
                 return (null, $"{x.Ruta}.m2 ({m2:0.####}) no coincide con piezas × área de la hoja ({cantidad:0.####}).");
-            entradas.Add(new EntradaApp(r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId, cantidad, r.AnchoMm, r.AltoMm));
+            entradas.Add(new EntradaApp(r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId, cantidad, r.AnchoMm, r.AltoMm, x.Lote));
         }
 
         var entrada = Texto(datos, "entrada")?.Trim() is { Length: > 0 } en ? en : null;

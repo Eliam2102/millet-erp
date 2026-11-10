@@ -58,6 +58,7 @@ public sealed class AlmacenesAppEntradaTests
         var e = Assert.Single(r.Entradas);
         Assert.Equal(10 * AreaHoja.M2(5182m, 3302m), e.Cantidad);
         Assert.NotNull(e.ProductoAwVarianteId);
+        Assert.Equal("zz_arnes", e.Lote); // grupos[].lote llega a la partida (llave del saldo)
         Assert.Equal("App Almacenes ENTRADA_ALMACEN EN-002036 compra zz_arnes_RP1", r.Motivo);
     }
 

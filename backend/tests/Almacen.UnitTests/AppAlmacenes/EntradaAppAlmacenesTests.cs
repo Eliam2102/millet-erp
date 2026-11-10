@@ -44,7 +44,60 @@ public class EntradaAppAlmacenesTests
         return (db, unicaDir, dir);
     }
 
-    private static EntradaApp Hojas(decimal hojas) => new(Articulo, "M2", Variante, hojas * 20.1422m, 3302m, 6100m);
+    private static EntradaApp Hojas(decimal hojas, string? lote = "L-VPS-2611-01") =>
+        new(Articulo, "M2", Variante, hojas * 20.1422m, 3302m, 6100m, lote);
+
+    // ── Lote (Eliam E3, ficha MP-05): llave del saldo; obligatorio en el vidrio de A+W ──────────
+
+    [Fact]
+    public async Task El_lote_del_grupo_llega_a_la_linea_del_movimiento()
+    {
+        var (db, _, _) = Db();
+        await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(Oc()), EmpresaId, Usuario, Sucursal, "m", FolioOc, "EN-L1", [Hojas(2)], default);
+        await db.SaveChangesAsync();
+
+        (await db.LineasMovimiento.SingleAsync()).Lote.Should().Be("L-VPS-2611-01");
+    }
+
+    [Fact]
+    public async Task Hoja_de_AW_sin_lote_da_ERROR_sin_movimiento()
+    {
+        var (db, _, _) = Db();
+        var eventos = new Captura();
+        var (estado, folio, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(Oc(), eventos), EmpresaId, Usuario, Sucursal,
+            "m", FolioOc, "EN-L2", [Hojas(1, "  ")], default);
+
+        (estado, folio).Should().Be(("ERROR", (string?)null));
+        error.Should().Contain("Falta el lote").And.Contain("3302 × 6100");
+        db.ChangeTracker.Entries<MovimientoInventario>().Should().BeEmpty();
+        eventos.Publicados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Dos_lotes_en_una_linea_dan_dos_renglones_por_lote()
+    {
+        var (db, _, _) = Db();
+        await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(Oc()), EmpresaId, Usuario, Sucursal, "m", FolioOc, "EN-L3",
+            [Hojas(3, "L-A"), Hojas(2, "L-B")], default);
+        await db.SaveChangesAsync();
+
+        var lineas = await db.LineasMovimiento.OrderBy(l => l.Posicion).ToListAsync();
+        lineas.Select(l => (l.Lote, l.Cantidad)).Should().Equal(("L-A", 3 * 20.1422m), ("L-B", 2 * 20.1422m));
+    }
+
+    [Fact]
+    public async Task Sin_medida_el_lote_es_opcional()
+    {
+        var (db, unica, sub) = Db();
+        var herraje = Guid.NewGuid();
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, herraje, 1m, 12m));
+        await db.SaveChangesAsync();
+
+        var (estado, _, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "EN-L4",
+            [new EntradaApp(herraje, "PZA", null, 4m)], default);
+
+        (estado, error).Should().Be((SalidaAppAlmacenes.Recibido, (string?)null));
+    }
 
     [Fact]
     public async Task Diez_hojas_3302x6100_entran_al_almacen_general_sin_rack_con_un_folio_ENT()
@@ -177,7 +230,7 @@ public class EntradaAppAlmacenesTests
     public async Task Contra_OC_medida_que_no_esta_en_la_OC_da_ERROR()
     {
         var (db, _, _) = Db();
-        var otra = new EntradaApp(Articulo, "M2", Guid.NewGuid(), 20m, 2440m, 3660m);
+        var otra = new EntradaApp(Articulo, "M2", Guid.NewGuid(), 20m, 2440m, 3660m, "L-1");
         var (estado, _, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(Oc()),
             EmpresaId, Usuario, Sucursal, "m", FolioOc, "EN-10", [otra], default);
 

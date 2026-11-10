@@ -27,7 +27,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <summary>
 /// M-159: ENTRADA_ALMACEN de la app contra una OC autorizada del ERP es la recepción de esa OC: entra al almacén general al
 /// precio de la línea de la OC, deja la fila <c>almacen.oc_recepcion.registrada.v1</c> en el outbox y, entregada a Compras,
-/// sube lo recibido de la línea. La misma entrada con otro mensajeId no se recibe dos veces.
+/// sube lo recibido de la línea. La misma entrada con otro mensajeId no se recibe dos veces. El <c>grupos[].lote</c> es llave del
+/// saldo: dos lotes en una línea quedan en dos filas de saldo.
 /// </summary>
 [Collection(ApiCompartida.Nombre)]
 public class AlmacenesAppEntradaOcTests(WebApplicationFactory<Program> factory)
@@ -111,10 +112,10 @@ public class AlmacenesAppEntradaOcTests(WebApplicationFactory<Program> factory)
             await cat.SaveChangesAsync();
         }
 
-        // La app da entrada a 4 de las 10 piezas.
+        // La app da entrada a 4 de las 10 piezas, en dos lotes (3 + 1).
         var desde = DateTimeOffset.UtcNow.AddSeconds(-5);
         var cliente = app.CreateClient();
-        var a1 = await Acuse(await cliente.SendAsync(Req(Guid.NewGuid().ToString(), Datos($"EN-{n[..8]}", folioOc, refAw, 4))));
+        var a1 = await Acuse(await cliente.SendAsync(Req(Guid.NewGuid().ToString(), Datos($"EN-{n[..8]}", folioOc, refAw, 4, dosLotes: true))));
         Assert.Equal("RECIBIDO", a1.GetProperty("estado").GetString());
         var folio = a1.GetProperty("folio").GetString();
         Assert.StartsWith("M-ENT", folio);
@@ -124,14 +125,18 @@ public class AlmacenesAppEntradaOcTests(WebApplicationFactory<Program> factory)
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
             // Promedio = precio de la línea de la OC, en el almacén general (sin rack).
-            var saldo = await (from x in db.SaldosInventario.AsNoTracking()
-                               join u in db.Ubicaciones.AsNoTracking() on x.UbicacionId equals u.Id
-                               where x.ArticuloId == articulo
-                               select new { x.Cantidad, x.CostoPromedioMxn, u.EsDefault }).SingleAsync();
-            Assert.Equal((4m, precio, true), (saldo.Cantidad, saldo.CostoPromedioMxn, saldo.EsDefault));
+            var saldos = await (from x in db.SaldosInventario.AsNoTracking()
+                                join u in db.Ubicaciones.AsNoTracking() on x.UbicacionId equals u.Id
+                                where x.ArticuloId == articulo
+                                orderby x.Lote
+                                select new { x.Lote, x.Cantidad, x.CostoPromedioMxn, u.EsDefault }).ToListAsync();
+            Assert.Equal(
+                [("L-VPS-2611-01", 3m, precio, true), ("L-VPS-2611-02", 1m, precio, true)],
+                saldos.Select(x => (x.Lote, x.Cantidad, x.CostoPromedioMxn, x.EsDefault)).ToList());
             var mov = await db.Movimientos.AsNoTracking().Include(m => m.Lineas).SingleAsync(m => m.Folio == folio);
             Assert.Equal(ocId, mov.OcId);
-            Assert.Equal(lineaOcId, Assert.Single(mov.Lineas).LineaOcId);
+            Assert.All(mov.Lineas, l => Assert.Equal(lineaOcId, l.LineaOcId));
+            Assert.Equal(2, mov.Lineas.Count);
         }
 
         // Fila del outbox de Almacén, entregada al listener real de Compras: sub-estado Recepción y recibido de la línea.
@@ -175,7 +180,7 @@ public class AlmacenesAppEntradaOcTests(WebApplicationFactory<Program> factory)
         Assert.Contains("Excede lo pendiente", a3.GetProperty("error").GetString());
     }
 
-    private static object Datos(string entrada, string compra, string articuloAw, int piezas) => new
+    private static object Datos(string entrada, string compra, string articuloAw, int piezas, bool dosLotes = false) => new
     {
         entrada, compra, sucursal = "MID", piezas,
         lineas = new[]
@@ -183,7 +188,9 @@ public class AlmacenesAppEntradaOcTests(WebApplicationFactory<Program> factory)
             new
             {
                 requisicion = "RQ-1", posicion = 1, articuloAw, piezas, reclamadas = 0,
-                grupos = new[] { new { articuloAw, piezas } },
+                grupos = dosLotes
+                    ? new[] { new { articuloAw, lote = "L-VPS-2611-01", piezas = piezas - 1 }, new { articuloAw, lote = "L-VPS-2611-02", piezas = 1 } }
+                    : new[] { new { articuloAw, lote = "L-VPS-2611-01", piezas } },
             },
         },
     };
