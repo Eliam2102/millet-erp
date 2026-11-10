@@ -102,6 +102,73 @@ public sealed class DecidirLiberacionHandlerTests
         response.CreditoDisponibleSnapshot.Should().Be(0m);
     }
 
+    // --------------------------------------------------- R2: serie que siempre libera con cliente bloqueado por vencimiento
+
+    private static async Task BloquearPorVencimiento(CuentasPorCobrarDbContext db)
+    {
+        var linea = await AgregarLinea(db, limite: 1_000_000m);
+        linea.BloquearPorVencimiento("Factura FV-1 con 70 días vencida");
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task R2_serie_que_siempre_libera_retiene_si_el_cliente_esta_bloqueado_por_vencimiento()
+    {
+        using var db = CrearDbContext();
+        await BloquearPorVencimiento(db);
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
+        response.Motivo.Should().Be(DecidirLiberacionHandler.MotivoBloqueoVencimiento);
+    }
+
+    [Fact]
+    public async Task R2_solo_una_excepcion_autorizada_de_Credito_y_Cobranza_la_libera()
+    {
+        using var db = CrearDbContext();
+        await BloquearPorVencimiento(db);
+        var autorizacion = AutorizacionCredito.Crear(EmpresaId, Guid.NewGuid(), UsuarioId, "Pago comprometido", "5000123", Ahora, TimeSpan.FromHours(24));
+        db.AutorizacionesCredito.Add(autorizacion);
+        await db.SaveChangesAsync();
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m, overrideId: autorizacion.Id));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Override);
+        (await db.AutorizacionesCredito.SingleAsync()).Estado.Should().Be(EstadoAutorizacionCredito.Usada);
+    }
+
+    [Fact]
+    public async Task R2_un_bloqueo_manual_no_cambia_la_serie_que_siempre_libera()
+    {
+        // Supuesto a validar: la respuesta de Crédito y Cobranza habla del bloqueo por vencimiento (C7.5).
+        using var db = CrearDbContext();
+        var linea = await AgregarLinea(db, limite: 1_000_000m);
+        linea.Bloquear("Revisión de crédito");
+        await db.SaveChangesAsync();
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
+    }
+
+    [Fact]
+    public async Task R2_el_bloqueo_por_vencimiento_en_otra_moneda_no_retiene()
+    {
+        using var db = CrearDbContext();
+        var usd = LineaCreditoAggregate.Crear(EmpresaId, ClienteId, "USD", 50_000m, OrigenLineaCredito.Solunion, plazoDias: 45);
+        usd.BloquearPorVencimiento("Factura en USD vencida");
+        db.LineasCredito.Add(usd);
+        await db.SaveChangesAsync();
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
+    }
+
     // --------------------------------------------------- Cascada 3: override
 
     [Fact]
