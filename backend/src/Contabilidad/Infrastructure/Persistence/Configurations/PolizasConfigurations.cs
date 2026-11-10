@@ -153,6 +153,7 @@ public sealed class AperturaContableConfiguration : IEntityTypeConfiguration<Ape
         builder.HasIndex(x => x.EmpresaId).IsUnique().HasDatabaseName("ux_aperturas_empresa");
         builder.HasIndex(x => x.LoteId);
     }
+}
 
 /// <summary>
 /// <c>contabilidad.solicitudes_anulacion_poliza</c> (M-212): solicitud de anulación con segunda firma. Una sola pendiente por póliza
