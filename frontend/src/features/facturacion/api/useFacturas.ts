@@ -24,6 +24,7 @@ import type {
   NotaCreditoBonificacionResponse,
   ReenviarCorreoResponse,
   ReintentarTimbradoResponse,
+  AdoptarCfdiTimbradoResponse,
   SolicitarCancelacionResponse,
 } from '@/features/facturacion/api/types';
 
@@ -328,6 +329,36 @@ export function useReintentarTimbrado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: facturacionKeys.all });
+    },
+  });
+}
+
+/**
+ * <c>useAdoptarCfdi()</c> — M-284: adopta el CFDI que el PAC sí timbró (XML descargado del
+ * portal del PAC) en un comprobante cuyo timbrado no se confirmó. Con <c>soloRevisar</c> solo
+ * coteja ERP contra XML; sin él, adopta y aplica los efectos del timbrado una sola vez.
+ */
+export function useAdoptarCfdi() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      xml: string;
+      soloRevisar: boolean;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<AdoptarCfdiTimbradoResponse>(
+        `/api/v1/facturacion/comprobantes/${args.id}/adoptar-cfdi`,
+        {
+          method: 'POST',
+          body: { xml: args.xml, soloRevisar: args.soloRevisar },
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data.adoptado) queryClient.invalidateQueries({ queryKey: facturacionKeys.all });
     },
   });
 }

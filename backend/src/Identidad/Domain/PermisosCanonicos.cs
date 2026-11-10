@@ -503,6 +503,8 @@ public static class PermisosCanonicos
     public const string FacturacionReportesLeerTodasSucursales = "facturacion.reportes.leer-todas-sucursales";
     public const string FacturacionComprobantesReintentarTimbrado = "facturacion.comprobantes.reintentar-timbrado";
     public const string FacturacionComprobantesDescartar        = "facturacion.comprobantes.descartar";
+    /// <summary>M-284: adoptar el CFDI que el PAC sí timbró (XML del portal) en un comprobante sin respuesta.</summary>
+    public const string FacturacionComprobantesAdoptarCfdi      = "facturacion.comprobantes.adoptar-cfdi";
 
     // ----- Cuentas por Cobrar (CXC-PR1) -----
     // Namespace GUID 0000000a-* reservado para el módulo Cuentas por Cobrar.
@@ -979,6 +981,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-000a-0000-0000-000000000002"), FacturacionReportesLeerTodasSucursales, "Consultar el cierre del día (monitor de CFDI y facturado contra ingresado) de todas las sucursales, sin estar asociado a ellas"),
         (Guid.Parse("00000009-000b-0000-0000-000000000001"), FacturacionComprobantesReintentarTimbrado, "Reintentar el timbrado de un comprobante en TimbradoFallido (cualquier tipo)"),
         (Guid.Parse("00000009-000b-0000-0000-000000000002"), FacturacionComprobantesDescartar,        "Descartar un comprobante fallido que no se reintentará (quema el folio y libera el pedido)"),
+        (Guid.Parse("00000009-000b-0000-0000-000000000003"), FacturacionComprobantesAdoptarCfdi,      "Adoptar el CFDI que el PAC sí timbró (XML del portal) en un comprobante cuyo timbrado no se confirmó"),
 
         // Cuentas por Cobrar (CXC-PR1). Namespace 0000000a-*.
         (Guid.Parse("0000000a-0001-0000-0000-000000000001"), CuentasPorCobrarLineasCreditoLeer,       "Consultar líneas de crédito de clientes"),

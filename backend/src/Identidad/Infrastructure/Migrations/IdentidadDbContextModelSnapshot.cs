@@ -4107,6 +4107,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-000b-0000-0000-000000000003"),
+                            Accion = "adoptar-cfdi",
+                            Codigo = "facturacion.comprobantes.adoptar-cfdi",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Adoptar el CFDI que el PAC sí timbró (XML del portal) en un comprobante cuyo timbrado no se confirmó",
+                            Modulo = "facturacion",
+                            Recurso = "comprobantes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000a-0001-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "cuentas_por_cobrar.lineas-credito.leer",
