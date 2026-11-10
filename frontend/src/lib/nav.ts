@@ -555,6 +555,13 @@ const moduloCuentasPorPagar: NavModulo = {
           permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
         },
         {
+          label: 'DIOT',
+          description: 'Operaciones con terceros del mes por pagos, con el archivo de carga del SAT.',
+          to: '/cxp/reportes/diot',
+          icon: FileText,
+          permission: PermisosCanonicos.CuentasPorPagarReportesDiot,
+        },
+        {
           label: 'Estados de cuenta TC',
           description:
             'Reporte consolidado de estados de cuenta de tarjetas de crédito empresariales con sus pasivos asociados.',

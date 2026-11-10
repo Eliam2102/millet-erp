@@ -170,6 +170,7 @@ import { Route as AppCxpReportesAntiguedadRouteImport } from './routes/_app/cxp/
 import { Route as AppCxpReportesAntiguedadAnticiposRouteImport } from './routes/_app/cxp/reportes.antiguedad-anticipos';
 import { Route as AppCxpReportesAuxiliarRouteImport } from './routes/_app/cxp/reportes.auxiliar';
 import { Route as AppCxpReportesCarteraRouteImport } from './routes/_app/cxp/reportes.cartera';
+import { Route as AppCxpReportesDiotRouteImport } from './routes/_app/cxp/reportes.diot';
 import { Route as AppCxpReportesPasivosObrasRouteImport } from './routes/_app/cxp/reportes.pasivos-obras';
 import { Route as AppCxpReportesTcRouteImport } from './routes/_app/cxp/reportes.tc';
 import { Route as AppCxpReportesTcPendientesRouteImport } from './routes/_app/cxp/reportes.tc-pendientes';
@@ -1128,6 +1129,11 @@ const AppCxpReportesCarteraRoute = AppCxpReportesCarteraRouteImport.update({
   path: '/cxp/reportes/cartera',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxpReportesDiotRoute = AppCxpReportesDiotRouteImport.update({
+  id: '/cxp/reportes/diot',
+  path: '/cxp/reportes/diot',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppCxpReportesPasivosObrasRoute =
   AppCxpReportesPasivosObrasRouteImport.update({
     id: '/cxp/reportes/pasivos-obras',
@@ -1747,6 +1753,7 @@ export interface FileRoutesByFullPath {
   '/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
   '/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
+  '/cxp/reportes/diot': typeof AppCxpReportesDiotRoute;
   '/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
   '/cxp/reportes/tc-pendientes': typeof AppCxpReportesTcPendientesRoute;
@@ -1994,6 +2001,7 @@ export interface FileRoutesByTo {
   '/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
   '/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
+  '/cxp/reportes/diot': typeof AppCxpReportesDiotRoute;
   '/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
   '/cxp/reportes/tc-pendientes': typeof AppCxpReportesTcPendientesRoute;
@@ -2243,6 +2251,7 @@ export interface FileRoutesById {
   '/_app/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
   '/_app/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/_app/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
+  '/_app/cxp/reportes/diot': typeof AppCxpReportesDiotRoute;
   '/_app/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/_app/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
   '/_app/cxp/reportes/tc-pendientes': typeof AppCxpReportesTcPendientesRoute;
@@ -2492,6 +2501,7 @@ export interface FileRouteTypes {
     | '/cxp/reportes/antiguedad-anticipos'
     | '/cxp/reportes/auxiliar'
     | '/cxp/reportes/cartera'
+    | '/cxp/reportes/diot'
     | '/cxp/reportes/pasivos-obras'
     | '/cxp/reportes/tc'
     | '/cxp/reportes/tc-pendientes'
@@ -2739,6 +2749,7 @@ export interface FileRouteTypes {
     | '/cxp/reportes/antiguedad-anticipos'
     | '/cxp/reportes/auxiliar'
     | '/cxp/reportes/cartera'
+    | '/cxp/reportes/diot'
     | '/cxp/reportes/pasivos-obras'
     | '/cxp/reportes/tc'
     | '/cxp/reportes/tc-pendientes'
@@ -2987,6 +2998,7 @@ export interface FileRouteTypes {
     | '/_app/cxp/reportes/antiguedad-anticipos'
     | '/_app/cxp/reportes/auxiliar'
     | '/_app/cxp/reportes/cartera'
+    | '/_app/cxp/reportes/diot'
     | '/_app/cxp/reportes/pasivos-obras'
     | '/_app/cxp/reportes/tc'
     | '/_app/cxp/reportes/tc-pendientes'
@@ -4248,6 +4260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxpReportesCarteraRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/cxp/reportes/diot': {
+      id: '/_app/cxp/reportes/diot';
+      path: '/cxp/reportes/diot';
+      fullPath: '/cxp/reportes/diot';
+      preLoaderRoute: typeof AppCxpReportesDiotRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxp/reportes/pasivos-obras': {
       id: '/_app/cxp/reportes/pasivos-obras';
       path: '/cxp/reportes/pasivos-obras';
@@ -4983,6 +5002,7 @@ interface AppRouteChildren {
   AppCxpReportesAntiguedadAnticiposRoute: typeof AppCxpReportesAntiguedadAnticiposRoute;
   AppCxpReportesAuxiliarRoute: typeof AppCxpReportesAuxiliarRoute;
   AppCxpReportesCarteraRoute: typeof AppCxpReportesCarteraRoute;
+  AppCxpReportesDiotRoute: typeof AppCxpReportesDiotRoute;
   AppCxpReportesPasivosObrasRoute: typeof AppCxpReportesPasivosObrasRoute;
   AppCxpReportesTcRoute: typeof AppCxpReportesTcRoute;
   AppCxpReportesTcPendientesRoute: typeof AppCxpReportesTcPendientesRoute;
@@ -5244,6 +5264,7 @@ const AppRouteChildren: AppRouteChildren = {
     AppCxpReportesAntiguedadAnticiposRoute,
   AppCxpReportesAuxiliarRoute: AppCxpReportesAuxiliarRoute,
   AppCxpReportesCarteraRoute: AppCxpReportesCarteraRoute,
+  AppCxpReportesDiotRoute: AppCxpReportesDiotRoute,
   AppCxpReportesPasivosObrasRoute: AppCxpReportesPasivosObrasRoute,
   AppCxpReportesTcRoute: AppCxpReportesTcRoute,
   AppCxpReportesTcPendientesRoute: AppCxpReportesTcPendientesRoute,
