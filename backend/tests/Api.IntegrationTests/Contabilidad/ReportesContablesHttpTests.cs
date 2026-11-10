@@ -62,6 +62,7 @@ public class ReportesContablesHttpTests(WebApplicationFactory<Program> factory)
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE consumidor = 'POLIZA' AND referencia IN (SELECT id::text FROM contabilidad.polizas WHERE tipo_operacion_id = {0})", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("UPDATE contabilidad.polizas SET anulada_por_poliza_id = NULL, poliza_anulada_id = NULL WHERE tipo_operacion_id = {0}", e.Tipo);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.solicitudes_anulacion_poliza WHERE poliza_id IN (SELECT id FROM contabilidad.polizas WHERE tipo_operacion_id = {0})", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.polizas WHERE tipo_operacion_id = {0}", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.consecutivos_poliza WHERE tipo_operacion_id = {0}", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.tipos_documento_contable WHERE id = {0}", e.Tipo);
@@ -109,6 +110,7 @@ public class ReportesContablesHttpTests(WebApplicationFactory<Program> factory)
         var hoy = Millet.SharedKernel.Application.FechaContable.HoyLocal(DateTimeOffset.UtcNow);
         var anterior = hoy.AddMonths(-1);
         Escenario? e = null;
+        HttpClient? aprobador = null;
         try
         {
             e = await CrearEscenarioAsync(hoy, anterior);
@@ -118,8 +120,13 @@ public class ReportesContablesHttpTests(WebApplicationFactory<Program> factory)
             await AutorizadaAsync(e, hoy, Partida(e, e.Gasto, 300m, 0m), Partida(e, e.Banco, 0m, 300m));
             await AutorizadaAsync(e, hoy, Partida(e, e.Clientes, 500m, 0m, e.Cliente), Partida(e, e.Banco, 0m, 500m));
             var anulada = await AutorizadaAsync(e, hoy, Partida(e, e.Gasto, 50m, 0m), Partida(e, e.Banco, 0m, 50m));
-            var anular = await Send(e.Supervisor, HttpMethod.Post, $"{Polizas}/{Id(anulada)}/anular",
+            // M-212: la anulación la solicita una persona y la aprueba otra.
+            var solicitud = await Send(e.Supervisor, HttpMethod.Post, $"{Polizas}/{Id(anulada)}/solicitar-anulacion",
                 new { motivo = "FIX importe capturado con error" }, Etag(anulada));
+            Assert.Equal(HttpStatusCode.Created, solicitud.StatusCode);
+            aprobador = await ClienteConPermisosAsync(factory, PermisosCanonicos.ContabilidadPolizasLeer,
+                PermisosCanonicos.ContabilidadPolizasAnularAprobar, PermisosCanonicos.ContabilidadMovimientosGestionarTodasSucursales);
+            var anular = await Send(aprobador, HttpMethod.Post, $"{Polizas}/solicitudes-anulacion/{Id(await Json(solicitud))}/aprobar");
             Assert.Equal(HttpStatusCode.Created, anular.StatusCode);
             await CapturarAsync(e, hoy, Partida(e, e.Gasto, 999m, 0m), Partida(e, e.Banco, 0m, 999m));
 
@@ -204,7 +211,11 @@ public class ReportesContablesHttpTests(WebApplicationFactory<Program> factory)
             Assert.Equal(HttpStatusCode.OK, enCero.StatusCode);
             Assert.False((await Json(enCero)).GetProperty("activa").GetBoolean());
         }
-        finally { await LimpiarAsync(e); }
+        finally
+        {
+            if (aprobador is not null) await LimpiarClienteAsync(aprobador);
+            await LimpiarAsync(e);
+        }
     }
 
     [Fact]

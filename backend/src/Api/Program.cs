@@ -412,6 +412,14 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Application.Cajas.Sesiones.CajasOptions.SectionName));
 
+// === Notas de crédito de A+W (M-087) ===
+// Umbral de la segunda firma (Crédito y Cobranza); por omisión 35,000 MXN
+// (Facturacion:NotasCreditoAw:UmbralSegundaFirmaMxn).
+builder.Services
+    .AddOptions<Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito.NotasCreditoAwOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito.NotasCreditoAwOptions.SectionName));
+
 // === Adopción de CFDI (M-284, QA O1) ===
 // Certificado del SAT (por NoCertificadoSAT) para verificar el SelloSAT del timbre adoptado.
 builder.Services.AddHttpClient<

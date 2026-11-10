@@ -863,4 +863,33 @@ public sealed class EmitirFacturaVentaHandlerTests
         (await db.BitacorasIntentoTimbrado.CountAsync(b => b.ComprobanteId == factura.Id)).Should().Be(1);
         (await db.PedidosFacturables.SingleAsync()).ComprobanteVigenteId.Should().Be(factura.Id);
     }
+
+    [Fact]
+    public async Task M285_TR01_emision_de_pedido_AW_deja_el_control_de_ingesta_Facturado_con_el_efecto_y_el_reintento_no_lo_repite()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        db.IngestaControles.Add(Millet.Facturacion.Domain.Ingesta.IngestaControl.Crear(empresa, OrigenPedido.Aw,
+            pedido.NumeroPedido!, "hash", 1, Millet.Facturacion.Domain.Ingesta.EstadoIngesta.Importado, pedido.Id, Ahora));
+        db.SaveChanges();
+
+        var resp = await Handler(db, empresa).Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        db.ChangeTracker.Clear();
+        (await db.IngestaControles.SingleAsync()).Estado.Should().Be(Millet.Facturacion.Domain.Ingesta.EstadoIngesta.Facturado);
+        var efecto = await db.EfectosComprobante.SingleAsync(e => e.ComprobanteId == resp.Id && e.Tipo == TipoEfectoComprobante.EstadoPedido);
+        (efecto.Estado, efecto.Intentos).Should().Be((EstadoEfectoComprobante.Aplicado, 1));
+
+        // Reintentar efectos: no hay pendientes; el control no se toca otra vez.
+        var reintento = await new Millet.Facturacion.Application.Timbrado.Efectos.ReintentarEfectosComprobanteHandler(
+                db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
+                new FakeIntegrationEventPublisher(), ReceptorFiscalTestFactory.Crear(db), new FakeClock(Ahora))
+            .Handle(new Millet.Facturacion.Application.Timbrado.Efectos.ReintentarEfectosComprobanteCommand(resp.Id), CancellationToken.None);
+        reintento.Should().OnlyContain(e => e.Estado == "Aplicado");
+        db.ChangeTracker.Clear();
+        (await db.EfectosComprobante.SingleAsync(e => e.ComprobanteId == resp.Id && e.Tipo == TipoEfectoComprobante.EstadoPedido))
+            .Intentos.Should().Be(1);
+    }
 }

@@ -92,6 +92,11 @@ export const facturacionKeys = {
   cancelacionesBandeja: (estado: string) =>
     [...facturacionKeys.cancelaciones(), 'bandeja', estado] as const,
   // Bitácora de intentos de timbrado ([Decisión 01-G] G4, F13-PR2).
+  /** M-285: efectos posteriores al timbrado de un comprobante. */
+  comprobanteEfectos: (id: string) =>
+    ['facturacion', 'comprobantes', id, 'efectos'] as const,
+  /** M-285: comprobantes timbrados con efectos pendientes. */
+  efectosPendientes: () => ['facturacion', 'comprobantes', 'efectos-pendientes'] as const,
   comprobanteIntentos: (id: string) =>
     [...facturacionKeys.facturas(), 'byId', id, 'intentos-timbrado'] as const,
   // Árbol de trazabilidad documento-céntrico (ANT-PR3, doc 13 §4.3).

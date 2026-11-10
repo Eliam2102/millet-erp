@@ -3869,6 +3869,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0004-0000-0000-000000000005"),
+                            Accion = "autorizar-credito",
+                            Codigo = "facturacion.notas-credito.autorizar-credito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Firmar por Crédito y Cobranza las notas de crédito de A+W arriba del umbral de la segunda firma (35,000 MXN por omisión)",
+                            Modulo = "facturacion",
+                            Recurso = "notas-credito",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0004-0000-0000-000000000004"),
                             Accion = "autorizar",
                             Codigo = "facturacion.notas-credito.autorizar",
@@ -4980,7 +4994,21 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Codigo = "contabilidad.polizas.anular",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Anular pólizas autorizadas con motivo (genera la póliza con las mismas partidas en negativo)",
+                            Descripcion = "Solicitar con motivo la anulación de pólizas autorizadas (la aprueba otra persona)",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0005-0000-0000-000000000005"),
+                            Accion = "anular-aprobar",
+                            Codigo = "contabilidad.polizas.anular-aprobar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Aprobar o rechazar la anulación de pólizas solicitada por otra persona (genera la póliza con las mismas partidas en negativo)",
                             Modulo = "contabilidad",
                             Recurso = "polizas",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

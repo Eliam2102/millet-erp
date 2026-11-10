@@ -79,6 +79,19 @@ public static class NotasCreditoEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // POST (M-087): firma de Crédito y Cobranza de una NC de A+W arriba del umbral de la segunda
+        // firma; si el gerente ya firmó, la nota se timbra.
+        group.MapPost("/{id:guid}/autorizar-credito", async (Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new FirmarCreditoNotaCreditoCommand(id), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoAutorizarCredito)
+        .WithName("FirmarCreditoNotaCredito")
+        .WithSummary("Firma de Crédito y Cobranza de una nota de crédito de A+W arriba del umbral")
+        .Produces<AutorizarNotaCreditoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // POST: pide a Tesorería el reembolso en dinero de una NC timbrada (T9.6 · CA6.17).
         group.MapPost("/{id:guid}/solicitar-reembolso", async (
             Guid id,

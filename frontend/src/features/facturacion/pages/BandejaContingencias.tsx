@@ -33,6 +33,10 @@ import {
   type EstadoContingencia,
   type TipoContingencia,
 } from '@/features/facturacion/api/useContingencias';
+import {
+  useComprobantesConEfectosPendientes,
+  useReintentarEfectos,
+} from '@/features/facturacion/api/useFacturas';
 import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -62,6 +66,60 @@ function mesActual(): string {
  * internet y otras se capturan a mano. Cada una se regulariza a más tardar el día 3
  * del mes siguiente: con el CFDI final al timbrar su documento, o descartada.
  */
+/**
+ * M-285 · Facturas timbradas con efectos pendientes (póliza, aviso a A+W, NC de ranura): el CFDI ya
+ * existe; solo falta aplicar lo que quedó pendiente, sin volver a timbrar.
+ */
+function TimbradosConEfectosPendientes({ puedeReintentar }: { puedeReintentar: boolean }) {
+  const query = useComprobantesConEfectosPendientes();
+  const reintentar = useReintentarEfectos();
+  const items = query.data ?? [];
+  if (items.length === 0) return null;
+
+  return (
+    <div data-testid="efectos-pendientes">
+      <AvisoEnLinea tono="advertencia" titulo={`${items.length} factura(s) timbrada(s) con efectos pendientes`}>
+        <ul className="mt-1 space-y-1">
+          {items.map((c) => (
+            <li key={c.comprobanteId} className="flex flex-wrap items-center gap-2">
+              <Link
+                to="/facturacion/facturas/$id"
+                params={{ id: c.comprobanteId }}
+                className="font-mono text-xs underline"
+              >
+                {c.folio}
+              </Link>
+              <span>{c.pendientes.map((e) => e.descripcion).join(', ')}</span>
+              {puedeReintentar && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={reintentar.isPending}
+                  onClick={() =>
+                    reintentar.mutate(
+                      { id: c.comprobanteId, idempotencyKey: crypto.randomUUID() },
+                      {
+                        onSuccess: (r) =>
+                          r.some((e) => e.estado === 'Pendiente')
+                            ? toast.error(`${c.folio}: siguen efectos pendientes; revisa el motivo en la factura.`)
+                            : toast.success(`${c.folio}: efectos aplicados.`),
+                        onError: () => toast.error(`${c.folio}: no se pudieron reintentar los efectos.`),
+                      },
+                    )
+                  }
+                >
+                  Reintentar pendientes
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </AvisoEnLinea>
+    </div>
+  );
+}
+
 export function BandejaContingencias() {
   const [periodo, setPeriodo] = useState(mesActual);
   const [estadoIdx, setEstadoIdx] = useState(0);
@@ -116,6 +174,8 @@ export function BandejaContingencias() {
           </AvisoEnLinea>
         </div>
       )}
+
+      <TimbradosConEfectosPendientes puedeReintentar={puedeRegistrar} />
 
       {registrando && <FormRegistrar onClose={() => setRegistrando(false)} />}
 

@@ -9,6 +9,7 @@ using Millet.Facturacion.Application.Cancelaciones.SolicitarCancelacion;
 using Millet.Facturacion.Application.Timbrado.DescartarComprobante;
 using Millet.Facturacion.Application.Timbrado.Queries;
 using Millet.Facturacion.Application.Timbrado.Adopcion;
+using Millet.Facturacion.Application.Timbrado.Efectos;
 using Millet.Facturacion.Application.Timbrado.ReintentarTimbrado;
 using Millet.Facturacion.Application.Trazabilidad;
 using Millet.Facturacion.Domain.Cancelaciones;
@@ -194,6 +195,33 @@ public static class ComprobantesEndpoints
         .Produces<DescartarComprobanteResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-285: efectos posteriores al timbrado (evento contable, pedido y A+W, NC de ranura).
+        group.MapGet("/{id:guid}/efectos", async (Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new EfectosComprobanteQuery(id), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("EfectosComprobante")
+        .WithSummary("Efectos posteriores al timbrado de un comprobante y su estado")
+        .Produces<IReadOnlyList<EfectoComprobanteItem>>(StatusCodes.Status200OK);
+
+        group.MapGet("/efectos-pendientes", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ComprobantesConEfectosPendientesQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("ComprobantesConEfectosPendientes")
+        .WithSummary("Comprobantes timbrados con efectos pendientes")
+        .Produces<IReadOnlyList<ComprobanteConEfectosPendientesItem>>(StatusCodes.Status200OK);
+
+        // POST: aplica solo los efectos pendientes; no vuelve a timbrar.
+        group.MapPost("/{id:guid}/reintentar-efectos", async (Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ReintentarEfectosComprobanteCommand(id), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionComprobantesReintentarTimbrado)
+        .WithName("ReintentarEfectosComprobante")
+        .WithSummary("Reintenta solo los efectos pendientes de un comprobante timbrado")
+        .Produces<IReadOnlyList<EfectoComprobanteItem>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // GET: historial de intentos de timbrado (bitácora, [Decisión 01-G] G4).

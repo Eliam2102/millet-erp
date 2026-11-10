@@ -324,6 +324,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.notas-credito.leer',
   'facturacion.notas-credito.reembolso-solicitar',
   'facturacion.notas-credito.autorizar',
+  'facturacion.notas-credito.autorizar-credito',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',
@@ -370,6 +371,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.polizas.capturar',
   'contabilidad.polizas.autorizar',
   'contabilidad.polizas.anular',
+  'contabilidad.polizas.anular-aprobar',
   // Pólizas recurrentes (K10.4)
   'contabilidad.recurrentes.leer',
   'contabilidad.recurrentes.administrar',

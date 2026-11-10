@@ -25,6 +25,8 @@ import type {
   ReenviarCorreoResponse,
   ReintentarTimbradoResponse,
   AdoptarCfdiTimbradoResponse,
+  ComprobanteConEfectosPendientesItem,
+  EfectoComprobanteItem,
   SolicitarCancelacionResponse,
 } from '@/features/facturacion/api/types';
 
@@ -375,6 +377,56 @@ export function useDescartarComprobante() {
     mutationFn: async (args: { id: string; idempotencyKey: string }) => {
       const { data } = await apiRequest<DescartarComprobanteResponse>(
         `/api/v1/facturacion/comprobantes/${args.id}/descartar`,
+        { method: 'POST', idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.all });
+    },
+  });
+}
+
+/** M-285: efectos posteriores al timbrado del comprobante y su estado. */
+export function useEfectosComprobante(id: string | null | undefined) {
+  return useQuery<EfectoComprobanteItem[]>({
+    queryKey: id != null ? facturacionKeys.comprobanteEfectos(id) : ['facturacion', 'noop-efectos'],
+    queryFn: async ({ signal }) => {
+      if (id == null) throw new Error('useEfectosComprobante invocado sin id');
+      const { data } = await apiRequest<EfectoComprobanteItem[]>(
+        `/api/v1/facturacion/comprobantes/${id}/efectos`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: id != null,
+    staleTime: 0,
+  });
+}
+
+/** M-285: comprobantes timbrados con efectos pendientes (bandeja de contingencias). */
+export function useComprobantesConEfectosPendientes(enabled = true) {
+  return useQuery<ComprobanteConEfectosPendientesItem[]>({
+    queryKey: facturacionKeys.efectosPendientes(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ComprobanteConEfectosPendientesItem[]>(
+        '/api/v1/facturacion/comprobantes/efectos-pendientes',
+        { signal },
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 0,
+  });
+}
+
+/** M-285: aplica solo los efectos pendientes; no vuelve a timbrar. */
+export function useReintentarEfectos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<EfectoComprobanteItem[]>(
+        `/api/v1/facturacion/comprobantes/${args.id}/reintentar-efectos`,
         { method: 'POST', idempotencyKey: args.idempotencyKey },
       );
       return data;

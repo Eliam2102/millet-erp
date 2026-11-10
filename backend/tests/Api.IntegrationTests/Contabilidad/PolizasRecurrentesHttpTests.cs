@@ -74,6 +74,7 @@ public class PolizasRecurrentesHttpTests(WebApplicationFactory<Program> factory)
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE consumidor = 'POLIZA' AND referencia IN (SELECT id::text FROM contabilidad.polizas WHERE tipo_operacion_id = {0})", e.Tipo);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.solicitudes_anulacion_poliza WHERE poliza_id IN (SELECT id FROM contabilidad.polizas WHERE tipo_operacion_id = {0})", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.polizas WHERE tipo_operacion_id = {0}", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.plantillas_recurrentes WHERE tipo_operacion_id = {0}", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.consecutivos_poliza WHERE tipo_operacion_id = {0}", e.Tipo);
@@ -172,8 +173,8 @@ public class PolizasRecurrentesHttpTests(WebApplicationFactory<Program> factory)
             Assert.Equal("CONTAB_PERIODO_INEXISTENTE", pendiente.GetProperty("codigo").GetString());
             Assert.Equal(23, await Contar(factory.Services, "polizas", $"plantilla_recurrente_id = '{Id(plantilla)}'"));
 
-            // Con la reversa vigente, anular la original la negaría dos veces: se impide.
-            var anular = await Send(e.Supervisor, HttpMethod.Post, $"{Polizas}/{Id(enero)}/anular", new { motivo = "FIX anulación indebida" }, Etag(enero));
+            // Con la reversa vigente, anular la original la negaría dos veces: se impide (M-212: ya al solicitar la anulación).
+            var anular = await Send(e.Supervisor, HttpMethod.Post, $"{Polizas}/{Id(enero)}/solicitar-anulacion", new { motivo = "FIX anulación indebida" }, Etag(enero));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, anular.StatusCode);
             Assert.Equal("CONTAB_POLIZA_TIENE_REVERSA", await Code(anular));
 

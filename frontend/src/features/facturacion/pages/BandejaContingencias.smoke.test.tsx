@@ -128,4 +128,43 @@ describe('<BandejaContingencias> — smoke (F6.8)', () => {
     await waitFor(() => expect(cuerpo).not.toBeNull());
     expect(cuerpo).toMatchObject({ sucursalId: 'suc-1', tipo: 'Sat', motivo: 'SAT sin servicio' });
   });
+
+  it('M-285: lista las facturas timbradas con efectos pendientes y las reintenta', async () => {
+    let reintentos = 0;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/contingencias-timbrado/reporte', () => HttpResponse.json(reporteVacio)),
+      http.get('*/api/v1/facturacion/contingencias-timbrado', () =>
+        HttpResponse.json({ items: [], vencidas: 0, porVencer: 0 }),
+      ),
+      http.get('*/api/v1/facturacion/comprobantes/efectos-pendientes', () =>
+        HttpResponse.json([
+          {
+            comprobanteId: 'f-9',
+            folio: 'FV-000109',
+            uuid: 'UUID-9',
+            fechaTimbrado: '2026-11-28T16:00:00Z',
+            pendientes: [
+              {
+                id: 'e-1', tipo: 'EventoContable', descripcion: 'Póliza y cartera (evento de timbrado)',
+                estado: 'Pendiente', intentos: 1, ultimoErrorCodigo: 'X', ultimoError: 'Falla simulada',
+                ultimoIntentoAt: null, aplicadoAt: null,
+              },
+            ],
+          },
+        ]),
+      ),
+      http.post('*/api/v1/facturacion/comprobantes/f-9/reintentar-efectos', () => {
+        reintentos++;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    render(<BandejaContingencias />, { wrapper: createQueryWrapper() });
+
+    const aviso = await screen.findByTestId('efectos-pendientes');
+    expect(within(aviso).getByText('FV-000109')).toBeTruthy();
+    expect(within(aviso).getByText('Póliza y cartera (evento de timbrado)')).toBeTruthy();
+    fireEvent.click(within(aviso).getByRole('button', { name: 'Reintentar pendientes' }));
+    await waitFor(() => expect(reintentos).toBe(1));
+  });
 });
