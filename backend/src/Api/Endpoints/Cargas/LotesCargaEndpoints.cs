@@ -40,7 +40,10 @@ public static class LotesCargaEndpoints
             Dictionary<string, string> mapeo;
             try { mapeo = JsonSerializer.Deserialize<Dictionary<string, string>>(form["mapeo"].ToString() is { Length: > 0 } m ? m : "{}") ?? []; }
             catch (JsonException e) { throw new BusinessRuleException("LOTE_CARGA_MAPEO_INVALIDO", "El mapeo de columnas no es válido.", e); }
-            return Results.Ok(await s.SubirAsync(tipo, contenido, archivo.FileName, corte, mapeo, ct));
+            Dictionary<string, string?> parametros;
+            try { parametros = JsonSerializer.Deserialize<Dictionary<string, string?>>(form["parametros"].ToString() is { Length: > 0 } pj ? pj : "{}") ?? []; }
+            catch (JsonException e) { throw new BusinessRuleException("LOTE_CARGA_PARAMETRO_INVALIDO", "Los parámetros de la carga no son válidos.", e); }
+            return Results.Ok(await s.SubirAsync(tipo, contenido, archivo.FileName, corte, mapeo, ct, parametros));
         }).DisableAntiforgery().WithMetadata(new RequestSizeLimitAttribute(ArchivoMaestros.LimiteBytes + 64 * 1024))
           .WithMetadata(new RequireIdempotencyKeyAttribute());
 

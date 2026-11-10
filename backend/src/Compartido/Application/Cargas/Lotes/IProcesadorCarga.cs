@@ -24,12 +24,30 @@ public interface IProcesadorCarga
     /// <summary>Permiso para autorizar o rechazar (otra persona).</summary>
     string PermisoAutorizar { get; }
 
+    /// <summary>
+    /// Parámetros del tipo que se capturan al subir (p. ej. sucursal por omisión y tipo de póliza en los
+    /// saldos iniciales). Sin parámetros por omisión.
+    /// </summary>
+    Task<IReadOnlyList<ParametroCarga>> ParametrosAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ParametroCarga>>([]);
+
     Task<ValidacionCarga> ValidarAsync(LoteCargaContexto lote, IReadOnlyList<FilaCarga> filas, CancellationToken cancellationToken);
     Task<AplicacionCarga> AplicarAsync(LoteCargaContexto lote, IReadOnlyList<FilaCarga> filas, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Lo que el lote le pasa al módulo. Lleva los nombres de quien subió y de quien autorizó (el módulo no lee
+/// usuarios) y los parámetros capturados al subir.
+/// </summary>
 public sealed record LoteCargaContexto(
-    Guid LoteId, Guid EmpresaId, string Huella, DateOnly? FechaCorte, Guid SubidoPorId, Guid? AutorizadoPorId);
+    Guid LoteId, Guid EmpresaId, string Huella, DateOnly? FechaCorte, Guid SubidoPorId, Guid? AutorizadoPorId,
+    string SubidoPorNombre, string? AutorizadoPorNombre, IReadOnlyDictionary<string, string?> Parametros);
+
+/// <summary>Parámetro del tipo de carga; con <see cref="Opciones"/> la pantalla muestra un selector.</summary>
+public sealed record ParametroCarga(string Nombre, string Etiqueta, string Ayuda, bool Obligatorio, string? PorOmision,
+    IReadOnlyList<OpcionParametroCarga>? Opciones = null);
+
+public sealed record OpcionParametroCarga(string Valor, string Etiqueta);
 
 /// <summary>Fila del archivo ya mapeada a las columnas del tipo; <see cref="Fila"/> es el renglón real del archivo.</summary>
 public sealed record FilaCarga(int Fila, IReadOnlyDictionary<string, string> Valores);

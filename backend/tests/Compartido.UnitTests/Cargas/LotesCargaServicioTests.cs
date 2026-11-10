@@ -29,6 +29,11 @@ public sealed class LotesCargaServicioTests
         public string PermisoAutorizar => Autorizar;
         public int Aplicaciones { get; private set; }
         public string? FallarAlAplicar { get; set; }
+        public LoteCargaContexto? UltimoContexto { get; private set; }
+
+        public Task<IReadOnlyList<ParametroCarga>> ParametrosAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<ParametroCarga>>([new("sucursalPorOmision", "Sucursal por omisión",
+                "Para los renglones sin sucursal", true, "MID", [new("MID", "Mérida"), new("CUN", "Cancún")])]);
 
         public Task<ValidacionCarga> ValidarAsync(LoteCargaContexto lote, IReadOnlyList<FilaCarga> filas, CancellationToken ct)
         {
@@ -43,6 +48,7 @@ public sealed class LotesCargaServicioTests
 
         public Task<AplicacionCarga> AplicarAsync(LoteCargaContexto lote, IReadOnlyList<FilaCarga> filas, CancellationToken ct)
         {
+            UltimoContexto = lote;
             if (FallarAlAplicar is { } m) throw new ConflictException("AP_YA_HAY_APERTURA", m);
             Aplicaciones++;
             return Task.FromResult(new AplicacionCarga(Guid.NewGuid().ToString(), "SI-000001", false, new Dictionary<string, string>()));
@@ -197,11 +203,14 @@ public sealed class LotesCargaServicioTests
     }
 
     [Fact]
-    public async Task Sin_permiso_del_tipo_no_se_sube_ni_aparece_el_tipo()
+    public async Task Sin_permiso_del_tipo_no_se_sube_y_el_tipo_aparece_sin_permisos()
     {
         var e = new Entorno();
         e.Permisos.Concedidos.Clear();
-        (await e.Servicio.TiposAsync(default)).Should().BeEmpty();
+        // QA O1: el tipo se lista sin banderas, para que la pantalla diga «sin permiso» y no «no habilitado».
+        var tipo = (await e.Servicio.TiposAsync(default)).Should().ContainSingle().Subject;
+        tipo.PuedeSubir.Should().BeFalse();
+        tipo.PuedeAutorizar.Should().BeFalse();
         var act = () => e.Servicio.SubirAsync(Tipo, Cuadrada(), "b.csv", Corte, Mapeo, default);
         await act.Should().ThrowAsync<ForbiddenException>();
     }
@@ -214,5 +223,39 @@ public sealed class LotesCargaServicioTests
         lote.RegistrarValidacion("{}", true, 0);
         var act = () => lote.Autorizar(subio, "Ana", DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("LOTE_CARGA_MISMA_PERSONA");
+    }
+
+    [Fact]
+    public async Task Parametros_del_tipo_se_capturan_validan_y_llegan_al_modulo_con_los_nombres()
+    {
+        var e = new Entorno();
+        (await e.Servicio.TiposAsync(default)).Single().Parametros.Should().ContainSingle(p => p.Nombre == "sucursalPorOmision");
+
+        var invalido = () => e.Servicio.SubirAsync(Tipo, Cuadrada(), "b.csv", Corte, Mapeo, default,
+            new Dictionary<string, string?> { ["sucursalPorOmision"] = "XXX" });
+        (await invalido.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("LOTE_CARGA_PARAMETRO_INVALIDO");
+        var desconocido = () => e.Servicio.SubirAsync(Tipo, Cuadrada(), "b.csv", Corte, Mapeo, default,
+            new Dictionary<string, string?> { ["otro"] = "1" });
+        (await desconocido.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("LOTE_CARGA_PARAMETRO_DESCONOCIDO");
+
+        var d = await e.Servicio.SubirAsync(Tipo, Cuadrada(), "b.csv", Corte, Mapeo, default,
+            new Dictionary<string, string?> { ["sucursalPorOmision"] = "CUN" });
+        d.Parametros["sucursalPorOmision"].Should().Be("CUN");
+        e.OtraPersona();
+        await e.Servicio.AutorizarAsync(d.Lote.Id, default);
+
+        var ctx = e.Procesador.UltimoContexto!;
+        ctx.Parametros["sucursalPorOmision"].Should().Be("CUN");
+        ctx.SubidoPorNombre.Should().Be("Ana Prueba");
+        ctx.AutorizadoPorNombre.Should().Be("Contralor");
+        ctx.AutorizadoPorId.Should().Be(e.Usuario.UserId);
+    }
+
+    [Fact]
+    public async Task Sin_capturar_el_parametro_se_usa_su_valor_por_omision()
+    {
+        var e = new Entorno();
+        var d = await e.Servicio.SubirAsync(Tipo, Cuadrada(), "b.csv", Corte, Mapeo, default);
+        d.Parametros["sucursalPorOmision"].Should().Be("MID");
     }
 }

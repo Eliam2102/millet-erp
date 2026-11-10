@@ -24,6 +24,7 @@ internal static class LotesCargaModelo
         l.Property(x => x.FechaCorte).HasColumnType("date");
         l.Property(x => x.Estado).HasConversion<short>().IsRequired();
         l.Property(x => x.MapeoJson).HasColumnType("jsonb").IsRequired();
+        l.Property(x => x.ParametrosJson).HasColumnType("jsonb").IsRequired();
         l.Property(x => x.FilasJson).HasColumnType("jsonb").IsRequired();
         l.Property(x => x.ValidacionJson).HasColumnType("jsonb").IsRequired();
         l.Property(x => x.HistorialJson).HasColumnType("jsonb").IsRequired();

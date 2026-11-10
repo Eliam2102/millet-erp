@@ -42,10 +42,10 @@ function fechaHora(iso: string | null) {
  */
 export function LoteCargaPage({ tipo, titulo, descripcion }: { tipo: string; titulo: string; descripcion: string }) {
   const tipos = useTiposCarga();
-  const lotes = useLotesCarga(tipo);
+  const definicion = tipos.data?.find((t) => t.tipo === tipo);
+  const lotes = useLotesCarga(tipo, Boolean(definicion && (definicion.puedeSubir || definicion.puedeAutorizar)));
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
   const [nueva, setNueva] = useState(false);
-  const definicion = tipos.data?.find((t) => t.tipo === tipo);
 
   return (
     <div className="space-y-5">
@@ -60,14 +60,19 @@ export function LoteCargaPage({ tipo, titulo, descripcion }: { tipo: string; tit
           ) : null
         }
       />
+      {/* QA O1: el motivo correcto, sin el error técnico del servidor. */}
       {tipos.isSuccess && !definicion && (
-        <Alert><AlertDescription>Este tipo de carga no está disponible para su usuario.</AlertDescription></Alert>
+        <Alert><AlertDescription>Este tipo de carga aún no está habilitado. Cuando el área responsable lo active, aquí podrá subir sus archivos.</AlertDescription></Alert>
+      )}
+      {definicion && !definicion.puedeSubir && !definicion.puedeAutorizar && (
+        <Alert><AlertDescription>Su usuario no tiene permiso para esta carga. Pida el acceso al administrador.</AlertDescription></Alert>
       )}
       {nueva && definicion && (
         <NuevaCarga definicion={definicion} onCancelar={() => setNueva(false)}
           onSubido={(d) => { setNueva(false); setSeleccionado(d.lote.id); }} />
       )}
       {seleccionado && <DetalleLote id={seleccionado} tipo={tipo} definicion={definicion} />}
+      {definicion && (definicion.puedeSubir || definicion.puedeAutorizar) && (
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Lotes ({lotes.data?.length ?? 0})</h2>
         {lotes.isError ? (
@@ -103,6 +108,7 @@ export function LoteCargaPage({ tipo, titulo, descripcion }: { tipo: string; tit
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }
@@ -115,6 +121,9 @@ function NuevaCarga({ definicion, onCancelar, onSubido }: {
   const [encabezados, setEncabezados] = useState<EncabezadosArchivo | null>(null);
   // Columna del tipo → encabezado del archivo (lo que elige el usuario).
   const [eleccion, setEleccion] = useState<Record<string, string>>({});
+  // Parámetros del tipo (p. ej. sucursal por omisión), con su valor por omisión.
+  const [parametros, setParametros] = useState<Record<string, string>>(() =>
+    Object.fromEntries((definicion.parametros ?? []).map((p) => [p.nombre, p.porOmision ?? ''])));
   const leer = useEncabezadosArchivo(definicion.tipo);
   const subir = useSubirLote(definicion.tipo);
 
@@ -129,11 +138,13 @@ function NuevaCarga({ definicion, onCancelar, onSubido }: {
 
   const faltan = definicion.columnas.filter((c) => c.obligatoria && !eleccion[c.nombre]).map((c) => c.nombre);
   const sinFecha = definicion.requiereFechaCorte && fechaCorte === '';
+  const parametrosFaltantes = (definicion.parametros ?? []).filter((p) => p.obligatorio && !parametros[p.nombre]);
 
   async function validar() {
     if (!archivo) return;
     const mapeo = Object.fromEntries(Object.entries(eleccion).filter(([, enc]) => enc).map(([col, enc]) => [enc, col]));
-    try { onSubido(await subir.mutateAsync({ archivo, fechaCorte: fechaCorte || null, mapeo })); }
+    const capturados = Object.fromEntries(Object.entries(parametros).filter(([, v]) => v !== ''));
+    try { onSubido(await subir.mutateAsync({ archivo, fechaCorte: fechaCorte || null, mapeo, parametros: capturados })); }
     catch (e) { toast.error(mensajeErrorAccion(e)); }
   }
 
@@ -151,6 +162,22 @@ function NuevaCarga({ definicion, onCancelar, onSubido }: {
             <Input id="fecha-corte" type="date" value={fechaCorte} onChange={(e) => setFechaCorte(e.target.value)} />
           </div>
         )}
+        {(definicion.parametros ?? []).map((p) => (
+          <div key={p.nombre} className="space-y-1">
+            <Label htmlFor={`param-${p.nombre}`}>{p.etiqueta}{p.obligatorio ? ' *' : ''}</Label>
+            {p.opciones && p.opciones.length > 0 ? (
+              <select id={`param-${p.nombre}`} className={SELECT_CLASS + ' w-full'} value={parametros[p.nombre] ?? ''}
+                onChange={(e) => setParametros((x) => ({ ...x, [p.nombre]: e.target.value }))}>
+                {!p.obligatorio && <option value="">— Sin valor —</option>}
+                {p.opciones.map((o) => <option key={o.valor} value={o.valor}>{o.etiqueta}</option>)}
+              </select>
+            ) : (
+              <Input id={`param-${p.nombre}`} value={parametros[p.nombre] ?? ''}
+                onChange={(e) => setParametros((x) => ({ ...x, [p.nombre]: e.target.value }))} />
+            )}
+            <p className="text-xs text-ink-muted">{p.ayuda}</p>
+          </div>
+        ))}
       </div>
       {encabezados && (
         <div className="space-y-2">
@@ -174,7 +201,7 @@ function NuevaCarga({ definicion, onCancelar, onSubido }: {
         <p className="text-xs text-danger-fg">Elija la columna para: {faltan.join(', ')}.</p>
       )}
       <div className="flex gap-2">
-        <Button size="sm" disabled={!encabezados || faltan.length > 0 || sinFecha || subir.isPending} onClick={() => void validar()}>
+        <Button size="sm" disabled={!encabezados || faltan.length > 0 || sinFecha || parametrosFaltantes.length > 0 || subir.isPending} onClick={() => void validar()}>
           3. Validar y ver vista previa
         </Button>
         <Button size="sm" variant="outline" onClick={onCancelar}>Cancelar</Button>

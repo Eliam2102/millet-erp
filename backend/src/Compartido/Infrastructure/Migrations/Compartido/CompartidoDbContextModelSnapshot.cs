@@ -7543,6 +7543,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(260)")
                         .HasColumnName("nombre_archivo");
 
+                    b.Property<string>("ParametrosJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("parametros_json");
+
                     b.Property<bool>("PuedeAplicar")
                         .HasColumnType("boolean")
                         .HasColumnName("puede_aplicar");

@@ -11,7 +11,7 @@ using Millet.SharedKernel.Domain.Exceptions;
 namespace Millet.Compartido.Application.Cargas.Lotes;
 
 public sealed record TipoCargaResponse(string Tipo, string Nombre, IReadOnlyList<ColumnaTipoCarga> Columnas, bool RequiereFechaCorte,
-    bool PuedeSubir, bool PuedeAutorizar);
+    bool PuedeSubir, bool PuedeAutorizar, IReadOnlyList<ParametroCarga> Parametros);
 public sealed record ColumnaTipoCarga(string Nombre, string Ayuda, bool Obligatoria, IReadOnlyList<string> Alias);
 public sealed record EncabezadosResponse(IReadOnlyList<string> Encabezados, IReadOnlyDictionary<string, string> MapeoSugerido);
 public sealed record LoteCargaResumen(Guid Id, string Tipo, string NombreArchivo, string Estado, DateOnly? FechaCorte, int TotalFilas,
@@ -20,6 +20,7 @@ public sealed record LoteCargaResumen(Guid Id, string Tipo, string NombreArchivo
 public sealed record FilaLoteDetalle(int Fila, IReadOnlyDictionary<string, string> Valores, IReadOnlyList<ErrorCarga> Errores);
 public sealed record HistorialLote(string Accion, string Usuario, DateTimeOffset En, string? Detalle);
 public sealed record LoteCargaDetalle(LoteCargaResumen Lote, string Huella, IReadOnlyDictionary<string, string> Mapeo,
+    IReadOnlyDictionary<string, string?> Parametros,
     IReadOnlyDictionary<string, string> Resumen, IReadOnlyList<ErrorCarga> ErroresArchivo, IReadOnlyList<FilaLoteDetalle> Filas,
     int FilasMostradas, string? MotivoRechazo, string? Referencia, IReadOnlyList<HistorialLote> Historial,
     bool PuedeAutorizar, bool PuedeRechazar, bool PuedeReintentar);
@@ -48,9 +49,11 @@ public sealed class LotesCargaServicio(
         {
             var subir = await permisos.TieneAsync(p.PermisoSubir, ct);
             var autorizar = await permisos.TieneAsync(p.PermisoAutorizar, ct);
-            if (!subir && !autorizar) continue;
+            // QA O1: se listan todos los tipos registrados con sus banderas, para que la pantalla distinga
+            // «aún no habilitado» (no hay tipo) de «sin permiso» (hay tipo, sin banderas).
             lista.Add(new(p.Tipo, p.Nombre, [.. p.Columnas.Select(c => new ColumnaTipoCarga(c.Nombre, c.Ayuda,
-                p.ColumnasObligatorias.Contains(c.Nombre), c.Alias))], p.RequiereFechaCorte, subir, autorizar));
+                p.ColumnasObligatorias.Contains(c.Nombre), c.Alias))], p.RequiereFechaCorte, subir, autorizar,
+                subir || autorizar ? await p.ParametrosAsync(ct) : []));
         }
         return lista;
     }
@@ -72,7 +75,7 @@ public sealed class LotesCargaServicio(
     }
 
     public async Task<LoteCargaDetalle> SubirAsync(string tipo, byte[] archivo, string nombre, DateOnly? fechaCorte,
-        IReadOnlyDictionary<string, string> mapeo, CancellationToken ct)
+        IReadOnlyDictionary<string, string> mapeo, CancellationToken ct, IReadOnlyDictionary<string, string?>? parametros = null)
     {
         var p = Procesador(tipo);
         await ExigirAsync(p.PermisoSubir, ct);
@@ -84,6 +87,7 @@ public sealed class LotesCargaServicio(
             throw new BusinessRuleException("LOTE_CARGA_MAPEO_INCOMPLETO",
                 $"Elija la columna del archivo para: {string.Join(", ", faltan)}.");
 
+        var valores = await ResolverParametrosAsync(p, parametros ?? new Dictionary<string, string?>(), ct);
         var huella = Convert.ToHexString(SHA256.HashData(archivo));
         var existente = await db.LotesCarga.FirstOrDefaultAsync(l => l.Tipo == tipo && l.Huella == huella
             && l.FechaCorte == fechaCorte && l.Estado != EstadoLoteCarga.Rechazado, ct);
@@ -93,7 +97,8 @@ public sealed class LotesCargaServicio(
         var filas = tabla.Filas.Select(f => new FilaCarga(f.Numero, f.Valores)).ToList();
         var (actorId, actorNombre) = Actor();
         var lote = new LoteCarga(Guid.CreateVersion7(), empresaId, tipo, Path.GetFileName(nombre), huella, fechaCorte,
-            JsonSerializer.Serialize(mapeo, Json), JsonSerializer.Serialize(filas, Json), filas.Count, actorId, actorNombre, reloj.UtcNow);
+            JsonSerializer.Serialize(mapeo, Json), JsonSerializer.Serialize(filas, Json), filas.Count, actorId, actorNombre, reloj.UtcNow,
+            JsonSerializer.Serialize(valores, Json));
         var erroresLectura = tabla.Errores.Select(e => new ErrorCarga(e.Renglon <= 1 ? null : e.Renglon, e.Columna, e.Codigo, e.Mensaje)).ToList();
         await ValidarAsync(lote, p, filas, erroresLectura, ct);
         Historial(lote, "Subido", $"{filas.Count} renglones, {lote.TotalErrores} errores");
@@ -210,6 +215,7 @@ public sealed class LotesCargaServicio(
         var autoriza = await permisos.TieneAsync(p.PermisoAutorizar, ct);
         return new(Resumen(lote), lote.Huella,
             JsonSerializer.Deserialize<Dictionary<string, string>>(lote.MapeoJson, Json) ?? [],
+            Parametros(lote),
             v.Resumen, [.. v.Errores.Where(e => e.Fila is null)], mostradas, mostradas.Count, lote.MotivoRechazo, lote.Referencia,
             JsonSerializer.Deserialize<List<HistorialLote>>(lote.HistorialJson, Json) ?? [],
             PuedeAutorizar: autoriza && lote.Estado == EstadoLoteCarga.Subido && lote.PuedeAplicar && actorId != lote.SubidoPorId,
@@ -225,7 +231,39 @@ public sealed class LotesCargaServicio(
         JsonSerializer.Deserialize<List<FilaCarga>>(lote.FilasJson, Json) ?? [];
 
     private static LoteCargaContexto Contexto(LoteCarga l) =>
-        new(l.Id, l.EmpresaId, l.Huella, l.FechaCorte, l.SubidoPorId, l.DecididoPorId);
+        new(l.Id, l.EmpresaId, l.Huella, l.FechaCorte, l.SubidoPorId,
+            l.Estado is EstadoLoteCarga.Autorizado or EstadoLoteCarga.Aplicado ? l.DecididoPorId : null,
+            l.SubidoPorNombre,
+            l.Estado is EstadoLoteCarga.Autorizado or EstadoLoteCarga.Aplicado ? l.DecididoPorNombre : null,
+            Parametros(l));
+
+    private static Dictionary<string, string?> Parametros(LoteCarga l) =>
+        JsonSerializer.Deserialize<Dictionary<string, string?>>(l.ParametrosJson, Json) ?? [];
+
+    /// <summary>
+    /// Aplica el valor por omisión, exige los obligatorios, rechaza los que el tipo no declara y, si el parámetro
+    /// tiene opciones, que el valor sea una de ellas.
+    /// </summary>
+    private static async Task<Dictionary<string, string?>> ResolverParametrosAsync(IProcesadorCarga p,
+        IReadOnlyDictionary<string, string?> capturados, CancellationToken ct)
+    {
+        var declarados = await p.ParametrosAsync(ct);
+        var desconocidos = capturados.Keys.Where(k => declarados.All(d => d.Nombre != k)).ToList();
+        if (desconocidos.Count > 0)
+            throw new BusinessRuleException("LOTE_CARGA_PARAMETRO_DESCONOCIDO",
+                $"Este tipo de carga no usa: {string.Join(", ", desconocidos)}.");
+        var valores = new Dictionary<string, string?>();
+        foreach (var d in declarados)
+        {
+            var valor = capturados.TryGetValue(d.Nombre, out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : d.PorOmision;
+            if (d.Obligatorio && string.IsNullOrWhiteSpace(valor))
+                throw new BusinessRuleException("LOTE_CARGA_PARAMETRO_REQUERIDO", $"Capture «{d.Etiqueta}».");
+            if (valor is not null && d.Opciones is { Count: > 0 } opciones && opciones.All(o => o.Valor != valor))
+                throw new BusinessRuleException("LOTE_CARGA_PARAMETRO_INVALIDO", $"Elija un valor válido para «{d.Etiqueta}».");
+            valores[d.Nombre] = valor;
+        }
+        return valores;
+    }
 
     private void Historial(LoteCarga lote, string accion, string? detalle)
     {

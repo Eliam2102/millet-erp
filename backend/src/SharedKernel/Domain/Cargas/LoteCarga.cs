@@ -32,6 +32,8 @@ public sealed class LoteCarga : BaseEntity, IAuditable, IPerteneceAEmpresa
 
     /// <summary>Mapeo encabezado del archivo → columna del tipo (JSON).</summary>
     public string MapeoJson { get; private set; } = "{}";
+    /// <summary>Parámetros del tipo capturados al subir (JSON), p. ej. sucursal por omisión.</summary>
+    public string ParametrosJson { get; private set; } = "{}";
     /// <summary>Filas ya mapeadas a las columnas del tipo (JSON), con su renglón real del archivo.</summary>
     public string FilasJson { get; private set; } = "[]";
     /// <summary>Resultado de la última validación del módulo dueño (JSON).</summary>
@@ -59,7 +61,8 @@ public sealed class LoteCarga : BaseEntity, IAuditable, IPerteneceAEmpresa
     private LoteCarga() { }
 
     public LoteCarga(Guid id, Guid empresaId, string tipo, string nombreArchivo, string huella, DateOnly? fechaCorte,
-        string mapeoJson, string filasJson, int totalFilas, Guid subidoPorId, string subidoPorNombre, DateTimeOffset ahora)
+        string mapeoJson, string filasJson, int totalFilas, Guid subidoPorId, string subidoPorNombre, DateTimeOffset ahora,
+        string parametrosJson = "{}")
         : base(id)
     {
         if (string.IsNullOrWhiteSpace(tipo) || string.IsNullOrWhiteSpace(huella) || subidoPorId == Guid.Empty)
@@ -70,6 +73,7 @@ public sealed class LoteCarga : BaseEntity, IAuditable, IPerteneceAEmpresa
         Huella = huella.ToUpperInvariant();
         FechaCorte = fechaCorte;
         MapeoJson = mapeoJson;
+        ParametrosJson = parametrosJson;
         FilasJson = filasJson;
         TotalFilas = totalFilas;
         SubidoPorId = subidoPorId;
