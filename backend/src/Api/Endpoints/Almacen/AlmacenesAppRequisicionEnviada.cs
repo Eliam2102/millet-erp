@@ -72,7 +72,7 @@ public static class AlmacenesAppRequisicionEnviada
         return r.Error is null ? ("RECIBIDO", r.Folio, null) : ("ERROR", r.Folio, r.Error);
     }
 
-    internal static (CrearRqAppSolicitud?, string?) Parsear(JsonElement d)
+    public static (CrearRqAppSolicitud?, string?) Parsear(JsonElement d)
     {
         var folio = Texto(d, "folio");
         if (string.IsNullOrWhiteSpace(folio) || folio.Length > 64)
@@ -125,8 +125,10 @@ public static class AlmacenesAppRequisicionEnviada
     {
         valor = null;
         if (!o.TryGetProperty(n, out var v) || v.ValueKind == JsonValueKind.Null) return true;
-        if (v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out var i)) return false;
-        valor = i;
+        // La app manda las medidas como 3302.0 (contrato v8, mensajes reales de ENSAYO): vale si no tiene fracción.
+        if (v.ValueKind != JsonValueKind.Number || !v.TryGetDecimal(out var d) || d != decimal.Truncate(d) || d is < int.MinValue or > int.MaxValue)
+            return false;
+        valor = (int)d;
         return true;
     }
 }
