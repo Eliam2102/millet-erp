@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 {
     [DbContext(typeof(CompartidoDbContext))]
-    [Migration("20261110130939_M047LotesCarga")]
+    [Migration("20261109221244_M047LotesCarga")]
     partial class M047LotesCarga
     {
         /// <inheritdoc />
@@ -4021,10 +4021,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave_legacy");
 
-                    b.Property<bool>("ConsumoPorTamborALinea")
-                        .HasColumnType("boolean")
-                        .HasColumnName("consumo_por_tambor_a_linea");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -4044,11 +4040,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<short>("Estatus")
                         .HasColumnType("smallint")
                         .HasColumnName("estatus");
-
-                    b.Property<decimal?>("KgPorPresentacion")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)")
-                        .HasColumnName("kg_por_presentacion");
 
                     b.Property<short>("Naturaleza")
                         .HasColumnType("smallint")
@@ -7531,11 +7522,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(260)
                         .HasColumnType("character varying(260)")
                         .HasColumnName("nombre_archivo");
-
-                    b.Property<string>("ParametrosJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("parametros_json");
 
                     b.Property<bool>("PuedeAplicar")
                         .HasColumnType("boolean")

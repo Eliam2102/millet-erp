@@ -24,7 +24,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     fecha_corte = table.Column<DateOnly>(type: "date", nullable: true),
                     estado = table.Column<short>(type: "smallint", nullable: false),
                     mapeo_json = table.Column<string>(type: "jsonb", nullable: false),
-                    parametros_json = table.Column<string>(type: "jsonb", nullable: false),
                     filas_json = table.Column<string>(type: "jsonb", nullable: false),
                     validacion_json = table.Column<string>(type: "jsonb", nullable: false),
                     puede_aplicar = table.Column<bool>(type: "boolean", nullable: false),
