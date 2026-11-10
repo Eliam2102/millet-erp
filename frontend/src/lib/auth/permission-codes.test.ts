@@ -265,6 +265,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_cobrar.lineas-credito.gestionar',
   'cuentas_por_cobrar.liberacion.decidir',
   'cuentas_por_cobrar.liberacion.override',
+  'cuentas_por_cobrar.liberacion.override-direccion',
   'cuentas_por_cobrar.cobranza.registrar',
   'cuentas_por_cobrar.cartera.leer',
   'cuentas_por_cobrar.aplicacion-pago.proponer',
@@ -324,6 +325,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.notas-credito.leer',
   'facturacion.notas-credito.reembolso-solicitar',
   'facturacion.notas-credito.autorizar',
+  'facturacion.notas-credito.autorizar-credito',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',
@@ -369,6 +371,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.polizas.capturar',
   'contabilidad.polizas.autorizar',
   'contabilidad.polizas.anular',
+  'contabilidad.polizas.anular-aprobar',
   // Pólizas recurrentes (K10.4)
   'contabilidad.recurrentes.leer',
   'contabilidad.recurrentes.administrar',
@@ -376,6 +379,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.motor.leer',
   'contabilidad.roles-cuenta.administrar',
   'contabilidad.rechazos.gestionar',
+  'contabilidad.tipo-cambio.autorizar-sustituto',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

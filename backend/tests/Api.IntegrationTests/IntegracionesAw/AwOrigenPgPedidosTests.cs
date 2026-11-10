@@ -128,6 +128,19 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task Un_pedido_pospuesto_reintentado_hace_poco_no_llena_el_lote()
+    {
+        // QA 10-nov: las 50 pospuestas de número más bajo llenaban cada lote y 1,048 pendientes nunca se leían.
+        await EjecutarAsync("UPDATE dbo.aw_solicitud_pedido SET resultado = 3, procesada_at = now() WHERE numero_pedido = '900101'");
+
+        var lote = await Lector().LeerPendientesAsync(1, CancellationToken.None);
+        lote.Select(s => s.NumeroPedido).Should().Equal("900102");
+
+        await EjecutarAsync("UPDATE dbo.aw_solicitud_pedido SET procesada_at = now() - interval '11 minutes' WHERE numero_pedido = '900101'");
+        (await Lector().LeerPendientesAsync(1, CancellationToken.None)).Select(s => s.NumeroPedido).Should().Equal("900101");
+    }
+
+    [Fact]
     public async Task Lee_el_pedido_con_lineas_netas_de_iva()
     {
         var lectura = await Lector().LeerDatosPedidoAsync("900101", CancellationToken.None);

@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { formatDateTime } from '@/lib/datetime';
 import { formatMoney } from '@/lib/money';
+import { textoVigenciaProforma } from '@/features/facturacion/lib/proforma-vigencia';
 import { Download, Eye } from 'lucide-react';
 
 /**
@@ -42,7 +43,10 @@ export function ProformaPedidoCard({
             Última proforma{' '}
             <span className="font-mono text-sm font-medium text-ink">{proforma.folio}</span> ·{' '}
             {formatDateTime(proforma.generadaEn)}
-            {proforma.generadaPor ? <> · {proforma.generadaPor}</> : null} ·{' '}
+            {proforma.generadaPor ? <> · {proforma.generadaPor}</> : null}
+            {textoVigenciaProforma(proforma) ? (
+              <span className={proforma.vencida ? ' font-medium text-warning-fg' : undefined}> · {textoVigenciaProforma(proforma)}</span>
+            ) : null}{' '}·{' '}
             <span className="tabular-nums">
               {formatMoney({
                 amount: proforma.contenido.totales.total,

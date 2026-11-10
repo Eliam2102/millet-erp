@@ -40,6 +40,7 @@ import { IntentosTimbradoPanel } from '@/features/facturacion/components/Intento
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { SustituirFacturaPanel } from '@/features/facturacion/components/SustituirFacturaPanel';
 import { NotasCreditoPendientesAviso } from '@/features/facturacion/components/NotasCreditoPendientesAviso';
+import { EfectosComprobanteSeccion } from '@/features/facturacion/components/EfectosComprobanteSeccion';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { descargarArchivo } from '@/features/facturacion/lib/descargas';
@@ -109,6 +110,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | 'sustituir' | null>(null);
   const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.FacturacionAnticiposVincular);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
+  // M20 (prueba S3-4): el XML existe desde el timbre y se descarga siempre, también con la cancelación en proceso o ya cancelada.
+  const conXml = timbrada || f.estado === 'CancelacionPendiente';
   // Solo una factura vigente (Timbrado) admite NC / cancelación.
   const vigente = f.estado === 'Timbrado';
   const pendientePedimento = f.estado === 'PendientePedimento';
@@ -170,8 +173,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                     variant="outline"
                     size="sm"
                     onClick={() => descargar('xml')}
-                    disabled={!timbrada}
-                    title={!timbrada ? 'El XML se genera al timbrar el comprobante.' : undefined}
+                    disabled={!conXml}
+                    title={!conXml ? 'El XML se genera al timbrar el comprobante.' : undefined}
                   >
                     <FileCode className="mr-1 h-4 w-4" />
                     XML
@@ -282,6 +285,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       />
 
       <NotasCreditoPendientesAviso notas={f.notasCreditoPendientes ?? []} />
+
+      <EfectosComprobanteSeccion comprobanteId={f.id} />
 
       <AvisoSustitucion f={f} />
 

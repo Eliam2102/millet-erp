@@ -24,6 +24,12 @@ it('muestra el estado recibido con su texto de usuario al reintentar', () => {
   );
 });
 
+it('M19: sin saldo del proveedor de timbrado no pide revisar los datos fiscales', () => {
+  render(<TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_SIN_SALDO" errorMensaje={null} />);
+  expect(screen.getByText(/El proveedor de timbrado no tiene saldo para timbrar/)).toBeInTheDocument();
+  expect(screen.queryByText(/Revisa sus datos fiscales/)).not.toBeInTheDocument();
+});
+
 it('M-284: ofrece adoptar el CFDI solo cuando el PAC no confirmó el timbrado', () => {
   const { rerender } = render(
     <TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_TIMEOUT" errorMensaje={null} />,

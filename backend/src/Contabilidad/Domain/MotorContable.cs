@@ -17,7 +17,24 @@ public enum AuxiliarPlantilla : short { Ninguno = 0, Proveedor = 1, Cliente = 2 
 
 /// <summary>Causa de un rechazo del motor (plano C1 §2, ficha C1.4 §2). Fijo por ABI: agregar al final.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum CausaRechazoContable : short { SinPlantilla = 0, RolSinCuenta = 1, PeriodoCerrado = 2, CuentaNoValida = 3, DatoFaltante = 4, NoCuadra = 5 }
+public enum CausaRechazoContable : short
+{
+    SinPlantilla = 0, RolSinCuenta = 1, PeriodoCerrado = 2, CuentaNoValida = 3, DatoFaltante = 4, NoCuadra = 5,
+    /// <summary>M-207: el TC del CFDI difiere del catálogo común más que la tolerancia. Detalle = «tcDocumento|tcCatalogo».</summary>
+    TipoCambioFueraDeTolerancia = 6,
+    /// <summary>M-207: el CFDI en moneda extranjera no trae TC y el catálogo no tiene el de su fecha.</summary>
+    TipoCambioFaltante = 7,
+}
+
+/// <summary>M-207: qué se autoriza para un rechazo de tipo de cambio.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum AccionTipoCambioRechazo : short
+{
+    /// <summary>Se contabiliza con un TC capturado (p. ej. el FIX del día).</summary>
+    Sustituto = 1,
+    /// <summary>Se acepta el TC del documento aunque esté fuera de tolerancia.</summary>
+    AceptarDocumento = 2,
+}
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum EstadoRechazoContable : short { Pendiente = 0, Reprocesado = 1, Descartado = 2 }
@@ -179,6 +196,21 @@ public sealed class RechazoContable : IPerteneceAEmpresa
     public string? MotivoDescarte { get; private set; }
     public int Version { get; private set; } = 1;
 
+    // ── M-207: tipo de cambio sustituto (captura y autorización por otra persona) ──
+    public AccionTipoCambioRechazo? TcAccion { get; private set; }
+    public decimal? TcValor { get; private set; }
+    public string? TcMotivo { get; private set; }
+    public string? TcCapturadoPor { get; private set; }
+    public Guid? TcCapturadoPorId { get; private set; }
+    public DateTimeOffset? TcCapturadoEn { get; private set; }
+    public string? TcAutorizadoPor { get; private set; }
+    public DateTimeOffset? TcAutorizadoEn { get; private set; }
+
+    public bool EsDeTipoCambio => Causa is CausaRechazoContable.TipoCambioFueraDeTolerancia or CausaRechazoContable.TipoCambioFaltante;
+    /// <summary>Capturado y aún sin la firma de otra persona («Por autorizar» en la bandeja).</summary>
+    public bool TcPorAutorizar => TcCapturadoEn is not null && TcAutorizadoEn is null;
+    public bool TcAutorizado => TcAutorizadoEn is not null;
+
     private RechazoContable() { }
 
     public static RechazoContable Crear(Guid empresaId, string tipoEvento, Guid eventoId, string payload, CausaRechazoContable causa,
@@ -201,6 +233,44 @@ public sealed class RechazoContable : IPerteneceAEmpresa
         ExigirPendiente();
         Estado = EstadoRechazoContable.Reprocesado; PolizaId = polizaId; ResueltoPor = usuario; ResueltoEn = ahora; Intentos++;
         UltimoIntentoEn = ahora; Version++;
+    }
+
+    /// <summary>
+    /// M-207: captura el TC sustituto (o la aceptación del TC del documento) de un rechazo de tipo de cambio pendiente. Exige motivo;
+    /// una captura nueva anula la autorización anterior. El reproceso solo lo usa ya autorizado.
+    /// </summary>
+    public void CapturarTipoCambio(AccionTipoCambioRechazo accion, decimal? valor, string motivo, Guid? usuarioId, string usuario, DateTimeOffset ahora)
+    {
+        ExigirPendiente();
+        if (!EsDeTipoCambio)
+            throw new BusinessRuleException("CONTAB_RECHAZO_NO_ES_TC", "Solo un rechazo por tipo de cambio admite un tipo de cambio sustituto.");
+        if (motivo is null || motivo.Trim().Length < MotivoMinimo)
+            throw new BusinessRuleException("CONTAB_RECHAZO_MOTIVO", $"Indique por qué (al menos {MotivoMinimo} caracteres).");
+        if (accion == AccionTipoCambioRechazo.AceptarDocumento && Causa != CausaRechazoContable.TipoCambioFueraDeTolerancia)
+            throw new BusinessRuleException("CONTAB_TC_SIN_DOCUMENTO", "El documento no trae tipo de cambio: capture un valor sustituto.");
+        if (accion == AccionTipoCambioRechazo.Sustituto && (valor is not > 0 || decimal.Round(valor.Value, 6) != valor.Value || valor > 9999m))
+            throw new BusinessRuleException("CONTAB_TC_SUSTITUTO_INVALIDO", "Capture un tipo de cambio mayor a cero, con hasta 6 decimales.");
+        TcAccion = accion;
+        TcValor = accion == AccionTipoCambioRechazo.Sustituto ? valor : null;
+        TcMotivo = motivo.Trim().Length <= 500 ? motivo.Trim() : motivo.Trim()[..500];
+        TcCapturadoPor = usuario; TcCapturadoPorId = usuarioId; TcCapturadoEn = ahora;
+        TcAutorizadoPor = null; TcAutorizadoEn = null;
+        Version++;
+    }
+
+    /// <summary>M-207 (CA5): autoriza el TC capturado; debe hacerlo otra persona.</summary>
+    public void AutorizarTipoCambio(Guid? usuarioId, string usuario, DateTimeOffset ahora)
+    {
+        ExigirPendiente();
+        if (!TcPorAutorizar)
+            throw new BusinessRuleException("CONTAB_TC_SIN_CAPTURA", "No hay un tipo de cambio capturado por autorizar.");
+        var mismaPersona = usuarioId is not null && TcCapturadoPorId is not null
+            ? usuarioId == TcCapturadoPorId
+            : string.Equals(usuario?.Trim(), TcCapturadoPor, StringComparison.OrdinalIgnoreCase);
+        if (mismaPersona)
+            throw new BusinessRuleException("CONTAB_TC_MISMA_PERSONA", "Debe autorizar otra persona.");
+        TcAutorizadoPor = usuario; TcAutorizadoEn = ahora;
+        Version++;
     }
 
     public void Descartar(string motivo, string usuario, DateTimeOffset ahora)

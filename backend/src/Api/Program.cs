@@ -412,6 +412,14 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Application.Cajas.Sesiones.CajasOptions.SectionName));
 
+// === Notas de crédito de A+W (M-087) ===
+// Umbral de la segunda firma (Crédito y Cobranza); por omisión 35,000 MXN
+// (Facturacion:NotasCreditoAw:UmbralSegundaFirmaMxn).
+builder.Services
+    .AddOptions<Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito.NotasCreditoAwOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito.NotasCreditoAwOptions.SectionName));
+
 // === Adopción de CFDI (M-284, QA O1) ===
 // Certificado del SAT (por NoCertificadoSAT) para verificar el SelloSAT del timbre adoptado.
 builder.Services.AddHttpClient<
@@ -1002,6 +1010,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ITipoCambioContabilidadReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioContabilidadReadAdapter>();
+// M-207 (86e3zr7nf): tolerancia del TC del CFDI contra el catálogo (parámetro global).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.IToleranciaTipoCambioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ToleranciaTipoCambioReadAdapter>();
 
 // IUsuarioReadPort de Almacén → adapter hospedado en Identidad (ADR-0042).
 // Reemplaza el NoOpUsuarioReadPort que registró AddAlmacenModule(). El adapter

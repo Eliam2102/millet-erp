@@ -29,6 +29,7 @@ interface Props {
 export function MotorContablePage({ search, onSearch }: Props) {
   const puedeAdministrarRoles = useHasPermission(PermisosCanonicos.ContabilidadRolesCuentaAdministrar);
   const puedeGestionarRechazos = useHasPermission(PermisosCanonicos.ContabilidadRechazosGestionar);
+  const puedeAutorizarTc = useHasPermission(PermisosCanonicos.ContabilidadTipoCambioAutorizarSustituto);
   const [nuevoRol, setNuevoRol] = useState(false);
   const vista: VistaMotor = search.vista ?? (puedeGestionarRechazos ? 'rechazos' : 'roles');
 
@@ -71,6 +72,7 @@ export function MotorContablePage({ search, onSearch }: Props) {
           estado={search.estado}
           onEstado={(estado) => onSearch({ ...search, estado })}
           puedeGestionar={puedeGestionarRechazos}
+          puedeAutorizarTc={puedeAutorizarTc}
         />
       )}
 

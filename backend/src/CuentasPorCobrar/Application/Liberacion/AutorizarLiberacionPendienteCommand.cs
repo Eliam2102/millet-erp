@@ -64,6 +64,7 @@ public sealed class AutorizarLiberacionPendienteHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly IFacturacionPedidosSinFacturarReadPort _pedidos;
+    private readonly ICurrentUserPermissions? _permisos;
 
     public AutorizarLiberacionPendienteHandler(
         CuentasPorCobrarDbContext db,
@@ -71,10 +72,11 @@ public sealed class AutorizarLiberacionPendienteHandler
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IClock clock,
-        IFacturacionPedidosSinFacturarReadPort pedidos)
+        IFacturacionPedidosSinFacturarReadPort pedidos,
+        ICurrentUserPermissions? permisos = null)
     {
         _db = db; _eventos = eventos; _currentEmpresa = currentEmpresa;
-        _currentUser = currentUser; _clock = clock; _pedidos = pedidos;
+        _currentUser = currentUser; _clock = clock; _pedidos = pedidos; _permisos = permisos;
     }
 
     public async Task<DecisionLiberacionResponse> Handle(
@@ -112,6 +114,10 @@ public sealed class AutorizarLiberacionPendienteHandler
                     regla = ReglaAplicadaLiberacion.Credito;
                     break;
                 default:
+                    // M-085: con exceso mayor al tope de Crédito y Cobranza, solo Dirección autoriza.
+                    var deDireccion = _permisos is not null && await _permisos.TieneAsync(
+                        Millet.Identidad.Domain.PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion, cancellationToken);
+                    ExcesoCredito.ExigirNivel(pendiente.Moneda, credito.Disponible, pendiente.MontoPedido, deDireccion);
                     resultado = ResultadoLiberacion.LiberadoConOverride;
                     regla = ReglaAplicadaLiberacion.Override;
                     autorizacion = AutorizacionCredito.Crear(
@@ -121,7 +127,8 @@ public sealed class AutorizarLiberacionPendienteHandler
                         motivo: command.Motivo,
                         clienteOPedidoRef: pendiente.PedidoRef,
                         ahora: ahora,
-                        vigencia: Vigencia);
+                        vigencia: Vigencia,
+                        autorizadaPorDireccion: deDireccion);
                     break;
             }
         }

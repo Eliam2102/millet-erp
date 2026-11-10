@@ -423,8 +423,10 @@ public sealed class ReintentarTimbradoHandlerTests
     }
 
     [Fact]
-    public async Task Falla_despues_del_PAC_deja_en_proceso_y_bloquea_reintento_inmediato_sin_PAC()
+    public async Task Falla_del_evento_despues_del_PAC_conserva_el_timbrado_y_deja_el_efecto_pendiente_sin_reintentar_el_PAC()
     {
+        // M-285: antes, una falla posterior al PAC dejaba todo «en proceso»; ahora el timbrado se guarda
+        // y el evento contable queda pendiente para «Reintentar pendientes» (sin volver a timbrar).
         var empresaId = Guid.NewGuid();
         var nombreBase = Guid.NewGuid().ToString();
         Guid id;
@@ -432,19 +434,20 @@ public sealed class ReintentarTimbradoHandlerTests
         {
             var fv = CrearFacturaFallida(db, empresaId, "CFDI40179");
             id = fv.Id;
-            var act = () => HandlerCon(db, new PacEspia(), eventos: new EventosQueFallan())
+            var r = await HandlerCon(db, new PacEspia(), eventos: new EventosQueFallan())
                 .Handle(new ReintentarTimbradoCommand(id), CancellationToken.None);
-            await act.Should().ThrowAsync<InvalidOperationException>();
+            r.Estado.Should().Be(nameof(EstadoTimbrado.Timbrado));
         }
 
-        // Lo persistido NO es un TimbradoFallido con código limpio (el PAC pudo haber timbrado).
         using (var lectura = NewDb(empresaId, nombreBase))
         {
-            var persistido = await lectura.Comprobantes.AsNoTracking().SingleAsync(c => c.Id == id);
-            persistido.Estado.Should().Be(EstadoTimbrado.TimbradoEnProceso);
+            (await lectura.Comprobantes.AsNoTracking().SingleAsync(c => c.Id == id)).Estado.Should().Be(EstadoTimbrado.Timbrado);
+            var efecto = await lectura.EfectosComprobante.AsNoTracking()
+                .SingleAsync(e => e.ComprobanteId == id && e.Tipo == TipoEfectoComprobante.EventoContable);
+            efecto.Estado.Should().Be(EstadoEfectoComprobante.Pendiente);
         }
 
-        // Un reintento inmediato es rechazado sin tocar el PAC.
+        // Un reintento de timbrado ya no aplica (está timbrado) y no toca el PAC.
         using var db2 = NewDb(empresaId, nombreBase);
         var pac2 = new PacEspia();
         var reintento = () => HandlerCon(db2, pac2).Handle(new ReintentarTimbradoCommand(id), CancellationToken.None);

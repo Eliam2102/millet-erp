@@ -483,6 +483,8 @@ public static class PermisosCanonicos
     public const string FacturacionNotasCreditoLeer            = "facturacion.notas-credito.leer";
     public const string FacturacionNotasCreditoReembolsoSolicitar = "facturacion.notas-credito.reembolso-solicitar";
     public const string FacturacionNotasCreditoAutorizar       = "facturacion.notas-credito.autorizar";
+    /// <summary>M-087: segunda firma (Crédito y Cobranza) de las NC de A+W arriba del umbral.</summary>
+    public const string FacturacionNotasCreditoAutorizarCredito = "facturacion.notas-credito.autorizar-credito";
     public const string FacturacionCartaPorteEmitir            = "facturacion.carta-porte.emitir";
     public const string FacturacionCartaPorteLeer              = "facturacion.carta-porte.leer";
     public const string FacturacionReppEmitir                  = "facturacion.repp.emitir";
@@ -517,6 +519,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarLineasCreditoGestionar  = "cuentas_por_cobrar.lineas-credito.gestionar";
     public const string CuentasPorCobrarLiberacionDecidir       = "cuentas_por_cobrar.liberacion.decidir";
     public const string CuentasPorCobrarLiberacionOverride      = "cuentas_por_cobrar.liberacion.override";
+    /// <summary>M-085: autorizar excepciones de crédito con exceso mayor al tope de Crédito y Cobranza (Dirección).</summary>
+    public const string CuentasPorCobrarLiberacionOverrideDireccion = "cuentas_por_cobrar.liberacion.override-direccion";
     public const string CuentasPorCobrarCobranzaRegistrar       = "cuentas_por_cobrar.cobranza.registrar";
     public const string CuentasPorCobrarCarteraLeer             = "cuentas_por_cobrar.cartera.leer";
     public const string CuentasPorCobrarAplicacionPagoProponer  = "cuentas_por_cobrar.aplicacion-pago.proponer";
@@ -623,7 +627,10 @@ public static class PermisosCanonicos
     public const string ContabilidadPolizasLeer                         = "contabilidad.polizas.leer";
     public const string ContabilidadPolizasCapturar                     = "contabilidad.polizas.capturar";
     public const string ContabilidadPolizasAutorizar                    = "contabilidad.polizas.autorizar";
+    /// <summary>M-212: solicitar la anulación de una póliza autorizada (la aprueba otra persona con <see cref="ContabilidadPolizasAnularAprobar"/>).</summary>
     public const string ContabilidadPolizasAnular                       = "contabilidad.polizas.anular";
+    /// <summary>M-212: aprobar o rechazar la solicitud de anulación de otra persona (segunda firma).</summary>
+    public const string ContabilidadPolizasAnularAprobar                = "contabilidad.polizas.anular-aprobar";
     // K10.4: -0006 pólizas recurrentes. `administrar` prepara, suspende y genera; `autorizar` activa (no quien la preparó, R23).
     public const string ContabilidadRecurrentesLeer                     = "contabilidad.recurrentes.leer";
     public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
@@ -632,6 +639,8 @@ public static class PermisosCanonicos
     public const string ContabilidadMotorLeer                           = "contabilidad.motor.leer";
     public const string ContabilidadRolesCuentaAdministrar              = "contabilidad.roles-cuenta.administrar";
     public const string ContabilidadRechazosGestionar                   = "contabilidad.rechazos.gestionar";
+    // M-207: autorizar el tipo de cambio sustituto (o aceptar el del documento) de un rechazo; otra persona que quien lo capturó.
+    public const string ContabilidadTipoCambioAutorizarSustituto        = "contabilidad.tipo-cambio.autorizar-sustituto";
 
     public const string ActivosFijosDepreciacionCorrer = "activos_fijos.depreciacion.correr";
     public const string ActivosFijosDepreciacionAnular = "activos_fijos.depreciacion.anular";
@@ -970,6 +979,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0004-0000-0000-000000000001"), FacturacionNotasCreditoBonificacion,    "Emitir notas de crédito por bonificación (relación 01)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000002"), FacturacionNotasCreditoLeer,            "Consultar notas de crédito emitidas"),
         (Guid.Parse("00000009-0004-0000-0000-000000000003"), FacturacionNotasCreditoReembolsoSolicitar, "Solicitar a Tesorería el reembolso en dinero de una nota de crédito timbrada"),
+        (Guid.Parse("00000009-0004-0000-0000-000000000005"), FacturacionNotasCreditoAutorizarCredito, "Firmar por Crédito y Cobranza las notas de crédito de A+W arriba del umbral de la segunda firma (35,000 MXN por omisión)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000004"), FacturacionNotasCreditoAutorizar,       "Autorizar y timbrar notas de crédito de clientes que llegan de A+W (propuesta: Gerente de Sucursal, manual §2.3; la reemplaza la cadena por monto F6.4)"),
         (Guid.Parse("00000009-0005-0000-0000-000000000001"), FacturacionCartaPorteEmitir,            "Emitir Carta Porte 3.1 (CFDI tipo T o I), incluyendo tramos siguientes"),
         (Guid.Parse("00000009-0005-0000-0000-000000000002"), FacturacionCartaPorteLeer,              "Consultar Carta Portes emitidas"),
@@ -994,6 +1004,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0001-0000-0000-000000000002"), CuentasPorCobrarLineasCreditoGestionar,  "Crear, editar, bloquear y desbloquear líneas de crédito"),
         (Guid.Parse("0000000a-0002-0000-0000-000000000001"), CuentasPorCobrarLiberacionDecidir,       "Decidir la liberación de pedidos por crédito"),
         (Guid.Parse("0000000a-0002-0000-0000-000000000002"), CuentasPorCobrarLiberacionOverride,      "Otorgar autorización consumible de override de crédito (gerente)"),
+        (Guid.Parse("0000000a-0002-0000-0000-000000000003"), CuentasPorCobrarLiberacionOverrideDireccion, "Autorizar excepciones de crédito con exceso mayor al tope de Crédito y Cobranza (Dirección)"),
         (Guid.Parse("0000000a-0003-0000-0000-000000000001"), CuentasPorCobrarCobranzaRegistrar,       "Registrar gestiones de cobranza (llamadas, correos, promesas de pago)"),
         (Guid.Parse("0000000a-0004-0000-0000-000000000001"), CuentasPorCobrarCarteraLeer,             "Consultar cartera, antigüedad de saldos, estado de cuenta y alertas"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),
@@ -1057,13 +1068,15 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0005-0000-0000-000000000001"), ContabilidadPolizasLeer,                "Consultar pólizas contables, sus partidas, documentos soporte y los movimientos del periodo por cuenta"),
         (Guid.Parse("0000000d-0005-0000-0000-000000000002"), ContabilidadPolizasCapturar,            "Capturar, editar y descartar pólizas manuales en borrador y adjuntar su documento soporte"),
         (Guid.Parse("0000000d-0005-0000-0000-000000000003"), ContabilidadPolizasAutorizar,           "Autorizar pólizas manuales capturadas por otro usuario (asigna su número)"),
-        (Guid.Parse("0000000d-0005-0000-0000-000000000004"), ContabilidadPolizasAnular,              "Anular pólizas autorizadas con motivo (genera la póliza con las mismas partidas en negativo)"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000004"), ContabilidadPolizasAnular,              "Solicitar con motivo la anulación de pólizas autorizadas (la aprueba otra persona)"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000005"), ContabilidadPolizasAnularAprobar,       "Aprobar o rechazar la anulación de pólizas solicitada por otra persona (genera la póliza con las mismas partidas en negativo)"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000001"), ContabilidadRecurrentesLeer,            "Consultar plantillas de pólizas recurrentes y su calendario de aplicaciones"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000002"), ContabilidadRecurrentesAdministrar,     "Preparar, editar, suspender y reanudar plantillas recurrentes y generar sus pólizas pendientes"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
         (Guid.Parse("0000000d-0007-0000-0000-000000000001"), ContabilidadMotorLeer,                  "Consultar los roles de cuenta, las plantillas contables y la bandeja de rechazos del motor de pólizas"),
         (Guid.Parse("0000000d-0007-0000-0000-000000000002"), ContabilidadRolesCuentaAdministrar,     "Dar de alta roles de cuenta y cambiar la cuenta de un rol (queda en bitácora; solo afecta pólizas nuevas)"),
         (Guid.Parse("0000000d-0007-0000-0000-000000000003"), ContabilidadRechazosGestionar,          "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000004"), ContabilidadTipoCambioAutorizarSustituto, "Autorizar el tipo de cambio sustituto de un CFDI rechazado por el motor (otra persona que quien lo capturó)"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000001"), ContabilidadCierreConfigurar,           "Configurar el checklist de cierre: orden, pasos obligatorios, activos y pasos manuales"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000002"), ContabilidadCierreAutorizarExcepcion,   "Autorizar (o retirar) una excepción del checklist para cerrar un periodo con un paso pendiente"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000003"), ContabilidadCierreAnual,                "Generar las pólizas de cierre anual que cancelan las cuentas de resultados contra resultado del ejercicio"),

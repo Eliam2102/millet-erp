@@ -225,6 +225,8 @@ export interface PedidoFacturableLineaInput {
 export interface BandejaScoped<TItem> {
   items: TItem[];
   sinAsignarCount: number | null;
+  /** Filas que cumplen el filtro en el servidor (paginación servidor); ausente en bandejas que aún no lo envían. */
+  total?: number;
 }
 
 /**
@@ -1501,6 +1503,28 @@ export interface ReintentarTimbradoResponse {
   version: number;
 }
 
+/** M-285: efecto posterior al timbrado (evento contable, pedido y A+W, NC de ranura). */
+export interface EfectoComprobanteItem {
+  id: string;
+  tipo: string;
+  descripcion: string;
+  estado: 'Pendiente' | 'Aplicado' | string;
+  intentos: number;
+  ultimoErrorCodigo: string | null;
+  ultimoError: string | null;
+  ultimoIntentoAt: string | null;
+  aplicadoAt: string | null;
+}
+
+/** M-285: comprobante timbrado con efectos pendientes (bandeja). */
+export interface ComprobanteConEfectosPendientesItem {
+  comprobanteId: string;
+  folio: string;
+  uuid: string | null;
+  fechaTimbrado: string | null;
+  pendientes: EfectoComprobanteItem[];
+}
+
 /** M-284: un dato cotejado entre el comprobante del ERP y el XML timbrado. */
 export interface CampoCotejado {
   campo: string;
@@ -2090,6 +2114,10 @@ export interface ProformaPedidoResponse {
   contenido: ProformaCfdi;
   /** Datos fiscales incompletos detectados al generar (no bloquean). */
   avisos: string[];
+  /** M-145: último día de vigencia (AAAA-MM-DD, días naturales); null en proformas anteriores. */
+  vigenteHasta?: string | null;
+  /** M-145: ya pasó su vigencia. */
+  vencida?: boolean;
 }
 
 export interface DiferenciaProforma {

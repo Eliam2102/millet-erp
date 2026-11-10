@@ -213,12 +213,11 @@ public sealed class RegistroPolizas(
     }
 
     /// <summary>
-    /// K10.3: anula la póliza dentro de la transacción en curso. El destino es el periodo de la original si sigue admitiendo
-    /// pólizas; si no, el periodo abierto indicado (<paramref name="destino"/>). La anulación toma el siguiente consecutivo del mismo
-    /// tipo en el año del periodo destino.
+    /// K10.3: todo lo que debe cumplirse para anular, sin reservar número ni tocar la póliza. M-212: la solicitud de anulación lo
+    /// verifica al pedirla (no queda pendiente una que no se podría aprobar) y la aprobación lo vuelve a verificar al anular.
     /// </summary>
-    public async Task<Poliza> AnularAsync(Poliza original, string motivo, (int Anio, int Numero)? destino, DateOnly hoy,
-        Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora, CancellationToken ct)
+    public async Task<(TipoDocumentoContable Tipo, DateOnly Fecha, (int Anio, int Numero) Periodo)> ValidarAnulacionAsync(Poliza original,
+        string motivo, (int Anio, int Numero)? destino, DateOnly hoy, CancellationToken ct)
     {
         original.ExigirAnulable(motivo);
         // K10.4: si la reversa automática sigue vigente, anular la original la negaría dos veces.
@@ -249,6 +248,18 @@ public sealed class RegistroPolizas(
             periodo = d;
             fecha = FechaEnPeriodo(d.Anio, d.Numero, hoy);
         }
+        return (tipo, fecha, periodo);
+    }
+
+    /// <summary>
+    /// K10.3: anula la póliza dentro de la transacción en curso. El destino es el periodo de la original si sigue admitiendo
+    /// pólizas; si no, el periodo abierto indicado (<paramref name="destino"/>). La anulación toma el siguiente consecutivo del mismo
+    /// tipo en el año del periodo destino.
+    /// </summary>
+    public async Task<Poliza> AnularAsync(Poliza original, string motivo, (int Anio, int Numero)? destino, DateOnly hoy,
+        Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora, CancellationToken ct)
+    {
+        var (tipo, fecha, periodo) = await ValidarAnulacionAsync(original, motivo, destino, hoy, ct);
         var numero = await ReservarNumeroAsync(original.TipoOperacionId, periodo.Anio, ct, original.EmpresaId);
         var anulacion = original.Anular(Guid.CreateVersion7(), tipo, fecha, periodo.Anio, periodo.Numero, numero, motivo,
             usuarioId, usuarioNombre, ahora);

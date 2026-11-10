@@ -46,7 +46,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { estadoUi } from '../lib/estados-ui';
-import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/pedidos/' as const;
 const SENTINEL_ALL = '__all__';
@@ -62,6 +62,8 @@ const SENTINEL_ALL = '__all__';
  * emisión-desde-pedido (backend F3). En FE-F1 la bandeja es lista +
  * captura.</para>
  */
+const TAMANO_PAGINA = 50;
+
 export function BandejaPedidos() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
@@ -70,12 +72,16 @@ export function BandejaPedidos() {
   // 86e3tfdw2: sin leer-credito el backend no devuelve pedidos a crédito.
   const puedeVerCredito = useHasPermission(PermisosCanonicos.FacturacionPedidosLeerCredito);
 
+  const q = (search.q ?? '').trim();
+  const paginacion = usePaginacionServidor(JSON.stringify(search));
   const query = useListarPedidos({
     estado: search.estado,
     origen: search.origen,
     clase: search.clase,
     credito: puedeVerCredito ? search.credito : undefined,
-    limit: 200,
+    q: q || undefined,
+    offset: paginacion.offset,
+    limit: TAMANO_PAGINA,
     alcance: search.alcance,
   });
 
@@ -83,13 +89,7 @@ export function BandejaPedidos() {
     navigate({ to: '/facturacion/pedidos', search: { ...search, ...parcial } });
   }
 
-  const q = (search.q ?? '').trim().toLowerCase();
-  const items = (query.data?.items ?? []).filter((p) => {
-    if (q.length === 0) return true;
-    return (
-      (p.numeroPedido ?? '').toLowerCase().includes(q) || p.clienteNombre.toLowerCase().includes(q)
-    );
-  });
+  const items = query.data?.items ?? [];
 
   const hayFiltros =
     search.estado != null ||
@@ -97,7 +97,6 @@ export function BandejaPedidos() {
     search.clase != null ||
     (puedeVerCredito && search.credito != null);
 
-  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
   return (
     <div className="space-y-5">
       <PageHeader
@@ -203,9 +202,9 @@ export function BandejaPedidos() {
         }
         pie={
           <PaginacionTabla
-            total={items.length}
+            total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={10}
+            limit={TAMANO_PAGINA}
             tamanos={[]}
             onChange={paginacion.onChange}
           />
@@ -258,7 +257,7 @@ export function BandejaPedidos() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginacion.visibles.map((p) => (
+                {items.map((p) => (
                   <TableRow key={p.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">
                       {p.numeroPedido ?? '—'}

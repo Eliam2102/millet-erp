@@ -387,6 +387,7 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.lineas-credito.gestionar',
   CuentasPorCobrarLiberacionDecidir: 'cuentas_por_cobrar.liberacion.decidir',
   CuentasPorCobrarLiberacionOverride: 'cuentas_por_cobrar.liberacion.override',
+  CuentasPorCobrarLiberacionOverrideDireccion: 'cuentas_por_cobrar.liberacion.override-direccion',
   CuentasPorCobrarCobranzaRegistrar: 'cuentas_por_cobrar.cobranza.registrar',
   CuentasPorCobrarCarteraLeer: 'cuentas_por_cobrar.cartera.leer',
   CuentasPorCobrarAplicacionPagoProponer:
@@ -470,6 +471,8 @@ export const PermisosCanonicos = {
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
   FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
   FacturacionNotasCreditoAutorizar: 'facturacion.notas-credito.autorizar',
+  // M-087: segunda firma (Crédito y Cobranza) de las NC de A+W arriba del umbral.
+  FacturacionNotasCreditoAutorizarCredito: 'facturacion.notas-credito.autorizar-credito',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',
@@ -524,7 +527,10 @@ export const PermisosCanonicos = {
   ContabilidadPolizasLeer: 'contabilidad.polizas.leer',
   ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',
   ContabilidadPolizasAutorizar: 'contabilidad.polizas.autorizar',
+  /** M-212: solicitar la anulación (la aprueba otra persona con el permiso siguiente). */
   ContabilidadPolizasAnular: 'contabilidad.polizas.anular',
+  /** M-212: aprobar o rechazar la anulación solicitada por otra persona (segunda firma). */
+  ContabilidadPolizasAnularAprobar: 'contabilidad.polizas.anular-aprobar',
   // K10.4: pólizas recurrentes (0000000d-0006). `administrar` prepara, suspende, reanuda y genera; `autorizar` activa
   // (no quien la preparó).
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
@@ -534,6 +540,8 @@ export const PermisosCanonicos = {
   ContabilidadMotorLeer: 'contabilidad.motor.leer',
   ContabilidadRolesCuentaAdministrar: 'contabilidad.roles-cuenta.administrar',
   ContabilidadRechazosGestionar: 'contabilidad.rechazos.gestionar',
+  // M-207: autorizar el TC sustituto de un rechazo del motor (otra persona que quien lo capturó).
+  ContabilidadTipoCambioAutorizarSustituto: 'contabilidad.tipo-cambio.autorizar-sustituto',
   ComercioExteriorEmbarquesCredito: 'comercio_exterior.embarques.aprobar-credito',
   ComercioExteriorEmbarquesVentas: 'comercio_exterior.embarques.aprobar-ventas',
   ComercioExteriorEmbarquesAdministracion: 'comercio_exterior.embarques.aprobar-administracion',

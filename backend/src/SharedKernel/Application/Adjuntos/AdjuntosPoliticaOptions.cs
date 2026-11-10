@@ -139,6 +139,14 @@ public sealed class AdjuntosPoliticaOptions
 
     private static readonly AdjuntosPoliticaOptions DefaultOptions = new();
 
+    /// <summary>Valida PDF en cargas que conservan su propia lista de otros formatos.</summary>
+    public static Task ValidarSiEsPdfAsync(string nombre, string mime, Stream contenido, CancellationToken ct) =>
+        Path.GetExtension(nombre).Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+        || mime.Trim().Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
+            ? DefaultOptions.ValidarContenidoAsync(nombre, mime, contenido, ct)
+            : Task.CompletedTask;
+
+
     /// <summary>
     /// Valida un archivo contra la política de adjuntos por defecto.
     /// </summary>

@@ -253,6 +253,19 @@ public sealed class PedidoCreditoTests
         response.SinAsignarCount.Should().Be(2);
     }
 
+    [Fact]
+    public async Task Bandeja_pagina_en_servidor_y_devuelve_el_total_real()
+    {
+        using var db = await SembrarBandejaAsync();
+
+        var response = await new BandejaPedidosFacturablesHandler(
+                db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions(PermisoPedidoCredito.PermisoLeerCredito))
+            .Handle(new BandejaPedidosFacturablesQuery(null, null, 1, 1), CancellationToken.None);
+
+        response.Items.Should().HaveCount(1);
+        response.Total.Should().Be(2);
+    }
+
     [Theory]
     [InlineData(true, "AW-CRE")]
     [InlineData(false, "AW-CON")]

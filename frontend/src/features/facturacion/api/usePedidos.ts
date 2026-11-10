@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, ifMatch } from '@/lib/api';
 import {
   facturacionKeys,
@@ -21,12 +21,13 @@ const BASE = '/api/v1/facturacion/pedidos-facturables';
 
 /**
  * <c>useListarPedidos(filtros)</c> — bandeja de pedidos facturables.
- * El backend devuelve la lista directa (no paginada); el filtro
- * <c>q</c> es client-side (folio/cliente) y no viaja al server.
+ * Paginada en el servidor: <c>offset</c>/<c>limit</c> y la búsqueda <c>q</c>
+ * (folio o cliente) viajan al backend, que devuelve <c>total</c> real.
  */
 export function useListarPedidos(filtros: ListarPedidosFiltros) {
   return useQuery<BandejaScoped<PedidoBandejaItem>>({
     queryKey: facturacionKeys.pedidosList(filtros),
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (filtros.estado != null) params.set('estado', String(filtros.estado));
@@ -36,6 +37,7 @@ export function useListarPedidos(filtros: ListarPedidosFiltros) {
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
       if (filtros.clase != null) params.set('clase', filtros.clase);
       if (filtros.credito != null) params.set('credito', String(filtros.credito));
+      if (filtros.q) params.set('q', filtros.q);
       const qs = params.toString();
       // CAJAS-PR6: expone el envelope {items, sinAsignarCount} completo
       // (badge "Sin asignar" [Decisión 12-B], solo caja.leer-todas).

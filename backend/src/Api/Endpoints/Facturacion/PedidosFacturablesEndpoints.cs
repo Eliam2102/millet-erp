@@ -44,6 +44,7 @@ public static class PedidosFacturablesEndpoints
             [FromQuery] string? alcance,
             [FromQuery] ClasePedidoManual? clase,
             [FromQuery] bool? credito,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -51,7 +52,7 @@ public static class PedidosFacturablesEndpoints
             // 86e3tfdw2: ?credito=true|false filtra por condición de pago.
             var response = await mediator.Send(
                 new BandejaPedidosFacturablesQuery(
-                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase, credito),
+                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase, credito, q),
                 cancellationToken);
             return Results.Ok(response);
         })

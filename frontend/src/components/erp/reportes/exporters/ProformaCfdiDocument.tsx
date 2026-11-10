@@ -1,4 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { fechaCorta } from '@/features/facturacion/lib/proforma-vigencia';
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { formatDateTime } from '@/lib/datetime';
 
@@ -77,6 +78,9 @@ export function ProformaCfdiDocument({ proforma }: { proforma: ProformaPedidoRes
               Generada {fecha(proforma.generadaEn)}
               {proforma.generadaPor ? ` por ${proforma.generadaPor}` : ''}
             </Text>
+            {proforma.vigenteHasta ? (
+              <Text style={styles.meta}>Vigencia: hasta el {fechaCorta(proforma.vigenteHasta)} (días naturales)</Text>
+            ) : null}
           </View>
         </View>
 
