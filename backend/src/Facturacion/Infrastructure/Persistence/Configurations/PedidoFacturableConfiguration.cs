@@ -66,6 +66,9 @@ public sealed class PedidoFacturableConfiguration : IEntityTypeConfiguration<Ped
         builder.Property(e => e.CondicionPagoOrigen).HasMaxLength(PedidoFacturable.CondicionPagoOrigenMaxLength);
         builder.Property(e => e.EsCredito).IsRequired().HasDefaultValue(false);
 
+        // Script 16 v3: fecha de la orden de Planta Pintura (null en A+W y Manual).
+        builder.Property(e => e.FechaPedido);
+
         builder.HasMany(e => e.Lineas)
             .WithOne()
             .HasForeignKey(l => l.PedidoFacturableId)

@@ -35,6 +35,8 @@ public enum ResultadoAcusePlantaPintura : short
 /// <c>CanalVenta</c> es el id del catálogo <c>compartido.canales_venta</c>
 /// (FAC-ING-PR2) — para este origen es fijo el canal 9 "Planta Pintura"
 /// (<see cref="CanalesVentaConocidos.PlantaPintura"/>).
+/// <c>Lineas</c> = una por línea de la orden (<c>pinturas_pedido_linea</c>, script 16 v3); <c>FechaPedido</c> = fecha
+/// de la orden en el portal (<c>pinturas_pedido.fecha_pedido</c>), fecha del documento de venta.
 /// </summary>
 public sealed record PedidoPlantaPintura(
     string NumeroPedido,
@@ -50,7 +52,8 @@ public sealed record PedidoPlantaPintura(
     long VersionOrigen,
     string? EstadoOrigen,
     IReadOnlyList<LineaPedidoPlantaPintura> Lineas,
-    string PayloadCrudo);
+    string PayloadCrudo,
+    DateOnly? FechaPedido = null);
 
 public sealed record LineaPedidoPlantaPintura(
     string ProductoRef,
