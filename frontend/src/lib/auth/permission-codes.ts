@@ -387,6 +387,7 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.lineas-credito.gestionar',
   CuentasPorCobrarLiberacionDecidir: 'cuentas_por_cobrar.liberacion.decidir',
   CuentasPorCobrarLiberacionOverride: 'cuentas_por_cobrar.liberacion.override',
+  CuentasPorCobrarLiberacionOverrideDireccion: 'cuentas_por_cobrar.liberacion.override-direccion',
   CuentasPorCobrarCobranzaRegistrar: 'cuentas_por_cobrar.cobranza.registrar',
   CuentasPorCobrarCarteraLeer: 'cuentas_por_cobrar.cartera.leer',
   CuentasPorCobrarAplicacionPagoProponer:
