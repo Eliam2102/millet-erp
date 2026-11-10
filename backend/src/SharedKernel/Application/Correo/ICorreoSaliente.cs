@@ -63,6 +63,17 @@ public static class CodigosCorreoSaliente
     public const string AdjuntosExceden3Mb = "CORREO_ADJUNTOS_EXCEDEN_3MB";
     public const string SinDestinatarios = "CORREO_SIN_DESTINATARIOS";
 
+    /// <summary>El proveedor limitó el envío (429, 503, 550 5.7.233). Reintentable: el mensaje no se descarta.</summary>
+    public const string LimiteProveedor = "CORREO_LIMITE_PROVEEDOR";
+
+    /// <summary>Se llegó al tope diario de destinatarios configurado. Reintentable cuando corre la ventana de 24 h.</summary>
+    public const string LimiteDiario = "CORREO_LIMITE_DIARIO";
+
+    /// <summary>El mensaje trae más destinatarios de los permitidos por mensaje. No reintentable sin partirlo.</summary>
+    public const string ExcedeDestinatarios = "CORREO_EXCEDE_DESTINATARIOS";
+
+    public static bool EsReintentable(string? codigo) => codigo is LimiteProveedor or LimiteDiario;
+
     /// <summary>Límite del envío simple de Graph (petición de 4 MB con adjuntos en base64).</summary>
     public const long LimiteAdjuntosBytes = 3L * 1024 * 1024;
 }

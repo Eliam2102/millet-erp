@@ -36,11 +36,34 @@ public sealed class GraphCorreoSaliente(IGraphSendMail graph, string remitente, 
                 "Microsoft Graph rechazó el envío por permisos insuficientes: la aplicación necesita Mail.Send sobre el buzón " +
                 $"{remitente}. {ex.Error?.Message}".Trim());
         }
+        catch (ODataError ex) when (EsLimitacion(ex))
+        {
+            return ResultadoCorreoSaliente.Error(CodigosCorreoSaliente.LimiteProveedor,
+                $"Exchange Online limitó el envío desde {remitente}: {ex.Error?.Message ?? ex.Message}");
+        }
         catch (ODataError ex)
         {
             return ResultadoCorreoSaliente.Error(CodigosCorreoSaliente.ErrorEnvio,
                 $"Microsoft Graph: {ex.Error?.Message ?? ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Limitación del buzón o de la organización (86e3zr74h): 429/503 de Graph,
+    /// «550 5.7.233» (límite de destinatarios externos) y los códigos de cuota de
+    /// Exchange. Se reintenta con espera; no es un rechazo definitivo.
+    /// </summary>
+    public static bool EsLimitacion(ODataError ex)
+    {
+        if (ex.ResponseStatusCode is 429 or 503) return true;
+        var codigo = ex.Error?.Code ?? string.Empty;
+        var texto = $"{ex.Error?.Message} {ex.Message}";
+        return texto.Contains("5.7.233", StringComparison.Ordinal)
+            || codigo.Equals("ErrorExceededMessageLimit", StringComparison.OrdinalIgnoreCase)
+            || codigo.Equals("ErrorQuotaExceeded", StringComparison.OrdinalIgnoreCase)
+            || codigo.Equals("ApplicationThrottled", StringComparison.OrdinalIgnoreCase)
+            || codigo.Equals("MailboxConcurrency", StringComparison.OrdinalIgnoreCase)
+            || codigo.Equals("TooManyRequests", StringComparison.OrdinalIgnoreCase);
     }
 
     public static SendMailPostRequestBody Construir(MensajeCorreo mensaje, string remitente, string nombreRemitente) => new()
