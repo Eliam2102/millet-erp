@@ -42,9 +42,50 @@ public sealed class CostoPromedioLectorTests
     [Fact]
     public void Agrupar_SinMedida_UsaCostoPieza()
     {
-        var f = CostoPromedioLector.Agrupar([new SaldoParaCosto(2002, "CIRCUITO", "", "", null, null, 4, 5m, T0)])
+        var f = CostoPromedioLector.Agrupar([new SaldoParaCosto(2002, "CIRCUITO", null, null, null, null, 4, 5m, T0)])
             .Should().ContainSingle().Subject;
         (f.AnchoMm, f.AltoMm, f.CostoM2, f.CostoPieza).Should().Be(((int?)null, (int?)null, (decimal?)null, (decimal?)5m));
+    }
+
+    [Fact]
+    public void ConFilaDeSucursal_SinLista_SoloFilaDeSucursalConTipoYLineaNull()
+    {
+        var f = CostoPromedioLector.Agrupar(CostoPromedioLector.ConFilaDeSucursal(S(10, 100, tipo: "X", linea: "Y"), null, null))
+            .Should().ContainSingle().Subject;
+        (f.AlmacenTipo, f.Linea, f.CostoM2).Should().Be(((string?)null, (string?)null, (decimal?)100m));
+    }
+
+    [Fact]
+    public void ConFilaDeSucursal_Herraje_LineaVaciaViajaNull_NuncaCadenaVacia()
+    {
+        var filas = CostoPromedioLector.Agrupar(CostoPromedioLector.ConFilaDeSucursal(S(10, 100), "GENERAL", ""));
+        filas.Should().HaveCount(2).And.OnlyContain(f => f.Linea == null && f.AlmacenTipo != "");
+        filas.Should().ContainSingle(f => f.AlmacenTipo == "GENERAL");
+    }
+
+    [Fact]
+    public void ConLista_PublicaCadaAlmacenYUnaFilaDeSucursalPonderadaPorExistencia()
+    {
+        // Misma hoja en dos almacenes de CONKAL: HEGLA 1 (10 m² a 100) y HEGLA 2 (30 m² a 200, girada).
+        var filas = CostoPromedioLector.Agrupar(
+            CostoPromedioLector.ConFilaDeSucursal(S(10, 100), "OBRAS", "HEGLA 1")
+                .Concat(CostoPromedioLector.ConFilaDeSucursal(S(30, 200, ancho: 2600, alto: 1800), "OBRAS", "HEGLA 2")));
+
+        filas.Select(f => (f.AlmacenTipo, f.Linea, f.CostoM2)).Should().BeEquivalentTo(new (string?, string?, decimal?)[]
+        {
+            ("OBRAS", "HEGLA 1", 100m), ("OBRAS", "HEGLA 2", 200m), (null, null, 175m),
+        });
+        filas.Should().OnlyContain(f => f.AnchoMm == 1800 && f.AltoMm == 2600);
+    }
+
+    [Fact]
+    public void FilaDeSucursal_ConExistenciaCero_ConservaElUltimoPromedioDeSusAlmacenes()
+    {
+        var f = CostoPromedioLector.Agrupar(
+                CostoPromedioLector.ConFilaDeSucursal(S(0, 100, min: 1), "OBRAS", "HEGLA 1")
+                    .Concat(CostoPromedioLector.ConFilaDeSucursal(S(0, 250, min: 5), "OBRAS", "HEGLA 2")))
+            .Single(x => x.AlmacenTipo is null);
+        f.CostoM2.Should().Be(250m);
     }
 
     [Fact]
@@ -77,6 +118,7 @@ public sealed class CostoPromedioLectorTests
         CostoPromedioLector.CabeEnContrato(ok with { Sucursal = new string('S', 31) }).Should().BeFalse();
         CostoPromedioLector.CabeEnContrato(ok with { AlmacenTipo = new string('T', 51) }).Should().BeFalse();
         CostoPromedioLector.CabeEnContrato(ok with { Linea = new string('L', 51) }).Should().BeFalse();
+        CostoPromedioLector.CabeEnContrato(ok with { AlmacenTipo = null, Linea = null }).Should().BeTrue();
     }
 
     [Fact]

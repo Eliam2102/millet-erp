@@ -2,7 +2,9 @@
    19_create_erp_costo_promedio.sql — Costo promedio del ERP para la app de Almacenes
    (contrato v9, M-447 / 86e3zr7au).
    Ejecutar en: AlmacenRQ_MP_ENSAYO primero (pruebas); AlmacenRQ_MP al arranque.
-   Idempotente: se puede correr dos veces. PROPUESTA: no se ejecuta sin visto bueno de TI.
+   Idempotente: se puede correr dos veces. Aprobado por TI (Jorge Toache, 10-nov) con los ajustes de NULL y fila de sucursal.
+   Si en ENSAYO ya corrió la versión anterior (almacen_tipo y linea NOT NULL con default ''), correr primero el rollback
+   del final: el CREATE TABLE solo se ejecuta si la tabla no existe.
    Vista vía stub (CREATE mínimo si no existe) + ALTER, como el script 03: NO usar CREATE OR ALTER,
    el servidor es SQL Server 2016 RTM sin SP1 (13.0.1601.5) y CREATE OR ALTER requiere SP1.
 
@@ -15,15 +17,17 @@
    - Unidad: vidrio con medida = costo_m2 (pesos por m²); sin medida = costo_pieza
      (pesos por unidad del artículo). Siempre moneda = PESOSMX.
    - Llave: articulo_aw (clave A+W, la misma de los mensajes) + sucursal (clave A+W, p. ej. CONKAL)
-     + almacen_tipo + linea + ancho_mm + alto_mm.
-     * linea vacía ('') en herraje.
-     * almacen_tipo y linea vacíos en sucursales sin lista de almacenes: costo de la sucursal.
+     + almacen_tipo + linea + ancho_mm + alto_mm. Lo que no aplica va NULL, nunca '' (TI, 10-nov):
+     * linea NULL en herraje.
+     * almacen_tipo y linea NULL = fila de la sucursal. Una sucursal sin lista de almacenes solo tiene esa fila.
+       Una sucursal con lista tiene la fila de cada almacén y, además, la de la sucursal: costo ponderado por
+       existencia de todos sus almacenes, con las mismas reglas de versión. Es el respaldo de la app.
      * ancho_mm y alto_mm NULL en material sin medida.
      * Medida sin orientación: ancho_mm es el lado menor y alto_mm el mayor (2600×1800 y
        1800×2600 son la misma llave: ancho_mm = 1800, alto_mm = 2600).
    - Inmutable: el ERP solo inserta. Un cambio de promedio es una fila nueva con version + 1.
    - Con existencia en cero el ERP no publica nada: la última fila sigue vigente.
-   - Sin fila: el ERP nunca tuvo ese artículo en ese almacén.
+   - Sin fila del almacén: la app usa la de la sucursal. Sin ninguna: el ERP nunca tuvo ese artículo ahí.
    - Seguridad: el ERP (millet_erp_integracion) solo tiene INSERT y SELECT; se niegan UPDATE y DELETE.
    ========================================================================== */
 
@@ -45,8 +49,8 @@ BEGIN
         id            bigint IDENTITY(1, 1) NOT NULL,
         articulo_aw   int               NOT NULL,  -- clave del artículo en A+W
         sucursal      nvarchar(30)      NOT NULL,  -- clave A+W de la sucursal (CONKAL)
-        almacen_tipo  nvarchar(50)      NOT NULL CONSTRAINT DF_ecp_tipo  DEFAULT N'',  -- EXPORTACION, OBRAS, GENERAL...
-        linea         nvarchar(50)      NOT NULL CONSTRAINT DF_ecp_linea DEFAULT N'',  -- HEGLA 1, BYSTRONIC...; '' en herraje
+        almacen_tipo  nvarchar(50)      NULL,      -- EXPORTACION, OBRAS, GENERAL...; NULL = fila de la sucursal
+        linea         nvarchar(50)      NULL,      -- HEGLA 1, BYSTRONIC...; NULL en herraje y en la fila de la sucursal
         ancho_mm      int               NULL,      -- medida de la hoja; NULL sin medida
         alto_mm       int               NULL,
         costo_m2      decimal(19, 6)    NULL,      -- pesos por m² (con medida)
@@ -59,6 +63,8 @@ BEGIN
         CONSTRAINT PK_erp_costo_promedio PRIMARY KEY CLUSTERED (id),
         CONSTRAINT CK_ecp_moneda   CHECK (moneda = N'PESOSMX'),
         CONSTRAINT CK_ecp_version  CHECK ([version] > 0),
+        CONSTRAINT CK_ecp_sin_vacios CHECK (almacen_tipo <> N'' AND linea <> N''),  -- lo que no aplica va NULL
+        CONSTRAINT CK_ecp_almacen  CHECK (almacen_tipo IS NOT NULL OR linea IS NULL),  -- sin tipo no hay línea
         CONSTRAINT CK_ecp_medida   CHECK ((ancho_mm IS NULL AND alto_mm IS NULL) OR (ancho_mm > 0 AND alto_mm > 0)),
         CONSTRAINT CK_ecp_costo    CHECK (
             (ancho_mm IS NOT NULL AND costo_m2 IS NOT NULL AND costo_pieza IS NULL AND costo_m2 >= 0)
@@ -71,7 +77,7 @@ ELSE
 GO
 
 /* Idempotencia: una sola fila por llave + versión. En SQL Server un índice único trata los NULL
-   como iguales, así que también protege el material sin medida. */
+   como iguales, así que también protege el material sin medida, el herraje y la fila de la sucursal. */
 IF NOT EXISTS (SELECT 1 FROM sys.indexes
                WHERE name = 'UX_ecp_llave_version' AND object_id = OBJECT_ID('dbo.erp_costo_promedio'))
 BEGIN
@@ -82,7 +88,8 @@ BEGIN
 END
 GO
 
-/* Vista que lee la app: la última versión de cada llave. */
+/* Vista que lee la app: la última versión de cada llave. PARTITION BY agrupa los NULL juntos, así la fila
+   de la sucursal (tipo y línea NULL) y el herraje (línea NULL) tienen cada uno su última versión. */
 IF OBJECT_ID('dbo.vw_erp_costo_promedio_vigente', 'V') IS NULL
     EXEC (N'CREATE VIEW dbo.vw_erp_costo_promedio_vigente AS SELECT 1 AS stub');
 GO
@@ -116,15 +123,18 @@ GO
    GRANT SELECT ON dbo.vw_erp_costo_promedio_vigente TO <usuario_app_almacenes>;
 */
 
-/* Consulta sugerida para la app (entrada o salida manual de una hoja):
-   SELECT costo_m2, costo_pieza, moneda, vigente_desde
+/* Consulta sugerida para la app (entrada o salida manual): primero la fila del almacén; si no hay,
+   la de la sucursal (almacen_tipo y linea NULL).
+   SELECT TOP (1) costo_m2, costo_pieza, moneda, vigente_desde
      FROM dbo.vw_erp_costo_promedio_vigente
     WHERE articulo_aw = @articuloAw AND sucursal = @sucursal
-      AND almacen_tipo = @tipo AND linea = @linea          -- '' en herraje
+      AND ((almacen_tipo = @tipo AND (linea = @linea OR (linea IS NULL AND @linea IS NULL)))  -- almacén (@linea NULL en herraje)
+           OR (almacen_tipo IS NULL AND linea IS NULL))                                       -- respaldo: sucursal
       AND ((ancho_mm IS NULL AND @ancho IS NULL)                     -- sin medida
            OR (ancho_mm = CASE WHEN @ancho <= @alto THEN @ancho ELSE @alto END   -- lado menor
-               AND alto_mm = CASE WHEN @ancho <= @alto THEN @alto ELSE @ancho END)); -- lado mayor
-   Sin fila: el ERP no tiene costo para esa llave.
+               AND alto_mm = CASE WHEN @ancho <= @alto THEN @alto ELSE @ancho END)) -- lado mayor
+    ORDER BY CASE WHEN almacen_tipo IS NULL THEN 1 ELSE 0 END;    -- el almacén gana a la sucursal
+   Sin fila: el ERP no tiene costo para ese artículo y medida en la sucursal.
 */
 
 SET NOEXEC OFF;

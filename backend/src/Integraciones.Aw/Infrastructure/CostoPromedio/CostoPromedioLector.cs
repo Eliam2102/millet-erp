@@ -11,7 +11,9 @@ namespace Millet.Integraciones.Aw.Infrastructure.CostoPromedio;
 /// Costo promedio vigente (M-447) de cada artículo A+W en cada almacén, leído de los saldos del ERP (<c>almacen.saldos_inventario</c>,
 /// que ya trae el promedio móvil por m² o por pieza). Llave: artículo A+W + sucursal A+W + almacén de la lista (tipo + línea) + medida de
 /// hoja (sin orientación). Todos los lotes y variantes de esa medida en ese almacén comparten el costo (<see cref="CostoMedio.Vigente"/>: ponderado por existencia; con
-/// existencia cero conserva el último). Una sucursal sin lista de almacenes publica un solo costo (tipo y línea ""). Los saldos en
+/// existencia cero conserva el último). Lo que no aplica va NULL (Jorge, 10-nov): línea en herraje; tipo y línea en la fila de
+/// sucursal. Una sucursal sin lista de almacenes publica solo la fila de sucursal; una con lista publica la de cada almacén y,
+/// además, la de sucursal (ponderada sobre sus almacenes), que la app usa de respaldo. Los saldos en
 /// revisión o tránsito no cuentan, igual que en <c>CostoMedioReader</c>. Solo artículos ligados a A+W con clave numérica.
 /// </summary>
 public sealed class CostoPromedioLector(AlmacenDbContext almacen, CompartidoDbContext maestros, ILogger<CostoPromedioLector> logger)
@@ -41,19 +43,19 @@ public sealed class CostoPromedioLector(AlmacenDbContext almacen, CompartidoDbCo
             .Select(v => new { v.Id, v.AnchoMm, v.AltoMm }).ToDictionaryAsync(v => v.Id, ct);
 
         var entradas = saldos
-            .Select(s =>
+            .SelectMany(IEnumerable<SaldoParaCosto> (s) =>
             {
                 // Con lista: solo cuentan las ubicaciones de la lista; sin lista: la sucursal entera.
                 var enLista = lista.FirstOrDefault(l => l.UbicacionId == s.UbicacionId);
                 var sucursalTieneLista = lista.Any(l => l.SucursalId == s.SucursalId);
-                if (enLista is null && sucursalTieneLista) return null;
-                if (!sucursales.TryGetValue(s.SucursalId, out var suc)) return null;
+                if (enLista is null && sucursalTieneLista) return [];
+                if (!sucursales.TryGetValue(s.SucursalId, out var suc)) return [];
                 var v = s.ProductoAwVarianteId is Guid vid && variantes.TryGetValue(vid, out var vv) && vv.AnchoMm > 0 && vv.AltoMm > 0 ? vv : null;
-                return new SaldoParaCosto(claveAw[s.ArticuloId], suc, enLista?.TipoAlmacen ?? "", enLista?.Linea ?? "",
+                var saldo = new SaldoParaCosto(claveAw[s.ArticuloId], suc, null, null,
                     v is null ? null : (int)Math.Round(v.AnchoMm!.Value), v is null ? null : (int)Math.Round(v.AltoMm!.Value),
                     s.Cantidad, s.CostoPromedioMxn, s.UltimaActualizacionAt);
-            })
-            .OfType<SaldoParaCosto>();
+                return ConFilaDeSucursal(saldo, enLista?.TipoAlmacen, enLista?.Linea);
+            });
 
         var filas = new List<CostoPromedioFila>();
         foreach (var f in Agrupar(entradas))
@@ -90,11 +92,25 @@ public sealed class CostoPromedioLector(AlmacenDbContext almacen, CompartidoDbCo
         return filas;
     }
 
+    /// <summary>
+    /// Llaves a las que aporta un saldo. Siempre a la fila de sucursal (tipo y línea NULL), que la app usa de respaldo cuando no hay
+    /// fila de su almacén (Jorge, 10-nov); si el saldo está en un almacén de la lista, también a la fila de ese almacén. Así la fila
+    /// de sucursal de una sucursal con lista pondera por existencia todos sus almacenes, con las mismas reglas de versión.
+    /// </summary>
+    public static IEnumerable<SaldoParaCosto> ConFilaDeSucursal(SaldoParaCosto saldo, string? tipoAlmacen, string? linea)
+    {
+        var sucursal = saldo with { AlmacenTipo = null, Linea = null };
+        return tipoAlmacen is null ? [sucursal] : [saldo with { AlmacenTipo = Vacio(tipoAlmacen), Linea = Vacio(linea) }, sucursal];
+    }
+
     /// <summary>La llave cabe en las columnas del destino; una llave recortada nunca coincidiría con la consulta de la app.</summary>
     public static bool CabeEnContrato(CostoPromedioFila f) =>
-        f.Sucursal.Length <= MaxSucursal && f.AlmacenTipo.Length <= MaxTipoLinea && f.Linea.Length <= MaxTipoLinea;
+        f.Sucursal.Length <= MaxSucursal && (f.AlmacenTipo?.Length ?? 0) <= MaxTipoLinea && (f.Linea?.Length ?? 0) <= MaxTipoLinea;
+
+    /// <summary>Lo que no aplica viaja NULL, nunca "" (Jorge, 10-nov): línea de herraje.</summary>
+    private static string? Vacio(string? valor) => string.IsNullOrWhiteSpace(valor) ? null : valor;
 }
 
 /// <summary>Un saldo del ERP ya traducido a la llave de la app (medida tal como viene de la variante).</summary>
 public sealed record SaldoParaCosto(
-    int ArticuloAw, string Sucursal, string AlmacenTipo, string Linea, int? AnchoMm, int? AltoMm, decimal Cantidad, decimal Costo, DateTimeOffset Fecha);
+    int ArticuloAw, string Sucursal, string? AlmacenTipo, string? Linea, int? AnchoMm, int? AltoMm, decimal Cantidad, decimal Costo, DateTimeOffset Fecha);
