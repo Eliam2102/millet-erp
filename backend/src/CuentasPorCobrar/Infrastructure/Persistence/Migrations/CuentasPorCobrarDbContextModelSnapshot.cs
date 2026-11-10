@@ -1004,6 +1004,12 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("AutorizadaPorDireccion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("autorizada_por_direccion");
+
                     b.Property<Guid>("BeneficiarioUsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("beneficiario_usuario_id");
