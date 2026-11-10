@@ -8,6 +8,7 @@ using Millet.Integraciones.Aw.Application.TipoCambio;
 using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.AlmCompra;
+using Millet.Integraciones.Aw.Infrastructure.CostoPromedio;
 using Millet.Integraciones.Aw.Infrastructure.AlmMensaje;
 using Millet.Integraciones.Aw.Infrastructure.Repositories;
 
@@ -60,6 +61,8 @@ public static class DependencyInjection
 
         // 86e3jvu83 (C3.2): transporte ERP → Almacenes (alm_compra): Simulado por omisión, Sql apagado hasta que exista la tabla.
         services.AddAlmCompraTransporte(configuration);
+        // M-447: costo promedio ERP → Almacenes (dbo.erp_costo_promedio). Simulado y apagado por omisión.
+        services.AddCostoPromedio(configuration);
         // Acuerdo 5-nov con TI: Almacenes → ERP por la tabla alm_mensaje (sin POST). Simulado por omisión; lector apagado.
         services.AddAlmMensajeOrigen(configuration);
 
