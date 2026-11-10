@@ -1146,6 +1146,14 @@ const moduloContabilidad: NavModulo = {
           icon: Upload,
           permission: PermisosCanonicos.ContabilidadCatalogoImportar,
         },
+        {
+          label: 'Saldos iniciales',
+          description:
+            'Carga de la balanza de cierre del sistema anterior: mapeo de columnas, vista previa por renglón, autorización por otra persona y póliza de apertura.',
+          to: '/contabilidad/saldos-iniciales',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadCatalogoImportar,
+        },
       ],
     },
     {
