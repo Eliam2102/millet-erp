@@ -531,7 +531,7 @@ export function BandejaConciliaciones() {
             <KpiCard
               etiqueta="Saldo en libros"
               valor={<MoneyDisplay amount={conciliacion.saldoLibros} currency={conciliacion.moneda} />}
-              subdato="Movimientos conciliados"
+              subdato="Movimientos al cierre del mes"
             />
             <KpiCard
               etiqueta="Diferencia"
