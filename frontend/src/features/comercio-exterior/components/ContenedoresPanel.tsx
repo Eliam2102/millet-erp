@@ -30,6 +30,7 @@ import { DateTimeDisplay, ErrorState } from '@/components/erp';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
+import { hoyLocalISO } from '@/lib/datetime';
 import { useContenedores, useMutarContenedor, usePedidosEmbarcables } from '../api/hooks';
 import type {
   Contenedor,
@@ -409,13 +410,15 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                             <Input
                               id="ce-fecha-embarque"
                               type="date"
+                              max={hoyLocalISO()}
+                              aria-describedby="ce-fecha-embarque-ayuda"
                               required
                               value={fecha}
                               onChange={(e) => setFecha(e.target.value)}
                             />
                           </FormCampo>
-                          <p className="text-xs text-ink-muted">
-                            Requiere BL o guía, partidas y los participantes del transporte.
+                          <p id="ce-fecha-embarque-ayuda" className="text-xs text-ink-muted">
+                            Capture una fecha igual o anterior a hoy. Requiere BL o guía, partidas y los participantes del transporte.
                           </p>
                         </>
                       ) : (
@@ -571,9 +574,14 @@ function PedimentoForm({
                 id="ce-ped-fecha"
                 required
                 type="date"
+                max={hoyLocalISO()}
+                aria-describedby="ce-ped-fecha-ayuda"
                 value={p.fecha}
                 onChange={(e) => setP({ ...p, fecha: e.target.value })}
               />
+              <p id="ce-ped-fecha-ayuda" className="text-xs text-ink-muted">
+                Capture una fecha igual o anterior a hoy.
+              </p>
             </Campo>
           </FormSeccion>
         </FormCampo>
