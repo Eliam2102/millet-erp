@@ -25,7 +25,7 @@ public sealed class EstadoCuentaEnvioTests : IAsyncLifetime
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private const string Base = "/api/v1/cuentas-por-cobrar/cartera/estado-cuenta";
-    private static readonly byte[] Pdf = "%PDF-1.4 estado de cuenta de prueba"u8.ToArray();
+    private static readonly byte[] Pdf = Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Estado de cuenta sintético");
     private readonly WebApplicationFactory<Program> _factory;
     private readonly CorreoFalso _correo = new();
 
