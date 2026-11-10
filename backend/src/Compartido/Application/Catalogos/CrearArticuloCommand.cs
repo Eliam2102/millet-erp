@@ -27,7 +27,10 @@ public sealed record CrearArticuloCommand(
     decimal? PrecioReferenciaMonto,
     string? PrecioReferenciaMoneda,
     Guid? ProductoAwId = null,
-    string? ClaveLegacy = null) : IRequest<CrearArticuloResponse>;
+    string? ClaveLegacy = null,
+    // M-172: consumo por tambor a línea y kilos por presentación (dato provisional hasta M-106).
+    bool ConsumoPorTamborALinea = false,
+    decimal? KgPorPresentacion = null) : IRequest<CrearArticuloResponse>;
 
 public sealed record CrearArticuloResponse(Guid Id, string Clave);
 
@@ -47,6 +50,8 @@ public sealed class CrearArticuloValidator : AbstractValidator<CrearArticuloComm
             .When(c => c.PrecioReferenciaMoneda is not null);
         RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue)
             .WithName("Producto A+W").WithMessage("Elige un producto A+W válido.");
+        RuleFor(c => c.KgPorPresentacion).GreaterThan(0).When(c => c.KgPorPresentacion.HasValue)
+            .WithName("Kilos por presentación").WithMessage("Los kilos por presentación deben ser mayores que cero.");
     }
 }
 
@@ -128,6 +133,8 @@ public sealed class CrearArticuloHandler
             await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, articulo.UnidadMedidaDefault, productoAwId, cancellationToken);
             articulo.AsignarProductoAw(productoAwId);
         }
+
+        articulo.ConfigurarTamborALinea(request.ConsumoPorTamborALinea, request.KgPorPresentacion);
 
         _db.Articulos.Add(articulo);
         await _db.SaveChangesAsync(cancellationToken);

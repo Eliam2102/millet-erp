@@ -43,4 +43,7 @@ public sealed record ArticuloLectura(
     // E07 D5: familia A+W del vidrio crudo; con valor, la línea exige variante de medida.
     Guid? ProductoAwId = null,
     // G-9: Naturaleza Servicio = no inventariable; no se asigna a ubicación.
-    bool EsServicio = false);
+    bool EsServicio = false,
+    // M-172: se descuenta al salir por tambor/cubeta a una línea de producción (no por pieza terminada).
+    bool ConsumoPorTamborALinea = false,
+    decimal? KgPorPresentacion = null);

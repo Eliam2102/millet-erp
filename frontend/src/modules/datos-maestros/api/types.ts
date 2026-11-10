@@ -327,6 +327,10 @@ export interface ArticuloDetalle {
   estatus: EstatusCatalogo;
   /** Familia A+W del vidrio crudo (E07 D5, 1:1); null = insumo sin medidas. */
   productoAwId?: string | null;
+  /** M-172: se descuenta al salir por tambor/cubeta a una línea de producción. */
+  consumoPorTamborALinea?: boolean;
+  /** Kilos por presentación (dato provisional hasta M-106). */
+  kgPorPresentacion?: number | null;
 }
 
 export interface CrearArticuloPayload {
@@ -340,6 +344,8 @@ export interface CrearArticuloPayload {
   categoriaId: string | null;
   precioReferenciaMonto: number | null;
   precioReferenciaMoneda: string | null;
+  consumoPorTamborALinea?: boolean;
+  kgPorPresentacion?: number | null;
 }
 
 export interface ActualizarArticuloPayload {
@@ -358,6 +364,10 @@ export interface ActualizarArticuloPayload {
   /** Si llega, liga el artículo a esa familia A+W (rechaza si ya está ligada a otro o hay existencia). */
   productoAwId?: string | null;
   limpiarProductoAw?: boolean | null;
+  /** M-172: null = no tocar. */
+  consumoPorTamborALinea?: boolean | null;
+  kgPorPresentacion?: number | null;
+  limpiarKgPorPresentacion?: boolean | null;
 }
 
 export interface CrearArticuloResponse {

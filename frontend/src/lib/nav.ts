@@ -274,7 +274,7 @@ const moduloAlmacen: NavModulo = {
         {
           label: 'Mensajes de la app',
           description:
-            'Salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
+            'Entradas y salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
           to: '/almacen/mensajes-app',
           icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
@@ -292,6 +292,14 @@ const moduloAlmacen: NavModulo = {
           description:
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
           to: '/almacen/salidas',
+          icon: PackageMinus,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Tambores por línea',
+          description:
+            'Tambor o cubeta activo de silicón y Ködispace en cada línea de producción, con su historial de salidas.',
+          to: '/almacen/tambores-linea',
           icon: PackageMinus,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },

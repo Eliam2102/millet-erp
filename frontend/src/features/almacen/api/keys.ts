@@ -173,6 +173,8 @@ export const almacenKeys = {
 
   // Normas de consumo de componentes y su bandeja de revisión (A4.8)
   normasConsumo: () => [...almacenKeys.all, 'normas-consumo'] as const,
+  // Tambores por línea de producción (M-172)
+  tamboresLinea: () => [...almacenKeys.all, 'tambores-linea'] as const,
   consumosRevision: () => [...almacenKeys.all, 'consumos-revision'] as const,
   mensajesAppMarcados: () => [...almacenKeys.all, 'mensajes-app-marcados'] as const,
 

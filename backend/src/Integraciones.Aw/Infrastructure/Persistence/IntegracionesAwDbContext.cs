@@ -38,6 +38,7 @@ public sealed class IntegracionesAwDbContext : BaseDbContext
     public DbSet<Correlacion> Correlaciones => Set<Correlacion>();
     public DbSet<AwClientesEjecucion> ClientesEjecuciones => Set<AwClientesEjecucion>();
     public DbSet<AwCdcWatermark> CdcWatermarks => Set<AwCdcWatermark>();
+    public DbSet<AwRetornoPendiente> RetornoPendientes => Set<AwRetornoPendiente>();
 
     /// <summary>
     /// Outbox de eventos de integración del módulo. Lo escribe
@@ -58,6 +59,7 @@ public sealed class IntegracionesAwDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AwClientesEjecucionConfiguration());
         modelBuilder.ApplyConfiguration(new AwClientesEjecucionErrorConfiguration());
         modelBuilder.ApplyConfiguration(new AwCdcWatermarkConfiguration());
+        modelBuilder.ApplyConfiguration(new AwRetornoPendienteConfiguration());
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
     }
 }

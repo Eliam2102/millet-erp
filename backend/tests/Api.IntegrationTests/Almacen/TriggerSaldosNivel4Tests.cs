@@ -16,8 +16,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <para>Almacén-por-línea PR6a: el trigger dejó de tener fallback a la ÚNICA
 /// para líneas sin bin — <c>lineas_movimiento.ubicacion_id</c> es NOT NULL, así
 /// que toda línea trae bin. Este test se reescribió para enrutar por un rack
-/// real (no la ÚNICA): las entradas a la ÚNICA (es_default) las rechaza el
-/// trigger por diseño (<c>ENTRADA_A_UBICACION_UNICA</c>). La cobertura de
+/// real (no la ÚNICA); la regla de rack para A+W (<c>ENTRADA_A_UBICACION_UNICA</c>)
+/// vive en <c>UbicacionEntradaGuard</c> desde M-159. La cobertura de
 /// promedio ponderado y de los guards de salida no cambia.</para>
 ///
 /// <para>Es un test de nivel BD (el trigger es PG puro): inserta un fixture
