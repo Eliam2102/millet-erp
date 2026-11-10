@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.AppAlmacenes;
 using Millet.Almacen.Domain.Idempotencia;
+using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -36,20 +37,22 @@ public sealed class SalidaAppAlmacenesGuardado
     /// </summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarAsync(
         string mensajeId, string tipo, string? referencia, string payload,
-        Guid empresaId, Guid usuarioId, IReadOnlyList<SalidaApp> salidas, CancellationToken ct) =>
+        Guid empresaId, Guid usuarioId, IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null) =>
         GuardarAsync(mensajeId, tipo, referencia, payload,
-            () => SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct), ct);
+            () => SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct, origen), ct);
 
     /// <summary>
-    /// ENTRADA_ALMACEN (M-159): mismo guardado atómico que las salidas; un ERROR deja el mensaje con folio de revisión.
-    /// Contra una OC del ERP es su recepción (movimiento, saldo y evento al outbox en la misma transacción).
+    /// ENTRADA_ALMACEN (M-159) y ENTRADA_MANUAL (v9, <paramref name="tipoMovimiento"/> = AjustePositivo): mismo guardado atómico
+    /// que las salidas; un ERROR deja el mensaje con folio de revisión. Contra una OC del ERP es su recepción (movimiento, saldo y
+    /// evento al outbox en la misma transacción).
     /// </summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarEntradaAsync(
         string mensajeId, string tipo, string? referencia, string payload, Guid empresaId, Guid usuarioId, Guid sucursalId,
-        string motivo, string? compra, string? entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct) =>
+        string motivo, string? compra, string? entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct,
+        TipoMovimiento tipoMovimiento = TipoMovimiento.EntradaCompra, OrigenApp? origen = null, string? motivoClave = null) =>
         GuardarAsync(mensajeId, tipo, referencia, payload,
             () => EntradaAppAlmacenes.RegistrarAsync(_db, _entrada, empresaId, usuarioId, sucursalId, motivo,
-                compra, entrada ?? mensajeId, entradas, ct), ct);
+                compra, entrada ?? mensajeId, entradas, ct, tipoMovimiento, origen, motivoClave), ct);
 
     /// <summary>CAMBIO_ALMACEN (M-446): el par salida/entrada del traslado y el mensaje en una transacción; sin evento contable.</summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarTrasladoAsync(

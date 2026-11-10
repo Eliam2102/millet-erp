@@ -342,11 +342,18 @@ public class AlmacenesAppSalidasTests
     }
 
     [Fact]
-    public async Task SALIDA_MANUAL_con_medida_exige_costoM2_y_ya_no_acepta_el_costo_total_del_grupo()
+    public async Task SALIDA_MANUAL_de_hoja_costeada_por_pieza_se_acepta_y_sale_al_promedio_del_ERP_v9()
     {
+        // v9: «si A+W lleva el costo de ese artículo por pieza, la hoja también va con costoPieza»; es informativo.
         var s = await SembrarAsync(10);
-        var datos = DatosV6("MANUAL", 1, [new { articuloAw = s.ArticuloAw, ancho = 2440, alto = 3660, piezas = 1, costoPieza = 893.04m }], motivo: "Muestra");
-        await AssertErrorSinEfectosAsync(s, datos, "costoM2", "SALIDA_MANUAL");
+        await using var f = ConLlave();
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "SALIDA_MANUAL",
+            DatosV6("MANUAL", 1, [new { articuloAw = s.ArticuloAw, ancho = 2440, alto = 3660, piezas = 1, costoPieza = 893.04m }], motivo: "Muestra"))));
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        Assert.Equal(100m, (await db.LineasMovimiento.AsNoTracking().SingleAsync(x => x.ArticuloId == s.ArticuloId)).CostoUnitarioMxn);
     }
 
     [Fact]

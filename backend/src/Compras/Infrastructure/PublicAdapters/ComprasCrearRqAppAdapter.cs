@@ -42,13 +42,13 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
         _db = db; _maestros = maestros; _folios = folios; _usuarioServicio = usuarioServicio; _empresa = empresa; _publisher = publisher;
     }
 
-    public async Task<AvisoRqAppResultado> CancelarAsync(string folioExterno, string? motivo, CancellationToken ct)
+    public async Task<AvisoRqAppResultado> CancelarAsync(string folioExterno, string? motivo, CancellationToken ct, string? folioErp = null)
     {
         var sp = await _usuarioServicio.ObtenerReordenAsync(ct);
         if (sp is null || !sp.Activo)
             return new(null, "El usuario de servicio del ERP no está disponible; no se puede cancelar la requisición.");
         using var bypass = _empresa.Bypass();
-        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, ct);
+        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, folioErp, ct);
         if (rq is null || rq.Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
             return new(rq?.Folio.Valor, null);
         var motivoId = await _db.MotivosRechazo.AsNoTracking().Where(m => m.Clave == MotivoOtro && m.Activo)
@@ -68,13 +68,14 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
         return new(rq.Folio.Valor, null);
     }
 
-    public async Task<AvisoRqAppResultado> ReducirAsync(string folioExterno, IReadOnlyList<LineaQuitadaRqApp> lineas, string? motivo, CancellationToken ct)
+    public async Task<AvisoRqAppResultado> ReducirAsync(string folioExterno, IReadOnlyList<LineaQuitadaRqApp> lineas, string? motivo, CancellationToken ct,
+        string? folioErp = null)
     {
         var sp = await _usuarioServicio.ObtenerReordenAsync(ct);
         if (sp is null || !sp.Activo)
             return new(null, "El usuario de servicio del ERP no está disponible; no se puede reducir la requisición.");
         using var bypass = _empresa.Bypass();
-        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, ct);
+        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, folioErp, ct);
         if (rq is null || rq.Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
             return new(rq?.Folio.Valor, null);
         try
@@ -89,9 +90,18 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
         return new(rq.Folio.Valor, null);
     }
 
-    private Task<Requisicion?> RqAppAsync(Guid empresaId, string folioExterno, CancellationToken ct) =>
-        _db.Requisiciones.Include(r => r.Lineas).FirstOrDefaultAsync(r => r.EmpresaId == empresaId
-            && r.Origen == OrigenRequisicion.AlmacenesApp && r.FolioExterno == folioExterno.Trim(), ct);
+    // v9: el aviso trae folioErp (el folio que el ERP acusó); manda sobre el folio de la app. Si no viene, no es un folio válido o no
+    // existe, se busca por el folio de la app como antes.
+    private async Task<Requisicion?> RqAppAsync(Guid empresaId, string folioExterno, string? folioErp, CancellationToken ct)
+    {
+        var app = _db.Requisiciones.Include(r => r.Lineas)
+            .Where(r => r.EmpresaId == empresaId && r.Origen == OrigenRequisicion.AlmacenesApp);
+        Folio? folio = null;
+        try { if (!string.IsNullOrWhiteSpace(folioErp)) folio = Folio.Parse(folioErp.Trim()); }
+        catch (BusinessRuleException) { folio = null; }
+        return (folio is null ? null : await app.FirstOrDefaultAsync(r => r.Folio == folio, ct))
+            ?? await app.FirstOrDefaultAsync(r => r.FolioExterno == folioExterno.Trim(), ct);
+    }
 
     private static string Texto(string? motivo)
     {
@@ -156,7 +166,7 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
                     return new LineaAppRequisicion(a.Id, l.Piezas, a.UnidadMedidaDefault,
                         Money.Of(a.PrecioReferenciaMonto ?? 0m, a.PrecioReferenciaMoneda ?? "MXN"),
                         l.Piezas, l.AnchoMm, l.AltoMm, s.FechaRequerida,
-                        l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra);
+                        l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra, l.Posicion);
                 }).ToList(),
                 s.Comentario is { Length: > 500 } ? s.Comentario[..500] : s.Comentario);
             rq.RegistrarCubrimiento(

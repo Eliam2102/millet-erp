@@ -59,6 +59,12 @@ public sealed class AlmMensajeOptions
     /// con «Dato faltante», como hoy. Un área o equipo inválido siempre es ERROR.
     /// </summary>
     public bool ExigirAreaEquipo { get; init; }
+
+    /// <summary>
+    /// M-283 (contrato v9 §4): lee <c>alm_carga_inicial</c> (la carga de número más alto) y acusa APLICADO / ERROR por renglón.
+    /// Apagado por omisión; se enciende cuando TI avise el número de carga. Usa el mismo <see cref="Origen"/> y cadena.
+    /// </summary>
+    public bool CargaInicialHabilitada { get; init; }
 }
 
 public readonly record struct AlmMensajeTick(int Procesados, int Errores, int Frenados, int Fallas);

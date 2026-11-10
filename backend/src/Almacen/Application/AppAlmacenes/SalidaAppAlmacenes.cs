@@ -16,7 +16,8 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
     decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null, LlaveAlmacenApp? Almacen = null, string? Lote = null);
+    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null, LlaveAlmacenApp? Almacen = null, string? Lote = null,
+    string? MotivoClave = null);
 
 /// <summary>Una partida de salida ya repartida contra un saldo concreto (ubicación, lote y costo de ese saldo).</summary>
 internal sealed record PartidaSalidaApp(SalidaApp Salida, Guid SubAlmacenId, LineaRevisionMov Linea);
@@ -44,12 +45,19 @@ public static class SalidaAppAlmacenes
     /// <summary>
     /// Varias salidas del mismo mensaje, todo o nada: si la existencia de cualquier (artículo, variante) no alcanza
     /// para la suma de sus partidas, el mensaje queda <see cref="EnRevision"/> y no se crea ningún movimiento.
-    /// Todas las partidas comparten sucursal (la del primer elemento).
+    /// Todas las partidas comparten sucursal (la del primer elemento). Con <paramref name="origen"/> (v9: cancelación de entrada,
+    /// reclamación) cada partida sale al costo con que entró en el original (<see cref="CostoOrigenApp"/>); si no está, al promedio.
     /// </summary>
     public static async Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId,
-        IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
+        IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null)
     {
+        var original = await CostoOrigenApp.LeerAsync(db, origen, ct);
+        if (original.Count > 0)
+            salidas = salidas.Select(s => s with
+            {
+                CostoUnitarioMxn = CostoOrigenApp.Costo(original, s.ArticuloId, s.ProductoAwVarianteId, s.Lote) ?? s.CostoUnitarioMxn,
+            }).ToList();
         var (partidas, estado, error) = await RepartirAsync(db, salidas, ct);
         if (partidas is null) return (estado, null, error);
 
@@ -58,9 +66,9 @@ public static class SalidaAppAlmacenes
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         foreach (var grupo in partidas.GroupBy(l => (l.Salida.Tipo, l.Salida.Motivo, l.SubAlmacenId)))
         {
-            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
-                grupo.Select(l => l.Linea).ToList(), ct);
             var s = grupo.First().Salida;
+            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
+                grupo.Select(l => l.Linea).ToList(), ct, s.MotivoClave);
             await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
                 events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), ct);
             folios.Add(mov.Folio);

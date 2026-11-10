@@ -17,12 +17,15 @@ public static class AlmMensajeDependencyInjection
         if (string.Equals(origen, "Sql", StringComparison.OrdinalIgnoreCase))
         {
             services.AddSingleton<IAlmMensajeOrigen, SqlAlmMensajeOrigen>();
+            services.AddSingleton<IAlmCargaInicialOrigen, SqlAlmCargaInicialOrigen>(); // M-283, mismo origen y cadena
             return services;
         }
         if (!string.IsNullOrWhiteSpace(origen) && !string.Equals(origen, "Simulado", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Integraciones:AlmMensaje:Origen '{origen}' no válido (Simulado | Sql).");
         services.AddSingleton<SimuladoAlmMensajeOrigen>();
         services.AddSingleton<IAlmMensajeOrigen>(sp => sp.GetRequiredService<SimuladoAlmMensajeOrigen>());
+        services.AddSingleton<SimuladoAlmCargaInicialOrigen>();
+        services.AddSingleton<IAlmCargaInicialOrigen>(sp => sp.GetRequiredService<SimuladoAlmCargaInicialOrigen>());
         return services;
     }
 }

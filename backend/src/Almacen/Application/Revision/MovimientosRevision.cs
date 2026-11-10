@@ -26,10 +26,11 @@ internal static class MovimientosRevision
 {
     public static async Task<MovimientoCreado> AgregarAsync(
         AlmacenDbContext db, Guid empresaId, Guid usuarioId, TipoMovimiento tipo, DateOnly fecha,
-        string motivo, IReadOnlyList<LineaRevisionMov> lineas, CancellationToken ct)
+        string motivo, IReadOnlyList<LineaRevisionMov> lineas, CancellationToken ct, string? motivoClave = null)
     {
         var movimiento = new MovimientoInventario(Guid.CreateVersion7(), tipo, empresaId, fecha);
         typeof(MovimientoInventario).GetProperty("Motivo")!.SetValue(movimiento, motivo);
+        movimiento.AsignarMotivoClave(motivoClave);
 
         var posicion = 1;
         foreach (var l in lineas)
