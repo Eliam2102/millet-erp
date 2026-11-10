@@ -31,6 +31,8 @@ public sealed class ProformaPedidoConfiguration : IEntityTypeConfiguration<Profo
         builder.Property(e => e.GeneradaPorUsuarioId);
         builder.Property(e => e.GeneradaPorNombre).HasMaxLength(200);
         builder.Property(e => e.GeneradaEn).IsRequired();
+        // M-145: último día de vigencia (días naturales); las proformas anteriores quedan sin vigencia registrada.
+        builder.Property(e => e.VigenteHasta).HasColumnType("date");
 
         builder.HasIndex(e => new { e.PedidoFacturableId, e.NumeroVersion })
             .IsUnique()

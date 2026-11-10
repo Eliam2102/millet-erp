@@ -40,6 +40,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // M-145: vigencia de la proforma (15 días naturales por omisión, confirmados por Millet).
+        services.Configure<Millet.Facturacion.Application.Proformas.ProformaOpciones>(
+            configuration.GetSection(Millet.Facturacion.Application.Proformas.ProformaOpciones.Seccion));
+
         // --- Catálogos SAT: adapter REAL sobre Compartido (no stub) ---
         // Scoped porque consume CompartidoDbContext (scoped).
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();

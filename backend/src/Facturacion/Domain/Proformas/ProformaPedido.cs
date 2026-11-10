@@ -45,12 +45,21 @@ public sealed class ProformaPedido : BaseEntity, IPerteneceAEmpresa, IAuditable
     public string? GeneradaPorNombre { get; private set; }
     public DateTimeOffset GeneradaEn { get; private set; }
 
+    /// <summary>
+    /// M-145: último día en que vale la proforma (días naturales desde su emisión, según la configuración
+    /// vigente al generarla). Se guarda para que un cambio de configuración no altere lo ya entregado.
+    /// </summary>
+    public DateOnly? VigenteHasta { get; private set; }
+
+    /// <summary>La proforma ya no vale a partir del día siguiente a <see cref="VigenteHasta"/>.</summary>
+    public bool VencidaEl(DateOnly hoy) => VigenteHasta is { } v && hoy > v;
+
     private ProformaPedido() { }
 
     private ProformaPedido(
         Guid id, Guid empresaId, Guid sucursalId, Guid pedidoFacturableId, int numeroVersion, string? numeroPedido,
         string contenidoJson, string avisosJson, decimal total, string moneda,
-        Guid? generadaPorUsuarioId, string? generadaPorNombre, DateTimeOffset generadaEn) : base(id)
+        Guid? generadaPorUsuarioId, string? generadaPorNombre, DateTimeOffset generadaEn, DateOnly? vigenteHasta) : base(id)
     {
         if (numeroVersion < 1)
             throw new BusinessRuleException("FAC_PROFORMA_VERSION_INVALIDA", "La versión de la proforma debe ser >= 1.");
@@ -70,14 +79,15 @@ public sealed class ProformaPedido : BaseEntity, IPerteneceAEmpresa, IAuditable
         GeneradaPorUsuarioId = generadaPorUsuarioId;
         GeneradaPorNombre = generadaPorNombre;
         GeneradaEn = generadaEn;
+        VigenteHasta = vigenteHasta;
     }
 
     public static ProformaPedido Generar(
         Guid empresaId, Guid sucursalId, Guid pedidoFacturableId, int numeroVersion, string? numeroPedido,
         string contenidoJson, string avisosJson, decimal total, string moneda,
-        Guid? generadaPorUsuarioId, string? generadaPorNombre, DateTimeOffset generadaEn) =>
+        Guid? generadaPorUsuarioId, string? generadaPorNombre, DateTimeOffset generadaEn, DateOnly? vigenteHasta = null) =>
         new(Guid.CreateVersion7(), empresaId, sucursalId, pedidoFacturableId, numeroVersion, numeroPedido,
-            contenidoJson, avisosJson, total, moneda, generadaPorUsuarioId, generadaPorNombre, generadaEn);
+            contenidoJson, avisosJson, total, moneda, generadaPorUsuarioId, generadaPorNombre, generadaEn, vigenteHasta);
 
     /// <summary>
     /// Folio <c>PF-{numeroPedido}-{version}</c>; un pedido manual sin número usa
