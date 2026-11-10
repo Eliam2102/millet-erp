@@ -5171,6 +5171,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000d-0009-0000-0000-000000000001"),
+                            Accion = "corregir-documento",
+                            Codigo = "contabilidad.iva.corregir-documento",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Recalcular el IVA de una factura de proveedor contra su XML con motivo (genera la póliza de ajuste ligada al documento)",
+                            Modulo = "contabilidad",
+                            Recurso = "iva",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0007-0000-0000-000000000010"),
                             Accion = "aprobar-credito",
                             Codigo = "comercio_exterior.embarques.aprobar-credito",
