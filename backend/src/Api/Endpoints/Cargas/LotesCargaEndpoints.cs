@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Web;
 using Millet.Compartido.Application.Cargas.Lotes;
+using Millet.SharedKernel.Application.Cargas;
 using Millet.DatosMaestros.Application.Cargas;
 using Millet.SharedKernel.Application.Exceptions;
 

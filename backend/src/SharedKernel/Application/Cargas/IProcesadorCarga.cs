@@ -1,11 +1,10 @@
-using Millet.DatosMaestros.Application.Cargas;
-
-namespace Millet.Compartido.Application.Cargas.Lotes;
+namespace Millet.SharedKernel.Application.Cargas;
 
 /// <summary>
 /// M-047 (86e3jvvmf): puerto que implementa el módulo dueño de cada tipo de carga (p. ej. Contabilidad para
 /// <c>contabilidad.saldos-iniciales</c>, M-166). El lote común no conoce las reglas del módulo: le pasa las filas
 /// ya mapeadas y guarda lo que le regresa. El módulo nunca lee las tablas del lote.
+/// <para>Vive en SharedKernel para que cada módulo (Contabilidad, etc.) lo implemente sin referenciar Compartido.</para>
 /// </summary>
 public interface IProcesadorCarga
 {
@@ -14,7 +13,7 @@ public interface IProcesadorCarga
     /// <summary>Nombre para la pantalla, p. ej. «Saldos iniciales contables».</summary>
     string Nombre { get; }
     /// <summary>Columnas que el usuario mapea desde su archivo (M-167).</summary>
-    IReadOnlyList<ColumnaCarga> Columnas { get; }
+    IReadOnlyList<ColumnaLoteCarga> Columnas { get; }
     /// <summary>Columnas sin las que no se puede validar.</summary>
     IReadOnlyList<string> ColumnasObligatorias { get; }
     /// <summary>El tipo pide fecha de corte al subir.</summary>
@@ -39,6 +38,9 @@ public interface IProcesadorCarga
 /// Lo que el lote le pasa al módulo. Lleva los nombres de quien subió y de quien autorizó (el módulo no lee
 /// usuarios) y los parámetros capturados al subir.
 /// </summary>
+/// <summary>Columna que el usuario mapea desde su archivo; <see cref="Alias"/> sirve para sugerir el mapeo.</summary>
+public sealed record ColumnaLoteCarga(string Nombre, string Ayuda, params string[] Alias);
+
 public sealed record LoteCargaContexto(
     Guid LoteId, Guid EmpresaId, string Huella, DateOnly? FechaCorte, Guid SubidoPorId, Guid? AutorizadoPorId,
     string SubidoPorNombre, string? AutorizadoPorNombre, IReadOnlyDictionary<string, string?> Parametros);

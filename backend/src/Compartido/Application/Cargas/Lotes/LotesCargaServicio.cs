@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Cargas;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Cargas;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain.Cargas;
 using Millet.SharedKernel.Domain.Exceptions;
@@ -93,7 +94,7 @@ public sealed class LotesCargaServicio(
             && l.FechaCorte == fechaCorte && l.Estado != EstadoLoteCarga.Rechazado, ct);
         if (existente is not null) return await DetalleAsync(existente, p, ct);
 
-        var tabla = ArchivoMaestros.Leer(archivo, nombre, p.Columnas, mapeo);
+        var tabla = ArchivoMaestros.Leer(archivo, nombre, ColumnasArchivo(p), mapeo);
         var filas = tabla.Filas.Select(f => new FilaCarga(f.Numero, f.Valores)).ToList();
         var (actorId, actorNombre) = Actor();
         var lote = new LoteCarga(Guid.CreateVersion7(), empresaId, tipo, Path.GetFileName(nombre), huella, fechaCorte,
@@ -236,6 +237,9 @@ public sealed class LotesCargaServicio(
             l.SubidoPorNombre,
             l.Estado is EstadoLoteCarga.Autorizado or EstadoLoteCarga.Aplicado ? l.DecididoPorNombre : null,
             Parametros(l));
+
+    private static List<ColumnaCarga> ColumnasArchivo(IProcesadorCarga p) =>
+        [.. p.Columnas.Select(c => new ColumnaCarga(c.Nombre, c.Ayuda, c.Alias))];
 
     private static Dictionary<string, string?> Parametros(LoteCarga l) =>
         JsonSerializer.Deserialize<Dictionary<string, string?>>(l.ParametrosJson, Json) ?? [];
