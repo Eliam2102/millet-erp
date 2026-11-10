@@ -93,12 +93,13 @@ public class RecepcionAlmacenGeneralTests(WebApplicationFactory<Program> factory
     {
         await EjecutarAsync(async (db, ctx, unica, otro, lineasOc) =>
         {
+            // Primero el rechazo: una recepción registrada con el mismo CFDI haría que la segunda pidiera motivo (G-3).
+            var noVidrioARack = () => Recibir(db, ctx, ctx.ArticuloId, lineasOc, NoVidrio(otro, ctx.RackId));
+            (await noVidrioARack.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ENTRADA_SIN_ASIGNACION");
+
             // M-159: la medida de A+W entra al almacén general de la sucursal en la recepción con factura.
             await Recibir(db, ctx, ctx.ArticuloId, lineasOc, Linea(ctx, 20m, VarA) with { UbicacionId = unica });
             (await Fila(db, unica, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(178.6080m);
-
-            var noVidrioARack = () => Recibir(db, ctx, ctx.ArticuloId, lineasOc, NoVidrio(otro, ctx.RackId));
-            (await noVidrioARack.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ENTRADA_SIN_ASIGNACION");
         });
     }
 
