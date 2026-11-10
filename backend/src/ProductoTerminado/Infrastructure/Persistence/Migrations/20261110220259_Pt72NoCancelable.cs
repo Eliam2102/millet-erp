@@ -17,6 +17,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                 table: "pedidos_pt",
                 type: "timestamp with time zone",
                 nullable: true);
+
+            // Con el código anterior el 72 salía al emitir la primera hoja (en_ruta_at): esos pedidos ya lo mandaron y no lo repiten.
+            migrationBuilder.Sql(
+                "UPDATE producto_terminado.pedidos_pt SET estado72at = en_ruta_at WHERE en_ruta_at IS NOT NULL;");
         }
 
         /// <inheritdoc />

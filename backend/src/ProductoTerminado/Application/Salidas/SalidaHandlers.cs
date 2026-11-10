@@ -230,6 +230,9 @@ public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcc
             await facturacion.RegistrarSalidaAsync(pedidos[a.PedidoPtId].PedidoFacturableId, a.Folio,
                 a.Piezas.Select(p => piezas[p.PiezaId]).GroupBy(p => p.Posicion).OrderBy(g => g.Key).Select(g => (g.Key, (decimal)g.Count())).ToList(), cancellationToken);
 
+        // El 72 no se revierte en A+W: viaja solo por un albarán que ya no se puede cancelar, con la misma regla que el candado de
+        // CancelarAlbaranSalida (factura timbrada ligada a la salida del albarán, no solo al pedido).
+        var facturados = await facturacion.FacturasDeAlbaranesAsync(conPiezas.Select(a => a.Folio).ToList(), cancellationToken);
         foreach (var a in conPiezas)
         {
             foreach (var pa in a.Piezas)
@@ -240,8 +243,7 @@ public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcc
             }
             var pedido = pedidos[a.PedidoPtId];
             pedido.MarcarEnRuta(ahora);
-            // El 72 no se revierte en A+W: al emitir solo viaja si el pedido ya tiene factura timbrada (el albarán ya no se puede cancelar).
-            if (pedido.FacturadoAt is not null && pedido.Confirmar72(ahora))
+            if (facturados.ContainsKey(a.Folio) && pedido.Confirmar72(ahora))
                 await eventos.PublishAsync(new PedidoEnRutaEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, s.Folio, a.Folio, s.CartaPorteFolio), cancellationToken);
         }
         s.Emitir(ahora);

@@ -108,7 +108,8 @@ public sealed class ObtenerEvidenciaEntregaHandler(ProductoTerminadoDbContext db
     }
 }
 
-public sealed class AplicarFacturaPedidoHandler(ProductoTerminadoDbContext db, IIntegrationEventPublisher eventos, IClock clock) : IRequestHandler<AplicarFacturaPedidoCommand, bool>
+public sealed class AplicarFacturaPedidoHandler(ProductoTerminadoDbContext db, IFacturacionSalidaPort facturacion, IIntegrationEventPublisher eventos, IClock clock)
+    : IRequestHandler<AplicarFacturaPedidoCommand, bool>
 {
     public async Task<bool> Handle(AplicarFacturaPedidoCommand c, CancellationToken cancellationToken)
     {
@@ -116,8 +117,23 @@ public sealed class AplicarFacturaPedidoHandler(ProductoTerminadoDbContext db, I
         if (pedido is null) return false;
         var ahora = clock.UtcNow;
         var cambio = pedido.MarcarFacturado(ahora);
-        var con72 = pedido.Confirmar72(ahora);
-        if (con72) await eventos.PublishAsync(new PedidoEnRutaEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido, string.Empty, string.Empty, null), cancellationToken);
+        var con72 = false;
+        // El 72 viaja solo si la factura dejó sin vuelta atrás un albarán emitido y vigente del pedido (candado de CancelarAlbaranSalida).
+        if (pedido.Estado72At is null && pedido.EnRutaAt is not null)
+        {
+            var emitidos = await (from a in db.Albaranes
+                                  join s in db.Salidas on a.SalidaPtId equals s.Id
+                                  where a.PedidoPtId == pedido.Id && a.CanceladoAt == null && s.Estado == EstadoSalida.Emitida
+                                  orderby a.EmitidoAt
+                                  select new { a.Folio, Hoja = s.Folio, s.CartaPorteFolio }).ToListAsync(cancellationToken);
+            var facturados = emitidos.Count == 0
+                ? new Dictionary<string, FacturaAlbaranRuta>()
+                : await facturacion.FacturasDeAlbaranesAsync(emitidos.Select(a => a.Folio).ToList(), cancellationToken);
+            var bloqueado = emitidos.FirstOrDefault(a => facturados.ContainsKey(a.Folio));
+            con72 = bloqueado is not null && pedido.Confirmar72(ahora);
+            if (con72)
+                await eventos.PublishAsync(new PedidoEnRutaEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido, bloqueado!.Hoja, bloqueado.Folio, bloqueado.CartaPorteFolio), cancellationToken);
+        }
         var cerro = pedido.Cerrar115(ahora);
         if (cerro) await eventos.PublishAsync(new PedidoFacturadoEntregadoEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido, "115"), cancellationToken);
         if (cambio || con72 || cerro) await db.SaveChangesAsync(cancellationToken);
