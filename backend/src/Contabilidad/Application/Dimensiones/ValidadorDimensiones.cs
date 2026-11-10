@@ -118,16 +118,6 @@ public sealed class ValidadorDimensiones(
             var efectivo = directo || Derivada(r.Dimension, efectivos);
             var origen = r.Heredada ? $" (regla definida en la cuenta {r.CuentaOrigenCodigo})" : string.Empty;
 
-            // 86e3z5w25: Si la cuenta 600 no involucra una máquina física (comisiones bancarias, viáticos, etc.),
-            // la validación de Dim3 debe exentarse para documentos automáticos (m.Origen != Manual) sin arrojar excepción Dato faltante.
-            if (r.Dimension == DimensionContable.Dim3 && m.Origen != OrigenMovimiento.Manual
-                && (r.CuentaOrigenCodigo?.StartsWith("600", StringComparison.Ordinal) == true
-                    || donde.Contains("600", StringComparison.Ordinal)
-                    || donde.Contains("gasto", StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
             if (r.Requerimiento == RequerimientoDimension.Obligatorio && !efectivo)
                 yield return new("CONTAB_DIM_OBLIGATORIA_FALTANTE",
                     $"Falta {r.NombreDimension}: es obligatoria para {donde}{origen}.", Campo(r.Dimension), r.Dimension);
