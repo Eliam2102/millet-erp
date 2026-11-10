@@ -42,6 +42,8 @@ public sealed class ContabilidadDbContext : BaseDbContext
 
     // F1-CON-04: pólizas (C1.3), numeración por tipo (K10.9) y anulación (K10.3).
     public DbSet<Poliza> Polizas => Set<Poliza>();
+    /// <summary>M-166: marca de la apertura contable (una por empresa).</summary>
+    public DbSet<AperturaContable> Aperturas => Set<AperturaContable>();
     public DbSet<PolizaPartida> PolizasPartidas => Set<PolizaPartida>();
     public DbSet<ConsecutivoPoliza> ConsecutivosPoliza => Set<ConsecutivoPoliza>();
     // M-212: anulación de póliza con segunda firma.

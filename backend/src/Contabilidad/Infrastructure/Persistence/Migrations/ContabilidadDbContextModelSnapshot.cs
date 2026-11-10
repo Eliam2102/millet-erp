@@ -24,6 +24,96 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.AperturaContable", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AplicadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("aplicado_en");
+
+                    b.Property<string>("AplicadoPor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("aplicado_por");
+
+                    b.Property<Guid?>("AutorizadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<DateOnly>("FechaCorte")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_corte");
+
+                    b.Property<string>("Folio")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("folio");
+
+                    b.Property<string>("Huella")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("huella");
+
+                    b.Property<Guid>("LoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lote_id");
+
+                    b.Property<Guid>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<Guid?>("SubidoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subido_por_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_aperturas");
+
+                    b.HasIndex("EmpresaId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_aperturas_empresa");
+
+                    b.HasIndex("LoteId")
+                        .HasDatabaseName("ix_aperturas_lote_id");
+
+                    b.ToTable("aperturas", "contabilidad");
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.CentroCorporativo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1661,7 +1751,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_polizas_numero", "(estado = 0 AND numero IS NULL) OR (estado <> 0 AND numero BETWEEN 1 AND 999999)");
 
-                            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 1");
+                            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 2");
 
                             t.HasCheckConstraint("ck_polizas_periodo", "periodo_numero BETWEEN 1 AND 13");
 

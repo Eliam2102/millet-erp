@@ -25,6 +25,24 @@ public sealed class TerceroContabilidadAdapter(CompartidoDbContext db) : ITercer
         };
     }
 
+    public async Task<IReadOnlyDictionary<string, AuxiliarContable>> ObtenerPorClavesAsync(
+        TipoAuxiliar tipo, IReadOnlyCollection<string> claves, CancellationToken ct)
+    {
+        // Variantes exactas (tal cual, mayúsculas y minúsculas) para que la consulta use igualdad; se cotejan sin distinguir mayúsculas.
+        var buscadas = claves.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).ToList();
+        if (buscadas.Count == 0) return new Dictionary<string, AuxiliarContable>();
+        var variantes = buscadas.SelectMany(c => new[] { c, c.ToUpperInvariant(), c.ToLowerInvariant() }).Distinct().ToArray();
+        var encontrados = tipo switch
+        {
+            TipoAuxiliar.Cliente => await db.Clientes.AsNoTracking().Where(c => variantes.Contains(c.Clave))
+                .Select(c => new AuxiliarContable(c.Id, c.Clave, c.RazonSocial, c.Estatus == EstatusCatalogo.Activo)).ToListAsync(ct),
+            TipoAuxiliar.Proveedor => await db.Proveedores.AsNoTracking().Where(p => variantes.Contains(p.Clave))
+                .Select(p => new AuxiliarContable(p.Id, p.Clave, p.RazonSocial, p.Estatus == EstatusCatalogo.Activo)).ToListAsync(ct),
+            _ => throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Solo clientes y proveedores."),
+        };
+        return encontrados.GroupBy(a => a.Clave.Trim().ToUpperInvariant()).ToDictionary(g => g.Key, g => g.First());
+    }
+
     public async Task<IReadOnlyList<AuxiliarContable>> BuscarAsync(TipoAuxiliar tipo, string? q, int limite, CancellationToken ct)
     {
         var patron = string.IsNullOrWhiteSpace(q) ? null : $"%{q.Trim()}%";
