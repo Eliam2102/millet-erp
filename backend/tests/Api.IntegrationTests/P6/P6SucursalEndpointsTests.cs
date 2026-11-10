@@ -442,7 +442,7 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
             {
                 using var scope = factory.Services.CreateScope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
-                var numero = Random.Shared.Next(100000, 999999); var prefix = sucursal == Propia ? "PAA" : "PBB";
+                var numero = Millet.Api.IntegrationTests.Fixtures.FoliosPrueba.Siguiente(); var prefix = sucursal == Propia ? "PAA" : "PBB";
                 var rq = new Requisicion(Guid.CreateVersion7(), Empresa, Millet.Compras.Domain.Folio.Parse($"{prefix}2026-{numero}"), 2026,
                     Clasificacion.OrdenCompra, sucursal, Guid.Parse("00000005-0004-0000-0000-000000000001"), null, usuarioId, usuarioId, Prioridad.Normal, DateTimeOffset.UtcNow);
                 var oc = new OrdenCompra(Guid.CreateVersion7(), Empresa, Millet.Compras.Domain.Oc.Folio.Parse($"OC-{prefix}2026-{numero}"), 2026,

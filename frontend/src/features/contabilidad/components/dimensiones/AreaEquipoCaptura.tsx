@@ -22,7 +22,8 @@ interface Props {
 /**
  * H1 pasos 3 y 4 (86e3z5w25): área (Dim2) y equipo (Dim3) de un movimiento cuya póliza automática carga a una cuenta con la
  * regla de dimensiones C-03 (500 exige área; 600, área y equipo). La ubicación sale de la sucursal. Solo se ofrecen centros activos
- * de la sucursal; el equipo se filtra por el área elegida. Sin el dato exigido la captura procede y la póliza queda en Rechazos.
+ * de la sucursal; el equipo se filtra por el área elegida. M-450 (86e3zr7ft): sin el dato exigido el movimiento no se guarda; la
+ * pantalla deshabilita su botón con {@link faltaAreaEquipo}.
  */
 export function AreaEquipoCaptura({
   id,
@@ -93,9 +94,8 @@ export function AreaEquipoCaptura({
         >
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
-            La cuenta {cuentaCodigo ?? 'de la póliza'} exige {exigidos} (regla de dimensiones C-03). Sin{' '}
-            {exigeEquipo && !exigeArea ? 'él' : 'ese dato'}, el movimiento se guarda y su póliza queda en Rechazos
-            hasta capturarlo.
+            La cuenta {cuentaCodigo ?? 'de la póliza'} exige {exigidos} (regla de dimensiones C-03). Captúralo para
+            continuar.
           </span>
         </p>
       ) : null}

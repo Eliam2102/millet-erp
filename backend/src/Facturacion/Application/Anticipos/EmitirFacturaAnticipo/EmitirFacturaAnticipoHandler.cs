@@ -157,15 +157,9 @@ public sealed class EmitirFacturaAnticipoHandler
             factura.EstablecerNumRegIdTribReceptor(maestro.NumRegIdTrib);
         }
 
-        // 5. Timbrar contra el PAC. Asíncrono-tolerante; el ejecutor aplica la
-        // FSM y persiste el XML en el repo común.
-        await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
-            factura,
-            CfdiEmisionBuilder.DesdeFacturaAnticipo(factura, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
-
-        // 6. Abrir el saldo amortizable. PUE cobra el total al emitir; PPD arranca
-        //    en 0 (lo llenan los REPP, F6).
+        // 5. Abrir el saldo amortizable. PUE cobra el total al emitir; PPD arranca
+        //    en 0 (lo llenan los REPP, F6). M-173: se crea antes del PAC para que el
+        //    anticipo quede guardado con su factura en proceso (el reintento lo exige).
         var montoCobrado = EsPue(command.MetodoPago) ? factura.Total : 0m;
         var anticipo = Anticipo.Crear(
             empresaId: empresaId,
@@ -179,14 +173,21 @@ public sealed class EmitirFacturaAnticipoHandler
             obraId: command.ObraId,
             obraNombre: command.ObraNombre,
             id: anticipoId);
+        _db.Anticipos.Add(anticipo);
+
+        // 6. Timbrar contra el PAC. Asíncrono-tolerante; el ejecutor aplica la
+        // FSM y persiste el XML en el repo común. M-173: guardado antes del PAC.
+        await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
+            factura,
+            CfdiEmisionBuilder.DesdeFacturaAnticipo(factura, ahora),
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, factura));
 
         // F10-PR1: evento de integración (asiento de anticipo MXP/USD).
         if (factura.Estado == EstadoTimbrado.Timbrado)
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaAnticipoTimbrada(factura, ahora, anticipo.ClienteId),
                 cancellationToken);
 
-        _db.FacturasAnticipo.Add(factura);
-        _db.Anticipos.Add(anticipo);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EmitirFacturaAnticipoResponse(

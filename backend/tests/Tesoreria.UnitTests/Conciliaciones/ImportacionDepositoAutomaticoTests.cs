@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Integration;
+using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Conciliaciones;
 using Millet.Tesoreria.Application.Depositos;
 using Millet.Tesoreria.Application.EventListeners;
@@ -78,7 +79,7 @@ public sealed class ImportacionDepositoAutomaticoTests
     }
 
     private static Task<ConciliacionResumenResponse> Importar(
-        Escenario e, Guid conciliacionId, bool puedeConfirmar = true)
+        Escenario e, Guid conciliacionId, bool puedeConfirmar = true, string contenido = Csv, string? formato = null)
     {
         var user = new TestUser(Importador);
         var clock = new TestClock();
@@ -86,7 +87,68 @@ public sealed class ImportacionDepositoAutomaticoTests
             new FakePermisos(puedeConfirmar), new FakePeriodos(), new FakeSucursales(),
             Options.Create(new DepositoAutomaticoOptions { PalabrasCheque = ["CH ", "CHEQUE"] }));
         var handler = new CargarExtractoHandler(e.Db, user, clock, new ExtractoParserFactory([new BbvaExtractoParser()]), procesador);
-        return handler.Handle(new CargarExtractoCommand(conciliacionId, Csv), default);
+        return handler.Handle(new CargarExtractoCommand(conciliacionId, contenido, formato), default);
+    }
+
+    // ---- M-190: auxiliar Santander 8138 con el formato real (datos anonimizados) ----
+
+    private static async Task<Conciliacion> ConciliacionSantanderAsync(Escenario e)
+    {
+        var cuenta = new CuentaBancaria(Empresa, "SANTANDER", "65500000001", null, "MXN", perfilExtracto: "SANTANDER");
+        var conc = Conciliacion.Crear(Empresa, cuenta.Id, 2026, 10);
+        e.Db.CuentasBancarias.Add(cuenta);
+        e.Db.Conciliaciones.Add(conc);
+        await e.Db.SaveChangesAsync();
+        return conc;
+    }
+
+    [Fact]
+    public async Task Santander_con_el_perfil_de_la_cuenta_carga_266_y_al_reimportar_son_266_duplicados()
+    {
+        await using var e = await CrearAsync();
+        var conc = await ConciliacionSantanderAsync(e);
+
+        var primera = await Importar(e, conc.Id, contenido: ExtractosFixtures.Santander());
+        var segunda = await Importar(e, conc.Id, contenido: ExtractosFixtures.Santander());
+
+        primera.LineasNuevas.Should().Be(266);
+        segunda.LineasNuevas.Should().Be(0);
+        segunda.LineasDuplicadas.Should().Be(266);
+        (await e.Db.ExtractoLineas.CountAsync(l => l.ConciliacionId == conc.Id)).Should().Be(266);
+        (await e.Db.Conciliaciones.SingleAsync(c => c.Id == conc.Id)).SaldoExtracto.Should().Be(ExtractosFixtures.SaldoFinalSantander);
+    }
+
+    [Fact]
+    public async Task Santander_cargo_con_misma_referencia_e_importe_en_libros_se_empareja_solo_y_el_resto_queda_pendiente()
+    {
+        await using var e = await CrearAsync();
+        var conc = await ConciliacionSantanderAsync(e);
+        var cuenta = await e.Db.CuentasBancarias.SingleAsync(c => c.Id == conc.CuentaBancariaId);
+        var libros = MovimientoBancario.RegistrarPagoProveedor(Empresa, cuenta, Guid.NewGuid(),
+            ExtractosFixtures.ImporteSantander(2), new DateOnly(2026, 10, 1), ExtractosFixtures.ReferenciaSantander(2), null, Importador, Ahora);
+        e.Db.MovimientosBancarios.Add(libros);
+        await e.Db.SaveChangesAsync();
+
+        await Importar(e, conc.Id, contenido: ExtractosFixtures.Santander());
+
+        var lineas = await e.Db.ExtractoLineas.Where(l => l.ConciliacionId == conc.Id).ToListAsync();
+        var cargo = lineas.Single(l => l.Referencia == ExtractosFixtures.ReferenciaSantander(2));
+        cargo.Estado.Should().Be(EstadoExtractoLinea.Emparejada);
+        cargo.MatchMovimientoId.Should().Be(libros.Id);
+        lineas.Where(l => l.Cargo.HasValue && l.Id != cargo.Id).Should().OnlyContain(l => l.Estado == EstadoExtractoLinea.Pendiente);
+    }
+
+    [Fact]
+    public async Task Archivo_que_no_es_santander_en_cuenta_santander_se_rechaza_sin_carga_parcial()
+    {
+        await using var e = await CrearAsync();
+        var conc = await ConciliacionSantanderAsync(e);
+
+        var act = () => Importar(e, conc.Id, contenido: ExtractosFixtures.BbvaAuxiliar(1_000m, out _));
+
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Message.Should().Contain("Formato no reconocido para el perfil SANTANDER");
+        (await e.Db.ExtractoLineas.CountAsync(l => l.ConciliacionId == conc.Id)).Should().Be(0);
     }
 
     [Fact]

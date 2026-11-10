@@ -55,6 +55,10 @@ public sealed class SolicitudViaticosConfiguration : IEntityTypeConfiguration<So
         builder.Property(e => e.DiferenciaLiquidacion).HasPrecision(18, 4);
 
         builder.Ignore(e => e.DiasEstimados);
+        // M-449: exceso de la comprobación sobre la política y su autorización.
+        builder.Property(e => e.ExcesoComprobacion).HasPrecision(18, 4).HasDefaultValue(0m);
+        builder.Ignore(e => e.ComprobacionFueraDePolitica);
+        builder.Ignore(e => e.LimiteComprobacion);
 
         builder.HasMany(e => e.Lineas)
             .WithOne()

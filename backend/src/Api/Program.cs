@@ -420,6 +420,12 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito.NotasCreditoAwOptions.SectionName));
 
+// === Adopción de CFDI (M-284, QA O1) ===
+// Certificado del SAT (por NoCertificadoSAT) para verificar el SelloSAT del timbre adoptado.
+builder.Services.AddHttpClient<
+    Millet.Facturacion.Application.Timbrado.Adopcion.ICertificadoSatProvider,
+    Millet.Facturacion.Infrastructure.Cfdi.CertificadoSatRdcProvider>(c => c.Timeout = TimeSpan.FromSeconds(15));
+
 // === Terminal de tarjetas (86e3vr1tf, Parte A) ===
 // Mapeo de columnas del archivo diario del banco; por omisión «Transacciones por
 // día» de Getnet más columnas supuestas de comisión (Facturacion:TerminalTarjeta:*).
@@ -1468,7 +1474,9 @@ builder.Services.AddCors(options =>
                   // Sin esto el browser NO puede leer ETag cross-origin
                   // (Access-Control-Expose-Headers) y el If-Match de las
                   // mutaciones nunca se envía (ADR-0012).
-                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion");
+                  // Content-Disposition: las descargas (p. ej. contabilidad electrónica) toman de ahí el nombre del archivo.
+                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion",
+                      Microsoft.Net.Http.Headers.HeaderNames.ContentDisposition);
         }
         // Si AllowedOrigins está vacío, la policy queda sin orígenes
         // permitidos — preflight siempre falla. Comportamiento secure-by-default.
@@ -1813,6 +1821,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMoto
 Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadConciliacionAuxiliaresEndpoints.MapContabilidadConciliacionAuxiliaresEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadEstadosFinancierosEndpoints.MapContabilidadEstadosFinancierosEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadIvaEndpoints.MapContabilidadIvaEndpoints(app);
 // CON-11 (86e3kdypd): revaluación de cierre de bancos y clientes con reversa automática del día 1.
 Millet.Api.Endpoints.Contabilidad.ContabilidadRevaluacionEndpoints.MapContabilidadRevaluacionEndpoints(app);

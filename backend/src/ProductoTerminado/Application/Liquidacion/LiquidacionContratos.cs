@@ -2,11 +2,17 @@ using MediatR;
 
 namespace Millet.ProductoTerminado.Application.Liquidacion;
 
-public sealed record LiquidacionAlbaranInput(Guid AlbaranId, bool Firmado, decimal Efectivo, decimal Voucher, string? VoucherReferencia);
+/// <summary>M-177: con voucher, <c>TipoTarjeta</c> («Credito» o «Debito») y <c>TarjetaUltimos4</c> para registrarlo en caja al cerrar.</summary>
+public sealed record LiquidacionAlbaranInput(Guid AlbaranId, bool Firmado, decimal Efectivo, decimal Voucher, string? VoucherReferencia,
+    string? TipoTarjeta = null, string? TarjetaUltimos4 = null);
 
 public sealed record ImprevistoInput(string Descripcion, decimal Importe);
 
-/// <summary>Liquida en caja la hoja de salida emitida (PT5.7). Con diferencia queda abierta y se puede volver a liquidar; sin diferencia se cierra.</summary>
+/// <summary>
+/// Liquida en caja la hoja de salida emitida (PT5.7). Con diferencia queda abierta y se puede volver a liquidar; sin diferencia se cierra.
+/// M-177: al cerrarse, lo cobrado contra entrega entra como cobro a la sesión de caja abierta de quien liquida (sucursal de la hoja), sobre la
+/// factura timbrada de cada albarán; si la caja lo rechaza, la liquidación no se cierra.
+/// </summary>
 public sealed record LiquidarRutaPtCommand(Guid SalidaId, IReadOnlyList<LiquidacionAlbaranInput> Albaranes, IReadOnlyList<ImprevistoInput> Imprevistos) : IRequest<LiquidacionDto>;
 
 public sealed record ObtenerLiquidacionQuery(Guid SalidaId) : IRequest<LiquidacionDto>;
@@ -20,8 +26,11 @@ public sealed record ListarLiquidacionesQuery(string? Estado, Guid? SucursalId, 
 /// </summary>
 public sealed record CerrarDiaContraEntregaCommand(DateOnly? Hasta = null) : IRequest<int>;
 
+/// <summary>M-177: <c>Esperado</c> = lo que la caja cobra de la factura del albarán (con IVA, neto de NC); sin factura, el total del pedido.
+/// <c>FacturaFolio</c> y <c>CobradoEnCaja</c> dicen sobre qué factura y si el cobro ya entró a caja.</summary>
 public sealed record LiquidacionLineaDto(Guid AlbaranId, string AlbaranFolio, string NumeroPedido, string Cliente, bool ContraEntrega, decimal Esperado, bool Firmado, decimal Efectivo, decimal Voucher,
-    string? VoucherReferencia, decimal Diferencia, bool Conciliado, bool Avisado);
+    string? VoucherReferencia, decimal Diferencia, bool Conciliado, bool Avisado, string? TipoTarjeta = null, string? TarjetaUltimos4 = null,
+    string? FacturaFolio = null, bool CobradoEnCaja = false);
 
 public sealed record LiquidacionDto(Guid SalidaId, string Folio, string Destino, string Estado, DateTimeOffset? LiquidadaAt, IReadOnlyList<LiquidacionLineaDto> Albaranes,
     IReadOnlyList<ImprevistoInput> Imprevistos, decimal TotalEsperado, decimal TotalCobrado, decimal Diferencia);

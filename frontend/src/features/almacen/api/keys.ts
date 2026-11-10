@@ -183,6 +183,8 @@ export const almacenKeys = {
   motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,
   dimensionesRotura: (ubicacionId: string, fecha: string) =>
     [...almacenKeys.all, 'salidas-rotura', 'dimensiones', ubicacionId, fecha] as const,
+  // M-450: si la cuenta del ajuste por conteo exige área o equipo (regla C-03).
+  dimensionesConteo: (conteoId: string) => [...almacenKeys.all, 'conteos', conteoId, 'dimensiones'] as const,
 
   // Conciliación diaria contra A+W (A4.6)
   conciliacion: {

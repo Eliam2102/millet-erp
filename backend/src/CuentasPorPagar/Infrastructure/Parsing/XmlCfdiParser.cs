@@ -127,7 +127,38 @@ public sealed class XmlCfdiParser : IXmlCfdiParser
             MetodoPago: AttrOrNull(comprobante, "MetodoPago"),
             CfdiRelacionados: relacionados,
             RetencionesDetalle: ParseRetenciones(comprobante),
+            TrasladosIva: ParseTrasladosIva(comprobante),
             Descuentos: ParseDecimalOrNull(AttrOrNull(comprobante, "Descuento")) ?? 0m);
+    }
+
+    /// <summary>
+    /// M-209: IVA trasladado por tratamiento, sumado de los conceptos. Cada concepto aporta su traslado 002 (base e importe por tasa, o
+    /// solo la base si es Exento); un concepto con <c>ObjetoImp</c> 01 aporta su importe neto de descuento como NOOBJETO. Null si el CFDI
+    /// no trae conceptos o ninguno se puede clasificar (p. ej. CFDI 3.3 sin traslados por concepto): Contabilidad lo trata como hoy.
+    /// </summary>
+    private static List<TrasladoIvaCfdi>? ParseTrasladosIva(XElement comprobante)
+    {
+        var partes = new List<(string Tratamiento, decimal Base, decimal Iva)>();
+        foreach (var concepto in comprobante.Element(NsCfdi + "Conceptos")?.Elements(NsCfdi + "Concepto") ?? [])
+        {
+            var objetoImp = AttrOrNull(concepto, "ObjetoImp");
+            if (string.Equals(objetoImp?.Trim(), "01", StringComparison.Ordinal))
+            {
+                var neto = ParseDecimal(AttrOrEmpty(concepto, "Importe")) - (ParseDecimalOrNull(AttrOrNull(concepto, "Descuento")) ?? 0m);
+                partes.Add((TrasladoIvaCfdi.NoObjeto, neto, 0m));
+                continue;
+            }
+            var traslados = concepto.Element(NsCfdi + "Impuestos")?.Element(NsCfdi + "Traslados")?.Elements(NsCfdi + "Traslado")
+                .Where(t => AttrOrEmpty(t, "Impuesto").Trim() is "002" or "IVA") ?? [];
+            foreach (var t in traslados)
+            {
+                var tratamiento = TrasladoIvaCfdi.De(objetoImp, AttrOrNull(t, "TipoFactor"), ParseDecimalOrNull(AttrOrNull(t, "TasaOCuota")));
+                if (tratamiento is null) continue;
+                partes.Add((tratamiento, ParseDecimal(AttrOrEmpty(t, "Base")), ParseDecimalOrNull(AttrOrNull(t, "Importe")) ?? 0m));
+            }
+        }
+        if (partes.Count == 0) return null;
+        return [.. partes.GroupBy(p => p.Tratamiento).Select(g => new TrasladoIvaCfdi(g.Key, g.Sum(p => p.Base), g.Sum(p => p.Iva)))];
     }
 
     private static List<RetencionCfdi>? ParseRetenciones(XElement comprobante)

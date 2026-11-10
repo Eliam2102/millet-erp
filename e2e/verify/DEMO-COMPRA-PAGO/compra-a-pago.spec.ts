@@ -622,7 +622,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with one real user per role: RQ
     await page.getByRole('button', { name: 'Nueva conciliación' }).click();
     await page.getByRole('button', { name: 'Abrir Conciliación' }).click();
     await expect(page.getByText('Conciliación abierta con éxito').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Cargar Extracto BBVA' }).click();
+    await page.getByRole('button', { name: 'Cargar extracto', exact: true }).click();
     const dlg = page.getByRole('dialog');
     await dlg.getByRole('textbox').last().fill(texto);
     await foto(page, '12a-conciliacion-cargar-extracto-bbva-formato-DEMO');
@@ -646,7 +646,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with one real user per role: RQ
     const antes = await ok(await guard.api.get(`/api/v1/tesoreria/conciliaciones?cuentaBancariaId=${CUENTA_MILLET.id}`));
     const conc = lista(antes).find((c: { periodoAnio: number; periodoMes: number }) => c.periodoAnio === d.getFullYear() && c.periodoMes === d.getMonth() + 1);
     expect(conc, 'the open reconciliation of the month').toBeTruthy();
-    await page.getByRole('button', { name: 'Cargar Extracto BBVA' }).click();
+    await page.getByRole('button', { name: 'Cargar extracto', exact: true }).click();
     await page.getByRole('dialog').getByRole('textbox').last().fill(texto);
     const r2 = await apiCallOn(page, () => page.getByRole('dialog').getByRole('button', { name: 'Cargar y Procesar' }).click(), { method: 'POST', url: /conciliaciones\/[^/]+\/extracto$/, status: [200, 201, 409, 422] });
     const resumen2 = await r2.json().catch(() => ({}));

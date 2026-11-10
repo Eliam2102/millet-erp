@@ -152,7 +152,8 @@ public sealed class AutorizarNotaCreditoHandler(
 
         nc.Autorizar(user.UserId, ahora);
         await TimbradoEjecutor.TimbrarYAplicarAsync(db, nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-            fiscal, cfdiRepo, ahora, cancellationToken);
+            fiscal, cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(db, nc)); // M-173: autorizada y en proceso antes del PAC
 
         if (nc.Estado == EstadoTimbrado.Timbrado)
             await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(

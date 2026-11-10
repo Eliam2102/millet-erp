@@ -161,7 +161,15 @@ function FilaCancelacion({
         idempotencyKey: crypto.randomUUID(),
       },
       {
-        onSuccess: (res) =>
+        onSuccess: (res) => {
+          // M18: el SAT puede rechazar la cancelación aunque la API responda 200.
+          if (accion === 'autorizar' && res.estadoSolicitud === 'Rechazada') {
+            toast.error(
+              `El SAT rechazó la cancelación de ${c.folio}. La factura sigue vigente.` +
+                (res.mensajeError ? ` Motivo: ${res.mensajeError}` : ''),
+            );
+            return;
+          }
           toast.success(
             accion === 'autorizar'
               ? `Cancelación de ${c.folio} autorizada y enviada al SAT (${
@@ -170,7 +178,8 @@ function FilaCancelacion({
                   ] ?? res.estadoSolicitud
                 }).`
               : `Cancelación de ${c.folio} no autorizada. La factura sigue vigente.`,
-          ),
+          );
+        },
         onError: (error) => mostrarError(error, 'No se pudo registrar la decisión.'),
       },
     );

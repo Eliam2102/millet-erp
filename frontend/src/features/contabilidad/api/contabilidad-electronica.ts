@@ -45,6 +45,8 @@ export interface ParametrosArchivoCe {
   numOrden?: string;
   numTramite?: string;
   formato: 'zip' | 'xml';
+  /** RFC de la empresa (de la revisión): arma el nombre del SAT si el navegador no deja leer Content-Disposition. */
+  rfc?: string | null;
 }
 
 const BASE = '/api/v1/contabilidad/contabilidad-electronica';
@@ -82,6 +84,18 @@ export function nombreDeDisposicion(disposicion: string | null, respaldo: string
   return m ? decodeURIComponent(m[1]) : respaldo;
 }
 
+/**
+ * Nombre del SAT armado en la pantalla, igual al del servidor: RFC + año + mes (dos dígitos) + CT, BN, BC o PL, con la extensión
+ * del formato. Sin RFC, el nombre genérico.
+ */
+export function nombreSatArchivoCe(p: ParametrosArchivoCe): string {
+  const mes = String(p.mes).padStart(2, '0');
+  const rfc = p.rfc?.trim().toUpperCase();
+  if (!rfc) return `contabilidad-electronica-${p.tipo}-${p.anio}-${mes}.${p.formato}`;
+  const sufijo = p.tipo === 'catalogo' ? 'CT' : p.tipo === 'polizas' ? 'PL' : p.tipoEnvio === 'C' ? 'BC' : 'BN';
+  return `${rfc}${p.anio}${mes}${sufijo}.${p.formato}`;
+}
+
 /** Descarga el archivo (el endpoint pide Bearer, así que se baja como Blob). Si el servidor lo rechaza, lanza el ApiError. */
 export async function descargarArchivoCe(p: ParametrosArchivoCe): Promise<string> {
   const response = await apiFetch(rutaArchivoCe(p));
@@ -99,10 +113,7 @@ export async function descargarArchivoCe(p: ParametrosArchivoCe): Promise<string
     }
     throw new ApiError(problem, response.status);
   }
-  const nombre = nombreDeDisposicion(
-    response.headers.get('Content-Disposition'),
-    `contabilidad-electronica-${p.tipo}-${p.anio}-${String(p.mes).padStart(2, '0')}.${p.formato}`,
-  );
+  const nombre = nombreDeDisposicion(response.headers.get('Content-Disposition'), nombreSatArchivoCe(p));
   const url = URL.createObjectURL(await response.blob());
   const enlace = document.createElement('a');
   enlace.href = url;

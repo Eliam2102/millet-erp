@@ -19,9 +19,10 @@ import {
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
+import { FileCheck2, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AdoptarCfdiDialog } from './AdoptarCfdiDialog';
 import { ErrorTimbradoAviso } from './ErrorTimbradoAviso';
 
 /**
@@ -60,6 +61,9 @@ export function TimbradoFallidoBanner({
     PermisosCanonicos.FacturacionComprobantesReintentarTimbrado,
   );
   const puedeDescartar = useHasPermission(PermisosCanonicos.FacturacionComprobantesDescartar);
+  // M-284: si el PAC sí timbró (fallo ambiguo), se adopta su XML en vez de reintentar.
+  const puedeAdoptar = useHasPermission(PermisosCanonicos.FacturacionComprobantesAdoptarCfdi);
+  const [adoptarAbierto, setAdoptarAbierto] = useState(false);
   const reintentar = useReintentarTimbrado();
   const descartar = useDescartarComprobante();
   const [confirmado, setConfirmado] = useState(false);
@@ -132,7 +136,7 @@ export function TimbradoFallidoBanner({
       <p>
         <span className="font-medium text-danger-fg">Timbrado fallido</span>
         {' — '}{esAmbiguo
-          ? 'El servicio no confirmó el timbrado. Verifica el comprobante en FiscalAPI antes de reintentar.'
+          ? 'El servicio no confirmó el timbrado. Verifica el comprobante en FiscalAPI: si sí timbró, adopta su XML; si no, reintenta.'
           : 'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.'}
       </p>
 
@@ -168,6 +172,26 @@ export function TimbradoFallidoBanner({
             Reintentar timbrado
           </Button>
         </>
+      )}
+
+      {puedeAdoptar && esAmbiguo && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setAdoptarAbierto(true)}
+          disabled={reintentar.isPending || descartar.isPending}
+        >
+          <FileCheck2 className="mr-1 h-3 w-3" />
+          Adoptar CFDI timbrado
+        </Button>
+      )}
+      {adoptarAbierto && (
+        <AdoptarCfdiDialog
+          comprobanteId={comprobanteId}
+          open={adoptarAbierto}
+          onOpenChange={setAdoptarAbierto}
+        />
       )}
 
       {puedeDescartar && (

@@ -92,7 +92,7 @@ public sealed class ProcesarNotaCreditoAwHandler(
                 .Where(n => n.FacturaRelacionadaId == factura.Id && n.Motivo == MotivoNotaCredito.Ranura
                             && n.Estado != EstadoTimbrado.Cancelado && n.Estado != EstadoTimbrado.Descartada)
                 .Select(n => new { n.Folio, n.Total }).FirstOrDefaultAsync(cancellationToken);
-            if (ranura is not null && Math.Abs(ranura.Total - sol.Importe) <= 0.02m)
+            if (ranura is not null && Math.Abs(ranura.Total - sol.Importe) <= RanuraAw.Tolerancia)
             {
                 foreach (var abierta in await ExcepcionesAbiertasAsync(empresaId, sol, cancellationToken))
                     abierta.Resolver(usuarioId: null, clock.UtcNow);

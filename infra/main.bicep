@@ -118,6 +118,10 @@ param awOrigenDemoPermitido bool = false
 @description('Apaga el SDK de FiscalAPI. Default true; dev lo enciende en su .bicepparam (tenant sandbox en el KV dev). Ver appservice.bicep.')
 param integracionesFiscalSdkDisabled bool = true
 
+@description('Fuente del estatus SAT de los CFDI emitidos: FiscalApi (real) o Simulado. Default Simulado; pruebas y producción = FiscalApi. Ver appservice.bicep.')
+@allowed([ 'Simulado', 'FiscalApi' ])
+param consultaEstatusSatProveedor string = 'Simulado'
+
 @description('Interruptores A+W por ambiente (apagados por defecto salvo documentos/conciliación tardía). Ver appservice.bicep.')
 param awClientesOrigen string = 'Simulado'
 param awClientesLecturaHabilitada bool = false
@@ -396,6 +400,7 @@ module appservice 'modules/appservice.bicep' = {
     awSolicitudesEmpresaId: awSolicitudesEmpresaId
     awOrigenDemoPermitido: awOrigenDemoPermitido
     integracionesFiscalSdkDisabled: integracionesFiscalSdkDisabled
+    consultaEstatusSatProveedor: consultaEstatusSatProveedor
     awClientesOrigen: awClientesOrigen
     awClientesLecturaHabilitada: awClientesLecturaHabilitada
     awClientesAplicacionHabilitada: awClientesAplicacionHabilitada
