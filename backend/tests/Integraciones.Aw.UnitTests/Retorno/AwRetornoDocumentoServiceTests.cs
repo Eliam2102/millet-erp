@@ -127,6 +127,16 @@ public sealed class AwRetornoDocumentoServiceTests
     }
 
     [Fact]
+    public async Task La_hoja_de_salida_emitida_va_como_72_sin_origen_y_sin_version_se_omite()
+    {
+        var p = new PuertoFalso(); var v = new VersionFalsa();
+        (await Servicio(p, v).RegistrarHojaSalidaEmitidaAsync("900101", default)).Should().BeNull();
+        v.PorPedido["900101"] = 3;
+        await Servicio(p, v).RegistrarHojaSalidaEmitidaAsync("900101", default);
+        p.Estatus.Should().ContainSingle().Which.Should().Be(("900101", 3L, (short)72, (byte?)null, (string?)null));
+    }
+
+    [Fact]
     public async Task La_liberacion_manual_va_como_70_con_origen_manual_y_usuario_y_sin_usuario_no_se_manda()
     {
         var p = new PuertoFalso(); var v = new VersionFalsa(); v.PorPedido["900101"] = 2;
