@@ -24,11 +24,13 @@ public sealed record BandejaPedidosFacturablesQuery(
     int Limit,
     bool SoloSinAsignar = false,
     ClasePedidoManual? Clase = null,
-    bool? Credito = null) : IRequest<BandejaPedidosFacturablesResponse>;
+    bool? Credito = null,
+    string? Q = null) : IRequest<BandejaPedidosFacturablesResponse>;
 
 public sealed record BandejaPedidosFacturablesResponse(
     IReadOnlyList<PedidoBandejaItem> Items,
-    int? SinAsignarCount);
+    int? SinAsignarCount,
+    int Total = 0);
 
 public sealed record PedidoBandejaItem(
     Guid Id,
@@ -69,15 +71,21 @@ public sealed class BandejaPedidosFacturablesHandler
         BandejaPedidosFacturablesQuery query,
         CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(query.Limit <= 0 ? 50 : query.Limit, 1, 200);
-        var offset = Math.Max(0, query.Offset);
-
         var q = _db.PedidosFacturables.AsNoTracking();
         if (query.Estado is { } estado) q = q.Where(p => p.Estado == estado);
         if (query.Origen is { } origen) q = q.Where(p => p.Origen == origen);
         if (query.Clase is { } clase)
             q = q.Where(p => p.Origen == OrigenPedido.Manual && p.ClaseManual == clase);
         if (query.Credito is { } credito) q = q.Where(p => p.EsCredito == credito);
+
+        // Búsqueda por folio o cliente en el servidor: el filtro del navegador solo
+        // veía las filas de la página y dejaba fuera los pedidos más antiguos.
+        if (query.Q?.Trim() is { Length: > 0 } texto)
+        {
+            var patron = PaginacionExtensions.PatronContiene(texto);
+            q = q.Where(p => (p.NumeroPedido != null && EF.Functions.ILike(p.NumeroPedido, patron))
+                          || EF.Functions.ILike(p.ClienteNombre, patron));
+        }
 
         // 86e3tfdw2: sin leer-credito (p. ej. cajero) el pedido a crédito no
         // existe para el usuario. Se filtra ANTES del alcance para que el
@@ -88,19 +96,18 @@ public sealed class BandejaPedidosFacturablesHandler
         (q, var sinAsignarCount) = await AlcanceBandejaHelper.AplicarAsync(
             _alcance, q, query.SoloSinAsignar, cancellationToken);
 
-        var rows = await q
+        var pagina = await q
             .OrderByDescending(p => p.CreatedAt)
-            .Skip(offset)
-            .Take(limit)
+            .ThenBy(p => p.Id)
             .Select(p => new
             {
                 p.Id, p.NumeroPedido, p.Origen, p.Estado, p.ClienteNombre, p.Total, p.Moneda, p.CreatedAt,
                 p.ClaseManual, p.SubtipoVentaDirecta, p.EsCredito,
                 Lineas = p.Lineas.Select(l => new { l.Importe, l.TasaIva }).ToList(),
             })
-            .ToListAsync(cancellationToken);
+            .ToPaginaAsync(query.Offset, query.Limit, cancellationToken);
 
-        var items = rows
+        var items = pagina.Items
             .Select(r => new PedidoBandejaItem(
                 r.Id, r.NumeroPedido, r.Origen.ToString(), r.Estado.ToString(),
                 r.ClienteNombre, r.Total, r.Moneda, r.CreatedAt,
@@ -112,6 +119,6 @@ public sealed class BandejaPedidosFacturablesHandler
                 r.EsCredito))
             .ToList();
 
-        return new BandejaPedidosFacturablesResponse(items, sinAsignarCount);
+        return new BandejaPedidosFacturablesResponse(items, sinAsignarCount, pagina.Total);
     }
 }
