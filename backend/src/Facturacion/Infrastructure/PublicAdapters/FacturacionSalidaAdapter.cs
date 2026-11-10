@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Facturacion.Application.Cajas.Cobros;
 using Millet.Facturacion.Application.CartaPorte.EmitirCartaPorte;
 using Millet.Facturacion.Application.Pedidos.CancelarSalidaFacturable;
 using Millet.Facturacion.Application.Pedidos.RegistrarSalidaFacturable;
@@ -41,4 +42,13 @@ public sealed class FacturacionSalidaAdapter(ISender sender, IEmpresaFiscalReadP
             solicitud.OrigenCodigoPostal, solicitud.OrigenEstado, solicitud.DestinoCodigoPostal, solicitud.DestinoEstado), ct);
         return new CartaPorteSalida(r.Id, r.Folio);
     }
+
+    public async Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct) =>
+        (await sender.Send(new FacturasAlbaranesPtQuery(albaranFolios), ct))
+            .ToDictionary(f => f.AlbaranFolio, f => new FacturaAlbaranRuta(f.AlbaranFolio, f.ComprobanteId, f.Folio, f.PorCobrar, f.CobroVigenteId));
+
+    public async Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
+        [.. (await sender.Send(new RegistrarCobrosRutaPtCommand(sucursalId, [.. cobros.Select(c =>
+                new CobroRutaAlbaranPtInput(c.AlbaranFolio, c.Efectivo, c.Voucher, c.VoucherReferencia, c.TipoTarjeta, c.TarjetaUltimos4))]), ct))
+            .Select(r => new CobroRutaRegistrado(r.AlbaranFolio, r.CobroId))];
 }

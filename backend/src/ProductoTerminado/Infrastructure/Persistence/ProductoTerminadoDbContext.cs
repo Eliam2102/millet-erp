@@ -203,6 +203,8 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         la.Property(x => x.Efectivo).HasPrecision(18, 2);
         la.Property(x => x.Voucher).HasPrecision(18, 2);
         la.Property(x => x.VoucherReferencia).HasMaxLength(100);
+        la.Property(x => x.TipoTarjeta).HasMaxLength(10);
+        la.Property(x => x.TarjetaUltimos4).HasMaxLength(4);
         la.HasIndex(x => new { x.LiquidacionRutaPtId, x.AlbaranPtId }).IsUnique();
         la.HasOne<AlbaranPt>().WithMany().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
 

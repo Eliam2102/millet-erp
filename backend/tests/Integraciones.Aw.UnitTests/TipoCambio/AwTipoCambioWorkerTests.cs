@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -210,13 +211,38 @@ public class AwTipoCambioWorkerTests
         var hoy = new DateOnly(2026, 11, 8);
 
         _awPort.AcusesExistentes.Add(new AwTipoCambioAcuse("USD", hoy, 1, 20.50m, ahora, 1, null, 1));
-        _awPort.ValoresVigentesAw["USD"] = 20.50m;
+        _awPort.ValoresVigentesAw["USD"] = 0.04878049m; // VALUTAKURS = 1/20.50 a 8 decimales
 
         // Act
         await worker.EjecutarCicloAsync(ahora);
 
         // Assert: no debe emitir Alerta 3
         _logger.Logs.Should().NotContain(l => l.Message.Contains("ALERTA_TC_DESFASE_ERP_AW"));
+    }
+
+    [Fact]
+    public async Task EjecutarCicloAsync_Valor_Real_Euro_De_Aw_Invertido_No_Emite_Alerta_3()
+    {
+        // Medido en A+W 2026-11-09: Euro VALUTAKURS 0.04804228 (≈ 20.815 MXN por EUR).
+        var worker = CrearWorker(new AwTipoCambioOptions
+        {
+            Habilitado = true, HoraLimitePublicacion = "18:00", HoraLimiteAplicacion = "09:00", Monedas = ["EUR"]
+        });
+        var ahora = new DateTimeOffset(2026, 11, 9, 9, 15, 0, TimeSpan.FromHours(-6));
+        _awPort.AcusesExistentes.Add(new AwTipoCambioAcuse("EUR", new DateOnly(2026, 11, 9), 1, 20.815m, ahora, 1, null, 1));
+        _awPort.ValoresVigentesAw["EUR"] = 0.04804228m;
+
+        await worker.EjecutarCicloAsync(ahora);
+
+        _logger.Logs.Should().NotContain(l => l.Message.Contains("ALERTA_TC_DESFASE_ERP_AW"));
+    }
+
+    [Fact]
+    public void ValutakursDe_invierte_y_redondea_half_up_a_8_decimales()
+    {
+        Millet.Integraciones.Aw.Infrastructure.TipoCambio.AwTipoCambioAdapter.ValutakursDe(20.815m).Should().Be(0.04804228m);
+        Millet.Integraciones.Aw.Infrastructure.TipoCambio.AwTipoCambioAdapter.ValutakursDe(1m).Should().Be(1m);
+        Millet.Integraciones.Aw.Infrastructure.TipoCambio.AwTipoCambioAdapter.ValutakursDe(18.7147m).Should().Be(0.05343393m);
     }
 
     [Fact]

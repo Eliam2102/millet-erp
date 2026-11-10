@@ -54,10 +54,29 @@ public static class TimbradoEjecutor
         comprobante.MarcarTimbradoEnProceso();
         // 86e3t97tx: el reintento guarda aquí el estado «en proceso» ANTES del
         // PAC; si otro reintento ya lo tomó, el guardado falla y el PAC no se
-        // llama (sin doble UUID). Las emisiones no lo usan (callback nulo).
+        // llama (sin doble UUID). M-173: las emisiones también lo pasan
+        // (TimbradoDurable.AntesDelPac): si el proceso cae durante la llamada,
+        // el comprobante y su folio quedan en proceso, nunca desaparecen.
         if (persistirEnProcesoAntesDelPac is not null)
             await persistirEnProcesoAntesDelPac(cancellationToken);
-        var timbre = await fiscal.TimbrarAsync(emision, cancellationToken);
+        TimbradoResultado timbre;
+        try
+        {
+            timbre = await fiscal.TimbrarAsync(emision, cancellationToken);
+        }
+        catch (Millet.SharedKernel.Domain.Exceptions.DomainException ex) when (persistirEnProcesoAntesDelPac is not null)
+        {
+            // M-173: el adaptador solo lanza DomainException ANTES de enviar (configuración del PAC,
+            // integración apagada, validación del comprobante). Ya guardado en proceso, el comprobante
+            // queda TimbradoFallido (corregible, sin ambigüedad) con su bitácora, y el error se propaga.
+            comprobante.MarcarTimbradoFallido(ex.Code, ex.Message);
+            await RegistrarIntentoAsync(db, comprobante,
+                new TimbradoResultado(TimbradoEstado.Fallido, null, null, null, null, null, null, null, ex.Code, ex.Message),
+                ahora, cancellationToken);
+            await db.SaveChangesAsync(CancellationToken.None);
+            ex.Data[ClaveNoEnviado] = true;
+            throw;
+        }
 
         switch (timbre.Estado)
         {
@@ -106,6 +125,20 @@ public static class TimbradoEjecutor
                 break;
         }
 
+        await RegistrarIntentoAsync(db, comprobante, timbre, ahora, cancellationToken);
+        return timbre;
+    }
+
+    /// <summary>Marca que pone el ejecutor en la excepción de un rechazo previo al envío (no hubo llamada al PAC).</summary>
+    public const string ClaveNoEnviado = "Millet.Facturacion.Timbrado.NoEnviado";
+
+    /// <summary>True si la excepción es un rechazo del adaptador previo al envío (M-173).</summary>
+    public static bool NoSeEnvio(Exception ex) => ex.Data.Contains(ClaveNoEnviado);
+
+    private static async Task RegistrarIntentoAsync(
+        FacturacionDbContext db, Comprobante comprobante, TimbradoResultado timbre, DateTimeOffset ahora,
+        CancellationToken cancellationToken)
+    {
         // [Decisión 01-G] G4: bitácora del intento. Cuenta previos en BD +
         // los aún no persistidos en el change-tracker (misma emisión puede
         // timbrar factura + NCs de amortización antes del SaveChanges único).
@@ -132,7 +165,5 @@ public static class TimbradoEjecutor
         await Contingencias.ContingenciasTimbrado.AplicarIntentoAsync(
             db, comprobante, timbre.ErrorCodigo, timbre.ErrorMensaje,
             timbrado: comprobante.Estado == EstadoTimbrado.Timbrado, ahora, cancellationToken);
-
-        return timbre;
     }
 }

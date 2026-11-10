@@ -13,8 +13,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Retorno;
 /// (<c>pedido.facturado-entregado.v1</c>) sigue yendo; del 70 (<c>pedido.estado-cambiado.v1</c> con <c>Liberado</c>) solo viaja la
 /// liberación MANUAL de Crédito y Cobranza (motivo DecisionCxc, decidida por una persona): el 70 por saldo, pago o reparto lo
 /// decide el servicio de A+W. Cada aviso va con el saldo vigente como cifra de control (tipo 2), nunca como fuente.
-/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8), igual que los demás consumidores de PT; con Service Bus falta
-/// el topic <c>producto-terminado-events</c>.
+/// Con Service Bus lo consume <c>integraciones-aw-pt-sub</c> (M-046).
 /// </summary>
 public sealed class ProductoTerminadoRetornoLocalConsumer(IServiceScopeFactory scopes, ILogger<ProductoTerminadoRetornoLocalConsumer> logger)
     : ILocalIntegrationEventConsumer
@@ -27,22 +26,30 @@ public sealed class ProductoTerminadoRetornoLocalConsumer(IServiceScopeFactory s
 
     public string TopicName => "producto-terminado-events";
 
+    public static bool EsAviso(string eventType) => eventType is EventTypeEstadoCambiado or EventTypeFacturadoEntregado;
+
+    /// <summary>M-160: si A+W no responde por conexión, el aviso queda pendiente de reintento y el mensaje se completa.</summary>
     public async Task ConsumirLocalAsync(string eventType, Guid eventId, string body, CancellationToken cancellationToken)
     {
-        if (eventType is not (EventTypeEstadoCambiado or EventTypeFacturadoEntregado)) return;
+        if (!EsAviso(eventType)) return;
+        if (!await AwRetornoAplicador.AplicarOPendienteAsync(scopes, nameof(ProductoTerminadoRetornoLocalConsumer), eventType, body, cancellationToken))
+            logger.LogWarning("A+W no responde; el aviso {EventType} queda pendiente de reintento.", eventType);
+    }
+
+    /// <summary>Escribe el estatus (y su saldo de control) en aw_retorno con los servicios del scope dado.</summary>
+    internal static async Task AplicarAsync(IServiceProvider sp, string eventType, string body, CancellationToken cancellationToken)
+    {
         var p = JsonSerializer.Deserialize<AvisoPayload>(body, Json) ?? throw new JsonException("Payload null.");
         var manual = eventType == EventTypeEstadoCambiado && p.Estado == "Liberado" && p.Motivo == "DecisionCxc"
             && !string.IsNullOrWhiteSpace(p.LiberadoPor) && p.LiberadoPor != UsuarioSistemaCxc;
         if (eventType == EventTypeEstadoCambiado && !manual) return; // Retenido, o 70 que decide el servicio de A+W
 
-        using var scope = scopes.CreateScope();
-        var sp = scope.ServiceProvider;
-        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var servicio = sp.GetRequiredService<AwRetornoDocumentoService>();
         var secuencia = manual
             ? await servicio.RegistrarLiberacionManualAsync(p.NumeroPedido, p.LiberadoPor!, cancellationToken)
             : await servicio.RegistrarFacturadoEntregadoAsync(p.NumeroPedido, cancellationToken);
-        logger.LogInformation("aw_retorno {Evento} del pedido {Pedido}: {Efecto}", manual ? "70 manual" : "115", p.NumeroPedido,
+        sp.GetService<ILogger<ProductoTerminadoRetornoLocalConsumer>>()?.LogInformation(
+            "aw_retorno {Evento} del pedido {Pedido}: {Efecto}", manual ? "70 manual" : "115", p.NumeroPedido,
             secuencia is null ? "sin fila nueva" : $"secuencia {secuencia}");
 
         if (await sp.GetRequiredService<ISaldoPedidoReadPort>().ObtenerAsync(p.Empresa, p.NumeroPedido, cancellationToken) is { } saldo)

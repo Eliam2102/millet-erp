@@ -27,7 +27,7 @@ public sealed class ConservacionHttpTests
     private static async Task<Guid> Archivo(HttpClient c, Guid id, int tipo)
     {
         using var body = new MultipartFormDataContent(); body.Add(new StringContent($"0000000f-0003-0000-0000-{tipo + 1:000000000000}"), "tipoDocumentoId");
-        var archivo = new ByteArrayContent("%PDF-1.4\n% archivo sintético de prueba"u8.ToArray()); archivo.Headers.ContentType = new("application/pdf"); body.Add(archivo, "archivo", "prueba.pdf");
+        var archivo = new ByteArrayContent(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba")); archivo.Headers.ContentType = new("application/pdf"); body.Add(archivo, "archivo", "prueba.pdf");
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}/activos/{id}/adjuntos") { Content = body };
         request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); return (await Json(await c.SendAsync(request))).GetProperty("id").GetGuid();
     }

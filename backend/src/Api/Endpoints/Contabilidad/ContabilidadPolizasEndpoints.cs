@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Web;
 using Millet.Contabilidad.Application;
+using Millet.Contabilidad.Application.Nomina;
 using Millet.Contabilidad.Application.Polizas;
 using Millet.Contabilidad.Domain;
 using Millet.Identidad.Domain;
@@ -153,6 +154,27 @@ public static class ContabilidadPolizasEndpoints
         .WithSummary("Rechaza con motivo la anulación solicitada por otra persona; la póliza no cambia")
         .Produces<SolicitudAnulacionResponse>().ProducesValidationProblem().ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // K10.11 (F1-CON-13): póliza de la nómina externa por archivo. La vista previa valida y no guarda; importar crea el borrador
+        // cuadrado solo si ningún renglón tiene error (K10.11-b). El archivo original se adjunta a la póliza con los adjuntos de abajo.
+        g.MapPost("/nomina/vista-previa", async (ImportacionNominaRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new VistaPreviaNominaQuery(b), ct)))
+        .RequireAuthorization(capturar).WithName("VistaPreviaPolizaNomina")
+        .WithSummary("Vista previa de la póliza de nómina externa: errores por renglón, totales y cuadre; no guarda nada")
+        .Produces<VistaPreviaNominaResponse>().ProducesValidationProblem();
+
+        g.MapPost("/nomina", async (ImportacionNominaRequest b, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new ImportarNominaCommand(b), ct);
+            Helpers.SetEtag(response, r.Version);
+            return Results.Created($"/api/v1/contabilidad/polizas/{r.Id}", r);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(capturar).WithName("ImportarPolizaNomina")
+        .WithSummary("Importa la póliza de nómina externa en borrador y cuadrada; con cualquier error responde el detalle por renglón y no crea nada")
+        .WithDescription("Formato (supuesto a validar): un renglón por partida con cuenta, cargo, abono, sucursal, centro, proyecto, concepto y empleado. La referencia identifica el lote: repetirla responde NOM_LOTE_DUPLICADO.")
+        .Produces<PolizaResponse>(StatusCodes.Status201Created).ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         g.MapGroup("/{id:guid}").MapAdjuntos(PolizaAdjuntoPropietario.Tipo,
             PermisosCanonicos.ContabilidadPolizasLeer, PermisosCanonicos.ContabilidadPolizasCapturar, PermisosCanonicos.ContabilidadPolizasCapturar);

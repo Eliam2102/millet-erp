@@ -46,6 +46,9 @@ public sealed class TesoreriaDbContext : BaseDbContext
     /// <summary>Libro de movimientos bancarios — agregado central (§4.2, comportamiento en PR-2/PR-4).</summary>
     public DbSet<MovimientoBancario> MovimientosBancarios => Set<MovimientoBancario>();
 
+    /// <summary>Solicitudes de reclasificación con segunda firma y su rastro (M-204).</summary>
+    public DbSet<MovimientoReclasificacion> MovimientoReclasificaciones => Set<MovimientoReclasificacion>();
+
     /// <summary>Aplicaciones movimiento↔pasivo; el Id es el PagoId del evento <c>aplicado.v1</c> (PR-4).</summary>
     public DbSet<AplicacionPagoProveedor> AplicacionesPagoProveedor => Set<AplicacionPagoProveedor>();
 
@@ -105,6 +108,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new ConceptoMovimientoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoBancarioConfiguration());
         modelBuilder.ApplyConfiguration(new AplicacionPagoProveedorConfiguration());
+        modelBuilder.ApplyConfiguration(new MovimientoReclasificacionConfiguration());
         modelBuilder.ApplyConfiguration(new PasivoPendientePagoConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionPagoComercioExteriorConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoConfiguration());

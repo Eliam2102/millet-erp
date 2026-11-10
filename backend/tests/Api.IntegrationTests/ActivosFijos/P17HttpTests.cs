@@ -27,7 +27,7 @@ public sealed partial class LibroHttpTests
         using var captura=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         using var daf=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         var a=await captura.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");var version=a.GetProperty("version").GetInt32();
-        var datos=new { tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",solicitadoPor="Área usuaria",evidencia="data:application/pdf;base64,JVBERi0xLjc=" };
+        var datos=new { tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",solicitadoPor="Área usuaria",evidencia="data:application/pdf;base64," + Convert.ToBase64String(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Evidencia QA sintética")) };
         using var primero=await Post(captura,$"activos/{id}/operaciones",datos,version);primero.EnsureSuccessStatusCode();var op=(await primero.Content.ReadFromJsonAsync<JsonElement>());
         using(var ventaClient=await e.ClienteAsync(true,facturacion:true,permisosCe:false))
         using(var ventaReq=new HttpRequestMessage(HttpMethod.Post,"/api/v1/facturacion/activos/autorizar") { Content=JsonContent.Create(new {activoRef="FIX-P4-MONTACARGAS",precioVenta=100,motivo=5,solicitadoPor="Área usuaria",evidencia="Factura"}) })
@@ -53,7 +53,7 @@ public sealed partial class LibroHttpTests
         await using var e=await ExpedientesHttpTests.Escenario.CrearAsync();var id=await Preparar(e,false);
         using var contador=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);using var daf=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         var a=await contador.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");
-        using var solicitar=await Post(contador,$"activos/{id}/operaciones",new {tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",solicitadoPor="Área usuaria",evidencia="data:application/pdf;base64,JVBERi0xLjc="},a.GetProperty("version").GetInt32());solicitar.EnsureSuccessStatusCode();var op=await solicitar.Content.ReadFromJsonAsync<JsonElement>();
+        using var solicitar=await Post(contador,$"activos/{id}/operaciones",new {tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",solicitadoPor="Área usuaria",evidencia="data:application/pdf;base64," + Convert.ToBase64String(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Evidencia QA sintética"))},a.GetProperty("version").GetInt32());solicitar.EnsureSuccessStatusCode();var op=await solicitar.Content.ReadFromJsonAsync<JsonElement>();
         using var autorizar=await Post(daf,$"operaciones/{op.GetProperty("id").GetGuid()}/autorizar",new {},op.GetProperty("version").GetInt32());autorizar.EnsureSuccessStatusCode();
         foreach(var mes in new[] {"2027-02-01","2027-03-01"}) {using var corrida=await Post(contador,"depreciacion",new {periodo=mes});corrida.EnsureSuccessStatusCode();}
         a=await contador.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");

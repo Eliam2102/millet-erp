@@ -17,6 +17,7 @@ using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Retorno;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
+using Millet.Integraciones.Aw.Infrastructure.Persistence;
 using Millet.Integraciones.Aw.Infrastructure.Retorno;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Integration;
@@ -97,6 +98,11 @@ public sealed class AwRetornoSqlServerLocalTests(ITestOutputHelper salida)
         var servicios = new ServiceCollection();
         servicios.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         servicios.AddSingleton<ICurrentEmpresaContext>(new Empresas(null));
+        // M-160: con SQL caído el aviso queda pendiente en integraciones_aw.retorno_pendiente.
+        var pendientesDb = Guid.NewGuid().ToString();
+        servicios.AddDbContext<IntegracionesAwDbContext>(o => o.UseInMemoryDatabase(pendientesDb));
+        servicios.AddSingleton<IClock, SystemClock>();
+        servicios.AddScoped<AwRetornoPendientes>();
         servicios.AddScoped(_ => new AwRetornoDocumentoService(
             new AwRetornoAdapter(new Fabrica(cs ?? Cs), opciones, AwRetornoAdapter.CandadoSqlServer),
             new AwVersionPedidoReadAdapter(db, new Empresas(null)), new AwPagosReadAdapter(db, new Empresas(null)),
@@ -363,7 +369,7 @@ public sealed class AwRetornoSqlServerLocalTests(ITestOutputHelper salida)
 
     // ===== Caso 6: destino inexistente o SQL caído → el evento falla (queda pendiente en el outbox), nada «enviado» =====
     [SqlServerLocalFact]
-    public async Task Caso6_destino_inexistente_o_SQL_caido_lanza_y_el_reintento_escribe_una_sola_fila()
+    public async Task Caso6_SQL_caido_queda_pendiente_destino_inexistente_lanza_y_el_reintento_escribe_una_sola_fila()
     {
         const string pedido = "TR01-1007";
         var caido = new SqlConnectionStringBuilder(Cs) { DataSource = "127.0.0.1,14339", ConnectTimeout = 3 }.ConnectionString;
@@ -373,8 +379,9 @@ public sealed class AwRetornoSqlServerLocalTests(ITestOutputHelper salida)
         var (p, _) = Pedido(e1, pedido);
         var f = Factura(e1, "FTR-1007", p, "PPD", 500m);
         await e1.Db.SaveChangesAsync();
-        var sqlCaido = async () => await Timbrada(e1, f, pedido, 1);
-        (await sqlCaido.Should().ThrowAsync<Exception>()).Which.GetType().Name.Should().BeOneOf(nameof(SqlException), nameof(OperationCanceledException), nameof(TaskCanceledException));
+        await Timbrada(e1, f, pedido, 1); // M-160: no lanza; el aviso espera a que A+W vuelva
+        using (var scope = e1.Sp.CreateScope())
+            (await scope.ServiceProvider.GetRequiredService<AwRetornoPendientes>().ResumenAsync(default)).Pendientes.Should().Be(1);
 
         await using var e2 = Crear(sinTabla);
         var sinDestino = async () => await Timbrada(e2, f, pedido, 1);

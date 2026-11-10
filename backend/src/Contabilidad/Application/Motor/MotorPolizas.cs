@@ -58,7 +58,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         catch (Exception ex) when (Clasificar(ex) is { } r)
         {
             db.ChangeTracker.Clear();
-            var rechazo = await RegistrarRechazoAsync(e, r.Causa, r.Detalle, ex.Message, ct);
+            var rechazo = await RegistrarRechazoAsync(e, r.Causa, r.Detalle, MensajeRechazo(ex), ct);
             return new(null, rechazo.Id, r.Causa, r.Detalle, rechazo.Mensaje);
         }
     }
@@ -124,17 +124,8 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
                 if (mxn < 0) (cargo, abono) = (-abono, -cargo);
                 var (dim1, dim2, dim3) = l.ConCentroCosto ? Dimensiones(centro, niveles) : (null, null, null);
 
-                // 86e3z5w25: Si la partida imputa a cuentas 500 (Costos) o 600 (Gastos) y la plantilla no pide centro,
-                // asignar Dim2 (Área) por omisión según el módulo emisor, y derivar Dim1 desde la sucursal.
-                if (!l.ConCentroCosto)
-                {
-                    var codigoCuenta = await db.Cuentas.IgnoreQueryFilters().AsNoTracking()
-                        .Where(c => c.Id == cuentaPartida).Select(c => c.Codigo).FirstOrDefaultAsync(ct) ?? "";
-                    if (codigoCuenta.StartsWith('5') || codigoCuenta.StartsWith('6'))
-                    {
-                        dim2 ??= await ResolverAreaPorOmisionAsync(e.EmpresaId, sucursal, e.Tipo, ct);
-                    }
-                }
+                // M-453: sin área por omisión. Una partida a 500/600 sin el área o el equipo que exige la regla C-03 va a Rechazos
+                // («Dato faltante»): el área y el equipo los captura el usuario, el motor no los deduce.
                 if (dim1 == null && dim3 == null && dim2 == null)
                 {
                     dim1 = ubicacionSucursalId;
@@ -320,6 +311,18 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         _ => null,
     };
 
+    /// <summary>
+    /// M-453: mensaje de la bandeja. Si faltan dimensiones obligatorias, solo el aviso del validador («Partida 2: Falta Área: es
+    /// obligatoria para la cuenta 601… en «…»»), sin el prefijo técnico de la validación; lo demás, el mensaje de la excepción.
+    /// </summary>
+    internal static string MensajeRechazo(Exception ex) =>
+        ex is ValidationException v && v.Errors.Where(EsDimensionFaltante).Select(x => x.Message).ToList() is { Count: > 0 } faltantes
+            ? string.Join(" ", faltantes)
+            : ex.Message;
+
+    private static bool EsDimensionFaltante(ValidationError x) =>
+        x.Code.StartsWith("CONTAB_DIM_", StringComparison.Ordinal) && x.Code.Contains("OBLIGATORIA_FALTANTE", StringComparison.Ordinal);
+
     private async Task<RechazoContable> RegistrarRechazoAsync(EventoContable e, CausaRechazoContable causa, string? detalle, string mensaje, CancellationToken ct)
     {
         var existente = await db.RechazosContables.IgnoreQueryFilters()
@@ -345,46 +348,6 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         rechazo.MarcarReprocesado(poliza.Id, usuario, clock.UtcNow);
         await db.SaveChangesAsync(ct);
         return rechazo.Id;
-    }
-
-    /// <summary>86e3z5w25: Área (Dim2) por omisión según el módulo emisor para pólizas automáticas a cuentas 500 y 600.</summary>
-    private async Task<Guid?> ResolverAreaPorOmisionAsync(Guid empresaId, Guid sucursalId, string tipoEvento, CancellationToken ct)
-    {
-        var dim1Id = await db.UbicacionesSucursal.IgnoreQueryFilters().AsNoTracking()
-            .Where(x => x.SucursalId == sucursalId && (empresaId == Guid.Empty || x.EmpresaId == empresaId))
-            .Select(x => (Guid?)x.Dim1Id)
-            .FirstOrDefaultAsync(ct);
-
-        if (dim1Id is null) return null;
-
-        var alcance = new AlcanceCentros([dim1Id.Value], []);
-        var areas = await centros.BuscarAsync(DimensionContable.Dim2, null, alcance, incluirInactivos: false, 50, ct);
-        if (areas.Count == 0) return null;
-
-        string[] palabrasClave = tipoEvento switch
-        {
-            _ when tipoEvento.StartsWith("almacen", StringComparison.OrdinalIgnoreCase)
-                => ["ALMACEN", "ALMACÉN"],
-            _ when tipoEvento.StartsWith("comercio_exterior", StringComparison.OrdinalIgnoreCase)
-                   || tipoEvento.Contains("expediente", StringComparison.OrdinalIgnoreCase)
-                   || tipoEvento.StartsWith("importacion", StringComparison.OrdinalIgnoreCase)
-                => ["COMERCIO", "EXTERIOR", "IMPORTACION", "IMPORTACIÓN", "ALMACEN"],
-            _ when tipoEvento.StartsWith("tesoreria", StringComparison.OrdinalIgnoreCase)
-                => ["TESORERIA", "TESORERÍA", "FINANZAS", "ADMINISTRACION", "ADMINISTRACIÓN"],
-            _ when tipoEvento.StartsWith("cxp", StringComparison.OrdinalIgnoreCase)
-                => ["PAGAR", "ADMINISTRACION", "ADMINISTRACIÓN", "FINANZAS"],
-            _ => []
-        };
-
-        foreach (var palabra in palabrasClave)
-        {
-            var coincidencia = areas.FirstOrDefault(a =>
-                a.Nombre.Contains(palabra, StringComparison.OrdinalIgnoreCase) ||
-                a.Clave.Contains(palabra, StringComparison.OrdinalIgnoreCase));
-            if (coincidencia is not null) return coincidencia.Id;
-        }
-
-        return areas[0].Id;
     }
 }
 

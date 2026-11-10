@@ -33,6 +33,24 @@ public class NormalizadorEventosU2Tests
             d.Modulo == "tesoreria" && d.Tipo == "deposito_caja" && d.Id == deposito && d.Folio == "F-001");
     }
 
+    /// <summary>M-174: cargo a la cuenta contable de la cuenta bancaria de la ficha; sin dato, al rol BANCOS (como B8 en el pago).</summary>
+    [Theory]
+    [InlineData(" 102.01.01.02 ", "102.01.01.02")]
+    [InlineData(null, null)]
+    [InlineData("  ", null)]
+    public void M174_el_deposito_carga_a_la_cuenta_contable_de_su_cuenta_bancaria(string? cuentaContableRef, string? esperada)
+    {
+        var e = Leer(N.DepositoCajaConfirmado, new
+        {
+            EmpresaId = Empresa, OcurridoEn = Ocurrido, DepositoId = Guid.NewGuid(), FichaId = Guid.NewGuid(), CajaSesionId = Guid.NewGuid(),
+            DiaCorte = new DateOnly(2026, 11, 4), SucursalId = Sucursal, Importe = 4_500m, Moneda = "MXN", FechaFicha = new DateOnly(2026, 11, 5),
+            NumeroFicha = "F-4500", ImporteCorte = 4_500m, SaldoPorDepositar = 0m, CorteCompleto = true, CuentaContableRef = cuentaContableRef,
+        });
+
+        if (esperada is null) e.CuentaPorRol.Should().BeNull();
+        else e.CuentaPorRol.Should().BeEquivalentTo(new Dictionary<string, string> { ["BANCOS"] = esperada });
+    }
+
     [Theory]
     [InlineData("Faltante", 50)]
     [InlineData("Sobrante", -50)]

@@ -92,6 +92,11 @@ export const CODIGOS_SALIDA: Record<string, 'callout'> = {
   SALIDA_SIN_DESTINATARIO: 'callout',
   SALIDA_SIN_ACUSE: 'callout',
   VALE_SIN_MOTIVO: 'callout',
+  // M-172: silicón/Ködispace por tambor a línea.
+  SALIDA_TAMBOR_SIN_LINEA: 'callout',
+  SALIDA_TAMBOR_PIEZAS_ENTERAS: 'callout',
+  SALIDA_TAMBOR_LINEA_INVALIDA: 'callout',
+  SALIDA_TAMBOR_LINEA_OTRA_SUCURSAL: 'callout',
 };
 
 /** Título del aviso y cómo se destraba cada código de `CODIGOS_SALIDA`. */
@@ -124,4 +129,8 @@ export const AVISOS_SALIDA: Record<string, { titulo: string; ayuda: string }> = 
   SALIDA_SIN_DESTINATARIO: { titulo: 'Falta el destinatario', ayuda: 'Elige la persona destinataria y vuelve a confirmar.' },
   SALIDA_SIN_ACUSE: { titulo: 'Falta el acuse de quien recibe', ayuda: 'Captura el nombre de quien recibe y vuelve a confirmar.' },
   VALE_SIN_MOTIVO: { titulo: 'Falta el motivo de la urgencia', ayuda: 'Indica por qué el vale no pasó por requisición.' },
+  SALIDA_TAMBOR_SIN_LINEA: { titulo: 'Falta la línea de producción', ayuda: 'Elige la línea destino del tambor o cubeta.' },
+  SALIDA_TAMBOR_PIEZAS_ENTERAS: { titulo: 'El tambor se surte en piezas enteras', ayuda: 'Captura tambores o cubetas completos, sin decimales.' },
+  SALIDA_TAMBOR_LINEA_INVALIDA: { titulo: 'La línea de producción no está disponible', ayuda: 'Elige otra línea activa.' },
+  SALIDA_TAMBOR_LINEA_OTRA_SUCURSAL: { titulo: 'La línea es de otra sucursal', ayuda: 'Surte desde un almacén de la sucursal de la línea.' },
 };

@@ -260,9 +260,7 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
 
 /// <summary>
 /// PCV (86e3ke10b) · <c>producto-terminado-events</c>: entrega confirmada de PT (costo de ventas).
-/// PLATFORM-TODO(&lt;TopicProductoTerminado&gt;): solo entrega local (C1.8), igual que los demás consumidores de PT; con Service Bus falta
-/// el topic <c>producto-terminado-events</c> y la suscripción <c>contabilidad-producto-terminado-sub</c> (Bicep). Hasta entonces no se
-/// registra como HostedService en <c>Program.cs</c>.
+/// Registrado como HostedService en <c>Program.cs</c> sobre <c>contabilidad-producto-terminado-sub</c> (M-046).
 /// </summary>
 public sealed class ProductoTerminadoContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
     ILogger<ProductoTerminadoContabilidadListenerWorker> logger) : ContabilidadEventListenerWorker(client, scopeFactory, logger)

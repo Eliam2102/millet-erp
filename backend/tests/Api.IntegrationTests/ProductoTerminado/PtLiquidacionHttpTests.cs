@@ -58,7 +58,12 @@ public class PtLiquidacionHttpTests
     }
 
     private static object Liquidar(Guid albaran, bool firmado, decimal efectivo, decimal voucher, string? referencia) =>
-        new { albaranes = new[] { new { albaranId = albaran, firmado, efectivo, voucher, voucherReferencia = referencia } }, imprevistos = new[] { new { descripcion = "Maniobra extra de descarga", importe = 350m } } };
+        new
+        {
+            albaranes = new[] { new { albaranId = albaran, firmado, efectivo, voucher, voucherReferencia = referencia,
+                tipoTarjeta = voucher > 0 ? "Debito" : null, tarjetaUltimos4 = voucher > 0 ? "4821" : null } },
+            imprevistos = new[] { new { descripcion = "Maniobra extra de descarga", importe = 350m } },
+        };
 
     [Fact]
     public async Task CA5_6_y_PT5_7_a_el_voucher_que_no_coincide_deja_la_diferencia_y_no_cierra_hasta_corregirlo()
@@ -74,15 +79,13 @@ public class PtLiquidacionHttpTests
         Assert.Equal("ConDiferencia", conDiferencia.GetProperty("estado").GetString());
         Assert.Equal(500m, conDiferencia.GetProperty("diferencia").GetDecimal());
 
-        var cerrada = await Json(await cliente.PostAsJsonAsync($"{Base}/liquidaciones/{salida}", Liquidar(albaran, true, 500m, 8000m, "TPV-004821")));
-        Assert.Equal("Cerrada", cerrada.GetProperty("estado").GetString());
-        Assert.True(cerrada.GetProperty("albaranes")[0].GetProperty("conciliado").GetBoolean());
-
-        var otraVez = await cliente.PostAsJsonAsync($"{Base}/liquidaciones/{salida}", Liquidar(albaran, true, 0m, 1m, "X"));
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, otraVez.StatusCode);
-
-        var lista = await Json(await cliente.GetAsync($"{Base}/liquidaciones?estado=Cerrada"));
-        Assert.Contains(lista.GetProperty("items").EnumerateArray(), x => x.GetProperty("salidaId").GetGuid() == salida);
+        // M-177: al cuadrar, el cobro entra a la caja sobre la factura del albarán. Sin factura timbrada la caja lo rechaza con el folio y la
+        // liquidación no se cierra (el cierre con factura y sesión de caja está en las unitarias de PT y Facturación).
+        var sinFactura = await cliente.PostAsJsonAsync($"{Base}/liquidaciones/{salida}", Liquidar(albaran, true, 500m, 8000m, "TPV-004821"));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sinFactura.StatusCode);
+        Assert.Contains("PT_ALBARAN_SIN_FACTURA", await sinFactura.Content.ReadAsStringAsync());
+        var sigue = await Json(await cliente.GetAsync($"{Base}/liquidaciones/{salida}"));
+        Assert.Equal("ConDiferencia", sigue.GetProperty("estado").GetString());
     }
 
     [Fact]

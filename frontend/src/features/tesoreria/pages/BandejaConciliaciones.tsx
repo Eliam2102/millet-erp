@@ -60,6 +60,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AreaEquipoCaptura } from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
 import {
   areaEquipoIds,
+  faltaAreaEquipo,
   type AreaEquipoValor,
 } from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -203,6 +204,10 @@ export function BandejaConciliaciones() {
     modalAltaAsistida?.fecha,
   );
   const dimensionesAlta = dimensionesAltaQuery.data;
+  // M-450 (86e3zr7ft): sin el área o el equipo que exige la cuenta del concepto, la alta no procede.
+  const faltaDimensionAlta =
+    !!dimensionesAlta?.sucursalId &&
+    faltaAreaEquipo(altaDimensiones, dimensionesAlta.exigeArea, dimensionesAlta.exigeEquipo);
 
   // Formulario partida en tránsito
   const [transitoTipo, setTransitoTipo] = useState<PartidaTransitoTipo>(PartidaTransitoTipo.ChequeNoCobrado);
@@ -630,11 +635,15 @@ export function BandejaConciliaciones() {
                     setAutoEmparejarAlCargar(true);
                     setSaldoFinalExtracto('');
                     setContenidoExtracto('');
+                    // El perfil de extracto de la cuenta decide el formato (BBVA, SANTANDER, MIFEL).
+                    setFormatoExtracto(
+                      cuentasQuery.data?.find((c) => c.id === cuentaId)?.perfilExtracto?.trim().toUpperCase() || 'BBVA',
+                    );
                     setModalCargarExtracto(true);
                   }}
                 >
                   <UploadCloud className="mr-1.5 h-4 w-4" />
-                  Cargar extracto BBVA
+                  Cargar extracto
                 </Button>
 
                 <Button
@@ -1103,9 +1112,9 @@ export function BandejaConciliaciones() {
       <Dialog open={modalCargarExtracto} onOpenChange={setModalCargarExtracto}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle>Cargar extracto bancario BBVA</DialogTitle>
+            <DialogTitle>Cargar extracto bancario</DialogTitle>
             <DialogDescription>
-              Pega el texto del estado de cuenta o elige un archivo CSV/TXT exportado de BBVA Bancomer.
+              Pega el texto del estado de cuenta o elige el archivo CSV/TXT exportado del banco.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1116,7 +1125,9 @@ export function BandejaConciliaciones() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BBVA">BBVA Bancomer (CSV / Tabulado)</SelectItem>
+                  <SelectItem value="BBVA">BBVA Bancomer (auxiliar o CSV)</SelectItem>
+                  <SelectItem value="SANTANDER">Santander (auxiliar CSV)</SelectItem>
+                  <SelectItem value="MIFEL">Mifel (pendiente de layout)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1386,7 +1397,8 @@ export function BandejaConciliaciones() {
               Cancelar
             </Button>
             <Button
-              disabled={altaAsistidaMutation.isPending || !altaConceptoId}
+              disabled={altaAsistidaMutation.isPending || !altaConceptoId || faltaDimensionAlta}
+              title={faltaDimensionAlta ? 'Captura el área y el equipo que exige la cuenta del concepto.' : undefined}
               onClick={handleAltaAsistidaSubmit}
             >
               Registrar movimiento y emparejar

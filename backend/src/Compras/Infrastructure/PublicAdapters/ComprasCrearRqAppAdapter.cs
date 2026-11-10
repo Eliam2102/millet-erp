@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Almacen.Domain.Ports;
@@ -30,11 +31,72 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
     private readonly IFolioSecuenciaService _folios;
     private readonly IUsuarioServicioReadPort _usuarioServicio;
     private readonly ICurrentEmpresaContext _empresa;
+    private readonly IPublisher _publisher;
+
+    /// <summary>Motivo sembrado «Otro» (texto libre, aplica a cancelación): el texto lleva el motivo que manda la app.</summary>
+    private const string MotivoOtro = "RECH-OTRO";
 
     public ComprasCrearRqAppAdapter(ComprasDbContext db, CompartidoDbContext maestros,
-        IFolioSecuenciaService folios, IUsuarioServicioReadPort usuarioServicio, ICurrentEmpresaContext empresa)
+        IFolioSecuenciaService folios, IUsuarioServicioReadPort usuarioServicio, ICurrentEmpresaContext empresa, IPublisher publisher)
     {
-        _db = db; _maestros = maestros; _folios = folios; _usuarioServicio = usuarioServicio; _empresa = empresa;
+        _db = db; _maestros = maestros; _folios = folios; _usuarioServicio = usuarioServicio; _empresa = empresa; _publisher = publisher;
+    }
+
+    public async Task<AvisoRqAppResultado> CancelarAsync(string folioExterno, string? motivo, CancellationToken ct)
+    {
+        var sp = await _usuarioServicio.ObtenerReordenAsync(ct);
+        if (sp is null || !sp.Activo)
+            return new(null, "El usuario de servicio del ERP no está disponible; no se puede cancelar la requisición.");
+        using var bypass = _empresa.Bypass();
+        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, ct);
+        if (rq is null || rq.Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
+            return new(rq?.Folio.Valor, null);
+        var motivoId = await _db.MotivosRechazo.AsNoTracking().Where(m => m.Clave == MotivoOtro && m.Activo)
+            .Select(m => (Guid?)m.Id).FirstOrDefaultAsync(ct);
+        if (motivoId is null) return new(rq.Folio.Valor, $"No existe el motivo {MotivoOtro} para cancelar la requisición.");
+        try
+        {
+            // Mismo agregado y evento que la cancelación de la pantalla; la RQ de la app no tiene apartados ni OC borrador.
+            var evento = rq.Cancelar(motivoId.Value, sp.Id, DateTimeOffset.UtcNow, Texto(motivo));
+            await _publisher.Publish(evento, ct);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return new(rq.Folio.Valor, ex.Message);
+        }
+        await _db.SaveChangesAsync(ct);
+        return new(rq.Folio.Valor, null);
+    }
+
+    public async Task<AvisoRqAppResultado> ReducirAsync(string folioExterno, IReadOnlyList<LineaQuitadaRqApp> lineas, string? motivo, CancellationToken ct)
+    {
+        var sp = await _usuarioServicio.ObtenerReordenAsync(ct);
+        if (sp is null || !sp.Activo)
+            return new(null, "El usuario de servicio del ERP no está disponible; no se puede reducir la requisición.");
+        using var bypass = _empresa.Bypass();
+        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, ct);
+        if (rq is null || rq.Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
+            return new(rq?.Folio.Valor, null);
+        try
+        {
+            rq.QuitarDeCompraApp(lineas.Select(l => (l.Posicion, (decimal)l.Piezas)).ToList(), Texto(motivo));
+        }
+        catch (BusinessRuleException ex)
+        {
+            return new(rq.Folio.Valor, ex.Message);
+        }
+        await _db.SaveChangesAsync(ct);
+        return new(rq.Folio.Valor, null);
+    }
+
+    private Task<Requisicion?> RqAppAsync(Guid empresaId, string folioExterno, CancellationToken ct) =>
+        _db.Requisiciones.Include(r => r.Lineas).FirstOrDefaultAsync(r => r.EmpresaId == empresaId
+            && r.Origen == OrigenRequisicion.AlmacenesApp && r.FolioExterno == folioExterno.Trim(), ct);
+
+    private static string Texto(string? motivo)
+    {
+        var t = string.IsNullOrWhiteSpace(motivo) ? "App Almacenes" : $"App Almacenes: {motivo.Trim()}";
+        return t.Length > 500 ? t[..500] : t;
     }
 
     public async Task<CrearRqAppResultado> CrearAsync(CrearRqAppSolicitud s, CancellationToken ct)

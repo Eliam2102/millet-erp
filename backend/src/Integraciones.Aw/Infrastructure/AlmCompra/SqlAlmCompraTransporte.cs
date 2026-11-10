@@ -1,28 +1,35 @@
 using System.Data;
 using System.Data.Common;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using Millet.Compras.Application.Integration.AlmCompra;
-using Millet.Integraciones.Aw.Infrastructure.Pedidos;
+using Millet.Integraciones.Aw.Infrastructure.Adapters;
 
 namespace Millet.Integraciones.Aw.Infrastructure.AlmCompra;
 
 /// <summary>
-/// Transporte SQL ERP → Almacenes sobre <c>dbo.alm_compra</c> (base MILLET_INTEGRACION). <b>Sin probar contra la base real:</b> la
-/// tabla no existe hasta que Jorge la cree (~13-nov) y los nombres de columna son SUPUESTOS tomados de su correo del 29-oct
-/// (ERP escribe mensaje_id único, tipo, versión, fecha, folio de compra y el sobre JSON; Almacenes escribe estado
-/// PROCESADO/DUPLICADO/ERROR, id de compra, error y fecha). Solo corre con <c>Integraciones:AlmCompra:Transporte=Sql</c>
-/// y <c>ConnectionStrings:AwIntegracionDb</c>; ajustar al DDL definitivo antes de encenderlo.
+/// Transporte SQL ERP → Almacenes sobre <c>dbo.alm_compra</c> en la base de la app de Almacenes (<c>AlmacenRQ_MP</c>; pruebas
+/// <c>AlmacenRQ_MP_ENSAYO</c>), la misma de <c>alm_mensaje</c> (<c>ConnectionStrings:AlmacenesAppDb</c>, TLS verificado; NO usa
+/// MILLET_INTEGRACION). DDL del contrato v8: id, mensaje_id, tipo, folio, fecha, contenido, fecha_escrito (default) y el acuse de
+/// Almacenes (acuse_estado PROCESADO/DUPLICADO/ERROR, acuse_compra_id, acuse_texto, acuse_fecha). Usuario
+/// <c>millet_erp_integracion</c>: SELECT e INSERT, DENY DELETE: el ERP nunca escribe el acuse. Las compras de un folio se aplican
+/// en orden de id y Almacenes retiene las posteriores a un ERROR; el orden y la espera los lleva el procesador (un mensaje a la
+/// vez por folio, hasta leer su acuse). <b>Sin probar contra la base real.</b> Solo corre con <c>Integraciones:AlmCompra:Transporte=Sql</c>.
 /// </summary>
-public sealed class SqlAlmCompraTransporte(IServiceProvider servicios) : IAlmCompraTransporte
+public sealed class SqlAlmCompraTransporte(IConfiguration configuration) : IAlmCompraTransporte
 {
-    // Idempotente: el INSERT solo corre si el mensaje_id no existe (y la UNIQUE de la tabla es la red de seguridad).
+    public const string ConnectionStringName = "AlmacenesAppDb";
+    private const int MaxTexto = 1000;
+
+    // Idempotente: el INSERT solo corre si el mensaje_id no existe (reintento tras una falla a medias no duplica).
     private const string SqlEscribir = """
-        INSERT INTO dbo.alm_compra (mensaje_id, tipo, version, fecha, folio_compra, sobre)
-        SELECT @id, @tipo, @version, @fecha, @folio, @sobre
+        INSERT INTO dbo.alm_compra (mensaje_id, tipo, folio, fecha, contenido)
+        SELECT @id, @tipo, @folio, @fecha, @contenido
          WHERE NOT EXISTS (SELECT 1 FROM dbo.alm_compra WHERE mensaje_id = @id)
         """;
     private const string SqlAcuse = """
-        SELECT acuse_estado, acuse_compra_id, acuse_error, acuse_fecha
-          FROM dbo.alm_compra WHERE mensaje_id = @id AND acuse_estado IS NOT NULL
+        SELECT TOP (1) acuse_estado, acuse_compra_id, acuse_texto, acuse_fecha
+          FROM dbo.alm_compra WHERE mensaje_id = @id AND acuse_estado IS NOT NULL ORDER BY id DESC
         """;
 
     public async Task EscribirAsync(AlmCompraMensaje mensaje, CancellationToken ct)
@@ -32,10 +39,9 @@ public sealed class SqlAlmCompraTransporte(IServiceProvider servicios) : IAlmCom
         cmd.CommandText = SqlEscribir;
         P(cmd, "@id", DbType.String, mensaje.MensajeId);
         P(cmd, "@tipo", DbType.String, mensaje.Tipo);
-        P(cmd, "@version", DbType.Int32, mensaje.Version);
-        P(cmd, "@fecha", DbType.DateTimeOffset, mensaje.Fecha);
         P(cmd, "@folio", DbType.String, mensaje.Referencia);
-        P(cmd, "@sobre", DbType.String, mensaje.Sobre);
+        P(cmd, "@fecha", DbType.DateTime2, mensaje.Fecha.UtcDateTime); // datetime2(0): sin zona, se guarda en UTC
+        P(cmd, "@contenido", DbType.String, mensaje.Sobre);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -47,15 +53,18 @@ public sealed class SqlAlmCompraTransporte(IServiceProvider servicios) : IAlmCom
         P(cmd, "@id", DbType.String, mensajeId);
         await using var r = await cmd.ExecuteReaderAsync(ct);
         if (!await r.ReadAsync(ct)) return null;
+        var texto = r.IsDBNull(2) ? null : r.GetString(2);
         return new AlmCompraAcuse(r.GetString(0), r.IsDBNull(1) ? null : Convert.ToString(r.GetValue(1)),
-            r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : new DateTimeOffset(r.GetDateTime(3), TimeSpan.Zero));
+            texto is { Length: > MaxTexto } ? texto[..MaxTexto] : texto,
+            r.IsDBNull(3) ? null : new DateTimeOffset(DateTime.SpecifyKind(r.GetDateTime(3), DateTimeKind.Utc)));
     }
 
     private async Task<DbConnection> AbrirAsync(CancellationToken ct)
     {
-        var fabrica = servicios.GetService(typeof(IIntegracionSqlConnectionFactory)) as IIntegracionSqlConnectionFactory
-            ?? throw new InvalidOperationException("Falta ConnectionStrings:AwIntegracionDb para el transporte SQL de alm_compra.");
-        var cn = fabrica.CreateConnection();
+        var cadena = configuration.GetConnectionString(ConnectionStringName);
+        if (string.IsNullOrWhiteSpace(cadena))
+            throw new InvalidOperationException($"Falta ConnectionStrings:{ConnectionStringName} para el transporte SQL de alm_compra.");
+        var cn = new SqlConnection(AwSqlTls.Validar(cadena, ConnectionStringName));
         await cn.OpenAsync(ct);
         return cn;
     }

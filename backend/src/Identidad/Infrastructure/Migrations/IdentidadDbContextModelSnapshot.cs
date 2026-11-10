@@ -4107,6 +4107,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-000b-0000-0000-000000000003"),
+                            Accion = "adoptar-cfdi",
+                            Codigo = "facturacion.comprobantes.adoptar-cfdi",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Adoptar el CFDI que el PAC sí timbró (XML del portal) en un comprobante cuyo timbrado no se confirmó",
+                            Modulo = "facturacion",
+                            Recurso = "comprobantes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000a-0001-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "cuentas_por_cobrar.lineas-credito.leer",
@@ -4309,6 +4323,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Des-enmascarar CLABE y número de cuenta (PII, ADR-0018)",
+                            Modulo = "tesoreria",
+                            Recurso = "movimientos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-0002-0000-0000-000000000004"),
+                            Accion = "autorizar-reclasificacion",
+                            Codigo = "tesoreria.movimientos.autorizar-reclasificacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar la reclasificación de un movimiento bancario; no puede firmarla quien la solicitó",
                             Modulo = "tesoreria",
                             Recurso = "movimientos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5095,6 +5123,76 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Generar las pólizas de cierre anual que cancelan las cuentas de resultados contra resultado del ejercicio",
                             Modulo = "contabilidad",
                             Recurso = "cierre",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000010"),
+                            Accion = "aprobar-credito",
+                            Codigo = "comercio_exterior.embarques.aprobar-credito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar parcialidad por Crédito y Cobranza",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000011"),
+                            Accion = "aprobar-ventas",
+                            Codigo = "comercio_exterior.embarques.aprobar-ventas",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar parcialidad por suplencia de Ventas",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000012"),
+                            Accion = "aprobar-administracion",
+                            Codigo = "comercio_exterior.embarques.aprobar-administracion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar despacho sin factura por Administración",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000013"),
+                            Accion = "aprobar-planeacion",
+                            Codigo = "comercio_exterior.embarques.aprobar-planeacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar despacho sin factura por Planeación",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000014"),
+                            Accion = "aprobar-contraloria",
+                            Codigo = "comercio_exterior.embarques.aprobar-contraloria",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar despacho sin factura por Contraloría",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
