@@ -50,9 +50,12 @@ public static class PedidosDependencyInjection
         // 86e3wjt5r: notas de crédito de A+W (tabla puente aw_solicitud_nota_credito).
         services.AddScoped<IAwNotasCreditoPort, AwNotasCreditoAdapter>();
         // TR-01: filas Documento de aw_retorno (único escritor hacia A+W por factura).
-        services.AddScoped<IAwRetornoPort>(sp => new AwRetornoAdapter(
-            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
-            AwRetornoAdapter.CandadoSqlServer));
+        // IntegracionesAw:Retorno:Habilitado=false: sin adaptador Real, el ERP no escribe ni lee aw_retorno en SQL Server
+        // (AwRetornoDocumentoService lo omite con AW_ORIGEN_SIN_CONFIGURAR). 10-nov: apagado mientras TI construye su servicio.
+        if (configuration.GetValue("IntegracionesAw:Retorno:Habilitado", true))
+            services.AddScoped<IAwRetornoPort>(sp => new AwRetornoAdapter(
+                sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+                AwRetornoAdapter.CandadoSqlServer));
         // I13.2: publicación de tipo de cambio en dbo.erp_tipo_cambio.
         services.AddScoped<IAwTipoCambioPort>(sp => new AwTipoCambioAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
