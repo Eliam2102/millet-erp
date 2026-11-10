@@ -19,7 +19,13 @@ public enum EstadoSaldoIva : short { Vigente = 0, Cancelado = 1 }
 
 /// <summary>Qué movió el saldo: un pago o cobro (reclasifica IVA) o una nota de crédito o de cargo (reduce el documento). Agregar al final.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum TipoMovimientoIva : short { Pago = 0, Nota = 1 }
+public enum TipoMovimientoIva : short
+{
+    Pago = 0,
+    Nota = 1,
+    /// <summary>M-209 (CA4): corrección del IVA del documento contra su XML; mueve a pagado la parte del ajuste ya pagada.</summary>
+    Ajuste = 2,
+}
 
 /// <summary>
 /// C1.6 · saldo del IVA de un documento (factura de proveedor #2, factura de venta #7 o de anticipo #8). Nace con la póliza del documento y
@@ -292,6 +298,65 @@ public sealed class SaldoIvaDocumento : IPerteneceAEmpresa
         Estado = EstadoSaldoIva.Cancelado;
         Version++;
     }
+
+    /// <summary>
+    /// M-209 (CA4): diferencias por tratamiento entre el XML y lo contabilizado (lo vigente más lo que redujeron las notas). La parte
+    /// del IVA de la diferencia que corresponde a lo ya pagado (aplicado ÷ base) va directo a pagado; el resto queda pendiente.
+    /// Solo tratamientos con diferencia de un centavo o más en base o IVA.
+    /// </summary>
+    public IReadOnlyList<DiferenciaIvaDocumento> Diferencias(IEnumerable<(string Tratamiento, decimal Base, decimal Iva)> xml,
+        IReadOnlyDictionary<string, (decimal Base, decimal Iva)> reducidoPorNotas)
+    {
+        var delXml = xml.GroupBy(x => x.Tratamiento).ToDictionary(g => g.Key, g => (Base: g.Sum(x => x.Base), Iva: g.Sum(x => x.Iva)));
+        var pagado = Base > 0m ? Math.Min(1m, Aplicado / Base) : 0m;
+        var resultado = new List<DiferenciaIvaDocumento>();
+        foreach (var tratamiento in delXml.Keys.Union(Tratamientos.Select(t => t.Tratamiento)).Order(StringComparer.Ordinal))
+        {
+            var t = Tratamientos.FirstOrDefault(x => x.Tratamiento == tratamiento);
+            var notas = reducidoPorNotas.GetValueOrDefault(tratamiento);
+            var contabilizado = (Base: (t?.Base ?? 0m) + notas.Base, Iva: (t?.Iva ?? 0m) + notas.Iva);
+            var documento = delXml.GetValueOrDefault(tratamiento);
+            var (baseD, ivaD) = (documento.Base - contabilizado.Base, documento.Iva - contabilizado.Iva);
+            if (Math.Abs(baseD) < Tolerancia && Math.Abs(ivaD) < Tolerancia) continue;
+            resultado.Add(new DiferenciaIvaDocumento(tratamiento, contabilizado.Base, contabilizado.Iva, documento.Base, documento.Iva,
+                baseD, ivaD, Math.Round(ivaD * pagado, 2, MidpointRounding.AwayFromZero),
+                Math.Round(baseD * pagado, 2, MidpointRounding.AwayFromZero)));
+        }
+        return resultado;
+    }
+
+    /// <summary>
+    /// M-209 (CA4): aplica las diferencias al saldo (base e IVA por tratamiento; la parte ya pagada cuenta como reclasificada) y devuelve
+    /// el movimiento de ajuste, ligado a su póliza, con la parte que pasó a pagado (la liquidación del mes la suma).
+    /// </summary>
+    public ReclasificacionIva Corregir(IReadOnlyList<DiferenciaIvaDocumento> diferencias, Guid ajusteId, DateOnly fecha, Guid polizaId,
+        decimal tipoCambio)
+    {
+        if (Estado != EstadoSaldoIva.Vigente)
+            throw new BusinessRuleException("CONTAB_IVA_DOCUMENTO_CANCELADO", "El documento está cancelado: su IVA no se corrige.");
+        foreach (var d in diferencias)
+        {
+            var t = Tratamientos.FirstOrDefault(x => x.Tratamiento == d.Tratamiento);
+            if (t is null) Tratamientos.Add(t = new TratamientoSaldoIva { Tratamiento = d.Tratamiento });
+            t.Base += d.BaseDiferencia;
+            t.Iva += d.IvaDiferencia;
+            t.BaseAplicada += d.BasePagada;
+            t.IvaReclasificado += d.IvaPagado;
+        }
+        Tratamientos = [.. Tratamientos.Select(x => x.Copia())];
+        var ivaPagado = diferencias.Sum(d => d.IvaPagado);
+        Iva += diferencias.Sum(d => d.IvaDiferencia);
+        IvaReclasificado += ivaPagado;
+        Version++;
+        return new ReclasificacionIva(Guid.CreateVersion7(), EmpresaId, Id, TipoMovimientoIva.Ajuste, ("contabilidad", "ajuste_iva"), ajusteId,
+            fecha, 0m, ivaPagado, 0m, polizaId, tipoCambio, null,
+            [.. diferencias.Select(d => new TratamientoAplicadoIva
+            {
+                Tratamiento = d.Tratamiento, Base = d.BasePagada, Iva = d.IvaPagado,
+                BaseMxn = Math.Round(d.BasePagada * tipoCambio, 2, MidpointRounding.AwayFromZero),
+                IvaMxn = Math.Round(d.IvaPagado * tipoCambio, 2, MidpointRounding.AwayFromZero),
+            })]);
+    }
 }
 
 /// <summary>
@@ -393,3 +458,10 @@ public sealed class TratamientoAplicadoIva
     public decimal BaseMxn { get; set; }
     public decimal IvaMxn { get; set; }
 }
+
+/// <summary>
+/// M-209 (CA4) · diferencia de un tratamiento entre lo contabilizado y el XML del documento. <c>IvaPagado</c>/<c>BasePagada</c> = la parte
+/// de la diferencia que corresponde a lo ya pagado del documento (va directo a pagado).
+/// </summary>
+public sealed record DiferenciaIvaDocumento(string Tratamiento, decimal BaseContabilizada, decimal IvaContabilizado, decimal BaseXml,
+    decimal IvaXml, decimal BaseDiferencia, decimal IvaDiferencia, decimal IvaPagado, decimal BasePagada);

@@ -364,6 +364,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.cierre.configurar',
   'contabilidad.cierre.autorizar-excepcion',
   'contabilidad.cierre.anual',
+  'contabilidad.iva.corregir-documento',
   // Pólizas (F1-CON-04)
   'contabilidad.polizas.leer',
   'contabilidad.polizas.capturar',

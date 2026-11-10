@@ -91,3 +91,50 @@ export function useGenerarPolizaLiquidacionIva() {
     },
   });
 }
+
+/** M-209 (CA4): diferencia de un tratamiento entre lo contabilizado y el XML del documento. */
+export interface DiferenciaIva {
+  tratamiento: string;
+  baseContabilizada: number;
+  ivaContabilizado: number;
+  baseXml: number;
+  ivaXml: number;
+  baseDiferencia: number;
+  ivaDiferencia: number;
+  ivaPagado: number;
+}
+
+export interface RecalculoIva {
+  saldoId: string;
+  folio: string | null;
+  uuid: string | null;
+  moneda: string;
+  diferencias: DiferenciaIva[];
+  ivaDiferencia: number;
+  sinDiferencia: boolean;
+  polizaAjusteId: string | null;
+  polizaAjusteFolio: string | null;
+}
+
+/**
+ * M-209 (CA4): recalcula el IVA de una factura de proveedor contra su XML. Sin `aplicar`, solo la vista previa; con él, póliza de
+ * ajuste ligada al documento (la original no se anula) y saldo de IVA corregido.
+ */
+export function useRecalcularIvaDocumento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (a: { saldoId: string; motivo: string | null; aplicar: boolean; idempotencyKey: string }) =>
+      (
+        await apiRequest<RecalculoIva>(`/api/v1/contabilidad/iva/documentos/${a.saldoId}/recalcular`, {
+          method: 'POST',
+          body: { motivo: a.motivo, aplicar: a.aplicar },
+          idempotencyKey: a.idempotencyKey,
+        })
+      ).data,
+    onSuccess: (_, a) => {
+      if (!a.aplicar) return;
+      void qc.invalidateQueries({ queryKey: liquidacionIvaKeys.all });
+      void qc.invalidateQueries({ queryKey: ['contabilidad', 'polizas'] });
+    },
+  });
+}

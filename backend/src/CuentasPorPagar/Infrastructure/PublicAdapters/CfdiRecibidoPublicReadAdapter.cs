@@ -6,7 +6,8 @@ using Millet.CuentasPorPagar.Infrastructure.Persistence;
 namespace Millet.CuentasPorPagar.Infrastructure.PublicAdapters;
 
 /// <summary>Adaptador de <see cref="ICfdiRecibidoPublicReadPort"/> sobre el buzón de CxP (filtro de empresa ADR-0011).</summary>
-public sealed class CfdiRecibidoPublicReadAdapter(CuentasPorPagarDbContext db) : ICfdiRecibidoPublicReadPort
+public sealed class CfdiRecibidoPublicReadAdapter(CuentasPorPagarDbContext db, ICfdiBlobStorage blobs, IXmlCfdiParser parser)
+    : ICfdiRecibidoPublicReadPort
 {
     public async Task<IReadOnlyList<CfdiRecibidoPublico>> ListarIngresosPorProcesarAsync(
         DateTimeOffset desde, DateTimeOffset hasta, string? rfcEmisor, int limite, CancellationToken ct)
@@ -38,6 +39,19 @@ public sealed class CfdiRecibidoPublicReadAdapter(CuentasPorPagarDbContext db) :
         }
         var filas = await db.CfdisRecibidos.AsNoTracking().Where(c => lista.Contains(c.UuidCfdi)).ToListAsync(ct);
         return filas.Select(Mapear).ToList();
+    }
+
+    public async Task<IReadOnlyList<TrasladoIvaPublico>?> LeerTrasladosIvaAsync(string uuid, CancellationToken ct)
+    {
+        UuidCfdi valor;
+        try { valor = UuidCfdi.Parse(uuid.Trim().ToUpperInvariant()); }
+        catch (Millet.SharedKernel.Application.Exceptions.BusinessRuleException) { return null; }
+        var blobRef = await db.CfdisRecibidos.AsNoTracking().Where(c => c.UuidCfdi == valor).Select(c => c.XmlBlobRef).FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(blobRef)) return null;
+        await using var xml = await blobs.LeerXmlAsync(blobRef, ct);
+        if (xml is null) return null;
+        var datos = parser.Parsear(xml);
+        return [.. (datos.TrasladosIva ?? []).Select(t => new TrasladoIvaPublico(t.Tratamiento, t.Base, t.Iva))];
     }
 
     private static CfdiRecibidoPublico Mapear(CfdiRecibido c) => new(

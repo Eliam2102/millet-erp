@@ -1117,6 +1117,8 @@ builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ICumplimientoIv
 // K10.8: contabilidad electrónica. RFC de la empresa (Compartido) y CFDI de las pólizas (CxP recibidos + Facturación emitidos).
 builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IEmpresaContabilidadReadPort, Millet.Compartido.Infrastructure.PublicAdapters.EmpresaContabilidadReadAdapter>();
 builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IComprobanteFiscalContabilidadReadPort, Millet.Api.Infrastructure.Adapters.ComprobanteFiscalContabilidadReadAdapter>();
+// M-209 (CA4): traslados de IVA del XML del CFDI recibido para corregir el IVA del documento.
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ITrasladosIvaCfdiReadPort, Millet.Api.Infrastructure.Adapters.TrasladosIvaCfdiReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
