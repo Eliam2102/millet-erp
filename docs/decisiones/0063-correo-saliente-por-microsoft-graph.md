@@ -98,3 +98,27 @@ central, lo hace cada módulo sobre su propio estado.
   `<Notificaciones>` de CxC (alertas de cartera), Compras (incidencias) y CxP
   (OC cancelada, NC en espera).
 - Falta el aviso interno en pantalla, sin correo: hoy no hay infraestructura de notificaciones en la aplicación.
+- Hecho en 86e3zr74h (límites confirmados por Jorge Toache, 10-nov-2026: el
+  buzón erpmillet@ usa los límites estándar de Exchange Online):
+  - `Correo:Limites` controla el volumen con valores abajo de los de Exchange:
+    20 mensajes por minuto (el envío espera turno), 300 destinatarios por
+    mensaje (más se rechaza con `CORREO_EXCEDE_DESTINATARIOS`) y 8,000
+    destinatarios en 24 h (`CORREO_LIMITE_DIARIO`). La API no arranca con
+    valores arriba de 30/min, 500/mensaje o 10,000/24 h. Los contadores son
+    por instancia y se reinician con la API.
+  - 429, 503, `550 5.7.233` (límite de destinatarios externos de la
+    organización) y los códigos de cuota de Exchange se clasifican como
+    `CORREO_LIMITE_PROVEEDOR` y se reintentan con espera de 10, 20 y 40 s. Si
+    se agotan, el error vuelve al módulo dueño, que conserva su envío
+    (Facturación lo deja `Fallido` para su worker y el reenvío manual).
+  - Solo se detecta el `5.7.233` que Graph devuelve al enviar. Si Exchange lo
+    manda después como rebote (NDR) al buzón, el ERP no lo ve: sigue sin
+    manejo de rebotes.
+  - `Correo:SecretoVenceEl` guarda la fecha de vencimiento del client secret
+    con Mail.Send (2027-01-27; el valor sigue en Key Vault). Con
+    `Proveedor=Graph`, desde `AvisoSecretoDiasAntes` días antes (30) se
+    escribe un aviso diario en el log y el health check `correo-secreto-graph`
+    queda degradado; vencido, queda no sano. Al renovar, actualizar la fecha.
+- La creación automática de cuentas en Entra queda apagada: Millet negó
+  User.ReadWrite.All (tenant Entra Free). TI crea las cuentas a mano y el ERP
+  solo asigna empleado, rol y sucursal.
