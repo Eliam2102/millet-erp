@@ -321,7 +321,7 @@ CREATE TABLE IF NOT EXISTS dbo.pool_teile (
 -- Misma estructura que docs/operacion/aw-integracion-scripts/18_create_erp_tipo_cambio.sql.
 -- El ERP solo hace INSERT y SELECT; la tarea de TI escribe aplicada_at, resultado, motivo e intentos.
 CREATE TABLE IF NOT EXISTS dbo.erp_tipo_cambio (
-    moneda            varchar(3)     NOT NULL CHECK (moneda IN ('USD', 'EUR', 'CAD')),
+    moneda            varchar(8)     NOT NULL CHECK (moneda IN ('USD', 'Euro', 'CAN')),  -- KA_WAEHRUNGEN.WAEHRUNG de A+W
     fecha_aplicacion  date           NOT NULL,
     version           integer        NOT NULL CHECK (version > 0),
     valor             numeric(18, 6) NOT NULL CHECK (valor > 0),
@@ -343,6 +343,6 @@ CREATE TABLE IF NOT EXISTS sysadm.ka_waehrungen (
     waehrung    varchar(8)     PRIMARY KEY,
     fremd_key   varchar(3),
     bez         varchar(40),
-    valutakurs  numeric(18, 6) NOT NULL DEFAULT 1.0,
+    valutakurs  numeric(18, 8) NOT NULL DEFAULT 1.0,  -- inverso: unidades extranjeras por 1 MXN (USD 0.05343393)
     valutadatum timestamp
 );

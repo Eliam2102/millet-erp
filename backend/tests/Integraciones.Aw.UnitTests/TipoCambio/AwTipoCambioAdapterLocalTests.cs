@@ -42,7 +42,8 @@ public sealed class AwTipoCambioAdapterLocalTests
         AwTipoCambioAdapter.SqlAcuses.Should().Contain("@desde");
 
         AwTipoCambioAdapter.SqlTipoCambioVigenteAw.Should().Contain("sysadm.ka_waehrungen");
-        AwTipoCambioAdapter.SqlTipoCambioVigenteAw.Should().Contain("UPPER(fremd_key) = @moneda OR UPPER(waehrung) = @moneda");
+        AwTipoCambioAdapter.SqlTipoCambioVigenteAw.Should().Contain("WHERE waehrung = @moneda");
+        AwTipoCambioAdapter.SqlTipoCambioVigenteAw.Should().NotContain("fremd_key");
     }
 
     [Fact]
@@ -242,6 +243,34 @@ public sealed class AwTipoCambioAdapterLocalTests
         var cmd = fakeConn.ExecutedCommands.Single();
         cmd.CommandText.Should().Be(AwTipoCambioAdapter.SqlTipoCambioVigenteAw);
         cmd.Parameters["@moneda"].Value.Should().Be("USD");
+    }
+
+    [Fact]
+    public async Task Moneda_ERP_se_traduce_a_valor_A_W_al_publicar_leer_acuses_y_consultar_vigente()
+    {
+        var mapeo = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["USD"] = "USD", ["EUR"] = "Euro", ["CAD"] = "CAN" };
+        var fakeConn = new FakeDbConnection();
+        fakeConn.OnExecuteReader = cmd => cmd.CommandText == AwTipoCambioAdapter.SqlAcuses
+            ? new FakeDbDataReader([new Dictionary<string, object>
+            {
+                ["moneda"] = "Euro", ["fecha_aplicacion"] = new DateTime(2026, 11, 8), ["version"] = 1, ["valor"] = 21.8m,
+                ["aplicada_at"] = DBNull.Value, ["resultado"] = DBNull.Value, ["motivo"] = DBNull.Value, ["intentos"] = 0,
+            }])
+            : new FakeDbDataReader([]);
+        fakeConn.OnExecuteScalar = _ => 21.8m;
+        var adapter = new AwTipoCambioAdapter(new FakeFabrica(fakeConn),
+            Options.Create(new AwPedidosOptions { MapeoMonedaAw = new(mapeo, StringComparer.OrdinalIgnoreCase) }),
+            AwTipoCambioAdapter.CandadoSqlServer);
+
+        await adapter.PublicarFilaAsync(new AwTipoCambioFila("EUR", new DateOnly(2026, 11, 8), 1, 21.8m, null, "Manual"));
+        fakeConn.ExecutedCommands.Single(c => c.CommandText == AwTipoCambioAdapter.SqlInsertar).Parameters["@moneda"].Value.Should().Be("Euro");
+
+        (await adapter.ObtenerUltimosAcusesAsync(["EUR"], new DateOnly(2026, 11, 1))).Single().Moneda.Should().Be("EUR");
+
+        await adapter.ObtenerTipoCambioVigenteAwAsync("cad");
+        fakeConn.ExecutedCommands.Last().Parameters["@moneda"].Value.Should().Be("CAN");
+
+        await adapter.Invoking(a => a.ObtenerTipoCambioVigenteAwAsync("GBP")).Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
