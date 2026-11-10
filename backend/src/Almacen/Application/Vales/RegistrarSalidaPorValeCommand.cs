@@ -175,6 +175,9 @@ public sealed class RegistrarSalidaPorValeHandler
             conversiones.Add(await Recepciones.RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, "", variante, cancellationToken));
         }
+        // M-172: silicón/Ködispace por tambor exigen línea destino y piezas enteras (antes de tocar el saldo).
+        var tambores = await Tambores.TamboresEnLinea.ValidarAsync(_db, _articulos, request.Lineas,
+            i => conversiones[i].CantidadBase, sucursalId, cancellationToken);
 
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "VALE_SIN_EMPRESA", "El contexto de empresa es requerido.");
@@ -297,6 +300,7 @@ public sealed class RegistrarSalidaPorValeHandler
             "VALE_SIN_USUARIO", "Se requiere usuario autenticado.");
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
+        await Tambores.TamboresEnLinea.RegistrarAsync(_db, tambores, movimientoId, folio.Valor, DateTimeOffset.UtcNow, cancellationToken);
 
         await _events.PublishAsync(new SalidaRequisicionRegistradaIntegrationEvent(
             EmpresaId: empresaId,

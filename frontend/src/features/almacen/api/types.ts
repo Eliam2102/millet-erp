@@ -689,6 +689,8 @@ export interface RegistrarSalidaLineaInput {
   productoAwVarianteId?: string | null;
   /** S4b: lote del que sale; obligatorio con medida si el rack tiene existencia con lote (LOTE_REQUERIDO). */
   lote?: string | null;
+  /** M-172: línea de producción destino; obligatoria si el artículo se consume por tambor a línea. */
+  lineaProduccionId?: string | null;
 }
 
 export interface RegistrarSalidaResponse {

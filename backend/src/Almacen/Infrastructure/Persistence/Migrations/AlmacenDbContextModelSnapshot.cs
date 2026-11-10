@@ -3459,6 +3459,158 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.ToTable("descargas_taller_aw", "almacen");
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Tambores.LineaProduccion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activa");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("clave");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nombre");
+
+                    b.Property<string>("Proceso")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("proceso");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_lineas_produccion");
+
+                    b.HasIndex("SucursalId", "Clave")
+                        .IsUnique()
+                        .HasDatabaseName("ix_lineas_produccion_sucursal_id_clave");
+
+                    b.ToTable("lineas_produccion", "almacen");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Tambores.TamborEnLinea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTimeOffset?>("FechaFin")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_fin");
+
+                    b.Property<DateTimeOffset>("FechaInicio")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_inicio");
+
+                    b.Property<string>("Folio")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("folio");
+
+                    b.Property<string>("FolioReemplazo")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("folio_reemplazo");
+
+                    b.Property<decimal?>("KgPresentacion")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("kg_presentacion");
+
+                    b.Property<Guid>("LineaProduccionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_produccion_id");
+
+                    b.Property<Guid>("MovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tambores_linea");
+
+                    b.HasIndex("MovimientoId")
+                        .HasDatabaseName("ix_tambores_linea_movimiento_id");
+
+                    b.HasIndex("LineaProduccionId", "ArticuloId", "Estado")
+                        .HasDatabaseName("ix_tambores_linea_linea_produccion_id_articulo_id_estado");
+
+                    b.ToTable("tambores_linea", "almacen");
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Audit.AuditLogEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3797,6 +3949,16 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_saldos_inventario_ubicaciones_ubicacion_id");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Tambores.TamborEnLinea", b =>
+                {
+                    b.HasOne("Millet.Almacen.Domain.Tambores.LineaProduccion", null)
+                        .WithMany()
+                        .HasForeignKey("LineaProduccionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tambores_linea_lineas_produccion_linea_produccion_id");
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Catalogo.Almacen", b =>
