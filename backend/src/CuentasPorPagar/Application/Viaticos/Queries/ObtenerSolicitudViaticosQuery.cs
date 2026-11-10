@@ -146,7 +146,10 @@ public sealed class ObtenerSolicitudViaticosHandler
             s.AutorizadoPorDf, s.FechaAutorizacionDf,
             s.RechazadoPor, s.FechaRechazo, s.MotivoRechazo,
             s.FechaSolicitud, s.FechaAnticipoPagado, s.FechaComprobacion,
-            s.FechaLiquidacion, s.MontoComprobado, s.DiferenciaLiquidacion,
+            s.FechaLiquidacion,
+            // O2 (M-449): las comprobaciones capturadas antes de este cambio no tienen el monto guardado; se toma de sus líneas.
+            s.MontoComprobado ?? (s.Lineas.Count > 0 ? s.Lineas.Sum(l => l.Total) : (decimal?)null),
+            s.DiferenciaLiquidacion,
             lineas, s.Version,
             EmpleadoNombre: empleado?.Nombre,
             JefeDirectoNombre: jefe?.Nombre,
