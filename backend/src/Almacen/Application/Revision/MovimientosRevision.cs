@@ -8,7 +8,7 @@ namespace Millet.Almacen.Application.Revision;
 internal sealed record LineaRevisionMov(
     Guid ArticuloId, string UnidadMedida, decimal Cantidad, decimal CostoUnitarioMxn, Guid UbicacionId,
     Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, string? Lote = null,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null, Guid? LineaOcId = null);
 
 /// <summary>Línea de un par de liberación: sale del bin de MAT-REV y entra al bin disponible destino.</summary>
 internal sealed record ParLiberacionLinea(LineaRevisionMov Origen, Guid DestinoUbicacionId);
@@ -39,7 +39,7 @@ internal static class MovimientosRevision
                 articuloId: l.ArticuloId, cantidad: l.Cantidad, unidadMedida: l.UnidadMedida,
                 costoUnitarioMxn: l.CostoUnitarioMxn, ubicacionId: l.UbicacionId,
                 productoAwVarianteId: l.ProductoAwVarianteId, anchoMm: l.AnchoMm, altoMm: l.AltoMm, lote: l.Lote,
-                centroCostoId: l.CentroCostoId));
+                centroCostoId: l.CentroCostoId, lineaOcId: l.LineaOcId));
         }
 
         var anio = fecha.Year;

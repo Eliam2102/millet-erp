@@ -18,7 +18,8 @@ public static class AlmacenesAppEntrada
     public const string Tipo = "ENTRADA_ALMACEN";
     private const int MaxLineas = 500;
 
-    public sealed record Resuelta(Guid EmpresaId, Guid UsuarioId, Guid SucursalId, string Motivo, IReadOnlyList<EntradaApp> Entradas);
+    public sealed record Resuelta(Guid EmpresaId, Guid UsuarioId, Guid SucursalId, string Motivo, IReadOnlyList<EntradaApp> Entradas,
+        string? Compra = null, string? Entrada = null);
 
     /// <summary>Valida y resuelve; no escribe. Devuelve la entrada resuelta o el texto del ERROR.</summary>
     public static async Task<(Resuelta? Entrada, string? Error)> ManejarAsync(
@@ -106,11 +107,11 @@ public static class AlmacenesAppEntrada
             entradas.Add(new EntradaApp(r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId, cantidad, r.AnchoMm, r.AltoMm));
         }
 
-        var motivo = string.Concat($"App Almacenes {Tipo}",
-            Texto(datos, "entrada") is { Length: > 0 } en ? $" {en.Trim()}" : "",
-            Texto(datos, "compra") is { Length: > 0 } oc ? $" compra {oc.Trim()}" : "");
+        var entrada = Texto(datos, "entrada")?.Trim() is { Length: > 0 } en ? en : null;
+        var compra = Texto(datos, "compra")?.Trim() is { Length: > 0 } oc ? oc : null;
+        var motivo = string.Concat($"App Almacenes {Tipo}", entrada is null ? "" : $" {entrada}", compra is null ? "" : $" compra {compra}");
         if (motivo.Length > 500) motivo = motivo[..500];
-        return (new Resuelta(sp.EmpresaId, sp.Id, resuelto.SucursalId, motivo, entradas), null);
+        return (new Resuelta(sp.EmpresaId, sp.Id, resuelto.SucursalId, motivo, entradas, compra, entrada), null);
     }
 
     // articuloAw: número o texto; ausente/null → null. Otro tipo → malTipo.

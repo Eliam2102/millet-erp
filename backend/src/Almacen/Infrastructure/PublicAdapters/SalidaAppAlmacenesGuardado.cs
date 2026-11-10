@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.AppAlmacenes;
 using Millet.Almacen.Domain.Idempotencia;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.UnidadesMedida;
 
 namespace Millet.Almacen.Infrastructure.PublicAdapters;
 
@@ -18,10 +20,13 @@ public sealed class SalidaAppAlmacenesGuardado
     private readonly AlmacenDbContext _db;
     private readonly ICurrentEmpresaContext _empresa;
     private readonly IIntegrationEventPublisher _events;
+    private readonly EntradaAppPuertos _entrada;
 
-    public SalidaAppAlmacenesGuardado(AlmacenDbContext db, ICurrentEmpresaContext empresa, IIntegrationEventPublisher events)
+    public SalidaAppAlmacenesGuardado(AlmacenDbContext db, ICurrentEmpresaContext empresa, IIntegrationEventPublisher events,
+        IComprasOcReadPort ocs, IConversionUnidadPort conversion, IPeriodoContableReadPort periodo)
     {
         _db = db; _empresa = empresa; _events = events;
+        _entrada = new EntradaAppPuertos(ocs, conversion, periodo, events);
     }
 
     /// <summary>
@@ -35,12 +40,16 @@ public sealed class SalidaAppAlmacenesGuardado
         GuardarAsync(mensajeId, tipo, referencia, payload,
             () => SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct), ct);
 
-    /// <summary>ENTRADA_ALMACEN (M-159): mismo guardado atómico que las salidas; un ERROR deja el mensaje con folio de revisión.</summary>
+    /// <summary>
+    /// ENTRADA_ALMACEN (M-159): mismo guardado atómico que las salidas; un ERROR deja el mensaje con folio de revisión.
+    /// Contra una OC del ERP es su recepción (movimiento, saldo y evento al outbox en la misma transacción).
+    /// </summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarEntradaAsync(
-        string mensajeId, string tipo, string? referencia, string payload,
-        Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo, IReadOnlyList<EntradaApp> entradas, CancellationToken ct) =>
+        string mensajeId, string tipo, string? referencia, string payload, Guid empresaId, Guid usuarioId, Guid sucursalId,
+        string motivo, string? compra, string? entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct) =>
         GuardarAsync(mensajeId, tipo, referencia, payload,
-            () => EntradaAppAlmacenes.RegistrarAsync(_db, empresaId, usuarioId, sucursalId, motivo, entradas, ct), ct);
+            () => EntradaAppAlmacenes.RegistrarAsync(_db, _entrada, empresaId, usuarioId, sucursalId, motivo,
+                compra, entrada ?? mensajeId, entradas, ct), ct);
 
     private async Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarAsync(
         string mensajeId, string tipo, string? referencia, string payload,

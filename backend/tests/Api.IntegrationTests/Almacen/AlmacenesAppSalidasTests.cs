@@ -650,35 +650,21 @@ public class AlmacenesAppSalidasTests
     };
 
     [Fact]
-    public async Task M159_ENTRADA_ALMACEN_sube_hojas_por_m2_al_almacen_general_sin_rack_y_el_reenvio_es_DUPLICADO()
+    public async Task M159_ENTRADA_ALMACEN_sin_OC_del_ERP_ni_promedio_acusa_ERROR_y_no_entra_a_costo_cero()
     {
         await AsegurarAlmacenGeneralMidAsync();
         var s = await SembrarAsync(0);
+        await using var periodo = await Millet.Api.IntegrationTests.Compras.CompraAPagoDemoTests.AbrirPeriodoSiHaceFaltaAsync(
+            _factory, DateOnly.FromDateTime(DateTime.UtcNow));
         await using var f = ConLlave();
         var id = Guid.NewGuid().ToString();
         var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ENTRADA_ALMACEN", DatosEntrada("EN-1", s.ArticuloAw, 10, reclamadas: 2))));
 
-        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
-        Assert.StartsWith("M-ENT", a.GetProperty("folio").GetString());
-        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId)); // el total, incluidas las reclamadas
-        var mov = Assert.Single(await MovsAsync(s.ArticuloId));
-        Assert.Equal(TipoMovimiento.EntradaCompra, mov.Tipo);
-        Assert.Contains("EN-1 compra OC-NO-ERP", mov.Motivo);
-        using (var scope = f.Services.CreateScope())
-        {
-            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-            var ubicacion = await (from l in db.LineasMovimiento.AsNoTracking()
-                                   join u in db.Ubicaciones.AsNoTracking() on l.UbicacionId equals u.Id
-                                   where l.ArticuloId == s.ArticuloId
-                                   select u.EsDefault).SingleAsync();
-            Assert.True(ubicacion); // sin rack: almacén general
-        }
-
-        var a2 = await Acuse(await f.CreateClient().SendAsync(Req(id, "ENTRADA_ALMACEN", DatosEntrada("EN-1", s.ArticuloAw, 10, reclamadas: 2))));
-        Assert.Equal("DUPLICADO", a2.GetProperty("estado").GetString());
-        Assert.Equal(a.GetProperty("folio").GetString(), a2.GetProperty("folio").GetString());
-        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal("ERROR", a.GetProperty("estado").GetString());
+        Assert.Contains("costo cero", a.GetProperty("error").GetString());
+        Assert.Equal(0m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(0, await MovimientosAsync(s.ArticuloId));
+        Assert.Equal("ERROR", await EstadoMensajeAsync(f, id));
     }
 
     [Fact]
