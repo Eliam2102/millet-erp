@@ -78,7 +78,8 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, factura)); // M-173: con el pedimento, en proceso antes del PAC
 
         // FAC-08b: sustituta retenida por pedimento: al timbrar se solicita la cancelación de la original.
         await Sustituciones.SustitucionCfdi.SolicitarCancelacionOriginalAsync(
@@ -93,6 +94,9 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
                     ? await _db.PedidosFacturables.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken)
                     : null),
                 cancellationToken);
+
+        // M8: la factura de la parcialidad que completa el 100 % marca el pedido Facturado.
+        await Pedidos.PedidoPorParcialidades.TomarPedidoSiCompletoAsync(_db, factura, pedido: null, cancellationToken);
 
         // RANURA-PR2: la factura retenida por pedimento no alcanzó a emitir
         // la NC de la ranura en la emisión — se emite aquí al quedar Timbrada.

@@ -32,7 +32,8 @@ public sealed class NotaCreditoProveedorRegistradaMapper
             Retenciones: notification.Retenciones?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
             Moneda: notification.Moneda,
             TipoCambio: notification.TipoCambio,
-            SucursalId: notification.SucursalId);
+            SucursalId: notification.SucursalId,
+            Impuestos: notification.Impuestos?.Select(i => new ImpuestoTrasladoPayload(i.Tratamiento, i.Base, i.Iva)).ToList());
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

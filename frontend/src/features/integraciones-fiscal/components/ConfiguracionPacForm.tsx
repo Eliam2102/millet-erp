@@ -24,6 +24,7 @@ import {
 import {
   useGuardarConfiguracionPac,
   useTestConexionPac,
+  useUltimaPruebaConexionPac,
 } from '@/features/integraciones-fiscal/api/useIntegracionesFiscal';
 import {
   GuardarConfiguracionPacSchema,
@@ -80,6 +81,8 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
   const canAdministrar = useHasPermission(PermisosCanonicos.IntegracionesFiscalAdministrar);
   const guardar = useGuardarConfiguracionPac();
   const test = useTestConexionPac();
+  // M-232: la última prueba se consulta aparte (probar no cambia la configuración).
+  const ultimaPrueba = useUltimaPruebaConexionPac(empresaId, ProveedorPac.FiscalApi, existing != null);
   const keyFor = useBodyScopedIdempotencyKey();
 
   const defaultValues: GuardarConfiguracionPacValues = existing
@@ -125,6 +128,17 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
   }, [empresaId, existing?.id]);
 
   const [apiKeyDraft, setApiKeyDraft] = useState('');
+
+  // M-232: «Configuración activa» solo se enciende tras una prueba exitosa de lo capturado
+  // (URL + API key). Guía de pantalla; el servidor vuelve a probar al guardar (P01).
+  const [pruebaExitosa, setPruebaExitosa] = useState<{ baseUrl: string; apiKey: string } | null>(null);
+  const baseUrlActual = form.watch('baseUrl');
+  const activoActual = form.watch('activo');
+  const pruebaVigente =
+    pruebaExitosa != null &&
+    pruebaExitosa.baseUrl === baseUrlActual &&
+    pruebaExitosa.apiKey === apiKeyDraft.trim();
+  const puedeActivar = (existing?.activo === true && !form.formState.dirtyFields.baseUrl && apiKeyDraft.trim() === '') || pruebaVigente;
 
   // CSD del emisor (.cer/.key en base64 + password). Drafts locales igual
   // que la API key: nunca se re-hidratan desde el backend (solo regresa
@@ -254,6 +268,9 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
       },
       {
         onSuccess: (res) => {
+          setPruebaExitosa(
+            res.exitosa ? { baseUrl: form.getValues('baseUrl'), apiKey: apiKeyDraft.trim() } : null,
+          );
           if (res.exitosa) {
             toast.success(`Conexión exitosa (${res.tiempoMs} ms).`);
           } else {
@@ -348,12 +365,18 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
                 {test.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 Probar conexión
               </Button>
-              {existing?.ultimaTestConexionAt && (
+              {ultimaPrueba.data ? (
+                <span className="text-xs text-muted-foreground">
+                  Última prueba: {new Date(ultimaPrueba.data.realizadaEn).toLocaleString()}{' '}
+                  ({ultimaPrueba.data.exitosa ? 'OK' : 'falló'})
+                  {ultimaPrueba.data.mensaje ? ` · ${ultimaPrueba.data.mensaje}` : ''}
+                </span>
+              ) : existing?.ultimaTestConexionAt ? (
                 <span className="text-xs text-muted-foreground">
                   Última prueba: {new Date(existing.ultimaTestConexionAt).toLocaleString()}{' '}
                   ({existing.ultimaTestConexionExitosa ? 'OK' : 'falló'})
                 </span>
-              )}
+              ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
               {faltanCredenciales
@@ -543,6 +566,8 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
                 <Checkbox
                   id="activo"
                   checked={field.value}
+                  // M-232: se puede apagar siempre; encender exige una prueba exitosa de lo capturado.
+                  disabled={!field.value && !puedeActivar}
                   onCheckedChange={(v) => field.onChange(v === true)}
                 />
               )}
@@ -551,6 +576,9 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
               Configuración activa (workers la procesan)
             </Label>
           </div>
+          {!activoActual && !puedeActivar && (
+            <p className="text-xs text-ink-muted">Pruebe la conexión antes de activar.</p>
+          )}
         </section>
 
         <p className="text-xs text-ink-muted">Antes de guardar se verificará la conexión. Si falla, se conserva la configuración anterior.</p>

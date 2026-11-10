@@ -145,6 +145,21 @@ public sealed class NotaCreditoAwTests
         puente.Acuses.Should().ContainSingle(a => a.Resultado == ResultadoSolicitudAw.Aplicada);
     }
 
+    [Theory]
+    [InlineData(686.81, 686.86)] // nota 80024882 de MILMAIN: redondeo de 0.05
+    [InlineData(266.83, 265.97)] // nota 80024676: redondeo de 0.86
+    public async Task Nota_de_ranura_con_redondeo_menor_a_un_peso_no_se_duplica(double importeAw, double ranuraErp)
+    {
+        var (h, db, _, empresa, f) = await EscenarioAsync();
+        SembrarNcRanura(db, empresa, f, (decimal)ranuraErp);
+        await db.SaveChangesAsync();
+
+        var r = await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol(importe: (decimal)importeAw) with { EsRanura = true }), CancellationToken.None);
+
+        r.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        (await db.NotasCredito.CountAsync()).Should().Be(1);
+    }
+
     [Fact]
     public async Task Nota_de_ranura_sin_NC_de_ranura_en_el_ERP_se_crea_como_una_nota_mas()
     {
@@ -290,15 +305,27 @@ public sealed class NotaCreditoAwTests
     // ---- Criterio 4: autorizada → se timbra; evento con folio y pedido para la fila de retorno ----
 
     private static async Task<(AutorizarNotaCreditoHandler H, FacturacionDbContext Db, FakeIntegrationEventPublisher Eventos, Guid NcId)> NotaPorAutorizarAsync(
-        decimal? saldo = null, bool periodoAbierto = true)
+        decimal? saldo = null, bool periodoAbierto = true, DateTimeOffset? ahora = null)
     {
         var (h, db, _, empresa, _) = await EscenarioAsync();
         var r = await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol()), CancellationToken.None);
         var eventos = new FakeIntegrationEventPublisher();
         var autorizar = new AutorizarNotaCreditoHandler(db, new FakePeriodoContablePort(periodoAbierto), new FakeSaldo(saldo),
-            new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), eventos, new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
+            new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), eventos, new FakeUserContext(Guid.NewGuid()), new FakeClock(ahora ?? Ahora),
             new FakeCurrentUserPermissions());
         return (autorizar, db, eventos, r.NotaCreditoId!.Value);
+    }
+
+    [Fact]
+    public async Task M11_autorizada_la_noche_del_ultimo_dia_queda_en_el_periodo_de_Mexico_no_en_el_de_UTC()
+    {
+        // 30-nov 23:30 en México = 1-dic 05:30 UTC.
+        var (autorizar, db, _, ncId) = await NotaPorAutorizarAsync(ahora: new DateTimeOffset(2026, 12, 1, 5, 30, 0, TimeSpan.Zero));
+
+        await autorizar.Handle(new AutorizarNotaCreditoCommand(ncId), CancellationToken.None);
+
+        var nc = await db.NotasCredito.SingleAsync();
+        (nc.PeriodoAnio, nc.PeriodoMes).Should().Be((2026, 11));
     }
 
     [Fact]
@@ -381,5 +408,83 @@ public sealed class NotaCreditoAwTests
         evento.NumeroPedidoAw.Should().BeNull();
         evento.VersionPedidoAw.Should().BeNull();
         evento.Folio.Should().Be("NC-1");
+    }
+
+    // ---- M-087: arriba del umbral firma también Crédito y Cobranza ----
+
+    private static AutorizarNotaCreditoHandler Firmante(FacturacionDbContext db, FakeIntegrationEventPublisher eventos, Guid usuario,
+        decimal umbral = 1_000m) =>
+        new(db, new FakePeriodoContablePort(true), new FakeSaldo(null), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
+            eventos, new FakeUserContext(usuario), new FakeClock(Ahora), new FakeCurrentUserPermissions(),
+            Microsoft.Extensions.Options.Options.Create(new NotasCreditoAwOptions { UmbralSegundaFirmaMxn = umbral }));
+
+    [Fact]
+    public async Task M087_hasta_el_umbral_basta_el_gerente_y_se_timbra()
+    {
+        var (_, db, eventos, ncId) = await NotaPorAutorizarAsync();
+
+        var r = await Firmante(db, eventos, Guid.NewGuid(), umbral: 1_500m).Handle(new AutorizarNotaCreditoCommand(ncId), CancellationToken.None);
+
+        (r.Estado, r.RequiereFirmaCredito, r.Pendiente).Should().Be(("Timbrado", false, (string?)null));
+    }
+
+    [Fact]
+    public async Task M087_arriba_del_umbral_el_gerente_firma_y_espera_a_Credito_y_Cobranza_que_completa_y_timbra()
+    {
+        var (_, db, eventos, ncId) = await NotaPorAutorizarAsync();
+        var gerente = Guid.NewGuid();
+        var credito = Guid.NewGuid();
+
+        var r1 = await Firmante(db, eventos, gerente).Handle(new AutorizarNotaCreditoCommand(ncId), CancellationToken.None);
+        (r1.Estado, r1.RequiereFirmaCredito, r1.FirmadaGerente, r1.Pendiente).Should().Be(("PorAutorizar", true, true, "CreditoYCobranza"));
+        eventos.Publicados.Should().BeEmpty();
+
+        var r2 = await Firmante(db, eventos, credito).Handle(new FirmarCreditoNotaCreditoCommand(ncId), CancellationToken.None);
+
+        r2.Estado.Should().Be("Timbrado");
+        var nc = await db.NotasCredito.SingleAsync();
+        (nc.FirmaGerentePorId, nc.FirmaCreditoPorId, nc.AutorizadaPorId).Should().Be((gerente, credito, credito));
+        eventos.Publicados.OfType<NotaCreditoTimbradaIntegrationEvent>().Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task M087_Credito_y_Cobranza_puede_firmar_primero_y_el_gerente_completa()
+    {
+        var (_, db, eventos, ncId) = await NotaPorAutorizarAsync();
+
+        var r1 = await Firmante(db, eventos, Guid.NewGuid()).Handle(new FirmarCreditoNotaCreditoCommand(ncId), CancellationToken.None);
+        r1.Pendiente.Should().Be("Gerente");
+        var r2 = await Firmante(db, eventos, Guid.NewGuid()).Handle(new AutorizarNotaCreditoCommand(ncId), CancellationToken.None);
+
+        r2.Estado.Should().Be("Timbrado");
+    }
+
+    [Fact]
+    public async Task M087_la_misma_persona_no_firma_las_dos_veces()
+    {
+        var (_, db, eventos, ncId) = await NotaPorAutorizarAsync();
+        var usuario = Guid.NewGuid();
+        await Firmante(db, eventos, usuario).Handle(new AutorizarNotaCreditoCommand(ncId), CancellationToken.None);
+
+        var act = () => Firmante(db, eventos, usuario).Handle(new FirmarCreditoNotaCreditoCommand(ncId), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "NC_FIRMA_MISMA_PERSONA");
+        (await db.NotasCredito.SingleAsync()).Estado.Should().Be(EstadoTimbrado.PorAutorizar);
+    }
+
+    [Fact]
+    public async Task M087_debajo_del_umbral_Credito_y_Cobranza_no_firma()
+    {
+        var (_, db, eventos, ncId) = await NotaPorAutorizarAsync();
+
+        var act = () => Firmante(db, eventos, Guid.NewGuid(), umbral: 35_000m).Handle(new FirmarCreditoNotaCreditoCommand(ncId), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "NC_NO_REQUIERE_FIRMA_CREDITO");
+    }
+
+    [Fact]
+    public void M087_umbral_por_omision_es_35000_MXN()
+    {
+        new NotasCreditoAwOptions().UmbralSegundaFirmaMxn.Should().Be(35_000m);
     }
 }

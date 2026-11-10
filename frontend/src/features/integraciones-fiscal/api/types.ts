@@ -165,3 +165,14 @@ export interface CertificadoCsdItem {
   /** Umbrales (30, 15, 5, 0 días) cuyo aviso ya salió. */
   alertasEnviadas: number[];
 }
+
+/** M-232: última prueba de conexión con el timbrador (GET …/pruebas/ultima; 204 si no hay). */
+export interface UltimaPruebaConexionPac {
+  realizadaEn: string;
+  exitosa: boolean;
+  statusCode: number;
+  mensaje: string;
+  /** «Prueba» (botón Probar conexión) o «Guardado» (la prueba obligatoria al guardar activa). */
+  origen: string;
+  realizadaPor: string | null;
+}

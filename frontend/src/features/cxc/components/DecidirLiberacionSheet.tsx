@@ -135,8 +135,14 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
   // C7.2: la serie que exige autorización conserva el override siempre.
   const reglasSerie = useReglasLiberacionSerie();
   const comportamiento = comportamientoSeriePedido(pedidoRef ?? '', reglasSerie.data ?? []);
-  const serieExigeAutorizacion = comportamiento === ComportamientoSerie.NuncaLibera;
-  const ofreceOverride = mostrarSelectorOverride(alcanza, cobertura, comportamiento);
+  // R2: la serie que siempre libera se retiene si el cliente está bloqueado por vencimiento; solo Crédito y Cobranza la libera.
+  const bloqueoVencimiento =
+    comportamiento === ComportamientoSerie.SiempreLibera &&
+    (credito.data?.lineas.some(
+      (l) => l.moneda === moneda && l.estado === EstadoLineaCredito.Bloqueada && l.bloqueoAutomatico === true,
+    ) ?? false);
+  const serieExigeAutorizacion = comportamiento === ComportamientoSerie.NuncaLibera || bloqueoVencimiento;
+  const ofreceOverride = bloqueoVencimiento || mostrarSelectorOverride(alcanza, cobertura, comportamiento);
 
   // Si el override deja de ofrecerse (crédito alcanza o cubre < 50 %), se limpia solo.
   useEffect(() => {
@@ -336,12 +342,13 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
         {clienteId && montoPedido > 0 && ofreceOverride && (
           <section className="space-y-1">
             <Label htmlFor="overrideId" className="text-xs">
-              Excepción autorizada vigente
+              Usar una excepción autorizada (opcional)
             </Label>
             {serieExigeAutorizacion && (
               <p className="text-xs text-ink-muted">
-                La serie de este pedido solo se libera con autorización; sin una excepción autorizada quedará
-                retenido.
+                {bloqueoVencimiento
+                  ? 'El cliente está bloqueado por vencimiento: esta serie no se libera sola. Solo Crédito y Cobranza puede liberarla con una excepción autorizada; sin ella quedará retenido.'
+                  : 'La serie de este pedido solo se libera con autorización; sin una excepción autorizada quedará retenido.'}
               </p>
             )}
             {vigentes.length === 0 ? (

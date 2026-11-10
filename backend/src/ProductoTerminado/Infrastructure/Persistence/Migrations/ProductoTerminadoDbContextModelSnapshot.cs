@@ -30,6 +30,14 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("CanceladoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelado_at");
+
+                    b.Property<Guid?>("CanceladoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelado_por_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -50,11 +58,24 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<DateTimeOffset?>("EntregadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("entregado_at");
+
                     b.Property<string>("Folio")
                         .IsRequired()
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("folio");
+
+                    b.Property<DateTimeOffset?>("LiquidadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("liquidado_at");
+
+                    b.Property<string>("MotivoCancelacion")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivo_cancelacion");
 
                     b.Property<Guid>("PedidoPtId")
                         .HasColumnType("uuid")
@@ -560,6 +581,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("albaran_pt_id");
 
+                    b.Property<Guid?>("CobroCajaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cobro_caja_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -593,6 +618,16 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LiquidacionRutaPtId")
                         .HasColumnType("uuid")
                         .HasColumnName("liquidacion_ruta_pt_id");
+
+                    b.Property<string>("TarjetaUltimos4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("tarjeta_ultimos4");
+
+                    b.Property<string>("TipoTarjeta")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("tipo_tarjeta");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

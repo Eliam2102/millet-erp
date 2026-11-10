@@ -61,4 +61,11 @@ describe('series-labels · Venta directa (F6.1)', () => {
     expect(tipoSerieRequiereSucursal(TipoDocumentoSerie.VentaDirecta)).toBe(true);
     expect(tipoSerieRequiereSucursal(TipoDocumentoSerie.Cfdi)).toBe(false);
   });
+
+  it('la serie de exportación (7) es fiscal y admite serie global', () => {
+    expect(TipoDocumentoSerie.Exportacion).toBe(7);
+    expect(TIPO_DOCUMENTO_LABEL[TipoDocumentoSerie.Exportacion]).toBe('Factura de exportación');
+    expect(esTipoSerieFiscal(TipoDocumentoSerie.Exportacion)).toBe(true);
+    expect(tipoSerieRequiereSucursal(TipoDocumentoSerie.Exportacion)).toBe(false);
+  });
 });

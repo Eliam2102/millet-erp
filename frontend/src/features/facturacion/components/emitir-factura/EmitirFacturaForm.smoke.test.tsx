@@ -321,12 +321,13 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       fireEvent.change(container.querySelector(`[name="${name}"]`)!, { target: { value } });
     cambiar('cceTcDof', '20');
     cambiar('cceReceptorNumRegIdTrib', 'DEMO-TAX');
+    cambiar('cceReceptorDomicilioCalle', 'Main St 1');
     cambiar('cceReceptorDomicilioEstado', 'Texas');
     cambiar('cceReceptorDomicilioCodigoPostal', '00000');
     fireEvent.change(screen.getByLabelText('pais'), { target: { value: 'USA' } });
     fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
     fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
-      target: { value: '70071999' },
+      target: { value: '7007199900' },
     });
     fireEvent.change(screen.getByLabelText('unidad-aduana'), { target: { value: '06' } });
     cambiar('lineas.0.cantidadAduana', '1');
@@ -396,7 +397,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     cambiar('cceTcDof', '18.42');
     fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
     fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
-      target: { value: '70071999' },
+      target: { value: '7007199900' },
     });
     fireEvent.change(screen.getByLabelText('unidad-aduana'), { target: { value: '06' } });
     cambiar('lineas.0.cantidadAduana', '1');
@@ -1324,6 +1325,14 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
     fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
     await waitFor(() => expect(emitidas).toHaveLength(1));
     expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '', referenciaCliente: '' }));
+  });
+
+  it('M12: al cambiar a PPD se borra «CONTADO» heredado del pedido', async () => {
+    renderForm({ ...prefill, condicionesPago: 'CONTADO' });
+    await screen.findByRole('button', { name: /Emitir y timbrar/i });
+    expect(screen.getByLabelText('Condiciones de pago')).toHaveValue('CONTADO');
+    fireEvent.change(screen.getByDisplayValue(/^PUE/), { target: { value: 'PPD' } });
+    await waitFor(() => expect(screen.getByLabelText('Condiciones de pago')).toHaveValue(''));
   });
 
   it('CONTADO es un ejemplo y mantiene vacío el valor de condiciones', async () => {

@@ -133,6 +133,17 @@ export function useAutorizarPorDfViaticos() {
   });
 }
 
+/** M-449: Dirección de Finanzas autoriza el exceso de una comprobación fuera de política. */
+export function useAutorizarExcesoComprobacionViaticos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...transitionMutation('autorizar-exceso-comprobacion'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxpKeys.viaticos() });
+    },
+  });
+}
+
 export function useMarcarAnticipoPagadoViaticos() {
   const queryClient = useQueryClient();
   return useMutation({

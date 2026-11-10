@@ -19,6 +19,11 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compartido.incidencias.ver', 'compartido.incidencias.registrar', 'compartido.incidencias.gestionar',
   'compartido.incidencias.leer-todas-sucursales', 'compartido.incidencias.gestionar-todas-sucursales',
   'comercio_exterior.embarques.autorizar_salida',
+  'comercio_exterior.embarques.aprobar-credito',
+  'comercio_exterior.embarques.aprobar-ventas',
+  'comercio_exterior.embarques.aprobar-administracion',
+  'comercio_exterior.embarques.aprobar-planeacion',
+  'comercio_exterior.embarques.aprobar-contraloria',
   'comercio_exterior.expedientes.aprobar_cierre',
   'activos_fijos.clases.autorizar',
   'activos_fijos.reversas.solicitar',
@@ -130,6 +135,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
   'datos_maestros.clientes.sincronizar',
+  'integraciones.aw.administracion.configuracion',
   'datos_maestros.clientes.origen-ver',
   'datos_maestros.clientes.fiscal-editar',
   'datos_maestros.clientes.unificar',
@@ -273,6 +279,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.movimientos.ver',
   'tesoreria.movimientos.registrar',
   'tesoreria.movimientos.ver-cuenta-completa',
+  'tesoreria.movimientos.autorizar-reclasificacion',
   'tesoreria.pagos.aplicar',
   'tesoreria.pagos.revertir',
   'tesoreria.pagos-cuenta.registrar',
@@ -317,6 +324,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.notas-credito.leer',
   'facturacion.notas-credito.reembolso-solicitar',
   'facturacion.notas-credito.autorizar',
+  'facturacion.notas-credito.autorizar-credito',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',
@@ -326,6 +334,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // 01-G: reintento (#530) y descarte (#534) de comprobantes fallidos.
   'facturacion.comprobantes.reintentar-timbrado',
   'facturacion.comprobantes.descartar',
+  'facturacion.comprobantes.adoptar-cfdi',
   'facturacion.activos.autorizar',
   'facturacion.caja.liquidar',
   'facturacion.caja.administrar',
@@ -352,11 +361,16 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.periodo.administrar',
   'contabilidad.periodo.cerrar',
   'contabilidad.periodo.reabrir',
+  // CON-12 · checklist de cierre y cierre anual
+  'contabilidad.cierre.configurar',
+  'contabilidad.cierre.autorizar-excepcion',
+  'contabilidad.cierre.anual',
   // Pólizas (F1-CON-04)
   'contabilidad.polizas.leer',
   'contabilidad.polizas.capturar',
   'contabilidad.polizas.autorizar',
   'contabilidad.polizas.anular',
+  'contabilidad.polizas.anular-aprobar',
   // Pólizas recurrentes (K10.4)
   'contabilidad.recurrentes.leer',
   'contabilidad.recurrentes.administrar',
@@ -364,6 +378,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.motor.leer',
   'contabilidad.roles-cuenta.administrar',
   'contabilidad.rechazos.gestionar',
+  'contabilidad.tipo-cambio.autorizar-sustituto',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

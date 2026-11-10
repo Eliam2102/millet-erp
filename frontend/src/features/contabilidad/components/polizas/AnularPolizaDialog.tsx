@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useEjercicios } from '../../api/periodos';
-import { useAnularPoliza } from '../../api/polizas';
-import type { AnularPolizaRequest, Poliza } from '../../api/polizas-types';
+import { useSolicitarAnulacion } from '../../api/polizas';
+import type { AnularPolizaRequest, Poliza, SolicitudAnulacion } from '../../api/polizas-types';
 import { SELECT_CLASS } from '../../lib/estilos';
 import {
   CODIGO_PERIODO_ORIGINAL_ABIERTO,
@@ -29,16 +29,17 @@ import {
 interface Props {
   poliza: Poliza | null;
   onClose: () => void;
-  /** Recibe la NUEVA póliza de anulación. */
-  onAnulada: (anulacion: Poliza) => void;
+  /** Recibe la solicitud pendiente de aprobación. */
+  onSolicitada: (solicitud: SolicitudAnulacion) => void;
 }
 
 /**
- * Anular una póliza autorizada (K10.3): pide motivo y genera otra póliza del mismo tipo con las partidas en negativo.
+ * Solicitar la anulación de una póliza autorizada (K10.3 · M-212): pide motivo y la deja pendiente; la póliza sigue vigente hasta
+ * que otra persona con facultad la apruebe (entonces nace la póliza con las partidas en negativo) o la rechace.
  * Si el periodo de la original ya no admite pólizas, el servidor lo indica y se elige un periodo abierto de destino.
  */
-export function AnularPolizaDialog({ poliza, onClose, onAnulada }: Props) {
-  const anular = useAnularPoliza();
+export function AnularPolizaDialog({ poliza, onClose, onSolicitada }: Props) {
+  const anular = useSolicitarAnulacion();
   const keyFor = useBodyScopedIdempotencyKey();
   const [motivo, setMotivo] = useState('');
   const [pedirPeriodo, setPedirPeriodo] = useState(false);
@@ -81,11 +82,11 @@ export function AnularPolizaDialog({ poliza, onClose, onAnulada }: Props) {
     anular.mutate(
       { poliza, body, idempotencyKey: keyFor(body) },
       {
-        onSuccess: (nueva) => {
+        onSuccess: (solicitud) => {
           setMotivo('');
           setPedirPeriodo(false);
           setDestino('');
-          onAnulada(nueva);
+          onSolicitada(solicitud);
         },
         onError: (e) => {
           if (esApiError(e) && e.code === CODIGO_REQUIERE_PERIODO) setPedirPeriodo(true);
@@ -108,11 +109,11 @@ export function AnularPolizaDialog({ poliza, onClose, onAnulada }: Props) {
     >
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>Anular póliza {poliza?.folio}</DialogTitle>
+          <DialogTitle>Solicitar anulación de {poliza?.folio}</DialogTitle>
           <DialogDescription>
-            Se generará otra póliza del mismo tipo, con folio nuevo y las mismas partidas en
-            negativo («Anulación de {poliza?.folio}»). La original queda como Anulada y no se
-            modifica.
+            La póliza sigue vigente hasta que otra persona con facultad apruebe la anulación.
+            Al aprobarse, se genera otra póliza del mismo tipo, con folio nuevo y las mismas
+            partidas en negativo («Anulación de {poliza?.folio}»), y la original queda Anulada.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-4">
@@ -191,7 +192,7 @@ export function AnularPolizaDialog({ poliza, onClose, onAnulada }: Props) {
             disabled={!!motivoDeshabilitado || anular.isPending}
             title={motivoDeshabilitado}
           >
-            {anular.isPending ? 'Anulando…' : 'Anular póliza'}
+            {anular.isPending ? 'Enviando…' : 'Solicitar anulación'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -126,6 +126,10 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         al.HasKey(x => x.Id);
         al.Property(x => x.Id).ValueGeneratedNever();
         al.Property(x => x.Folio).HasMaxLength(60);
+        al.Property(x => x.MotivoCancelacion).HasMaxLength(300);
+        al.Ignore(x => x.Cancelado);
+        al.Ignore(x => x.Entregado);
+        al.Ignore(x => x.Liquidado);
         al.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
         al.HasIndex(x => new { x.SalidaPtId, x.PedidoPtId }).IsUnique();
         al.HasOne<PedidoPt>().WithMany().HasForeignKey(x => x.PedidoPtId).OnDelete(DeleteBehavior.Restrict);
@@ -199,6 +203,8 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         la.Property(x => x.Efectivo).HasPrecision(18, 2);
         la.Property(x => x.Voucher).HasPrecision(18, 2);
         la.Property(x => x.VoucherReferencia).HasMaxLength(100);
+        la.Property(x => x.TipoTarjeta).HasMaxLength(10);
+        la.Property(x => x.TarjetaUltimos4).HasMaxLength(4);
         la.HasIndex(x => new { x.LiquidacionRutaPtId, x.AlbaranPtId }).IsUnique();
         la.HasOne<AlbaranPt>().WithMany().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
 

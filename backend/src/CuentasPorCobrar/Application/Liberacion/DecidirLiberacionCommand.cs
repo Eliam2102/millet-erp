@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Common;
 using Millet.CuentasPorCobrar.Application.Integration;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
+using Millet.CuentasPorCobrar.Domain.LineaCredito;
 using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -104,14 +105,46 @@ public sealed record DecidirLiberacionCommand(
     decimal MontoPedido,
     Guid? OverrideId) : IRequest<DecisionLiberacionResponse>;
 
+/// <summary>
+/// M9 (prueba S3-4): la decisión manual se captura a mano; si el pedido es un pedido a crédito del cliente que
+/// Facturación tiene sin facturar, la moneda y el monto deben ser los del pedido (total con IVA, tolerancia de un
+/// centavo) para que la cobertura no se calcule sobre un monto inventado. Un folio que Facturación no conoce para
+/// ese cliente sigue aceptándose (pedido aún no importado). Solo aplica al endpoint: la decisión automática de
+/// PT5.2 construye el handler directo y no pasa por este validador.
+/// </summary>
 public sealed class DecidirLiberacionValidator : AbstractValidator<DecidirLiberacionCommand>
 {
-    public DecidirLiberacionValidator()
+    public const string CodigoMontoDistinto = "CXC_MONTO_DISTINTO_PEDIDO";
+    public const string CodigoMonedaDistinta = "CXC_MONEDA_DISTINTA_PEDIDO";
+    private const decimal Tolerancia = 0.01m;
+
+    public DecidirLiberacionValidator(IFacturacionPedidosSinFacturarReadPort pedidos, ICurrentEmpresaContext empresa)
     {
         RuleFor(c => c.PedidoRef).NotEmpty().MaximumLength(40);
         RuleFor(c => c.ClienteId).NotEmpty();
         RuleFor(c => c.Moneda).NotEmpty().Length(3);
         RuleFor(c => c.MontoPedido).GreaterThan(0);
+
+        RuleFor(c => c).CustomAsync(async (c, ctx, ct) =>
+        {
+            if (empresa.Current is not Guid empresaId || c.ClienteId == Guid.Empty
+                || string.IsNullOrWhiteSpace(c.PedidoRef) || c.MontoPedido <= 0) return;
+            var folio = c.PedidoRef.Trim();
+            var pedido = (await pedidos.ListarPorClienteAsync(empresaId, c.ClienteId, ct))
+                .FirstOrDefault(p => p.NumeroPedido is not null && p.NumeroPedido.Trim() == folio);
+            if (pedido is null) return;
+
+            if (!string.Equals(pedido.Moneda, c.Moneda, StringComparison.OrdinalIgnoreCase))
+            {
+                ctx.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(c.Moneda),
+                    $"El pedido {folio} está en {pedido.Moneda}.") { ErrorCode = CodigoMonedaDistinta });
+                return;
+            }
+            if (Math.Abs(pedido.Total - c.MontoPedido) > Tolerancia)
+                ctx.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(c.MontoPedido),
+                    $"El pedido {folio} vale {pedido.Total.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)} {pedido.Moneda} con IVA; captura ese monto.")
+                    { ErrorCode = CodigoMontoDistinto });
+        });
     }
 }
 
@@ -160,8 +193,22 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         ResultadoLiberacion resultado;
         ReglaAplicadaLiberacion regla;
         decimal? porcentaje = null;
+        string? motivo = null;
 
-        if (comportamiento == ComportamientoSerie.SiempreLibera)
+        // R2 (Crédito y Cobranza, 9-nov): la serie que siempre libera NO libera a un cliente bloqueado por vencimiento (C7.5):
+        // se retiene y solo Crédito y Cobranza la libera, con una excepción autorizada para ese pedido (override).
+        var bloqueadoPorVencimiento = comportamiento == ComportamientoSerie.SiempreLibera
+            && await _db.LineasCredito.AsNoTracking().AnyAsync(l => l.ClienteId == command.ClienteId && l.Moneda == command.Moneda
+                && l.Estado == EstadoLineaCredito.Bloqueada && l.BloqueoAutomatico, cancellationToken);
+
+        if (bloqueadoPorVencimiento)
+        {
+            (resultado, regla) = command.OverrideId is not null
+                ? (ResultadoLiberacion.LiberadoConOverride, ReglaAplicadaLiberacion.Override)
+                : (ResultadoLiberacion.Retenido, ReglaAplicadaLiberacion.Credito);
+            motivo = command.OverrideId is null ? MotivoBloqueoVencimiento : null;
+        }
+        else if (comportamiento == ComportamientoSerie.SiempreLibera)
         {
             resultado = ResultadoLiberacion.Liberado;
             regla = ReglaAplicadaLiberacion.Serie;
@@ -235,7 +282,8 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
             overrideId: resultado == ResultadoLiberacion.LiberadoConOverride ? command.OverrideId : null,
             decididoPor: usuarioId,
             decididoEn: ahora,
-            porcentajeCobertura: porcentaje);
+            porcentajeCobertura: porcentaje,
+            motivo: motivo);
 
         if (resultado == ResultadoLiberacion.LiberadoConOverride)
         {
@@ -253,6 +301,10 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         await _db.SaveChangesAsync(cancellationToken);
         return DecisionLiberacionMapper.ToResponse(decision);
     }
+
+    /// <summary>R2: motivo de la retención de una serie que siempre libera cuando el cliente está bloqueado por vencimiento.</summary>
+    public const string MotivoBloqueoVencimiento =
+        "Cliente bloqueado por vencimiento: la serie no se libera sola; solo Crédito y Cobranza puede liberarla con una excepción autorizada.";
 
     private async Task<ComportamientoSerie> ResolverComportamientoSerieAsync(
         string pedidoRef, CancellationToken cancellationToken)

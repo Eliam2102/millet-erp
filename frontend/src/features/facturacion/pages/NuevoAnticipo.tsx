@@ -19,6 +19,7 @@ import {
   ReceptorIncompletoBanner,
 } from '@/features/facturacion/components/ReceptorFiscalInfo';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
+import { paisReceptorAnticipo } from '@/features/facturacion/lib/anticipo-receptor';
 import { useAvisoEmisionConCobro } from '@/features/facturacion/lib/cobro-en-caja';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import {
@@ -191,8 +192,8 @@ function FormInner({
           receptorRegimenFiscal: values.receptorRegimenFiscal,
           receptorCodigoPostal: values.receptorCodigoPostal,
           receptorUsoCfdi: values.receptorUsoCfdi,
-          // Sin campo en el form: el anticipo es nominal nacional.
-          receptorPais: 'MEX',
+          // B4: sin campo en el form; el extranjero (XEXX) lleva el país de residencia de su ficha.
+          receptorPais: values.receptorPais,
           rfcEmisor: values.rfcEmisor.toUpperCase(),
           regimenFiscalEmisor: values.regimenFiscalEmisor,
           metodoPago: values.metodoPago,
@@ -266,6 +267,7 @@ function FormInner({
                     form.setValue('receptorRfc', item.rfc ?? '', opts);
                     form.setValue('receptorRegimenFiscal', item.regimenFiscal ?? '', opts);
                     form.setValue('receptorCodigoPostal', item.codigoPostalFiscal ?? '', opts);
+                    form.setValue('receptorPais', paisReceptorAnticipo(item.rfc, item.paisResidencia), opts);
                     if (item.usoCfdiDefault)
                       form.setValue('receptorUsoCfdi', item.usoCfdiDefault, opts);
                     if (item.metodoPagoDefault)

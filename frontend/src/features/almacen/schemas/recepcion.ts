@@ -97,6 +97,9 @@ export const FilaRecepcionSchema = z
     if (v.medida && !soloRechazo && !v.lote?.trim()) {
       ctx.addIssue({ code: 'custom', path: ['lote'], message: 'Captura el lote del proveedor.' });
     }
+    // U-4 (ALM-recepcion-09): recibir de más que lo pendiente NO se bloquea aquí. El servidor lo rechaza con
+    // RECEPCION_EXCEDE_PENDIENTE y abre la incidencia; si la pantalla lo frenara, la incidencia nunca se abriría.
+    // Solo se valida aquí lo rechazado en el acto, que el servidor no compara contra lo pendiente.
     if (v.medida) {
       const hojasMax = Math.floor(v.pendiente / v.medida.areaHojaM2 + 1e-6);
       const mensaje = !Number.isInteger(v.cantidad) || (v.cantidad <= 0 && !soloRechazo)
@@ -105,7 +108,7 @@ export const FilaRecepcionSchema = z
           ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
           : !Number.isInteger(rechazada)
             ? 'Las hojas rechazadas son enteras.'
-            : v.cantidad + rechazada > hojasMax
+            : v.cantidad <= hojasMax && v.cantidad + rechazada > hojasMax
               ? `Excede lo pendiente de la orden de compra (${hojasMax} hojas). Almacén recibe exacto.`
               : null;
       if (mensaje) {
@@ -164,13 +167,6 @@ export const FilaRecepcionSchema = z
         code: 'custom',
         path: ['ubicacionId'],
         message: v.medida ? 'Elige el rack destino.' : 'Elige el almacén general destino.',
-      });
-    }
-    if (!v.medida && !v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['cantidad'],
-        message: `Excede lo pendiente de la orden de compra (${Number(v.pendiente.toFixed(4))}). Almacén recibe exacto.`,
       });
     }
   });

@@ -8,6 +8,9 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 
+const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('sonner', () => ({ toast: toastMock }));
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
@@ -66,6 +69,32 @@ describe('<BandejaCancelaciones> — smoke (F6.5)', () => {
     expect(autorizada).toBe(true);
   });
 
+  it('M18: si el SAT rechaza la cancelación, avisa con error y el motivo del SAT', async () => {
+    toastMock.success.mockClear();
+    toastMock.error.mockClear();
+    mswServer.use(
+      http.get('*/api/v1/facturacion/comprobantes/cancelaciones', () => HttpResponse.json([pendiente])),
+      http.post('*/api/v1/facturacion/comprobantes/f-1/cancelar/autorizar', () =>
+        HttpResponse.json({
+          solicitudId: 's-1',
+          comprobanteId: 'f-1',
+          estadoComprobante: 'Timbrado',
+          estadoSolicitud: 'Rechazada',
+          estatusSat: 'Rechazada',
+          mensajeError: 'SAT 205: el SAT aún no refleja este CFDI',
+        }),
+      ),
+    );
+
+    render(<BandejaCancelaciones />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('FV-100')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+    expect(toastMock.error.mock.calls[0][0]).toMatch(/El SAT rechazó la cancelación de FV-100.*Motivo: SAT 205/);
+    expect(toastMock.success).not.toHaveBeenCalled();
+  });
+
   it('no autoriza sin motivo y envía el motivo al rechazar', async () => {
     let motivo: string | null = null;
     mswServer.use(
@@ -110,5 +139,37 @@ describe('<BandejaCancelaciones> — smoke (F6.5)', () => {
     expect(screen.queryByRole('button', { name: 'Autorizar' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'No autorizar' })).toBeNull();
     useAuthStore.setState({ user: null } as never);
+  });
+
+  it('B3: «Todos» pide todas las solicitudes y muestra la rechazada por el SAT con su estado', async () => {
+    const urls: string[] = [];
+    const rechazadaSat = {
+      ...pendiente,
+      solicitudId: 's-2',
+      comprobanteId: 'f-2',
+      folio: 'FV-200',
+      estadoSolicitud: 'Rechazada',
+      decididaPor: 'Contador demo',
+      decididaEn: '2026-11-01T10:00:00Z',
+    };
+    mswServer.use(
+      http.get('*/api/v1/facturacion/comprobantes/cancelaciones', ({ request }) => {
+        urls.push(request.url);
+        const todos = new URL(request.url).searchParams.get('todos') === 'true';
+        return HttpResponse.json(todos ? [pendiente, rechazadaSat] : [pendiente]);
+      }),
+    );
+
+    render(<BandejaCancelaciones />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('FV-100')).toBeInTheDocument());
+    expect(screen.getByRole('tab', { name: 'Rechazada por el SAT' })).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Todos/ }), { button: 0 });
+
+    await waitFor(() => expect(screen.getByText('FV-200')).toBeInTheDocument());
+    expect(urls.some((u) => new URL(u).searchParams.get('todos') === 'true')).toBe(true);
+    expect(urls.some((u) => u.includes('todos=true') && u.includes('estado='))).toBe(false);
+    expect(screen.getByText('Rechazada por el SAT', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Autorizar' })).toBeNull();
   });
 });

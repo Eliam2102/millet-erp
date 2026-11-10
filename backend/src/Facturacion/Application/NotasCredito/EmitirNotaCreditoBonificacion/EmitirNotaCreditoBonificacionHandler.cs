@@ -112,7 +112,7 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         var reserva = await _sender.Send(
             new ReservarFolioCommand(
                 empresaId, factura.SucursalId, TipoDocumentoSerie.NotaCredito,
-                DateOnly.FromDateTime(ahora.UtcDateTime)),
+                Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
 
         // Receptor snapshot heredado de la factura origen.
@@ -153,7 +153,8 @@ public sealed class EmitirNotaCreditoBonificacionHandler
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, nc));
 
         // F10-PR1: evento de NC de bonificación timbrada.
         if (nc.Estado == EstadoTimbrado.Timbrado)
@@ -164,7 +165,6 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         // F6.3: con «Devolver dinero al cliente», la solicitud a Tesorería sale en la misma transacción que el timbre.
         await ReembolsoNotaCredito.SolicitarProgramadoSiAplicaAsync(_db, _eventos, nc, _user.UserId, ahora, cancellationToken);
 
-        _db.NotasCredito.Add(nc);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EmitirNotaCreditoBonificacionResponse(

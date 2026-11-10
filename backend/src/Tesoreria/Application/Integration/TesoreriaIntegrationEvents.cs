@@ -174,6 +174,13 @@ public sealed record PagoClienteConfirmadoIntegrationEvent(
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public decimal? TipoCambioPago { get; init; }
+
+    /// <summary>
+    /// B8 (aditivo): código de la cuenta contable de la cuenta bancaria del depósito (<c>CuentaContableRef</c>). Contabilidad
+    /// carga ahí el cobro en lugar de la cuenta única del rol BANCOS; null si la cuenta bancaria no la tiene capturada.
+    /// </summary>
+    public string? CuentaContableRef { get; init; }
+
     public const string WireEventType = "tesoreria.pago-cliente.confirmado.v1";
 }
 
@@ -203,7 +210,9 @@ public sealed record DepositoCajaConfirmadoIntegrationEvent(
     decimal ImporteCorte,
     decimal SaldoPorDepositar,
     bool CorteCompleto,
-    Guid ConfirmadaPor)
+    Guid ConfirmadaPor,
+    // M-174: cuenta contable de la cuenta bancaria de la ficha (campo aditivo); Contabilidad carga ahí y no a la única del rol BANCOS.
+    string? CuentaContableRef = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.deposito-caja.confirmado.v1";

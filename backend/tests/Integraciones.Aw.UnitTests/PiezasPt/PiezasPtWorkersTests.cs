@@ -96,6 +96,28 @@ public sealed class PiezasPtWorkersTests
     }
 
     [Fact]
+    public async Task Desde_configurado_inicia_en_desde_o_respeta_marca_mas_reciente()
+    {
+        var desdeConf = new DateTime(2026, 11, 1, 0, 0, 0);
+        // Caso 1: sin marca -> arranca en desdeConf menos traslape
+        var h1 = Armar(["2821"], [], marca: null, desde: desdeConf);
+        await h1.Worker.CicloAsync(h1.Sp, default);
+        Assert.Equal(desdeConf.AddMinutes(-10), h1.Reader.Llamadas[0].Desde);
+
+        // Caso 2: marca anterior a desdeConf -> prevalece desdeConf
+        var marcaVieja = new DateTime(2026, 10, 15, 0, 0, 0);
+        var h2 = Armar(["2821"], [], marca: marcaVieja, desde: desdeConf);
+        await h2.Worker.CicloAsync(h2.Sp, default);
+        Assert.Equal(desdeConf.AddMinutes(-10), h2.Reader.Llamadas[0].Desde);
+
+        // Caso 3: marca posterior a desdeConf -> avanza con la marca
+        var marcaNueva = new DateTime(2026, 11, 5, 12, 0, 0);
+        var h3 = Armar(["2821"], [], marca: marcaNueva, desde: desdeConf);
+        await h3.Worker.CicloAsync(h3.Sp, default);
+        Assert.Equal(marcaNueva.AddMinutes(-10), h3.Reader.Llamadas[0].Desde);
+    }
+
+    [Fact]
     public async Task Pagina_por_lotes_y_reintenta_pospuestos_una_vez_antes_de_leer()
     {
         var filas = Enumerable.Range(1, 450).Select(i => Fila(i, 2821, true)).ToArray();
@@ -147,7 +169,7 @@ public sealed class PiezasPtWorkersTests
     private static EscaneoOrigen Fila(int i, int esnr, bool fertig) =>
         new($"E{i}", "100", 1, 1, "1", esnr, fertig, null, new DateTime(2026, 5, 1).AddSeconds(i), null);
 
-    private static Arnes Armar(string[] estaciones, EscaneoOrigen[] filas, DateTime? marca = null, int batch = 200, string? falla = null)
+    private static Arnes Armar(string[] estaciones, EscaneoOrigen[] filas, DateTime? marca = null, int batch = 200, string? falla = null, DateTime? desde = null)
     {
         var a = new Arnes(filas);
         var sc = new ServiceCollection();
@@ -161,7 +183,7 @@ public sealed class PiezasPtWorkersTests
         sc.AddScoped<IAuditCorrelationContext, FakeCorrelacion>();
         a.Sp = sc.BuildServiceProvider();
         a.Worker = new PiezasPtEntradaWorker(a.Sp.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new PiezasPtOptions { EmpresaId = Empresa, EstacionesPt = estaciones, BatchSize = batch, MaxIntentos = 7 }),
+            Options.Create(new PiezasPtOptions { EmpresaId = Empresa, EstacionesPt = estaciones, BatchSize = batch, MaxIntentos = 7, Desde = desde }),
             NullLogger<PiezasPtEntradaWorker>.Instance);
         return a;
     }

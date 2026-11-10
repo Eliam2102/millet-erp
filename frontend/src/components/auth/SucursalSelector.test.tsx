@@ -128,6 +128,26 @@ describe('<SucursalSelector>', () => {
     expect(useAuthStore.getState().currentSucursalId).toBe('suc-2');
   });
 
+  it('muestra los prefijos de Millet y conserva el ID de cada sucursal', async () => {
+    const sedes = [
+      { id: 'suc-1', clave: '101', nombre: 'Conkal', prefijo: 'CON' },
+      { id: 'suc-2', clave: '102', nombre: 'Chichí Suárez', prefijo: 'CHI' },
+      { id: 'suc-3', clave: '103', nombre: 'Circuito', prefijo: 'CIR' },
+      { id: 'suc-4', clave: '104', nombre: 'Cancún', prefijo: 'CAN' },
+      { id: 'suc-5', clave: '105', nombre: 'Planta Pintura', prefijo: 'PIN' },
+    ];
+    mswServer.use(http.get('*/api/auth/sucursales', () => HttpResponse.json(sedes)));
+    render(<SucursalSelector />, { wrapper: createQueryWrapper() });
+
+    const select = await screen.findByLabelText('Sucursal activa');
+    for (const { id, nombre, prefijo } of sedes) {
+      const option = await screen.findByRole('option', { name: `${prefijo} · ${nombre}` });
+      expect(option).toHaveValue(id);
+      fireEvent.change(select, { target: { value: id } });
+      expect(useAuthStore.getState().currentSucursalId).toBe(id);
+    }
+  });
+
   it('sin sucursales permitidas: no renderiza el selector', async () => {
     mswServer.use(
       http.get('*/api/auth/sucursales', () => HttpResponse.json([])),

@@ -127,17 +127,72 @@ describe('<BandejaConciliaciones>', () => {
 
 it('elige un extracto con botón y muestra su nombre junto al contenido leído', async () => {
   mswServer.use(
-    http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([mockCuenta])),
+    http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([{ ...mockCuenta, perfilExtracto: 'santander' }])),
     http.get('*/api/v1/tesoreria/conceptos', () => HttpResponse.json([])),
     http.get('*/api/v1/tesoreria/conciliaciones', () => HttpResponse.json([mockConciliacion])),
     http.get('*/api/v1/tesoreria/conciliaciones/00000000-0000-0000-0000-000000000010', () => HttpResponse.json(mockConciliacion)),
   );
   render(<BandejaConciliaciones />, { wrapper: createQueryWrapper() });
-  fireEvent.click(await screen.findByRole('button', { name: 'Cargar extracto BBVA' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Cargar extracto' }));
+  // El formato sale del perfil de extracto de la cuenta.
+  expect(screen.getByRole('combobox')).toHaveTextContent('Santander (auxiliar CSV)');
   expect(screen.getByRole('button', { name: 'Elegir archivo' })).toBeInTheDocument();
   const archivo = new File(['contenido de prueba'], 'extracto.csv', { type: 'text/csv' });
   Object.defineProperty(archivo, 'text', { value: async () => 'contenido de prueba' });
   fireEvent.change(screen.getByLabelText('Archivo del extracto'), { target: { files: [archivo] } });
   expect(await screen.findByText('extracto.csv')).toBeInTheDocument();
   expect(screen.getByLabelText('Contenido del extracto')).toHaveValue('contenido de prueba');
+});
+
+it('muestra el mensaje de error 422 en alerta al fallar el cierre de conciliación', async () => {
+  mswServer.use(
+    http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([mockCuenta])),
+    http.get('*/api/v1/tesoreria/conceptos', () => HttpResponse.json([])),
+    http.get('*/api/v1/tesoreria/conciliaciones', () => HttpResponse.json([mockConciliacion])),
+    http.get('*/api/v1/tesoreria/conciliaciones/00000000-0000-0000-0000-000000000010', () => HttpResponse.json(mockConciliacion)),
+    http.post('*/api/v1/tesoreria/conciliaciones/00000000-0000-0000-0000-000000000010/cerrar', () =>
+      HttpResponse.json(
+        {
+          title: 'Error de validación',
+          status: 422,
+          detail: 'Existen movimientos pendientes de conciliar en el periodo',
+        },
+        { status: 422 }
+      )
+    ),
+  );
+  render(<BandejaConciliaciones />, { wrapper: createQueryWrapper() });
+  fireEvent.click(await screen.findByRole('button', { name: /Cerrar con acta/i }));
+  expect(await screen.findByRole('heading', { name: 'Cierre cuadrado de conciliación' })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText(/Nombre del firmante/i), { target: { value: 'Juan Pérez' } });
+  fireEvent.change(screen.getByLabelText(/Puesto del firmante/i), { target: { value: 'Tesorero' } });
+  fireEvent.click(screen.getByRole('button', { name: /Firmar, cerrar y descargar acta/i }));
+  expect(await screen.findByText('Existen movimientos pendientes de conciliar en el periodo')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+});
+
+it('no muestra insignia de cuadrada mientras los saldos se están actualizando', async () => {
+  let resolveDetalle: (val: unknown) => void;
+  const promiseDetalle = new Promise((resolve) => {
+    resolveDetalle = resolve;
+  });
+
+  mswServer.use(
+    http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([mockCuenta])),
+    http.get('*/api/v1/tesoreria/conceptos', () => HttpResponse.json([])),
+    http.get('*/api/v1/tesoreria/conciliaciones', () => HttpResponse.json([mockConciliacion])),
+    http.get('*/api/v1/tesoreria/conciliaciones/00000000-0000-0000-0000-000000000010', async () => {
+      await promiseDetalle;
+      return HttpResponse.json(mockConciliacion);
+    }),
+  );
+
+  render(<BandejaConciliaciones />, { wrapper: createQueryWrapper() });
+
+  // Mientras carga el detalle, no debe mostrar que está cuadrada
+  expect(screen.queryByText('Conciliación cuadrada ($0.00)')).not.toBeInTheDocument();
+
+  // Una vez resuelto, se muestra cuadrada
+  resolveDetalle!(mockConciliacion);
+  expect(await screen.findByText('Conciliación cuadrada ($0.00)')).toBeInTheDocument();
 });

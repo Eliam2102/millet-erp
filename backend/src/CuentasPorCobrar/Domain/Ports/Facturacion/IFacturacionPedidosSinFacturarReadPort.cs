@@ -4,13 +4,16 @@ namespace Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
 /// Pedido a crédito en firme sin factura vigente, con el saldo de anticipo
 /// que lo cubre (C7.1, 86e3kdxx4). <c>Total</c> (con IVA) y
 /// <c>AnticipoLigado</c> en la moneda del pedido.
+/// <c>ComprometeCredito</c>: el estatus A+W ya compromete crédito (V22: 15, o de 40 a 899). M2 (prueba S3-4): también se listan los
+/// que aún no llegan (p. ej. estatus 10) para que CxC cuente los que liberó; nunca los cancelados en origen (900/999).
 /// </summary>
 public sealed record PedidoSinFacturarDto(
     Guid PedidoId,
     string? NumeroPedido,
     string Moneda,
     decimal Total,
-    decimal AnticipoLigado);
+    decimal AnticipoLigado,
+    bool ComprometeCredito = true);
 
 /// <summary>
 /// Puerto de lectura de los pedidos que comprometen crédito sin estar

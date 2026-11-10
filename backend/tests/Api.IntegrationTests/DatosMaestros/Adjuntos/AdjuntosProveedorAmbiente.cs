@@ -85,7 +85,7 @@ public sealed class AdjuntosProveedorAmbiente : IAsyncDisposable
     public static readonly Guid TipoIdentificacion = Guid.Parse("00000011-0001-0000-0000-000000000004");
     public static readonly Guid TipoDomicilio = Guid.Parse("00000011-0001-0000-0000-000000000005");
 
-    public static readonly byte[] Pdf = "%PDF-1.4\nContenido de prueba del expediente\n%%EOF"u8.ToArray();
+    public static readonly byte[] Pdf = Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba");
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {

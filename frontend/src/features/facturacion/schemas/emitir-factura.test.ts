@@ -160,7 +160,7 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     lineas: [
       {
         ...lineaValida,
-        fraccionArancelaria: '70071100',
+        fraccionArancelaria: '7007110000',
         unidadAduana: '06',
         cantidadAduana: 10,
         valorUnitarioAduana: 5,
@@ -191,6 +191,15 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     expect(EmitirFacturaSchema.safeParse(facturaValida).success).toBe(true);
   });
 
+  it('B5: exige calle del receptor y clave de pedimento en ExportacionConCce (el PAC los rechaza vacíos)', () => {
+    const sinCalle = EmitirFacturaSchema.safeParse({ ...facturaCce, cceReceptorDomicilioCalle: ' ' });
+    expect(sinCalle.success).toBe(false);
+    expect(sinCalle.error?.issues.map((i) => i.path.join('.'))).toContain('cceReceptorDomicilioCalle');
+    const sinClave = EmitirFacturaSchema.safeParse({ ...facturaCce, cceClaveDePedimento: null });
+    expect(sinClave.success).toBe(false);
+    expect(sinClave.error?.issues.map((i) => i.path.join('.'))).toContain('cceClaveDePedimento');
+  });
+
   // Datos de aduana por mercancía (#8) — espejo de ComplementoCce.AgregarLinea.
   const conLinea = (linea: Record<string, unknown>) => ({
     ...facturaCce,
@@ -208,7 +217,7 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     ).toBe(false);
   });
 
-  it('exige fracción de 8 a 10 dígitos numéricos', () => {
+  it('exige fracción de 10 dígitos numéricos (M-158)', () => {
     // 7 dígitos, con letras, o 11 dígitos → inválida.
     expect(
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '7007110' }))
@@ -218,11 +227,12 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '7007AB00' }))
         .success,
     ).toBe(false);
+    // M-158: con 8 dígitos (sin NICO) el PAC rechaza el CCE 2.0.
     expect(
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '70071100' }))
         .success,
-    ).toBe(true);
-    // 10 dígitos también válida (fracción + NICO).
+    ).toBe(false);
+    // 10 dígitos: fracción + NICO.
     expect(
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '7007110099' }))
         .success,
@@ -257,7 +267,7 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     // Unidad 99 CON fracción → inválida.
     expect(
       EmitirFacturaSchema.safeParse(
-        conLinea({ unidadAduana: '99', fraccionArancelaria: '70071100' }),
+        conLinea({ unidadAduana: '99', fraccionArancelaria: '7007110000' }),
       ).success,
     ).toBe(false);
     // Clave de unidad SAT E48 (servicio) también exime la fracción.

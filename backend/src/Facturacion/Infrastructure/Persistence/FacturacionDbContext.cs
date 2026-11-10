@@ -118,6 +118,7 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Bitácora de intentos de timbrado — una fila por llamada al PAC ([Decisión 01-G] G4).</summary>
     public DbSet<BitacoraIntentoTimbrado> BitacorasIntentoTimbrado => Set<BitacoraIntentoTimbrado>();
     public DbSet<ContingenciaTimbrado> ContingenciasTimbrado => Set<ContingenciaTimbrado>();
+    public DbSet<EfectoComprobante> EfectosComprobante => Set<EfectoComprobante>();
 
     /// <summary>Control de idempotencia de la ingesta — fuente de verdad (F3-PR1).</summary>
     public DbSet<IngestaControl> IngestaControles => Set<IngestaControl>();
@@ -154,6 +155,10 @@ public sealed class FacturacionDbContext : BaseDbContext
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal> TransaccionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal> LiquidacionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal> FacturasBancoTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal>();
+
+    /// <summary>FAC-10: corridas de la conciliación de CFDI emitidos contra el SAT y sus diferencias.</summary>
+    public DbSet<Domain.ConciliacionSat.ConciliacionSat> ConciliacionesSat => Set<Domain.ConciliacionSat.ConciliacionSat>();
+    public DbSet<Domain.ConciliacionSat.DiferenciaConciliacionSat> DiferenciasConciliacionSat => Set<Domain.ConciliacionSat.DiferenciaConciliacionSat>();
 
     /// <summary>Marcas de idempotencia de integration events consumidos (PR gemelo TES-PR7).</summary>
     public DbSet<Domain.Eventos.EventoProcesado> EventosProcesados => Set<Domain.Eventos.EventoProcesado>();
@@ -209,6 +214,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
         modelBuilder.ApplyConfiguration(new ContingenciaTimbradoConfiguration());
+        modelBuilder.ApplyConfiguration(new EfectoComprobanteConfiguration());
         modelBuilder.ApplyConfiguration(new IngestaControlConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableSnapshotConfiguration());
         modelBuilder.ApplyConfiguration(new ExcepcionImportacionConfiguration());
@@ -228,6 +234,8 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new TransaccionTerminalConfiguration());
         modelBuilder.ApplyConfiguration(new LiquidacionTerminalConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaBancoTerminalConfiguration());
+        modelBuilder.ApplyConfiguration(new ConciliacionSatConfiguration());
+        modelBuilder.ApplyConfiguration(new DiferenciaConciliacionSatConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
     }
 }

@@ -42,6 +42,10 @@ public static class ContenedoresEndpoints
             await Mutar(new(id, 0, "confirmar", PartidaId: partidaId), request, response, mediator, ct)).RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapDelete("/partidas/{partidaId:guid}", async (Guid id, Guid partidaId, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
             await Mutar(new(id, 0, "quitar-partida", PartidaId: partidaId), request, response, mediator, ct)).RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/contenedores/{contenedorId:guid}/preparar-factura", async (Guid id, Guid contenedorId, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            await Mutar(new(id, 0, "preparar-factura", contenedorId), request, response, mediator, ct)).RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/contenedores/{contenedorId:guid}/aprobar-despacho", async (Guid id, Guid contenedorId, AprobarDespachoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            await Mutar(new(id, 0, "aprobar-despacho", contenedorId, Motivo: body.Motivo, Nivel: body.Nivel, Suplencia: body.Suplencia), request, response, mediator, ct)).RequireAuthorization().WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/contenedores/{contenedorId:guid}/embarcar", async (Guid id, Guid contenedorId, FechaEmbarqueDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
             await Mutar(new(id, 0, "embarcar", contenedorId, Fecha: body.Fecha), request, response, mediator, ct)).RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/contenedores/{contenedorId:guid}/cancelar", async (Guid id, Guid contenedorId, ExpedientesEndpoints.MotivoRequest body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
@@ -59,5 +63,6 @@ public static class ContenedoresEndpoints
             return Results.Problem(statusCode: 428, title: "Envíe If-Match con el ETag vigente.", extensions: new Dictionary<string, object?> { ["code"] = "IF_MATCH_REQUIRED" });
         return Respuesta(await mediator.Send(command with { Version = version }, ct), response);
     }
+    public sealed record AprobarDespachoDatos(string Nivel, string Motivo, string? Suplencia);
     public sealed record FechaEmbarqueDatos(DateOnly Fecha);
 }

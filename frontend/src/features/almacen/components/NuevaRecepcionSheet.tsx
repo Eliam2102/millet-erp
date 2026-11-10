@@ -172,6 +172,8 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
   RECEPCION_TODO_RECHAZADO: 'callout',
   RECEPCION_RECHAZO_LINEA_INVALIDA: 'callout',
   LISTA_EMPAQUE_VIDRIO: 'callout',
+  PERIODO_CONTABLE_NO_ADMITE: 'callout',
+  PERIODO_CERRADO: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
@@ -181,7 +183,18 @@ const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_TODO_RECHAZADO: 'Todas las partidas se rechazaron en el acto',
   RECEPCION_RECHAZO_LINEA_INVALIDA: 'Una partida rechazada no es de la orden',
   LISTA_EMPAQUE_VIDRIO: 'La lista de empaque no admite vidrio',
+  PERIODO_CONTABLE_NO_ADMITE: 'El periodo no admite movimientos',
+  PERIODO_CERRADO: 'El periodo de inventario está cerrado',
 };
+/** Rechazos que se corrigen en las partidas: el aviso remite a cantidades y racks. */
+const CALLOUT_DE_PARTIDAS = new Set([
+  'RECEPCION_EXCEDE_PENDIENTE',
+  'ENTRADA_SIN_ASIGNACION',
+  'RECEPCION_MULTI_SUBALMACEN',
+  'RECEPCION_SUCURSAL_DISTINTA',
+  'RECEPCION_TODO_RECHAZADO',
+  'RECEPCION_RECHAZO_LINEA_INVALIDA',
+]);
 
 function NuevaRecepcionFormBody({
   ordenCompraIdInicial,
@@ -234,6 +247,8 @@ function NuevaRecepcionFormBody({
     detalle: string;
     /** U-4: rechazo original, para enlazar la incidencia que abrió el servidor. */
     error?: unknown;
+    /** El rechazo se corrige en las partidas (cantidades o racks). */
+    dePartidas?: boolean;
   } | null>(null);
   // G-3: el servidor avisó que esa remisión/factura ya se recibió en la OC; solo continúa con motivo.
   const [yaRecibida, setYaRecibida] = useState<string | null>(null);
@@ -298,6 +313,8 @@ function NuevaRecepcionFormBody({
     [filasWatch],
   );
   const asignadas = useUbicacionesAsignadasPorArticulo(articuloIds);
+  // M-159: solo ubicaciones de la sucursal destino de la OC (misma query que LineasDesdeOc).
+  const sucursalOc = useOrdenCompra(ordenCompraId || null).data?.sucursalDestinoId ?? null;
   // Opciones del helper: racks asignados a los artículos de la OC que no son de A+W + almacenes generales (sin Material en revisión).
   const opcionesHelper = useMemo(() => {
     if (!asignadas.listo || !subsEnRevision.listo) return undefined;
@@ -308,8 +325,9 @@ function NuevaRecepcionFormBody({
       if (u.esDefault && u.estatus === EstatusCatalogo.Activo && !subsEnRevision.ids.has(u.subAlmacenId))
         union.add(id);
     });
+    if (sucursalOc) for (const id of union) if (ubicInfo.get(id)?.sucursalId !== sucursalOc) union.delete(id);
     return union;
-  }, [asignadas.listo, asignadas.porArticulo, filasWatch, ubicInfo, subsEnRevision]);
+  }, [asignadas.listo, asignadas.porArticulo, filasWatch, ubicInfo, subsEnRevision, sucursalOc]);
   const queryClient = useQueryClient();
   const puedeLeerCfdis = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisLeer);
   const puedeCargarCfdi = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisCargarManual);
@@ -482,18 +500,15 @@ function NuevaRecepcionFormBody({
       error,
       { codigos: CODIGOS_RECEPCION },
     );
-    if (resultado === 'callout') {
-      // El servidor no indica la línea: se deja el aviso persistente sobre las líneas.
-      setAvisoServidor({
-        titulo: TITULOS_CALLOUT[error.code ?? ''] ?? 'No se pudo registrar',
-        detalle: errorUsuario(error),
-        error,
-      });
-      return;
-    }
-    if (resultado) return;
-    toast.error(errorUsuario(error), {
-      description: codigoSoporte(error),
+    if (resultado && resultado !== 'callout') return;
+    // Sin campo que marcar: aviso persistente en el sheet, sobre las líneas, con el mensaje del servidor (Problem Details).
+    const codigo = error.code ?? '';
+    const soporte = codigoSoporte(error);
+    setAvisoServidor({
+      titulo: TITULOS_CALLOUT[codigo] ?? 'No se pudo registrar la recepción',
+      detalle: soporte ? `${errorUsuario(error)} (${soporte})` : errorUsuario(error),
+      error,
+      dePartidas: CALLOUT_DE_PARTIDAS.has(codigo),
     });
   }
 
@@ -837,7 +852,7 @@ function NuevaRecepcionFormBody({
             <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}
               accion={<EnlaceIncidenciaRechazo error={avisoServidor.error} />}>
               {avisoServidor.detalle}
-              {avisoServidor.titulo === TITULOS_CALLOUT.LISTA_EMPAQUE_VIDRIO ? '' : ' Revisa las cantidades y los racks de las partidas marcadas.'}
+              {avisoServidor.dePartidas ? ' Revisa las cantidades y los racks de las partidas marcadas.' : ''}
             </AvisoEnLinea>
           )}
 
@@ -1057,6 +1072,7 @@ function LineasDesdeOc({
                 index={index}
                 fila={fila}
                 vidrioEnListaEmpaque={listaEmpaque && !!fila.medida}
+                sucursalId={ocQuery.data?.sucursalDestinoId ?? null}
                 control={form.control}
                 setValue={form.setValue}
                 coincideConHelper={destinos[index] != null && fila.ubicacionId === destinos[index]}
@@ -1096,6 +1112,7 @@ function FilaLineaOc({
   index,
   fila,
   vidrioEnListaEmpaque,
+  sucursalId,
   control,
   setValue,
   coincideConHelper,
@@ -1106,6 +1123,8 @@ function FilaLineaOc({
   fila: FilaRecepcionValues;
   /** G-3: partida de vidrio en una recepción con lista de empaque: no se puede incluir. */
   vidrioEnListaEmpaque: boolean;
+  /** M-159: sucursal destino de la OC; el selector solo ofrece sus ubicaciones. */
+  sucursalId: string | null;
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
   setValue: ReturnType<typeof useForm<RecepcionFormValues>>['setValue'];
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
@@ -1281,7 +1300,9 @@ function FilaLineaOc({
                   value={field.value ?? null}
                   onChange={(id) => field.onChange(id)}
                   disabled={!incluida}
-                  incluirGeneral={!fila.medida}
+                  // M-159: la medida de A+W también entra al almacén general (solo se recibe con factura).
+                  incluirGeneral
+                  sucursalId={sucursalId}
                   accionSinUbicaciones={
                     fila.medida ? (
                       <AsignarUbicacionEnLinea

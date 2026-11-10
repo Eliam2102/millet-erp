@@ -31,7 +31,9 @@ public sealed record UbicacionListItem(
     string SubAlmacenClave,
     string SubAlmacenNombre,
     string AlmacenClave,
-    string AlmacenNombre);
+    string AlmacenNombre,
+    // M-159: la recepción ofrece solo ubicaciones de la sucursal destino de la OC.
+    Guid SucursalId);
 
 public sealed class ListarUbicacionesHandler
     : IRequestHandler<ListarUbicacionesQuery, AlmacenPagedResponse<UbicacionListItem>>
@@ -69,7 +71,7 @@ public sealed class ListarUbicacionesHandler
             .Skip(request.Offset).Take(request.Limit)
             .Select(x => new UbicacionListItem(
                 x.u.Id, x.u.SubAlmacenId, x.u.Clave, x.u.Nombre, x.u.Estatus, x.u.EsDefault,
-                x.sa.Clave, x.sa.Nombre, x.al.Clave, x.al.Nombre))
+                x.sa.Clave, x.sa.Nombre, x.al.Clave, x.al.Nombre, x.al.SucursalId))
             .ToListAsync(cancellationToken);
 
         return new AlmacenPagedResponse<UbicacionListItem>(

@@ -215,6 +215,10 @@ public sealed class ConfirmarDepositoHandler
             var ficha = deposito.AgregarFicha(movimiento, usuarioId, _clock.UtcNow, command.SoporteTipo, command.SoporteFolio);
             if (command.Ingreso is not null) _db.MovimientosBancarios.Add(movimiento);
             _db.DepositoFichas.Add(ficha);
+            // M-174: la póliza del depósito carga a la cuenta contable de esta cuenta bancaria, no a la única del rol BANCOS.
+            var cuentaContable = await _db.CuentasBancarias.AsNoTracking()
+                .Where(c => c.Id == movimiento.CuentaBancariaId)
+                .Select(c => c.CuentaContableRef).FirstOrDefaultAsync(cancellationToken);
             await _publisher.PublishAsync(new DepositoCajaConfirmadoIntegrationEvent(
                 EmpresaId: empresaId,
                 OcurridoEn: _clock.UtcNow,
@@ -235,7 +239,8 @@ public sealed class ConfirmarDepositoHandler
                 ImporteCorte: deposito.MontoEsperado ?? 0m,
                 SaldoPorDepositar: deposito.SaldoPorDepositar ?? 0m,
                 CorteCompleto: deposito.Estado == EstadoDepositoConfirmacion.Confirmada,
-                ConfirmadaPor: usuarioId), cancellationToken);
+                ConfirmadaPor: usuarioId,
+                CuentaContableRef: cuentaContable), cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return DepositoMapper.ToResponse(deposito, diferencia: await _db.DiferenciasCorte.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.CajaSesionId == deposito.CajaSesionId, cancellationToken));
@@ -285,6 +290,10 @@ internal static class ConfirmacionDeposito
                 ? fijado
                 : await TipoCambioDelPago.FijarAsync(movimiento, tiposCambio, tipoCambioCapturado, cancellationToken);
             var facturas = DepositoMapper.ParseFacturas(deposito.FacturasJson);
+            // B8: la póliza del cobro va a la cuenta contable de esta cuenta bancaria, no a la única del rol BANCOS.
+            var cuentaContable = await db.CuentasBancarias.AsNoTracking()
+                .Where(c => c.Id == movimiento.CuentaBancariaId)
+                .Select(c => c.CuentaContableRef).FirstOrDefaultAsync(cancellationToken);
             await publisher.PublishAsync(new PagoClienteConfirmadoIntegrationEvent(
                 EmpresaId: empresaId,
                 OcurridoEn: clock.UtcNow,
@@ -302,7 +311,7 @@ internal static class ConfirmacionDeposito
                 SaldoAFavorPorIdentificar: deposito.SaldoAFavorPorIdentificar,
                 Facturas: facturas
                     .Select(f => new PagoClienteFacturaAplicada(f.FacturaVentaId, f.ImporteAplicado))
-                    .ToList()) { TipoCambioPago = tipoCambioPago }, cancellationToken);
+                    .ToList()) { TipoCambioPago = tipoCambioPago, CuentaContableRef = cuentaContable }, cancellationToken);
         }
 
         if (deposito.DevolucionCeId is Guid devolucion)

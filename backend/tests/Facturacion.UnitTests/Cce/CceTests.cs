@@ -40,10 +40,10 @@ public sealed class CceTests
     public void CrearCce_y_agregar_mercancia()
     {
         var cce = ComplementoCce.Crear(Guid.NewGuid(), "2", "FOB", 20.5m, "TAX-USA-1", "usa");
-        cce.AgregarLinea("84713001", "01", 1500m, 2.5m, 3750m, aplicaIva0: true);
+        cce.AgregarLinea("8471300100", "01", 1500m, 2.5m, 3750m, aplicaIva0: true);
 
         cce.ReceptorPaisResidencia.Should().Be("USA");
-        cce.Lineas.Should().ContainSingle(l => l.AplicaIva0 && l.FraccionArancelaria == "84713001");
+        cce.Lineas.Should().ContainSingle(l => l.AplicaIva0 && l.FraccionArancelaria == "8471300100");
     }
 
     [Fact]
@@ -51,24 +51,26 @@ public sealed class CceTests
     {
         var cce = ComplementoCce.Crear(Guid.NewGuid(), "2", "FOB", 20m, "TAX-1", "USA");
 
-        // Fracción vacía o con formato inválido (no 8-10 dígitos).
+        // Fracción vacía o con formato inválido (M-158: exactamente 10 dígitos, fracción + NICO).
         cce.Invoking(c => c.AgregarLinea("", "01", 10m, 2m, 20m, false))
             .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_FRACCION_INVALIDA");
         cce.Invoking(c => c.AgregarLinea("7007", "01", 10m, 2m, 20m, false))
-            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_FRACCION_FORMATO");
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_FRACCION_INVALIDA");
         cce.Invoking(c => c.AgregarLinea("7007AB00", "01", 10m, 2m, 20m, false))
-            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_FRACCION_FORMATO");
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_FRACCION_INVALIDA");
+        cce.Invoking(c => c.AgregarLinea("70071100", "01", 10m, 2m, 20m, false))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_FRACCION_INVALIDA" && e.Message.Contains("10 dígitos"));
 
         // Trío aduanero incompleto.
-        cce.Invoking(c => c.AgregarLinea("70071100", "", 10m, 2m, 20m, false))
+        cce.Invoking(c => c.AgregarLinea("7007110000", "", 10m, 2m, 20m, false))
             .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_UNIDAD_ADUANA_INVALIDA");
-        cce.Invoking(c => c.AgregarLinea("70071100", "01", 0m, 2m, 20m, false))
+        cce.Invoking(c => c.AgregarLinea("7007110000", "01", 0m, 2m, 20m, false))
             .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_CANTIDAD_INVALIDA");
-        cce.Invoking(c => c.AgregarLinea("70071100", "01", 10m, 0m, 20m, false))
+        cce.Invoking(c => c.AgregarLinea("7007110000", "01", 10m, 0m, 20m, false))
             .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_VALOR_UNITARIO_ADUANA_INVALIDO");
 
         // Valor USD siempre requerido.
-        cce.Invoking(c => c.AgregarLinea("70071100", "01", 10m, 2m, 0m, false))
+        cce.Invoking(c => c.AgregarLinea("7007110000", "01", 10m, 2m, 0m, false))
             .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_VALOR_DOLARES_INVALIDO");
 
         // Línea válida: fracción de 10 dígitos (fracción + NICO) también acepta.
@@ -82,7 +84,7 @@ public sealed class CceTests
         var cce = ComplementoCce.Crear(Guid.NewGuid(), "2", "FOB", 20m, "TAX-1", "USA");
 
         // Unidad 99 (sin unidad, servicio) CON fracción → prohibida (CCE159).
-        cce.Invoking(c => c.AgregarLinea("70071100", "99", 0m, 0m, 20m, false))
+        cce.Invoking(c => c.AgregarLinea("7007110000", "99", 0m, 0m, 20m, false))
             .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CCE_FRACCION_NO_APLICA");
 
         // Sin fracción exime el trío, pero el valor USD sigue siendo obligatorio.
@@ -144,8 +146,8 @@ public sealed class CceTests
 
     // ---- Handler ----
 
-    private static EmitirFacturaVentaHandler Handler(FacturacionDbContext db, Guid empresaId) =>
-        new(db, new FakeSender(new ReservarFolioResponse("EXP-000001", 1, "")),
+    private static EmitirFacturaVentaHandler Handler(FacturacionDbContext db, Guid empresaId, MediatR.ISender? sender = null) =>
+        new(db, sender ?? new FakeSender(new ReservarFolioResponse("EXP-000001", 1, "")),
             new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
@@ -159,7 +161,7 @@ public sealed class CceTests
         MetodoPago: "PUE", FormaPago: "01", Moneda: "USD", TipoCambio: 20m,
         CanalVenta: (short)8, ComportamientoFiscal: ComportamientoFiscal.ExportacionConCce,
         ObraId: null, ObraNombre: null, FacturaAgrupada: false,
-        Lineas: [new EmitirFacturaVentaLinea(null, "84713001", "Export goods", "H87", 1m, 3750m, 0m, "02", 0m, null, null)],
+        Lineas: [new EmitirFacturaVentaLinea(null, "8471300100", "Export goods", "H87", 1m, 3750m, 0m, "02", 0m, null, null)],
         Anticipos: null,
         Cce: cce);
 
@@ -170,7 +172,7 @@ public sealed class CceTests
         using var db = NewDb(empresaId);
 
         var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
-            [new EmitirFacturaVentaCceLinea("84713001", "01", 1500m, 2.5m, 3750m, true)],
+            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
             ClaveDePedimento: "A1", CertificadoOrigen: true,
             ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX",
             ReceptorDomicilioCodigoPostal: "75001");
@@ -197,13 +199,14 @@ public sealed class CceTests
 
         // Sin ReceptorDomicilioEstado/CodigoPostal → el builder aborta antes del PAC.
         var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
-            [new EmitirFacturaVentaCceLinea("84713001", "01", 1500m, 2.5m, 3750m, true)]);
+            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)]);
 
         var act = () => Handler(db, empresaId).Handle(CommandExportacion(cce), CancellationToken.None);
 
         await act.Should().ThrowAsync<BusinessRuleException>()
             .Where(e => e.Code == "CCE_DOMICILIO_RECEPTOR_INCOMPLETO");
-        (await db.FacturasVenta.AnyAsync()).Should().BeFalse(); // nada persistido
+        // Ninguna factura vigente: si el folio ya se había reservado, queda Descartada (B2).
+        (await db.FacturasVenta.AnyAsync(f => f.Estado != EstadoTimbrado.Descartada)).Should().BeFalse();
     }
 
     [Fact]
@@ -216,5 +219,56 @@ public sealed class CceTests
         var error = await act.Should().ThrowAsync<Millet.Facturacion.Application.Timbrado.ReceptorFiscalInvalidoException>();
         error.Which.Campos.Select(c => c.Campo).Should().Contain(["numRegIdTrib", "paisResidencia"]);
         (await db.FacturasVenta.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Emitir_exportacion_sin_calle_del_receptor_se_rechaza_antes_de_reservar_folio_B5()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderCuentaFolios();
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
+            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
+            ClaveDePedimento: "A1", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
+
+        var act = () => Handler(db, empresaId, sender).Handle(CommandExportacion(cce), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CCE_DOMICILIO_RECEPTOR_INCOMPLETO");
+        sender.FoliosReservados.Should().Be(0, "un dato corregible no debe consumir folio");
+        (await db.FacturasVenta.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Emitir_exportacion_sin_clave_de_pedimento_se_rechaza_antes_de_reservar_folio_B5()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderCuentaFolios();
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
+            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
+            ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
+
+        var act = () => Handler(db, empresaId, sender).Handle(CommandExportacion(cce), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CCE_CLAVE_PEDIMENTO_REQUERIDA");
+        sender.FoliosReservados.Should().Be(0);
+    }
+
+    private sealed class FakeSenderCuentaFolios : MediatR.ISender
+    {
+        public int FoliosReservados { get; private set; }
+        public Task<TResponse> Send<TResponse>(MediatR.IRequest<TResponse> request, CancellationToken ct = default)
+        {
+            if (request is ReservarFolioCommand)
+            {
+                FoliosReservados++;
+                return Task.FromResult((TResponse)(object)new ReservarFolioResponse("EXP-000001", 1, ""));
+            }
+            throw new NotImplementedException();
+        }
+        public Task Send<TRequest>(TRequest request, CancellationToken ct = default) where TRequest : MediatR.IRequest => throw new NotImplementedException();
+        public Task<object?> Send(object request, CancellationToken ct = default) => throw new NotImplementedException();
+        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(MediatR.IStreamRequest<TResponse> request, CancellationToken ct = default) => throw new NotImplementedException();
+        public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken ct = default) => throw new NotImplementedException();
     }
 }

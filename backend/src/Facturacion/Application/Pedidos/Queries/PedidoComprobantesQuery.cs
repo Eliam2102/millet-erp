@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
 
 namespace Millet.Facturacion.Application.Pedidos.Queries;
@@ -9,6 +10,9 @@ namespace Millet.Facturacion.Application.Pedidos.Queries;
 /// venta emitidas contra el pedido a lo largo del tiempo (canceladas + la
 /// vigente). Un pedido acumula N comprobantes; el vigente es el no cancelado
 /// actual (invariante 5).
+/// <para>M10 (prueba S3-4): una factura por salida (FAC-08) no toma el pedido —éste sigue
+/// Importado y sin comprobante vigente— sino su salida; es vigente mientras no esté cancelada ni
+/// descartada. Antes salía «—» en todas las facturas por salida aunque estuvieran timbradas.</para>
 /// </summary>
 public sealed record PedidoComprobantesQuery(Guid PedidoFacturableId) : IRequest<IReadOnlyList<PedidoComprobanteItem>>;
 
@@ -40,13 +44,15 @@ public sealed class PedidoComprobantesHandler
         var rows = await _db.FacturasVenta.AsNoTracking()
             .Where(f => f.PedidoFacturableId == query.PedidoFacturableId)
             .OrderByDescending(f => f.FolioNumero)
-            .Select(f => new { f.Id, f.Folio, f.Estado, f.Uuid, f.Total, f.Moneda, f.FechaTimbrado })
+            .Select(f => new { f.Id, f.Folio, f.Estado, f.Uuid, f.Total, f.Moneda, f.FechaTimbrado, f.SalidaFacturableId })
             .ToListAsync(cancellationToken);
 
         return rows
             .Select(r => new PedidoComprobanteItem(
                 r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.Total, r.Moneda, r.FechaTimbrado,
-                vigenteId is not null && r.Id == vigenteId))
+                (vigenteId is not null && r.Id == vigenteId)
+                || (r.SalidaFacturableId is not null
+                    && r.Estado is not (EstadoTimbrado.Cancelado or EstadoTimbrado.Descartada))))
             .ToList();
     }
 }

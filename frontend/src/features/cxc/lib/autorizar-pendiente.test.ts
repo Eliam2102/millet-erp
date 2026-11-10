@@ -13,6 +13,7 @@ import {
   avisoResultadoAutorizar,
   calcularCobertura,
   comportamientoSeriePedido,
+  etiquetaReglaLiberacion,
   mensajeErrorAutorizar,
   mostrarSelectorOverride,
   puedeAutorizarPendiente,
@@ -285,5 +286,24 @@ describe('textoSinLineaActiva (C7.3, supuesto e)', () => {
     const texto = textoSinLineaActiva('ACME', 'MXN', false, true);
     expect(texto).toMatch(/sin una excepción autorizada, la decisión quedará retenida/);
     expect(texto).not.toMatch(/no procede/);
+  });
+});
+
+describe('etiquetaReglaLiberacion (prueba manual S3-4, M4)', () => {
+  const reglas = [
+    { prefijo: '55', comportamiento: ComportamientoSerie.SiempreLibera },
+    { prefijo: '5500', comportamiento: ComportamientoSerie.SiempreLibera },
+  ];
+
+  it('nombra la serie con el prefijo más largo que aplica al pedido', () => {
+    expect(etiquetaReglaLiberacion(ReglaAplicadaLiberacion.Serie, '55000101', reglas)).toBe('Serie 5500');
+  });
+
+  it('sin regla activa que aplique, conserva el texto genérico', () => {
+    expect(etiquetaReglaLiberacion(ReglaAplicadaLiberacion.Serie, '78000101', reglas)).toBe('Regla por serie');
+  });
+
+  it('las otras reglas no cambian', () => {
+    expect(etiquetaReglaLiberacion(ReglaAplicadaLiberacion.Override, '55000101', reglas)).not.toMatch(/^Serie/);
   });
 });

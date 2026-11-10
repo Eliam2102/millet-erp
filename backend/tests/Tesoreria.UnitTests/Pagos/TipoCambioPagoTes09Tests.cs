@@ -220,12 +220,32 @@ public sealed class TipoCambioPagoTes09Tests
         eventos.Eventos.OfType<PagoClienteConfirmadoIntegrationEvent>().Single().TipoCambioPago.Should().BeNull();
     }
 
-    private static (TesoreriaDbContext Db, MovimientoBancario Movimiento, DepositoConfirmacion Deposito) EscenarioCobro(string moneda)
+    /// <summary>
+    /// B8 (prueba Sprints 3-4): el cobro en USD caía en la cuenta MXN del rol BANCOS. El evento ahora lleva la cuenta contable de la
+    /// cuenta bancaria del depósito para que Contabilidad cargue ahí.
+    /// </summary>
+    [Theory]
+    [InlineData("102.02.01.01")]
+    [InlineData(null)]
+    public async Task B8_cobro_manda_la_cuenta_contable_de_la_cuenta_bancaria_del_deposito(string? cuentaContable)
+    {
+        var (db, movimiento, deposito) = EscenarioCobro("USD", cuentaContable);
+        await using var _ = db;
+        var eventos = new Captura();
+
+        await ConfirmarHandler(db, eventos, new Catalogo(18.40m))
+            .Handle(new ConfirmarDepositoCommand(deposito.Id, movimiento.Id, deposito.Version, TipoCambioPago: 18.35m), default);
+
+        eventos.Eventos.OfType<PagoClienteConfirmadoIntegrationEvent>().Single().CuentaContableRef.Should().Be(cuentaContable);
+    }
+
+    private static (TesoreriaDbContext Db, MovimientoBancario Movimiento, DepositoConfirmacion Deposito) EscenarioCobro(string moneda,
+        string? cuentaContableRef = null)
     {
         var db = new TesoreriaDbContext(
             new DbContextOptionsBuilder<TesoreriaDbContext>().UseInMemoryDatabase($"tesoreria-tes09-cobro-{Guid.NewGuid():N}").Options,
             new FakeEmpresa());
-        var cuenta = new CuentaBancaria(EmpresaId, "BBVA", "0123456789", null, moneda);
+        var cuenta = new CuentaBancaria(EmpresaId, "BBVA", "0123456789", null, moneda, cuentaContableRef);
         var movimiento = MovimientoBancario.RegistrarIngreso(EmpresaId, cuenta, 5_000m, Fecha, "SPEI-COBRO", null,
             BeneficiarioTipo.Cliente, Guid.NewGuid(), UsuarioId, Ahora);
         var deposito = DepositoConfirmacion.CrearDesdePropuesta(EmpresaId, Guid.NewGuid(), Guid.NewGuid(), "DEP-1", 5_000m, moneda,

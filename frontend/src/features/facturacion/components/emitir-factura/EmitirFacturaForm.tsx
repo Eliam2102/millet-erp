@@ -38,7 +38,7 @@ import { resultadoEmision } from './resultado-emision';
 import { TabEncabezado } from './TabEncabezado';
 import { TabPosiciones } from './TabPosiciones';
 import { TabTotales, type AnticipoAmortizar } from './TabTotales';
-import { nullIfEmpty, valoresIniciales } from './valores';
+import { aduanalesDeComercioExterior, nullIfEmpty, valoresIniciales } from './valores';
 
 /**
  * <c>&lt;EmitirFacturaForm/&gt;</c> — form de emisión de CFDI 4.0 con
@@ -281,15 +281,19 @@ function FormInner({
   // `valueAsNumber` da NaN al vaciar un input, y `NaN ?? 0` = NaN (?? solo
   // atrapa null/undefined) → el total mostraba "NaN". `finito` lo coerce a 0.
   const finito = (v: number | null | undefined) => (Number.isFinite(v) ? (v as number) : 0);
+  // Redondeo a centavos «half away from zero» (Math.Round AwayFromZero del servidor); el
+  // épsilon corrige la representación binaria (p. ej. 524.035 → 524.04).
+  const centavos = (v: number) => Math.sign(v) * Math.round(Math.abs(v) * 100 + 1e-7) / 100;
   const totales = (lineas ?? []).reduce(
     (acc, l) => {
-      const base = Math.max(0, finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento));
-      const iva = base * finito(l.tasaIvaTraslado);
-      const retIva = base * finito(l.tasaRetencionIva);
-      const retIsr = base * finito(l.tasaRetencionIsr);
+      // Mismo redondeo que el servidor: importe e impuestos de cada partida a 2 decimales
+      // (M7: sin esto la vista previa difería un centavo de lo timbrado).
+      const base = Math.max(0, centavos(finito(l.cantidad) * finito(l.valorUnitario)) - finito(l.descuento));
+      const iva = centavos(base * finito(l.tasaIvaTraslado));
+      const ret = centavos(base * (finito(l.tasaRetencionIva) + finito(l.tasaRetencionIsr)));
       acc.subtotal += base;
       acc.iva += iva;
-      acc.ret += retIva + retIsr;
+      acc.ret += ret;
       return acc;
     },
     { subtotal: 0, iva: 0, ret: 0 },
@@ -605,6 +609,7 @@ function FormInner({
           <TabPosiciones
             form={form}
             esCce={esCce}
+            aduanalesDeCe={aduanalesDeComercioExterior(ce).length > 0}
             tasaIvaDefault={emisor.tasaIvaDefault}
             desdePedido={Boolean(prefill?.lineas?.length)}
             puedeCorregirArticulo={puedeCorregirArticulo}

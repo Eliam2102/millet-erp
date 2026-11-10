@@ -62,21 +62,15 @@ describe('RegistrarRecepcionFacturaSchema — vínculo fiscal obligatorio', () =
     }
   });
 
-  it.each([
-    [100, true],
-    [100.5, false],
-  ])('sin tolerancia: pendiente 100, cantidad %s → ok=%s', (cantidad, ok) => {
+  // B9 · U-4: recibir de más lo rechaza el servidor (RECEPCION_EXCEDE_PENDIENTE) y abre la incidencia.
+  // Si la pantalla lo frenara antes, la petición no saldría y la incidencia nunca se abriría.
+  it.each([100, 100.5, 101])('pendiente 100, cantidad %s: la pantalla deja enviar y decide el servidor', (cantidad) => {
     const r = RegistrarRecepcionFacturaSchema.safeParse({
       ...base,
       cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
       filas: [{ ...filaIncluida, pendiente: 100, maximo: 100, cantidad }],
     });
-    expect(r.success).toBe(ok);
-    if (!r.success) {
-      expect(r.error.issues[0].message).toBe(
-        'Excede lo pendiente de la orden de compra (100). Almacén recibe exacto.',
-      );
-    }
+    expect(r.success).toBe(true);
   });
 
   it('rechaza folio fiscal malformado', () => {
@@ -187,8 +181,12 @@ describe('RegistrarRecepcionFacturaSchema — medida de la línea de OC (E1)', (
     expect(conFila({ cantidad: 5, cantidadDanada: 2, motivoDano: 'Hojas rotas', evidenciaBlobRef: 'blob://x' }).success).toBe(true);
   });
 
-  it('rechaza 21 hojas: excede lo pendiente (20 hojas)', () => {
-    expect(mensajes(conFila({ cantidad: 21 }))).toContain(
+  it('B9: 21 hojas con 20 pendientes se envían; el servidor rechaza y abre la incidencia', () => {
+    expect(conFila({ cantidad: 21 }).success).toBe(true);
+  });
+
+  it('lo rechazado en el acto no puede pasar lo pendiente (el servidor no lo compara)', () => {
+    expect(mensajes(conFila({ cantidad: 18, cantidadRechazada: 3, motivoRechazo: 'Rotas', evidenciaBlobRef: 'blob://x' }))).toContain(
       'Excede lo pendiente de la orden de compra (20 hojas). Almacén recibe exacto.',
     );
   });

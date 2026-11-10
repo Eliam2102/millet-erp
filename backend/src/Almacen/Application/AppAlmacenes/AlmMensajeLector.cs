@@ -10,11 +10,12 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 public sealed record AcuseApp(string? MensajeId, string Estado, string? Folio, string? Error);
 
 /// <summary>
-/// Renglón de <c>alm_mensaje</c> que la app dejó para el ERP. <see cref="Secuencia"/> es la llave del renglón y
-/// da el orden; <see cref="Sobre"/> es el sobre JSON completo (v1). Columnas SUPUESTAS: ver docs/integration/11.
+/// Renglón de <c>alm_mensaje</c> que la app dejó para el ERP (v8). <see cref="Secuencia"/> es el <c>id</c> del renglón (llave del
+/// acuse); un reenvío es otro renglón con el mismo <see cref="MensajeId"/> e <see cref="Intento"/>+1; <see cref="Sobre"/> es el
+/// sobre JSON completo (columna <c>contenido</c>). Ver docs/integration/11.
 /// </summary>
 public sealed record AlmMensajeEntrante(
-    long Secuencia, string MensajeId, string Tipo, int Version, string? Referencia, DateTimeOffset Fecha, string Sobre);
+    long Secuencia, string MensajeId, int Intento, string Tipo, string? Referencia, DateTimeOffset Fecha, string Sobre);
 
 /// <summary>
 /// Puerto de la tabla <c>alm_mensaje</c> (la app escribe el mensaje; el ERP escribe solo el acuse en el mismo renglón
@@ -23,8 +24,8 @@ public sealed record AlmMensajeEntrante(
 public interface IAlmMensajeOrigen
 {
     /// <summary>
-    /// Renglones sin acuse, en orden de secuencia, hasta <paramref name="max"/>. Excluye las referencias frenadas por un
-    /// ERROR anterior sin reprocesar (la referencia espera a que alguien lo revise).
+    /// Renglones sin acuse que son el último intento de su mensaje, en orden del primer renglón de cada mensaje, hasta
+    /// <paramref name="max"/>. Excluye a los de una referencia frenada por un mensaje anterior cuyo último intento sigue en ERROR.
     /// </summary>
     Task<IReadOnlyList<AlmMensajeEntrante>> LeerPendientesAsync(int max, CancellationToken ct);
 

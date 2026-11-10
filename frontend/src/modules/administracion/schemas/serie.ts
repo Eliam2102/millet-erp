@@ -47,6 +47,7 @@ const tipoDocumentoSchema = z.union([
   z.literal(TipoDocumentoSerie.Poliza),
   z.literal(TipoDocumentoSerie.FacturaAnticipo),
   z.literal(TipoDocumentoSerie.VentaDirecta),
+  z.literal(TipoDocumentoSerie.Exportacion),
 ]);
 
 export const CrearSerieSchema = z.object({

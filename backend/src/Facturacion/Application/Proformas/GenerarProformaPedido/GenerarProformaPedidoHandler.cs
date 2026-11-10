@@ -74,7 +74,7 @@ public sealed class GenerarProformaPedidoHandler
             FacturaVentaArmado.ReceptorDe(armada.Comando), emisor, ahora.Year, ahora.Month);
 
         var esVentaDirecta = pedido.Origen == nameof(OrigenPedido.Manual) && pedido.ClaseManual is not null;
-        var contenido = ProformaCfdiMapper.Desde(factura, ahora, ProformaEmisionDesdePedido.SeriePrevista(esVentaDirecta));
+        var contenido = ProformaCfdiMapper.Desde(factura, ahora, ProformaEmisionDesdePedido.SeriePrevista(esVentaDirecta, armada.Comando.ComportamientoFiscal));
 
         var ultimaVersion = await _db.ProformasPedido
             .Where(p => p.PedidoFacturableId == pedido.Id)

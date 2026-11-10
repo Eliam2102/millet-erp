@@ -92,8 +92,8 @@ export const EmitirFacturaSchema = z.object({
   cceReceptorNumRegIdTrib: z.string().max(40).nullable(),
   cceReceptorPaisResidencia: z.string().max(5).nullable(),
   // F12-PR3 (CCE 2.0): clave de pedimento, certificado de origen y domicilio
-  // del receptor extranjero. Estado/CP los exige el SAT para timbrar; el
-  // superRefine de abajo los vuelve obligatorios solo en ExportacionConCce.
+  // del receptor extranjero. Clave, calle, estado y CP los exige el SAT para
+  // timbrar; el superRefine de abajo los vuelve obligatorios solo en ExportacionConCce.
   cceClaveDePedimento: z.string().max(2).nullable(),
   cceCertificadoOrigen: z.boolean(),
   cceReceptorDomicilioCalle: z.string().max(200).nullable(),
@@ -137,6 +137,21 @@ export const EmitirFacturaSchema = z.object({
   if (values.comportamientoFiscal !== ComportamientoFiscal.ExportacionConCce) {
     return;
   }
+  // B5: el PAC también rechaza el CCE 2.0 sin calle del receptor ni clave de pedimento.
+  if ((values.cceReceptorDomicilioCalle ?? '').trim().length === 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['cceReceptorDomicilioCalle'],
+      message: 'Calle del receptor requerida para timbrar CCE',
+    });
+  }
+  if ((values.cceClaveDePedimento ?? '').trim().length === 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['cceClaveDePedimento'],
+      message: 'Clave de pedimento requerida para timbrar CCE (por ejemplo, A1)',
+    });
+  }
   if ((values.cceReceptorDomicilioEstado ?? '').trim().length === 0) {
     ctx.addIssue({
       code: 'custom',
@@ -157,7 +172,7 @@ export const EmitirFacturaSchema = z.object({
   // rechazo del PAC (#8):
   //  - valorDolares > 0 siempre (nodo requerido; alimenta TotalUSD).
   //  - Bien tangible (unidad aduanera ≠ 99 y clave de unidad SAT ≠ E48, caso de
-  //    Millet): fracción arancelaria de 8-10 dígitos + trío unidad/cantidad/
+  //    Millet): fracción arancelaria de 10 dígitos (M-158) + trío unidad/cantidad/
   //    valor unitario completo (SAT CCE160/CCE165).
   //  - Servicio / sin unidad (unidad aduanera 99 o clave SAT E48): la fracción
   //    NO debe registrarse (SAT CCE159).
@@ -185,11 +200,12 @@ export const EmitirFacturaSchema = z.object({
           path: ['lineas', i, 'fraccionArancelaria'],
           message: 'Fracción arancelaria requerida en exportación',
         });
-      } else if (!/^\d{8,10}$/.test(fraccion)) {
+      } else if (!/^\d{10}$/.test(fraccion)) {
+        // M-158: CCE 2.0 = fracción de 8 + NICO de 2; mismo mensaje que el servidor.
         ctx.addIssue({
           code: 'custom',
           path: ['lineas', i, 'fraccionArancelaria'],
-          message: 'La fracción debe tener de 8 a 10 dígitos numéricos',
+          message: 'La fracción debe tener 10 dígitos (fracción arancelaria + NICO).',
         });
       }
       if (unidadAduana.length === 0) {

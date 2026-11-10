@@ -205,18 +205,28 @@ public sealed class CerrarPeriodoValidator : AbstractValidator<CerrarPeriodoComm
     public CerrarPeriodoValidator() => RuleFor(c => c.Motivo).MotivoObligatorio();
 }
 
-public sealed class CerrarPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock, IAuditCorrelationContext correlacion)
+public sealed class CerrarPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock, IAuditCorrelationContext correlacion,
+    Cierre.EvaluadorChecklistCierre checklist)
     : IRequestHandler<CerrarPeriodoCommand, PeriodoContableResponse>
 {
     public async Task<PeriodoContableResponse> Handle(CerrarPeriodoCommand request, CancellationToken cancellationToken)
     {
+        // CON-12 (CA10.9): el checklist se evalúa antes del candado (lee otros módulos); si falta algo obligatorio, no se cierra.
+        // Solo se evalúa un periodo abierto con la versión esperada: los demás casos los resuelve el dominio con su mensaje de siempre.
+        var previo = await db.Periodos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == request.PeriodoId, cancellationToken);
+        var evaluacion = previo is { Estado: EstadoPeriodo.Abierto } && previo.Version == request.VersionEsperada
+            ? await checklist.ExigirAsync(previo, cancellationToken)
+            : null;
         PeriodoContable? periodo = null;
         await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaPeriodos.LockPeriodos, async ct =>
         {
             periodo = await PoliticaPeriodos.PeriodoAsync(db, request.PeriodoId, request.VersionEsperada, ct);
             var p = periodo;
             var anteriores = await db.Periodos.AsNoTracking().Where(x => x.EjercicioId == p.EjercicioId && x.Numero < p.Numero).ToListAsync(ct);
-            AuditoriaPeriodos.Registrar(db, p, p.Cerrar(anteriores, request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow), usuario, correlacion);
+            var usuarioNombre = PoliticaPeriodos.Usuario(usuario);
+            AuditoriaPeriodos.Registrar(db, p, p.Cerrar(anteriores, request.Motivo, usuario.UserId, usuarioNombre, clock.UtcNow), usuario, correlacion);
+            // CON-12-a: foto del checklist con las excepciones y quién las autorizó.
+            if (evaluacion is not null) db.CierresPeriodo.Add(Cierre.EvaluadorChecklistCierre.Registro(p, evaluacion, usuarioNombre, clock.UtcNow));
             // PLATFORM-TODO(<OutboxContabilidad>): PeriodoContableCerradoEvent cuando haya outbox y suscriptores (C1.2/C1.5).
             await db.SaveChangesAsync(ct);
         }, cancellationToken);

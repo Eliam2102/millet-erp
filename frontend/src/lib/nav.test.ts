@@ -207,6 +207,8 @@ describe('navSidebarItems', () => {
         '/facturacion/reportes/liquidacion-caja',
         // F6.7: cierre del día por sucursal (monitor de CFDI + facturado vs ingresado).
         '/facturacion/reportes/cierre-dia',
+        // FAC-10: conciliación de CFDI emitidos contra el SAT (corporativa).
+        '/facturacion/reportes/conciliacion-sat',
         '/facturacion/reportes/estados-anticipos',
         // F6.2: la comparativa de anticipos va junto a Estados de facturas de anticipo.
         '/facturacion/reportes/comparativa-anticipos',
@@ -222,6 +224,12 @@ describe('navSidebarItems', () => {
       .flatMap((s) => s.cards)
       .find((c) => c.to === '/facturacion/reportes/cierre-dia');
     expect(cierreDia?.permission).toBe(PermisosCanonicos.FacturacionReportesLeer);
+    const conciliacionSat = facturacion.secciones
+      .flatMap((s) => s.cards)
+      .find((c) => c.to === '/facturacion/reportes/conciliacion-sat');
+    expect(conciliacionSat?.permission).toBe(
+      PermisosCanonicos.FacturacionReportesLeerTodasSucursales,
+    );
   });
 
   it('Compras tiene Operación (P1+P2) y Configuración (Aprobadores)', () => {

@@ -258,7 +258,8 @@ public static partial class NormalizadorEventos
                 ["TotalMenosRetenciones"] = total, // el Total del CFDI ya viene neto de retenciones
                 [RetencionesContables.CampoTotalMas] = total + retenciones, // 86e3zcbjw: #3b/#3c v3 (factura por el total)
             },
-            [], payload, puente, n.FacturaOrigenId);
+            // M-209: el IVA de la nota por tratamiento (revierte el pendiente de la tasa correspondiente); sin detalle, como hoy.
+            ImpuestosTrasladados.LineasDocumento(ImpuestosTrasladados.Agrupar(n.Impuestos), n.Iva), payload, puente, n.FacturaOrigenId);
     }
 
     /// <summary>#4 AN: cargo ANTICIPO_A_PROVEEDORES · abono BANCOS.</summary>
@@ -318,8 +319,18 @@ public static partial class NormalizadorEventos
                 ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m,
             },
             [], payload,
-            FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null);
+            FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null,
+            CuentaPorRol: CuentaBanco(p.CuentaContableRef));
     }
+
+    /// <summary>
+    /// B8: el cargo a bancos va a la cuenta contable de la cuenta bancaria del depósito (Tesorería la manda en el evento), no a la
+    /// única del rol BANCOS. Sin dato (cuenta bancaria sin cuenta contable o evento anterior), se usa el rol.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string>? CuentaBanco(string? cuentaContableRef) =>
+        FormatoCatalogo.Codigo(cuentaContableRef) is { } codigo ? new Dictionary<string, string> { [RolBancos] = codigo } : null;
+
+    public const string RolBancos = "BANCOS";
 
     /// <summary>CXC-06: propuesta de CxC del pago de cliente (para leer su ajuste autorizado).</summary>
     internal static Guid? PropuestaDelPagoCliente(string payload) => Leer<PagoClienteContrato>(payload).PropuestaId;
@@ -338,6 +349,8 @@ public static partial class NormalizadorEventos
             .Select(l => new LineaEventoContable(null, l.Importe - l.Descuento, null, false, Clasificador: l.TipoProducto)).ToList();
         // 86e3zcbjw: una línea por concepto de retención del cliente (fletes, servicios, desperdicio, importación) → su cuenta (#7 v3).
         lineas.AddRange(RetencionesContables.Lineas(f.Retenciones, null));
+        // M-209: IVA trasladado por tratamiento (p. ej. TASA8 en zona fronteriza) a su rol; sin detalle, como hoy.
+        lineas.AddRange(ImpuestosTrasladados.LineasDocumento(ImpuestosTrasladados.Agrupar(f.Impuestos), f.Iva));
         return new(FacturaVentaTimbrada, eventoId, f.EmpresaId, f.FechaContable ?? FechaContable.HoyLocal(f.OcurridoEn),
             Doc(DocComprobante, f.FacturaVentaId, f.Folio, f.Uuid), f.SucursalId, null, f.ClienteId, null, null, MonedaDe(f.Moneda),
             f.TipoCambio,
@@ -481,7 +494,8 @@ public static partial class NormalizadorEventos
 
     private sealed record NotaProveedorContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid? NotaCreditoId, Guid? NotaCargoId,
         Guid ProveedorId, Guid? FacturaOrigenId, decimal? Total, decimal? Monto, string? Uuid, decimal? Subtotal, decimal? Iva,
-        decimal? RetencionesTotal, string? Moneda, decimal? TipoCambio, Guid? SucursalId);
+        decimal? RetencionesTotal, string? Moneda, decimal? TipoCambio, Guid? SucursalId,
+        IReadOnlyList<ImpuestosTrasladados.ImpuestoTrasladoContrato>? Impuestos = null);
 
     private sealed record AnticipoProveedorContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid AnticipoId, Guid ProveedorId,
         decimal MontoEntregado, string? Moneda, decimal? TipoCambio, Guid? SucursalId);
@@ -496,14 +510,15 @@ public static partial class NormalizadorEventos
 
     private sealed record PagoClienteContrato(Guid EmpresaId, Guid ClienteId, Guid MovimientoBancarioId, decimal Monto, string? Moneda,
         DateOnly FechaValor, string? Referencia, IReadOnlyList<PagoClienteFacturaContrato>? Facturas, Guid? PropuestaId = null,
-        decimal SaldoAFavorPorIdentificar = 0m);
+        decimal SaldoAFavorPorIdentificar = 0m, string? CuentaContableRef = null);
 
     private sealed record PagoClienteFacturaContrato(Guid FacturaVentaId, decimal ImporteAplicado);
 
     private sealed record FacturaVentaContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid FacturaVentaId, string? Uuid, decimal Total,
         string? Moneda, string? Folio, decimal? Subtotal, decimal? Descuento, decimal? Iva, decimal? RetencionesTotal, Guid? SucursalId,
         Guid? ClienteId, decimal? TipoCambio, DateOnly? FechaContable, IReadOnlyList<FacturaLineaContrato>? Lineas,
-        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null);
+        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null,
+        IReadOnlyList<ImpuestosTrasladados.ImpuestoTrasladoContrato>? Impuestos = null);
 
     private sealed record FacturaLineaContrato(string? TipoProducto, decimal Importe, decimal Descuento);
 

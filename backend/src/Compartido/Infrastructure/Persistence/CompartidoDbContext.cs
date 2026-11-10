@@ -486,6 +486,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedParametro("00000006-0001-0000-0000-00000000000b", ToleranciaTarjetasParametro.Clave,
                 "1.00", TipoParametro.Numero,
                 "Tolerancia de conciliación de tarjetas corporativas (MXN). Diferencia máxima aceptada entre el estado de cuenta y lo capturado.", seedTime, "cxp"),
+            SeedParametro("00000006-0001-0000-0000-00000000000d", ToleranciaTipoCambioCfdiParametro.Clave,
+                "1.00", TipoParametro.Numero,
+                "Diferencia máxima (%) entre el tipo de cambio de un CFDI en moneda extranjera y el del catálogo para su fecha. Fuera de ella, la póliza va a Rechazos para autorizar un valor. 0 apaga la comparación.",
+                new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero), "contabilidad"),
             SeedParametro("00000006-0001-0000-0000-00000000000a",
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos,
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.FestivosIniciales, TipoParametro.Json,
@@ -532,7 +536,7 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_series_reinicio_periodo",
                 "reinicio_periodo BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_series_tipo_documento",
-                "tipo_documento BETWEEN 1 AND 6");
+                "tipo_documento BETWEEN 1 AND 7");
             // F6.1: la serie de Venta directa (6) siempre es por sucursal.
             t.HasCheckConstraint("ck_series_vd_sucursal",
                 "tipo_documento <> 6 OR sucursal_id IS NOT NULL");
@@ -552,10 +556,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         serie.Property(x => x.FolioInicial).HasDefaultValue(1L).IsRequired();
         serie.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_sucursal").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5, 6)");
+            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5, 6, 7)");
         serie.HasIndex(x => new { x.EmpresaId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_global").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5, 6)");
+            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5, 6, 7)");
 
         // Índice único compuesto. Para que los NULLs de SucursalId/Sufijo
         // no salten el unique de PostgreSQL, usamos COALESCE a sentinels.
@@ -1344,6 +1348,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         articulo.Property(x => x.PrecioReferenciaMonto).HasPrecision(15, 4);
         articulo.Property(x => x.PrecioReferenciaMoneda).HasMaxLength(3);
         articulo.Property(x => x.Estatus).HasConversion<short>().IsRequired();
+        // M-172: consumo por tambor a línea (silicón, Ködispace) y kilos por presentación.
+        articulo.Property(x => x.KgPorPresentacion).HasPrecision(10, 3);
 
         articulo.HasIndex(x => x.Clave).IsUnique();
         articulo.HasIndex(x => x.Naturaleza);
@@ -1932,6 +1938,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         empleado.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         empleado.Property(x => x.Email).HasMaxLength(254);
         empleado.Property(x => x.EmailContacto).HasMaxLength(254);
+        // 86e3zexqm: correo alternativo para avisos (opcional).
+        empleado.Property(x => x.CorreoParaAvisos).HasMaxLength(254);
         empleado.Property(x => x.CodigoNomina).HasMaxLength(20);
         empleado.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 

@@ -14,6 +14,7 @@
     -->
     <InternalsVisibleTo Include="Millet.Compras.IntegrationTests" />
     <InternalsVisibleTo Include="Millet.Api.IntegrationTests" />
+    <InternalsVisibleTo Include="Millet.SharedKernel.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +32,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Serilog" />
+    <PackageReference Include="PdfPig" />
     <!--
       Application infra (CQRS, validación, mapping). Las extension
       methods AddMilletApplication(...) en SharedKernel.Application

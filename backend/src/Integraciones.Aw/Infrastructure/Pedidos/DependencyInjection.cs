@@ -4,11 +4,16 @@ using Millet.Facturacion.Domain.Ports;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Pinturas;
+using Millet.Integraciones.Aw.Application.Pinturas.Catalogos;
 using Millet.Integraciones.Aw.Application.Retorno;
+using Millet.Integraciones.Aw.Application.Workers;
 using Microsoft.Extensions.Logging;
+using Millet.Integraciones.Aw.Application.TipoCambio;
 using Millet.Integraciones.Aw.Infrastructure.NotasCredito;
 using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 using Millet.Integraciones.Aw.Infrastructure.Retorno;
+using Millet.Integraciones.Aw.Infrastructure.TipoCambio;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -48,6 +53,10 @@ public static class PedidosDependencyInjection
         services.AddScoped<IAwRetornoPort>(sp => new AwRetornoAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
             AwRetornoAdapter.CandadoSqlServer));
+        // I13.2: publicación de tipo de cambio en dbo.erp_tipo_cambio.
+        services.AddScoped<IAwTipoCambioPort>(sp => new AwTipoCambioAdapter(
+            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+            AwTipoCambioAdapter.CandadoSqlServer));
 
         // PR4 — auto-provisión de masters (cierra <MasterProvisioningAw>):
         // readers de vw_erp_cliente/vw_erp_articulo + bridge que delega el
@@ -64,6 +73,16 @@ public static class PedidosDependencyInjection
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
             sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
 
+        // Publicador de catálogos hacia Planta Pintura (script 16 v2).
+        services.AddScoped<IPinturasCatalogosPublisher>(sp => new PinturasCatalogosAdapter(
+            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(),
+            postgres: false,
+            sp.GetRequiredService<IOptions<PinturasCatalogosOptions>>(),
+            sp.GetRequiredService<IClock>(),
+            sp.GetRequiredService<ILogger<PinturasCatalogosAdapter>>()));
+
+        services.AddHostedService<PinturasCatalogosSyncWorker>();
+
         return services;
     }
 
@@ -72,5 +91,9 @@ public static class PedidosDependencyInjection
     {
         services.AddOptions<PinturasPedidosOptions>().Bind(configuration.GetSection(PinturasPedidosOptions.SectionName));
         services.AddScoped<IPinturasSucursalResolver, PinturasSucursalResolver>();
+
+        services.AddOptions<PinturasCatalogosOptions>().Bind(configuration.GetSection(PinturasCatalogosOptions.SectionName));
+        services.AddScoped<IPinturasObrasSource, NoOpPinturasObrasSource>();
+        services.AddScoped<IPinturasCatalogosExtractor, PinturasCatalogosExtractor>();
     }
 }

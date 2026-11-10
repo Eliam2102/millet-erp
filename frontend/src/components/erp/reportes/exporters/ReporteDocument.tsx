@@ -1,4 +1,5 @@
 import { formatearFechaCelda } from '@/components/erp/reportes/formatear-fecha-celda';
+import { separarSangria } from './separar-sangria';
 import {
   Document,
   Page,
@@ -31,6 +32,8 @@ export interface ReporteParaExportar<TFila> {
   }[];
   filas: readonly TFila[];
   totales?: Record<string, number> | null;
+  /** Tamaño de letra de la tabla en el PDF (9 pt por omisión), para reportes con muchas columnas. */
+  letraPdf?: number | null;
 }
 
 const SEPARADOR = /[-_/.]/;
@@ -151,7 +154,7 @@ export function ReporteDocument<TFila>({
           )}
         </View>
 
-        <View style={styles.table}>
+        <View style={[styles.table, reporte.letraPdf ? { fontSize: reporte.letraPdf } : {}]}>
           <View style={styles.rowHeader}>
             {reporte.columnas.map((c) => (
               <Text
@@ -182,19 +185,24 @@ export function ReporteDocument<TFila>({
           ) : (
             reporte.filas.map((fila, i) => (
               <View key={i} style={styles.row} wrap={false}>
-                {reporte.columnas.map((c) => (
-                  <Text
-                    key={c.clave}
-                    style={[
-                      styles.cell,
-                      flexDe(c),
-                      esNumerica(c.tipo) ? styles.cellAlignRight : {},
-                    ]}
-                    {...(c.cortePdf === 'caracter' ? { hyphenationCallback: cortePorCaracter } : {})}
-                  >
-                    {formatearCelda(obtenerCelda(fila, c.clave), c.tipo, c.decimales)}
-                  </Text>
-                ))}
+                {reporte.columnas.map((c) => {
+                  const celda = formatearCelda(obtenerCelda(fila, c.clave), c.tipo, c.decimales);
+                  const { texto, sangria } = esNumerica(c.tipo) ? { texto: celda, sangria: 0 } : separarSangria(celda);
+                  return (
+                    <Text
+                      key={c.clave}
+                      style={[
+                        styles.cell,
+                        flexDe(c),
+                        esNumerica(c.tipo) ? styles.cellAlignRight : {},
+                        sangria > 0 ? { paddingLeft: sangria } : {},
+                      ]}
+                      {...(c.cortePdf === 'caracter' ? { hyphenationCallback: cortePorCaracter } : {})}
+                    >
+                      {texto}
+                    </Text>
+                  );
+                })}
               </View>
             ))
           )}

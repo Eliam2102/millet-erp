@@ -73,6 +73,51 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("centros_corporativos", "contabilidad");
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.CierrePeriodoRegistro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CerradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cerrado_en");
+
+                    b.Property<string>("CerradoPor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("cerrado_por");
+
+                    b.Property<string>("Checklist")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("checklist");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<int>("Excepciones")
+                        .HasColumnType("integer")
+                        .HasColumnName("excepciones");
+
+                    b.Property<Guid>("PeriodoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("periodo_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cierres_periodo");
+
+                    b.HasIndex("PeriodoId")
+                        .HasDatabaseName("ix_cierres_periodo_periodo_id");
+
+                    b.HasIndex("EmpresaId", "PeriodoId", "CerradoEn")
+                        .HasDatabaseName("ix_cierres_periodo_empresa_id_periodo_id_cerrado_en");
+
+                    b.ToTable("cierres_periodo", "contabilidad");
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.CobroEfectivoCaja", b =>
                 {
                     b.Property<Guid>("CobroId")
@@ -620,6 +665,101 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("importaciones_catalogo", "contabilidad");
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.MarcaPasoCierre", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("PasoClave")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("paso_clave");
+
+                    b.Property<Guid>("PeriodoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("periodo_id");
+
+                    b.Property<DateTimeOffset>("RegistradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrada_en");
+
+                    b.Property<DateTimeOffset?>("RetiradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retirada_en");
+
+                    b.Property<string>("RetiradaPor")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("retirada_por");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<string>("UsuarioNombre")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("usuario_nombre");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_marcas_paso_cierre");
+
+                    b.HasIndex("PeriodoId")
+                        .HasDatabaseName("ix_marcas_paso_cierre_periodo_id");
+
+                    b.HasIndex("EmpresaId", "PeriodoId", "PasoClave", "Tipo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_marcas_paso_cierre_vigente")
+                        .HasFilter("retirada_en IS NULL");
+
+                    b.ToTable("marcas_paso_cierre", "contabilidad", t =>
+                        {
+                            t.HasCheckConstraint("ck_marcas_paso_cierre_tipo", "tipo BETWEEN 0 AND 1");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.MovimientoDimensionPrueba", b =>
                 {
                     b.Property<Guid>("Id")
@@ -899,6 +1039,94 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_movimientos_puente_tipo_cambio", "tipo_cambio > 0");
 
                             t.HasCheckConstraint("ck_movimientos_puente_un_lado", "cargo >= 0 AND abono >= 0 AND (cargo = 0) <> (abono = 0)");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.PasoCierreContable", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activo");
+
+                    b.Property<short>("Alcance")
+                        .HasColumnType("smallint")
+                        .HasColumnName("alcance");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("clave");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("nombre");
+
+                    b.Property<bool>("Obligatorio")
+                        .HasColumnType("boolean")
+                        .HasColumnName("obligatorio");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("integer")
+                        .HasColumnName("orden");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pasos_cierre");
+
+                    b.HasIndex("EmpresaId", "Clave")
+                        .IsUnique()
+                        .HasDatabaseName("ux_pasos_cierre_clave");
+
+                    b.ToTable("pasos_cierre", "contabilidad", t =>
+                        {
+                            t.HasCheckConstraint("ck_pasos_cierre_alcance", "alcance BETWEEN 0 AND 1");
+
+                            t.HasCheckConstraint("ck_pasos_cierre_tipo", "tipo BETWEEN 0 AND 1");
                         });
                 });
 
@@ -1643,6 +1871,42 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("resuelto_por");
 
+                    b.Property<short?>("TcAccion")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tc_accion");
+
+                    b.Property<DateTimeOffset?>("TcAutorizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("tc_autorizado_en");
+
+                    b.Property<string>("TcAutorizadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tc_autorizado_por");
+
+                    b.Property<DateTimeOffset?>("TcCapturadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("tc_capturado_en");
+
+                    b.Property<string>("TcCapturadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tc_capturado_por");
+
+                    b.Property<Guid?>("TcCapturadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tc_capturado_por_id");
+
+                    b.Property<string>("TcMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("tc_motivo");
+
+                    b.Property<decimal?>("TcValor")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tc_valor");
+
                     b.Property<string>("TipoEvento")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2181,6 +2445,119 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("saldos_iva_documento", "contabilidad");
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.SolicitudAnulacionPoliza", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DecididaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decidida_en");
+
+                    b.Property<string>("DecididaPor")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("decidida_por");
+
+                    b.Property<Guid?>("DecididaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decidida_por_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<int?>("PeriodoAnio")
+                        .HasColumnType("integer")
+                        .HasColumnName("periodo_anio");
+
+                    b.Property<int?>("PeriodoNumero")
+                        .HasColumnType("integer")
+                        .HasColumnName("periodo_numero");
+
+                    b.Property<Guid?>("PolizaAnulacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_anulacion_id");
+
+                    b.Property<Guid>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<DateTimeOffset>("SolicitadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("solicitada_en");
+
+                    b.Property<string>("SolicitadaPor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("solicitada_por");
+
+                    b.Property<Guid?>("SolicitadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitada_por_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_solicitudes_anulacion_poliza");
+
+                    b.HasIndex("PolizaId")
+                        .HasDatabaseName("ix_solicitudes_anulacion_poliza_poliza_id");
+
+                    b.HasIndex("EmpresaId", "PolizaId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_solicitudes_anulacion_poliza_pendiente")
+                        .HasFilter("estado = 0");
+
+                    b.HasIndex("EmpresaId", "Estado", "SolicitadaEn")
+                        .HasDatabaseName("ix_solicitudes_anulacion_poliza_empresa_id_estado_solicitada_en");
+
+                    b.ToTable("solicitudes_anulacion_poliza", "contabilidad", t =>
+                        {
+                            t.HasCheckConstraint("ck_solicitudes_anulacion_poliza_estado", "estado BETWEEN 0 AND 2");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.SolicitudCatalogo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2568,6 +2945,16 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.CierrePeriodoRegistro", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.PeriodoContable", null)
+                        .WithMany()
+                        .HasForeignKey("PeriodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cierres_periodo_periodos_periodo_id");
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.ConsecutivoPoliza", b =>
                 {
                     b.HasOne("Millet.Contabilidad.Domain.TipoDocumentoContable", null)
@@ -2618,6 +3005,16 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_cuentas_contables_uso_cuentas_contables_cuenta_id");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.MarcaPasoCierre", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.PeriodoContable", null)
+                        .WithMany()
+                        .HasForeignKey("PeriodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_marcas_paso_cierre_periodos_periodo_id");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.MovimientoDimensionPrueba", b =>
@@ -2845,7 +3242,41 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                                 .HasConstraintName("fk_reclasificaciones_iva_reclasificaciones_iva_reclasificacion");
                         });
 
+                    b.OwnsMany("Millet.Contabilidad.Domain.TratamientoAplicadoIva", "Tratamientos", b1 =>
+                        {
+                            b1.Property<Guid>("ReclasificacionIvaId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<decimal>("Base");
+
+                            b1.Property<decimal>("BaseMxn");
+
+                            b1.Property<decimal>("Iva");
+
+                            b1.Property<decimal>("IvaMxn");
+
+                            b1.Property<string>("Tratamiento")
+                                .IsRequired();
+
+                            b1.HasKey("ReclasificacionIvaId", "__synthesizedOrdinal")
+                                .HasName("pk_reclasificaciones_iva");
+
+                            b1.ToTable("reclasificaciones_iva", "contabilidad");
+
+                            b1
+                                .ToJson("tratamientos")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ReclasificacionIvaId")
+                                .HasConstraintName("fk_reclasificaciones_iva_reclasificaciones_iva_reclasificacion");
+                        });
+
                     b.Navigation("Retenciones");
+
+                    b.Navigation("Tratamientos");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.ReglaDimension", b =>
@@ -2923,7 +3354,51 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                                 .HasConstraintName("fk_saldos_iva_documento_saldos_iva_documento_saldo_iva_documento");
                         });
 
+                    b.OwnsMany("Millet.Contabilidad.Domain.TratamientoSaldoIva", "Tratamientos", b1 =>
+                        {
+                            b1.Property<Guid>("SaldoIvaDocumentoId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<decimal>("Base");
+
+                            b1.Property<decimal>("BaseAplicada");
+
+                            b1.Property<decimal>("Iva");
+
+                            b1.Property<decimal>("IvaReclasificado");
+
+                            b1.Property<string>("Tratamiento")
+                                .IsRequired();
+
+                            b1.HasKey("SaldoIvaDocumentoId", "__synthesizedOrdinal")
+                                .HasName("pk_saldos_iva_documento");
+
+                            b1.ToTable("saldos_iva_documento", "contabilidad");
+
+                            b1
+                                .ToJson("tratamientos")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SaldoIvaDocumentoId")
+                                .HasConstraintName("fk_saldos_iva_documento_saldos_iva_documento_saldo_iva_documento");
+                        });
+
                     b.Navigation("Retenciones");
+
+                    b.Navigation("Tratamientos");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.SolicitudAnulacionPoliza", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.Poliza", null)
+                        .WithMany()
+                        .HasForeignKey("PolizaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_solicitudes_anulacion_poliza_polizas_poliza_id");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.Poliza", b =>

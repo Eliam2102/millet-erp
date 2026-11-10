@@ -191,6 +191,7 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesGestionar: 'datos_maestros.clientes.gestionar',
   // Sincronización de clientes desde A+W (F1-ADM-06).
   DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
+  IntegracionesAwAdministracionConfiguracion: 'integraciones.aw.administracion.configuracion',
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
   DatosMaestrosClientesUnificar: 'datos_maestros.clientes.unificar',
@@ -408,6 +409,8 @@ export const PermisosCanonicos = {
   TesoreriaMovimientosRegistrar: 'tesoreria.movimientos.registrar',
   TesoreriaMovimientosVerCuentaCompleta:
     'tesoreria.movimientos.ver-cuenta-completa',
+  TesoreriaMovimientosAutorizarReclasificacion:
+    'tesoreria.movimientos.autorizar-reclasificacion',
   TesoreriaPagosAplicar: 'tesoreria.pagos.aplicar',
   TesoreriaPagosRevertir: 'tesoreria.pagos.revertir',
   TesoreriaPagosCuentaRegistrar: 'tesoreria.pagos-cuenta.registrar',
@@ -467,6 +470,8 @@ export const PermisosCanonicos = {
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
   FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
   FacturacionNotasCreditoAutorizar: 'facturacion.notas-credito.autorizar',
+  // M-087: segunda firma (Crédito y Cobranza) de las NC de A+W arriba del umbral.
+  FacturacionNotasCreditoAutorizarCredito: 'facturacion.notas-credito.autorizar-credito',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',
@@ -487,6 +492,8 @@ export const PermisosCanonicos = {
   FacturacionComprobantesReintentarTimbrado:
     'facturacion.comprobantes.reintentar-timbrado',
   FacturacionComprobantesDescartar: 'facturacion.comprobantes.descartar',
+  // M-284: adoptar el CFDI que el PAC sí timbró (XML del portal).
+  FacturacionComprobantesAdoptarCfdi: 'facturacion.comprobantes.adoptar-cfdi',
 
   // Centros de Costo (backend CECO-PR1, renombre dim3.leer-todos en
   // CECO-PR4; FE desde CECO-FE-PR1). OJO: namespace snake
@@ -512,11 +519,17 @@ export const PermisosCanonicos = {
   ContabilidadPeriodoAdministrar: 'contabilidad.periodo.administrar',
   ContabilidadPeriodoCerrar: 'contabilidad.periodo.cerrar',
   ContabilidadPeriodoReabrir: 'contabilidad.periodo.reabrir',
+  ContabilidadCierreConfigurar: 'contabilidad.cierre.configurar',
+  ContabilidadCierreAutorizarExcepcion: 'contabilidad.cierre.autorizar-excepcion',
+  ContabilidadCierreAnual: 'contabilidad.cierre.anual',
   // Pólizas (F1-CON-04): captura (analista), autorización (supervisor, distinto de quien capturó) y anulación con motivo.
   ContabilidadPolizasLeer: 'contabilidad.polizas.leer',
   ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',
   ContabilidadPolizasAutorizar: 'contabilidad.polizas.autorizar',
+  /** M-212: solicitar la anulación (la aprueba otra persona con el permiso siguiente). */
   ContabilidadPolizasAnular: 'contabilidad.polizas.anular',
+  /** M-212: aprobar o rechazar la anulación solicitada por otra persona (segunda firma). */
+  ContabilidadPolizasAnularAprobar: 'contabilidad.polizas.anular-aprobar',
   // K10.4: pólizas recurrentes (0000000d-0006). `administrar` prepara, suspende, reanuda y genera; `autorizar` activa
   // (no quien la preparó).
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
@@ -526,6 +539,13 @@ export const PermisosCanonicos = {
   ContabilidadMotorLeer: 'contabilidad.motor.leer',
   ContabilidadRolesCuentaAdministrar: 'contabilidad.roles-cuenta.administrar',
   ContabilidadRechazosGestionar: 'contabilidad.rechazos.gestionar',
+  // M-207: autorizar el TC sustituto de un rechazo del motor (otra persona que quien lo capturó).
+  ContabilidadTipoCambioAutorizarSustituto: 'contabilidad.tipo-cambio.autorizar-sustituto',
+  ComercioExteriorEmbarquesCredito: 'comercio_exterior.embarques.aprobar-credito',
+  ComercioExteriorEmbarquesVentas: 'comercio_exterior.embarques.aprobar-ventas',
+  ComercioExteriorEmbarquesAdministracion: 'comercio_exterior.embarques.aprobar-administracion',
+  ComercioExteriorEmbarquesPlaneacion: 'comercio_exterior.embarques.aprobar-planeacion',
+  ComercioExteriorEmbarquesContraloria: 'comercio_exterior.embarques.aprobar-contraloria',
   ComercioExteriorEmbarquesAutorizarSalida: 'comercio_exterior.embarques.autorizar_salida',
   ComercioExteriorExpedientesAprobarCierre: 'comercio_exterior.expedientes.aprobar_cierre',
   ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',

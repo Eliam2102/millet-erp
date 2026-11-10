@@ -108,14 +108,12 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
             //       hermanas → MOVIMIENTO_MULTI_SUBALMACEN, cubierto por
             //       Pr6aNotNullYMultiSubalmacenTests. Aquí ya no hay caso 4.
 
-            // ── 5. (86e3tfet2) Entrada SIN variante (no vidrio) a la ÚNICA →
-            //       aceptada (almacén general); CON variante (vidrio) → rechazo ─
+            // ── 5. (86e3tfet2, M-159) Entrada a la ÚNICA → aceptada con o sin
+            //       variante; la regla de rack para A+W vive en UbicacionEntradaGuard ─
             var articuloZ = Guid.NewGuid();
             await RegistrarMovimientoAsync(db, tipo: 0, subS1, empresaId, articuloZ, 1m, 100m, unicaS1);
             Assert.Equal(1m, (await LeerSaldoAsync(db, unicaS1, articuloZ))!.Cantidad);
-            var exUnica = await Assert.ThrowsAnyAsync<Exception>(() =>
-                RegistrarMovimientoAsync(db, tipo: 0, subS1, empresaId, articuloX, 1m, 100m, unicaS1, varianteId: Guid.NewGuid()));
-            Assert.Contains("ENTRADA_A_UBICACION_UNICA", MensajeCompleto(exUnica));
+            await RegistrarMovimientoAsync(db, tipo: 0, subS1, empresaId, Guid.NewGuid(), 1m, 100m, unicaS1, varianteId: Guid.NewGuid());
 
             // ── 6. Entrada a bin INACTIVO → rechazo ────────────────────────
             var exInactiva = await Assert.ThrowsAnyAsync<Exception>(() =>

@@ -225,6 +225,8 @@ export interface PedidoFacturableLineaInput {
 export interface BandejaScoped<TItem> {
   items: TItem[];
   sinAsignarCount: number | null;
+  /** Filas que cumplen el filtro en el servidor (paginación servidor); ausente en bandejas que aún no lo envían. */
+  total?: number;
 }
 
 /**
@@ -886,6 +888,10 @@ export interface PedidoFacturableLineaDetalle {
   tasaIvaTraslado: number | null;
   tasaRetencionIva: number | null;
   tasaRetencionIsr: number | null;
+  /** B12: datos de aduana y peso del artículo (master) para la factura de exportación. */
+  fraccionArancelaria?: string | null;
+  unidadAduana?: string | null;
+  pesoUnitarioKg?: number | null;
 }
 
 /**
@@ -1497,6 +1503,46 @@ export interface ReintentarTimbradoResponse {
   version: number;
 }
 
+/** M-285: efecto posterior al timbrado (evento contable, pedido y A+W, NC de ranura). */
+export interface EfectoComprobanteItem {
+  id: string;
+  tipo: string;
+  descripcion: string;
+  estado: 'Pendiente' | 'Aplicado' | string;
+  intentos: number;
+  ultimoErrorCodigo: string | null;
+  ultimoError: string | null;
+  ultimoIntentoAt: string | null;
+  aplicadoAt: string | null;
+}
+
+/** M-285: comprobante timbrado con efectos pendientes (bandeja). */
+export interface ComprobanteConEfectosPendientesItem {
+  comprobanteId: string;
+  folio: string;
+  uuid: string | null;
+  fechaTimbrado: string | null;
+  pendientes: EfectoComprobanteItem[];
+}
+
+/** M-284: un dato cotejado entre el comprobante del ERP y el XML timbrado. */
+export interface CampoCotejado {
+  campo: string;
+  erp: string;
+  xml: string;
+  coincide: boolean;
+}
+
+/** Respuesta de POST /comprobantes/{id}/adoptar-cfdi (M-284). */
+export interface AdoptarCfdiTimbradoResponse {
+  id: string;
+  folio: string;
+  estado: string;
+  uuid: string | null;
+  adoptado: boolean;
+  cotejo: CampoCotejado[];
+}
+
 /** Respuesta de POST /comprobantes/{id}/descartar ([Decisión 01-G] G3). */
 export interface DescartarComprobanteResponse {
   id: string;
@@ -1600,6 +1646,8 @@ export interface SolicitarCancelacionResponse {
   estadoComprobante: string;
   estadoSolicitud: string;
   estatusSat: string | null;
+  /** M18: motivo del rechazo del SAT (sin el texto en inglés del PAC); null si no hubo rechazo. */
+  mensajeError?: string | null;
 }
 
 /** Estatus de la cancelación de un comprobante (GET /comprobantes/{id}/cancelar). */
@@ -2048,7 +2096,7 @@ export interface ProformaCfdi {
   moneda: string;
   tipoCambio: number | null;
   exportacion: string;
-  /** Tipo de serie que se usará al timbrar ("Cfdi" | "VentaDirecta"), sin número. */
+  /** Tipo de serie que se usará al timbrar ("Cfdi" | "VentaDirecta" | "Exportacion"), sin número. */
   serieFiscalPrevista: string;
   conceptos: ProformaConcepto[];
   totales: ProformaTotales;

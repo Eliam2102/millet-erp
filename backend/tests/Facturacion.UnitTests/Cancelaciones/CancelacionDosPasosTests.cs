@@ -326,6 +326,7 @@ public sealed class CancelacionDosPasosTests
 
         resp.EstadoComprobante.Should().Be("Timbrado");
         resp.EstadoSolicitud.Should().Be("Rechazada");
+        resp.MensajeError.Should().Be("El receptor rechazó.", "M18: la respuesta lleva el motivo del rechazo");
         (await db.FacturasVenta.SingleAsync()).Estado.Should().Be(EstadoTimbrado.Timbrado);
         (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Facturado);
     }
@@ -403,4 +404,32 @@ public sealed class CancelacionDosPasosTests
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_DEVUELTO_NCS_VIGENTES");
     }
+
+    [Fact]
+    public async Task Bandeja_todos_trae_las_solicitudes_en_cualquier_estado_B3()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var (pendiente, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, pendiente.Id);
+        var (decidida, _) = await SembrarFacturaConPedidoAsync(db, empresaId);
+        await SolicitarAsync(db, empresaId, decidida.Id);
+        await Autorizador(db).Handle(new AutorizarCancelacionCommand(decidida.Id), CancellationToken.None);
+
+        var handler = new BandejaCancelacionesHandler(db);
+        var soloPendientes = await handler.Handle(new BandejaCancelacionesQuery(null), CancellationToken.None);
+        var todas = await handler.Handle(new BandejaCancelacionesQuery(null, Todos: true), CancellationToken.None);
+
+        soloPendientes.Select(f => f.ComprobanteId).Should().Equal(pendiente.Id);
+        todas.Select(f => f.ComprobanteId).Should().BeEquivalentTo([pendiente.Id, decidida.Id]);
+        todas.Single(f => f.ComprobanteId == decidida.Id).EstadoSolicitud.Should().NotBe("PendienteAutorizacion");
+    }
+
+    [Theory]
+    [InlineData("Sorry, it's not me, it's you. — SAT 205: el SAT aún no refleja este CFDI", "SAT 205: el SAT aún no refleja este CFDI")]
+    [InlineData("El receptor rechazó.", "El receptor rechazó.")]
+    [InlineData(null, null)]
+    [InlineData("  ", null)]
+    public void M18_el_mensaje_del_rechazo_quita_el_texto_del_PAC(string? guardado, string? esperado) =>
+        SolicitarCancelacionResponse.MensajeSatParaUsuario(guardado).Should().Be(esperado);
 }

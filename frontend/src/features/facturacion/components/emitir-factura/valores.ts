@@ -99,9 +99,12 @@ export function valoresIniciales(
     lineas: [defaultLinea(emisor.tasaIvaDefault)],
   };
   if (prefill == null) return base;
+  // M-158: con expediente de CE, la fracción y la unidad aduana son las revisadas ahí (mismo orden por
+  // posición que usa el servidor al emitir); el artículo (B12) solo llena cuando no hay datos de CE.
+  const aduanalesCe = aduanalesDeComercioExterior(prefill.embarqueCe);
   const lineas =
     prefill.lineas && prefill.lineas.length > 0
-      ? prefill.lineas.map((l) => ({
+      ? prefill.lineas.map((l, i) => ({
           productoId: l.productoId,
           claveProdServSat: l.claveProdServSat,
           descripcion: l.descripcion,
@@ -114,13 +117,15 @@ export function valoresIniciales(
           tasaRetencionIva: l.tasaRetencionIva ?? null,
           tasaRetencionIsr: l.tasaRetencionIsr ?? null,
           requierePedimento: l.requierePedimento,
-          fraccionArancelaria: null,
-          unidadAduana: null,
+          // B12: la línea del pedido hereda la fracción y la unidad aduana del artículo
+          // (como al elegirlo a mano en Partidas); siguen editables.
+          fraccionArancelaria: aduanalesCe[i]?.fraccionArancelaria ?? l.fraccionArancelaria ?? null,
+          unidadAduana: aduanalesCe[i]?.unidadAduana ?? l.unidadAduana ?? null,
           cantidadAduana: null,
           valorUnitarioAduana: null,
           valorDolares: null,
           aplicaIva0: false,
-          pesoUnitarioKg: null,
+          pesoUnitarioKg: l.pesoUnitarioKg ?? null,
         }))
       : base.lineas;
   return {
@@ -160,4 +165,12 @@ export function valoresIniciales(
     obraNombre: prefill.obraNombre ?? null,
     lineas,
   };
+}
+
+/** M-158: datos aduanales de CE ordenados por posición (vacío si el pedido no tiene expediente ligado). */
+export function aduanalesDeComercioExterior(
+  embarque: EmitirFacturaPrefill['embarqueCe'],
+): { posicion: number; fraccionArancelaria: string; unidadAduana: string }[] {
+  if (!embarque?.ligado) return [];
+  return [...(embarque.datosAduanales ?? [])].sort((a, b) => a.posicion - b.posicion);
 }

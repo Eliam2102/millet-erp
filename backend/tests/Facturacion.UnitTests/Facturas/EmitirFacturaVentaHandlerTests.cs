@@ -137,6 +137,38 @@ public sealed class EmitirFacturaVentaHandlerTests
         Assert.Equal(0, credito.Consultas);
     }
 
+    [Theory]
+    [InlineData(null, "CONTADO")]      // FA-000004: el pedido de A+W dice CONTADO y la factura es PPD
+    [InlineData(" contado ", null)]    // capturado a mano en el formulario
+    public async Task M12_PPD_con_CONTADO_toma_el_plazo_de_la_linea_de_credito(string? capturadas, string? delPedido)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-M12", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            null, 1, "15", condicionPagoOrigen: delPedido);
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 15));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99", CondicionesPago = capturadas
+        }, CancellationToken.None);
+        Assert.Equal("15 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task M12_PPD_con_CONTADO_y_sin_linea_de_credito_queda_sin_condiciones()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        await Handler(db, empresa, plazoCredito: new PlazosCredito()).Handle(Command() with {
+            ClienteId = Guid.NewGuid(), MetodoPago = "PPD", FormaPago = "99", CondicionesPago = "CONTADO"
+        }, CancellationToken.None);
+        Assert.Null((await db.FacturasVenta.SingleAsync()).CondicionesPago);
+    }
+
     [Fact]
     public async Task Condiciones_usan_la_linea_de_la_moneda_de_la_factura()
     {
@@ -422,8 +454,8 @@ public sealed class EmitirFacturaVentaHandlerTests
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "70071999", "06")]);
-        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "06")]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
         await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000").Handle(command with {
             PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA" }, CancellationToken.None);
         var f = await db.FacturasVenta.Include(f => f.ComplementoCce).SingleAsync();
@@ -655,6 +687,38 @@ public sealed class EmitirFacturaVentaHandlerTests
     }
 
     [Fact]
+    public async Task Exportacion_con_CCE_reserva_la_serie_de_exportacion_y_no_la_de_la_sucursal()
+    {
+        // Prueba S3-4: la factura de exportación de una sucursal con serie CFDI propia
+        // salía con esa serie (FCNK) y no con la de exportación (FEXP).
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "06")]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+        var sender = new FakeSender(new ReservarFolioResponse("FEXP-000001", 1, ""));
+
+        var resp = await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000", sender: sender).Handle(command with {
+            PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA",
+            ComportamientoFiscal = ComportamientoFiscal.ExportacionConCce }, CancellationToken.None);
+
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.Exportacion);
+        resp.Folio.Should().Be("FEXP-000001");
+    }
+
+    [Theory]
+    [InlineData(false, ComportamientoFiscal.ExportacionConCce, Millet.Administracion.Domain.TipoDocumentoSerie.Exportacion)]
+    [InlineData(false, ComportamientoFiscal.MostradorInmediato, Millet.Administracion.Domain.TipoDocumentoSerie.Cfdi)]
+    [InlineData(true, ComportamientoFiscal.MostradorInmediato, Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta)]
+    [InlineData(true, ComportamientoFiscal.ExportacionConCce, Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta)]
+    public void Tipo_de_serie_de_la_factura_y_de_la_proforma(bool ventaDirecta, ComportamientoFiscal comportamiento,
+        Millet.Administracion.Domain.TipoDocumentoSerie esperado)
+    {
+        EmitirFacturaVentaHandler.TipoSerieFactura(ventaDirecta, comportamiento).Should().Be(esperado);
+        Millet.Facturacion.Application.Proformas.ProformaEmisionDesdePedido.SeriePrevista(ventaDirecta, comportamiento)
+            .Should().Be(esperado.ToString());
+    }
+
+    [Fact]
     public async Task Pedido_manual_legacy_sin_clase_se_rechaza_sin_quemar_folio()
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
@@ -716,5 +780,116 @@ public sealed class EmitirFacturaVentaHandlerTests
         sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta);
         autorizacion.Estado.Should().Be(Millet.Facturacion.Domain.Activos.EstadoAutorizacionActivo.Usada);
         autorizacion.FacturaVentaId.Should().Be(resp.Id);
+    }
+
+    /// <summary>B2: el PAC no está configurado; el adaptador lanza antes de llamar al PAC.</summary>
+    private sealed class FakeFiscalSinPac : Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort
+    {
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.TimbradoResultado> TimbrarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CfdiEmision emision, CancellationToken ct) =>
+            throw new Millet.Integraciones.Fiscal.Domain.Exceptions.ConfiguracionPacNoDisponibleException(emision.EmpresaId);
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CancelacionResultado> CancelarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CancelacionSolicitud s, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiResultado> ConsultarEstatusAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiSolicitud s, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task B2_sin_PAC_configurado_el_folio_queda_en_una_factura_Descartada_con_su_motivo()
+    {
+        // Reproduce FA-000004 de la prueba S3-4: la emisión aborta después de reservar el folio.
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var sender = new FakeSender(new ReservarFolioResponse("FA-000004", 4, ""));
+
+        var act = () => Handler(db, empresa, fiscal: new FakeFiscalSinPac(), sender: sender)
+            .Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<Millet.Integraciones.Fiscal.Domain.Exceptions.ConfiguracionPacNoDisponibleException>();
+        db.ChangeTracker.Clear();
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Folio.Should().Be("FA-000004");
+        factura.Estado.Should().Be(EstadoTimbrado.Descartada);
+        factura.TimbradoErrorCodigo.Should().Be("CONFIG_PAC_NO_DISPONIBLE");
+        factura.TimbradoErrorMensaje.Should().Contain("No hay configuración de PAC");
+        var contingencia = await db.ContingenciasTimbrado.SingleAsync();
+        (contingencia.ComprobanteId, contingencia.ComprobanteFolio, contingencia.Estado)
+            .Should().Be((factura.Id, "FA-000004", EstadoContingenciaTimbrado.Descartada));
+        // El pedido no queda tomado: se puede volver a facturar.
+        (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Importado);
+    }
+
+    [Fact]
+    public async Task M173_caida_del_PAC_durante_la_llamada_deja_la_factura_en_proceso_con_su_folio_y_el_pedido_tomado()
+    {
+        var empresa = Guid.NewGuid();
+        var nombre = Guid.NewGuid().ToString();
+        FacturacionDbContext Db() => new(new DbContextOptionsBuilder<FacturacionDbContext>().UseInMemoryDatabase(nombre).Options,
+            new FakeEmpresaContext(empresa));
+        using var db = Db();
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var pac = new FakeFiscalCaida();
+
+        var act = () => Handler(db, empresa, fiscal: pac, sender: new FakeSender(new ReservarFolioResponse("MER-A15230", 15230, "")))
+            .Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<HttpRequestException>();
+        pac.Llamadas.Should().Be(1);
+        // Otro contexto (como si el proceso hubiera muerto): lo guardado antes del PAC sigue ahí.
+        using var otra = Db();
+        var factura = await otra.FacturasVenta.SingleAsync();
+        (factura.Folio, factura.Estado).Should().Be(("MER-A15230", EstadoTimbrado.TimbradoEnProceso));
+        var guardado = await otra.PedidosFacturables.SingleAsync();
+        (guardado.Estado, guardado.ComprobanteVigenteId).Should().Be((EstadoPedidoFacturable.Facturado, factura.Id));
+    }
+
+    [Fact]
+    public async Task M173_emision_normal_timbra_igual_que_antes_y_guarda_una_sola_factura()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+
+        var resp = await Handler(db, empresa).Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        resp.Estado.Should().Be(nameof(EstadoTimbrado.Timbrado));
+        db.ChangeTracker.Clear();
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Uuid.Should().NotBeNullOrEmpty();
+        (await db.BitacorasIntentoTimbrado.CountAsync(b => b.ComprobanteId == factura.Id)).Should().Be(1);
+        (await db.PedidosFacturables.SingleAsync()).ComprobanteVigenteId.Should().Be(factura.Id);
+    }
+
+    [Fact]
+    public async Task M285_TR01_emision_de_pedido_AW_deja_el_control_de_ingesta_Facturado_con_el_efecto_y_el_reintento_no_lo_repite()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        db.IngestaControles.Add(Millet.Facturacion.Domain.Ingesta.IngestaControl.Crear(empresa, OrigenPedido.Aw,
+            pedido.NumeroPedido!, "hash", 1, Millet.Facturacion.Domain.Ingesta.EstadoIngesta.Importado, pedido.Id, Ahora));
+        db.SaveChanges();
+
+        var resp = await Handler(db, empresa).Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        db.ChangeTracker.Clear();
+        (await db.IngestaControles.SingleAsync()).Estado.Should().Be(Millet.Facturacion.Domain.Ingesta.EstadoIngesta.Facturado);
+        var efecto = await db.EfectosComprobante.SingleAsync(e => e.ComprobanteId == resp.Id && e.Tipo == TipoEfectoComprobante.EstadoPedido);
+        (efecto.Estado, efecto.Intentos).Should().Be((EstadoEfectoComprobante.Aplicado, 1));
+
+        // Reintentar efectos: no hay pendientes; el control no se toca otra vez.
+        var reintento = await new Millet.Facturacion.Application.Timbrado.Efectos.ReintentarEfectosComprobanteHandler(
+                db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
+                new FakeIntegrationEventPublisher(), ReceptorFiscalTestFactory.Crear(db), new FakeClock(Ahora))
+            .Handle(new Millet.Facturacion.Application.Timbrado.Efectos.ReintentarEfectosComprobanteCommand(resp.Id), CancellationToken.None);
+        reintento.Should().OnlyContain(e => e.Estado == "Aplicado");
+        db.ChangeTracker.Clear();
+        (await db.EfectosComprobante.SingleAsync(e => e.ComprobanteId == resp.Id && e.Tipo == TipoEfectoComprobante.EstadoPedido))
+            .Intentos.Should().Be(1);
     }
 }

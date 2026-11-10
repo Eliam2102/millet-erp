@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Adjuntos;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -67,6 +68,7 @@ public static class EvidenciasEndpoints
             string blobRef;
             await using (var stream = archivo.OpenReadStream())
             {
+                await AdjuntosPoliticaOptions.ValidarSiEsPdfAsync(archivo.FileName, archivo.ContentType ?? "application/octet-stream", stream, cancellationToken);
                 blobRef = await blob.GuardarAsync(
                     documentoId: facturaId,
                     evidenciaId: evidenciaId,

@@ -40,7 +40,7 @@ public sealed record MutarFinanzasCommand(Guid ExpedienteId, int Version, string
     DatosGasto? Gasto = null, PartidaCostoDatos? Partida = null, AnticipoDatos? Anticipo = null,
     ComprobacionAnticipoDatos? Comprobacion = null, ResolucionAnticipoDatos? Resolucion = null, ConceptoGastoDatos? Concepto = null,
     DistribuirDatos? Distribuir = null) : IRequest<FinanzasDetalle>;
-/// <summary>H1 paso 4 (86e3z5w25): área (Dim2) y equipo (Dim3) que se capturan al distribuir; opcionales.</summary>
+/// <summary>H1 paso 4 (86e3z5w25): área (Dim2) y equipo (Dim3) que se capturan al distribuir; obligatorios si la cuenta los exige (M-450).</summary>
 public sealed record DistribuirDatos(Guid? AreaId, Guid? EquipoId);
 /// <remarks>H1 paso 4 (aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir; Almacén lo pasa a Contabilidad.</remarks>
 public sealed record ExpedienteCostoDistribuidoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, Guid SucursalId,
@@ -56,8 +56,8 @@ public sealed record DimensionesDistribucion(Guid SucursalId, bool ExigeArea, bo
 /// <summary>
 /// H1 paso 4 (86e3z5w25): la póliza del costo aplicado (<c>almacen.expediente.costo-aplicado.v1</c>) carga la parte de piezas ya
 /// vendidas a gasto de importación (501, regla C-03). El área y el equipo se capturan al distribuir: Contabilidad dice qué exige la
-/// cuenta, ofrece los centros de la sucursal del expediente y valida lo capturado. Sin el dato la distribución procede y la póliza
-/// queda en Rechazos.
+/// cuenta, ofrece los centros de la sucursal del expediente y valida lo capturado. M-450: sin el dato exigido la distribución no
+/// procede.
 /// </summary>
 public sealed class DimensionesDistribucionServicio(ExpedienteServicio servicio, IDimensionesCapturaPort dimensiones, IClock clock)
 {
@@ -82,12 +82,16 @@ public sealed class DimensionesDistribucionServicio(ExpedienteServicio servicio,
         return await dimensiones.CentrosAsync(e.EmpresaId, e.SucursalId, equipos, areaId, q, limite, ct);
     }
 
-    /// <summary>Centro que viaja en el evento (el equipo si se eligió; si no, el área). Un dato inválido rechaza la distribución.</summary>
+    /// <summary>
+    /// Centro que viaja en el evento (el equipo si se eligió; si no, el área). Un dato inválido rechaza la distribución.
+    /// M-450 (86e3zr7ft): si la cuenta del gasto de importación exige área o equipo (regla C-03) y no se capturaron, tampoco procede.
+    /// </summary>
     public async Task<Guid?> CentroAsync(Expediente e, DistribuirDatos? datos, CancellationToken ct)
     {
-        if (datos is null || (datos.AreaId is null && datos.EquipoId is null)) return null;
-        var r = await dimensiones.ValidarAsync(Movimiento(e, clock.HoyLocal()), datos.AreaId, datos.EquipoId, ct);
-        return r.Error is null ? r.CentroCostoId : throw new BusinessRuleException("CE_DIMENSION_INVALIDA", r.Error);
+        var r = await dimensiones.ValidarAsync(Movimiento(e, clock.HoyLocal()), datos?.AreaId, datos?.EquipoId, ct);
+        if (r.Error is not null) throw new BusinessRuleException("CE_DIMENSION_INVALIDA", r.Error);
+        if (r.Faltante is not null) throw new BusinessRuleException("CE_DIMENSION_FALTANTE", r.Faltante);
+        return r.CentroCostoId;
     }
 }
 

@@ -274,6 +274,8 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
             b.ToTable("pagos_proveedor_local"); b.HasKey(x => x.Id); b.Property(x => x.Id).ValueGeneratedNever();
             b.Property(x => x.Importe).HasPrecision(18, 4); b.Property(x => x.CubiertoRepp).HasPrecision(18, 4);
             b.HasIndex(x => new { x.EmpresaId, x.PagoId }).IsUnique(); b.HasIndex(x => x.FacturaProveedorId);
+            b.Property(x => x.Moneda).HasMaxLength(3); b.Property(x => x.TipoCambio).HasPrecision(18, 6);
+            b.HasIndex(x => new { x.EmpresaId, x.FechaPago });
         });
         modelBuilder.ApplyConfiguration(new RetencionConceptoConfiguration());
         modelBuilder.ApplyConfiguration(new ClasificacionNoDeducibleConfiguration());

@@ -286,6 +286,12 @@ public static class CfdiEmisionBuilder
         TimeZoneInfo.ConvertTime(ahoraUtc, ZonaFiscal);
 
     /// <summary>
+    /// M11: día fiscal (hora de México) para la fecha de referencia del folio; en UTC,
+    /// después de las 18:00 del último día del mes ya sería el mes siguiente.
+    /// </summary>
+    public static DateOnly DiaFiscal(DateTimeOffset ahoraUtc) => DateOnly.FromDateTime(FechaFiscal(ahoraUtc).DateTime);
+
+    /// <summary>
     /// Serie del CFDI = folio interno formateado sin el consecutivo final
     /// (formato Compartido.Series: <c>{prefijo}[{sufijo}|-{periodo}]-{D6}</c>).
     /// </summary>
@@ -453,6 +459,38 @@ public static class CfdiEmisionBuilder
         $"{l.ClaveProdServSat}-{l.Posicion}";
 
     /// <summary>
+    /// Datos que el SAT exige en el CCE 2.0 y que el PAC rechaza si faltan: domicilio del receptor
+    /// extranjero (calle, estado y código postal) y clave de pedimento (B5). La emisión lo llama
+    /// antes de reservar folio y el armado del CFDI antes de timbrar.
+    /// </summary>
+    public static void ValidarDatosSatCce(string? claveDePedimento, string? calle, string? estado, string? codigoPostal,
+        string? pais = null)
+    {
+        // M-158: el mensaje dice qué campo falta (calle, estado, código postal o país).
+        var faltan = new List<string>();
+        if (string.IsNullOrWhiteSpace(calle)) faltan.Add("la calle");
+        if (string.IsNullOrWhiteSpace(estado)) faltan.Add("el estado");
+        if (string.IsNullOrWhiteSpace(codigoPostal)) faltan.Add("el código postal");
+        if (pais is not null && (string.IsNullOrWhiteSpace(pais) || pais.Trim().Equals("MEX", StringComparison.OrdinalIgnoreCase)))
+            faltan.Add("el país (distinto de México)");
+        if (faltan.Count > 0)
+        {
+            throw new BusinessRuleException(
+                "CCE_DOMICILIO_RECEPTOR_INCOMPLETO",
+                $"Falta {string.Join(", ", faltan)} del domicilio del receptor extranjero. " +
+                "El Complemento de Comercio Exterior 2.0 lo exige; captúralo y vuelve a emitir.");
+        }
+
+        if (string.IsNullOrWhiteSpace(claveDePedimento))
+        {
+            throw new BusinessRuleException(
+                "CCE_CLAVE_PEDIMENTO_REQUERIDA",
+                "El Complemento de Comercio Exterior 2.0 exige la clave de pedimento (por ejemplo, A1). " +
+                "Captúrala y vuelve a emitir.");
+        }
+    }
+
+    /// <summary>
     /// Construye el complemento CCE si la factura lo adjuntó (F7-PR1). Valida
     /// pre-vuelo el domicilio del receptor extranjero (Estado + CP, exigidos
     /// por el CCE 2.0) — falla ANTES de quemar el timbre (F12-PR3).
@@ -466,14 +504,8 @@ public static class CfdiEmisionBuilder
         if (factura.ComplementoCce is not { } cce)
             return null;
 
-        if (string.IsNullOrWhiteSpace(cce.ReceptorDomicilioEstado)
-            || string.IsNullOrWhiteSpace(cce.ReceptorDomicilioCodigoPostal))
-        {
-            throw new BusinessRuleException(
-                "CCE_DOMICILIO_RECEPTOR_INCOMPLETO",
-                "El Complemento de Comercio Exterior 2.0 exige el domicilio del receptor extranjero " +
-                "(estado y código postal). Captura los datos faltantes y vuelve a emitir.");
-        }
+        ValidarDatosSatCce(cce.ClaveDePedimento, cce.ReceptorDomicilioCalle,
+            cce.ReceptorDomicilioEstado, cce.ReceptorDomicilioCodigoPostal, cce.ReceptorPaisResidencia);
 
         return new ComplementoCceCfdi(
             TipoOperacion: cce.TipoOperacion,

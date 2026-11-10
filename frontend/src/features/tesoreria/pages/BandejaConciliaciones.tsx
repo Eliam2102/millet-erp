@@ -1,5 +1,6 @@
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { errorUsuario } from '@/lib/error-usuario';
+import { esApiError } from '@/lib/api';
 import { useState, useMemo, useRef } from 'react';
 import {
   Scale,
@@ -12,6 +13,7 @@ import {
   Lock,
   Unlock,
   Clock,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -57,6 +60,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AreaEquipoCaptura } from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
 import {
   areaEquipoIds,
+  faltaAreaEquipo,
   type AreaEquipoValor,
 } from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -155,6 +159,7 @@ export function BandejaConciliaciones() {
   const [modalPartidaTransito, setModalPartidaTransito] = useState<ExtractoLineaResponse | null>(null);
   const [modalCerrar, setModalCerrar] = useState(false);
   const [modalReabrir, setModalReabrir] = useState(false);
+  const [errorCierre, setErrorCierre] = useState<string | null>(null);
 
   // Selección manual para matching
   const [lineaExtractoSeleccionadaId, setLineaExtractoSeleccionadaId] = useState<string | null>(null);
@@ -199,6 +204,10 @@ export function BandejaConciliaciones() {
     modalAltaAsistida?.fecha,
   );
   const dimensionesAlta = dimensionesAltaQuery.data;
+  // M-450 (86e3zr7ft): sin el área o el equipo que exige la cuenta del concepto, la alta no procede.
+  const faltaDimensionAlta =
+    !!dimensionesAlta?.sucursalId &&
+    faltaAreaEquipo(altaDimensiones, dimensionesAlta.exigeArea, dimensionesAlta.exigeEquipo);
 
   // Formulario partida en tránsito
   const [transitoTipo, setTransitoTipo] = useState<PartidaTransitoTipo>(PartidaTransitoTipo.ChequeNoCobrado);
@@ -360,6 +369,7 @@ export function BandejaConciliaciones() {
       return;
     }
     try {
+      setErrorCierre(null);
       await cerrarMutation.mutateAsync({
         id: conciliacion.id,
         firmanteNombre: firmanteNombre.trim(),
@@ -368,7 +378,11 @@ export function BandejaConciliaciones() {
       toast.success('Conciliación cerrada con éxito. Descargando acta oficial en PDF...');
       setModalCerrar(false);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? errorUsuario(err) : 'Error al cerrar conciliación');
+      const msg = esApiError(err)
+        ? (err.problem.detail || err.problem.title || err.message)
+        : (err instanceof Error ? errorUsuario(err) : 'Error al cerrar conciliación');
+      setErrorCierre(msg);
+      toast.error(msg);
     }
   };
 
@@ -522,8 +536,8 @@ export function BandejaConciliaciones() {
             <KpiCard
               etiqueta="Diferencia"
               valor={<MoneyDisplay amount={conciliacion.diferencia} currency={conciliacion.moneda} />}
-              tono={conciliacion.diferencia === 0 ? 'success' : 'danger'}
-              subdato={conciliacion.diferencia === 0 ? 'Conciliación cuadrada ($0.00)' : 'Descuadre pendiente'}
+              tono={detalleQuery.isFetching ? 'neutral' : (conciliacion.diferencia === 0 ? 'success' : 'danger')}
+              subdato={detalleQuery.isFetching ? 'Actualizando saldos...' : (conciliacion.diferencia === 0 ? 'Conciliación cuadrada ($0.00)' : 'Descuadre pendiente')}
             />
 
             {/* Estado y Acciones Rápidas */}
@@ -572,8 +586,11 @@ export function BandejaConciliaciones() {
                     <Button
                       size="sm"
                       className="w-full"
-                      disabled={conciliacion.diferencia !== 0}
-                      onClick={() => setModalCerrar(true)}
+                      disabled={detalleQuery.isFetching || conciliacion.diferencia !== 0}
+                      onClick={() => {
+                        setErrorCierre(null);
+                        setModalCerrar(true);
+                      }}
                     >
                       <Lock className="mr-1.5 h-3.5 w-3.5" />
                       Cerrar con acta
@@ -618,11 +635,15 @@ export function BandejaConciliaciones() {
                     setAutoEmparejarAlCargar(true);
                     setSaldoFinalExtracto('');
                     setContenidoExtracto('');
+                    // El perfil de extracto de la cuenta decide el formato (BBVA, SANTANDER, MIFEL).
+                    setFormatoExtracto(
+                      cuentasQuery.data?.find((c) => c.id === cuentaId)?.perfilExtracto?.trim().toUpperCase() || 'BBVA',
+                    );
                     setModalCargarExtracto(true);
                   }}
                 >
                   <UploadCloud className="mr-1.5 h-4 w-4" />
-                  Cargar extracto BBVA
+                  Cargar extracto
                 </Button>
 
                 <Button
@@ -1091,9 +1112,9 @@ export function BandejaConciliaciones() {
       <Dialog open={modalCargarExtracto} onOpenChange={setModalCargarExtracto}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle>Cargar extracto bancario BBVA</DialogTitle>
+            <DialogTitle>Cargar extracto bancario</DialogTitle>
             <DialogDescription>
-              Pega el texto del estado de cuenta o elige un archivo CSV/TXT exportado de BBVA Bancomer.
+              Pega el texto del estado de cuenta o elige el archivo CSV/TXT exportado del banco.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1104,7 +1125,9 @@ export function BandejaConciliaciones() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BBVA">BBVA Bancomer (CSV / Tabulado)</SelectItem>
+                  <SelectItem value="BBVA">BBVA Bancomer (auxiliar o CSV)</SelectItem>
+                  <SelectItem value="SANTANDER">Santander (auxiliar CSV)</SelectItem>
+                  <SelectItem value="MIFEL">Mifel (pendiente de layout)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1374,7 +1397,8 @@ export function BandejaConciliaciones() {
               Cancelar
             </Button>
             <Button
-              disabled={altaAsistidaMutation.isPending || !altaConceptoId}
+              disabled={altaAsistidaMutation.isPending || !altaConceptoId || faltaDimensionAlta}
+              title={faltaDimensionAlta ? 'Captura el área y el equipo que exige la cuenta del concepto.' : undefined}
               onClick={handleAltaAsistidaSubmit}
             >
               Registrar movimiento y emparejar
@@ -1474,7 +1498,13 @@ export function BandejaConciliaciones() {
       </Dialog>
 
       {/* MODAL: CERRAR CONCILIACIÓN */}
-      <Dialog open={modalCerrar} onOpenChange={setModalCerrar}>
+      <Dialog
+        open={modalCerrar}
+        onOpenChange={(open) => {
+          setModalCerrar(open);
+          if (!open) setErrorCierre(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>Cierre cuadrado de conciliación</DialogTitle>
@@ -1483,26 +1513,47 @@ export function BandejaConciliaciones() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-3">
+            {errorCierre && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No se pudo cerrar la conciliación</AlertTitle>
+                <AlertDescription>{errorCierre}</AlertDescription>
+              </Alert>
+            )}
             <div>
-              <Label className="text-xs">Nombre del firmante *</Label>
+              <Label htmlFor="firmante-nombre" className="text-xs">Nombre del firmante *</Label>
               <Input
+                id="firmante-nombre"
                 className="mt-1 text-xs"
                 value={firmanteNombre}
-                onChange={(e) => setFirmanteNombre(e.target.value)}
+                onChange={(e) => {
+                  setFirmanteNombre(e.target.value);
+                  if (errorCierre) setErrorCierre(null);
+                }}
               />
             </div>
             <div>
-              <Label className="text-xs">Puesto del firmante *</Label>
+              <Label htmlFor="firmante-puesto" className="text-xs">Puesto del firmante *</Label>
               <Input
+                id="firmante-puesto"
                 className="mt-1 text-xs"
                 maxLength={100}
                 value={firmantePuesto}
-                onChange={(e) => setFirmantePuesto(e.target.value)}
+                onChange={(e) => {
+                  setFirmantePuesto(e.target.value);
+                  if (errorCierre) setErrorCierre(null);
+                }}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setModalCerrar(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setModalCerrar(false);
+                setErrorCierre(null);
+              }}
+            >
               Cancelar
             </Button>
             <Button

@@ -65,6 +65,16 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
             .Select(o => o.Id)
             .ToListAsync(cancellationToken);
 
+    public async Task<Guid?> ObtenerIdPorFolioAsync(string folio, CancellationToken cancellationToken)
+    {
+        // Folios de prueba de la app (p. ej. "zz_arnes_EKH") no son OC del ERP: null, sin excepción.
+        Folio valor;
+        try { valor = Folio.Parse(folio.Trim().ToUpperInvariant()); }
+        catch (Millet.SharedKernel.Application.Exceptions.BusinessRuleException) { return null; }
+        return await _db.OrdenesCompra.AsNoTracking().Where(o => o.Folio == valor)
+            .Select(o => (Guid?)o.Id).FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
         IReadOnlyCollection<Guid> ocIds,
         CancellationToken cancellationToken)

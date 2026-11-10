@@ -62,7 +62,8 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
         await using var tx = _db.Database.IsRelational() && _db.Database.CurrentTransaction is null
             ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
         var respuesta = await EmitirAsync(command, cancellationToken);
-        if (tx is not null) await tx.CommitAsync(cancellationToken);
+        // M-173: la transacción pudo confirmarse antes del PAC.
+        if (TimbradoDurable.TransaccionAbierta(_db, tx)) await tx!.CommitAsync(cancellationToken);
         return respuesta;
     }
 
@@ -123,7 +124,7 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
         await _receptorFiscal.ValidarComprobanteAsync(receptorFactura, cancellationToken, esRep: true);
 
         var reserva = await _sender.Send(
-            new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, DateOnly.FromDateTime(ahora.UtcDateTime)),
+            new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.DiaFiscal(ahora)),
             cancellationToken);
 
         // CAJAS-PR4 (§6): CajaId ya no viene del comando — lo asigna
@@ -183,10 +184,15 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
 
         repp.EstablecerImporteTotalPago(totalPago);
 
+        // M-173: el pendiente de Tesorería queda ligado al intento antes del PAC (no se vuelve a emitir
+        // si la llamada se cae); el REP en proceso se guarda y la transacción se confirma antes del PAC.
+        command.Pendiente?.RegistrarIntento(repp);
+
         // Timbrar; el ejecutor aplica la FSM y persiste el XML en el repo común.
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             repp, CfdiEmisionBuilder.DesdeReciboPago(repp, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, repp, confirmarTransaccion: true));
 
         // F10-PR1: evento de REPP timbrado (cobro confirmado; ganancia/pérdida cambiaria).
         if (repp.Estado == EstadoTimbrado.Timbrado)
@@ -198,7 +204,6 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
                 command.Pendiente?.MovimientoBancarioId, command.Pendiente?.PropuestaId), cancellationToken);
 
         command.Pendiente?.RegistrarIntento(repp);
-        _db.RecibosPago.Add(repp);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EmitirReppResponse(
