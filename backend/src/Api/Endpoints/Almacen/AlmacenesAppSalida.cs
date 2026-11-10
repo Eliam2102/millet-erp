@@ -153,9 +153,10 @@ public static class AlmacenesAppSalida
             ? string.Concat(
                 // El descuento llega al validar el documento previo (no al cortar); el ERP no reserva y solo lo deja en el motivo.
                 DocumentoPrevio(datos) is { Length: > 0 } dp ? $" documento previo {dp}" : "",
-                Texto(datos, "mesa") is { Length: > 0 } mesa ? $" mesa {mesa}" : "",
-                Texto(datos, "jobid") is { Length: > 0 } job ? $" job {job}" : "",
-                Texto(datos, "pedidoAw") is { Length: > 0 } ped ? $" pedido {ped}" : "")
+                // v9: mesa y jobid van en renglones[]; pedidoAw es número (en datos y en cada renglón).
+                DeRenglones(datos, "mesa") is { Length: > 0 } mesa ? $" mesa {mesa}" : "",
+                DeRenglones(datos, "jobid") is { Length: > 0 } job ? $" job {job}" : "",
+                (Valor(datos, "pedidoAw") ?? DeRenglones(datos, "pedidoAw")) is { Length: > 0 } ped ? $" pedido {ped}" : "")
             : tipo == Reclamacion
             ? string.Concat(
                 Texto(datos, "reclamacion") is { Length: > 0 } rp ? $" {rp.Trim()}" : "",
@@ -219,6 +220,18 @@ public static class AlmacenesAppSalida
         && Texto(ag, "tipo") is { } tipo && !string.IsNullOrWhiteSpace(tipo)
             ? new LlaveAlmacenApp(tipo, Texto(ag, "linea"))
             : null;
+
+    // Texto o número; ausente, null, vacío u otro tipo → null.
+    private static string? Valor(JsonElement o, string n) =>
+        o.TryGetProperty(n, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number
+            && v.ToString().Trim() is { Length: > 0 } t ? t : null;
+
+    // Valores distintos de un campo en datos (forma anterior) o en renglones[] (v9), separados por coma.
+    private static string DeRenglones(JsonElement datos, string campo) =>
+        Valor(datos, campo) ?? (datos.TryGetProperty("renglones", out var rs) && rs.ValueKind == JsonValueKind.Array
+            ? string.Join(",", rs.EnumerateArray().Where(r => r.ValueKind == JsonValueKind.Object)
+                .Select(r => Valor(r, campo)).Where(x => x is not null).Distinct())
+            : "");
 
     // Motivos de las líneas de la reclamación («Rota», «No llegó»…), sin repetir.
     private static string MotivosDeLineas(JsonElement datos) =>

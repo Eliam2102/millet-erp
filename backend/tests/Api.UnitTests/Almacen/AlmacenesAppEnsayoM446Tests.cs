@@ -62,13 +62,60 @@ public sealed class AlmacenesAppEnsayoM446Tests
     }
 
     [Fact]
-    public void REQUISICION_ENVIADA_con_medida_fraccionaria_se_rechaza()
+    public void REQUISICION_ENVIADA_con_medida_sin_redondear_se_acepta_y_se_redondea_al_mm()
     {
-        var datos = JsonDocument.Parse(DeTipo("REQUISICION_ENVIADA").First(m => m.GetRawText().Contains("\"ancho\":1200"))
-            .GetProperty("datos").GetRawText().Replace("\"ancho\":1200.00", "\"ancho\":1200.50")).RootElement;
+        // v9: «medidas en milímetros, sin redondear». La línea de la RQ guarda mm enteros: 1200.5 → 1201, 2600.4 → 2600.
+        var datos = JsonDocument.Parse(DeTipo("REQUISICION_ENVIADA").First().GetProperty("datos").GetRawText()
+            .Replace("\"ancho\":1200.0", "\"ancho\":1200.5").Replace("\"alto\":2600.0", "\"alto\":2600.4")).RootElement;
         var (solicitud, error) = AlmacenesAppRequisicionEnviada.Parsear(datos);
-        Assert.Null(solicitud);
-        Assert.Contains("enteros", error);
+        Assert.Null(error);
+        var l = Assert.Single(solicitud!.Lineas);
+        Assert.Equal((1201, 2600), (l.AnchoMm, l.AltoMm));
+    }
+
+    [Fact]
+    public void REQUISICION_ENVIADA_lleva_la_posicion_de_la_app_y_obraAw_si_no_hay_obra()
+    {
+        var datos = JsonDocument.Parse("""
+            {"folio":"RQ-9","sucursal":"CONKAL","proveedor":{"claveAw":164},"lineas":[
+              {"posicion":3,"articuloAw":100006,"ancho":3302,"alto":6100,"piezas":2,"obraAw":7781,"obra":null},
+              {"posicion":1,"articuloAw":920035,"ancho":null,"alto":null,"piezas":4,"obraAw":null,"obra":"Torre A"}]}
+            """).RootElement;
+        var (solicitud, error) = AlmacenesAppRequisicionEnviada.Parsear(datos);
+        Assert.Null(error);
+        Assert.Equal([(3, "7781"), (1, "Torre A")], solicitud!.Lineas.Select(l => (l.Posicion!.Value, l.Obra!)));
+
+        var repetida = JsonDocument.Parse(datos.GetRawText().Replace("\"posicion\":1", "\"posicion\":3")).RootElement;
+        Assert.Contains("posicion", AlmacenesAppRequisicionEnviada.Parsear(repetida).Item2);
+        var aMedias = JsonDocument.Parse(datos.GetRawText().Replace("\"posicion\":1,", "")).RootElement;
+        Assert.Contains("posicion", AlmacenesAppRequisicionEnviada.Parsear(aMedias).Item2);
+    }
+
+    [Fact]
+    public async Task REQUISICION_CANCELADA_y_REDUCIDA_buscan_por_folioErp_si_viene()
+    {
+        var datos = JsonDocument.Parse("""{"folio":"RQ-00002600","sucursal":"CONKAL","folioErp":"CNK2026-000045","motivo":"x","lineas":[{"posicion":2,"piezasQuitadas":1}]}""").RootElement;
+        var rq = new Rq();
+        await AlmacenesAppRequisicionEnviada.ManejarAvisoAsync(AlmacenesAppRequisicionEnviada.Cancelada, datos, rq, default);
+        Assert.Equal(("RQ-00002600", "CNK2026-000045"), (rq.Cancelada, rq.FolioErp));
+        rq = new Rq();
+        await AlmacenesAppRequisicionEnviada.ManejarAvisoAsync(AlmacenesAppRequisicionEnviada.Reducida, datos, rq, default);
+        Assert.Equal(("RQ-00002600", "CNK2026-000045"), (rq.Reducida, rq.FolioErp));
+        // Las muestras reales traen folioErp null: se busca por el folio de la app.
+        rq = new Rq();
+        await AlmacenesAppRequisicionEnviada.ManejarAvisoAsync(AlmacenesAppRequisicionEnviada.Reducida,
+            DeTipo(AlmacenesAppRequisicionEnviada.Reducida).Single().GetProperty("datos"), rq, default);
+        Assert.Null(rq.FolioErp);
+    }
+
+    [Fact]
+    public async Task AJUSTE_SALIDA_real_lee_mesa_y_jobid_de_los_renglones_y_pedidoAw_numerico()
+    {
+        var m = DeTipo("AJUSTE_SALIDA").Single();
+        var (r, error) = await AlmacenesAppSalida.ManejarAsync("AJUSTE_SALIDA", m.GetProperty("datos"), new Resolver(), new UsuarioServicio(), default);
+        Assert.Null(error);
+        Assert.All(r!.Salidas, s => Assert.Equal(
+            "App Almacenes AJUSTE_SALIDA MV-0014355 documento previo CP-00000165 mesa HG1 job 777000001 pedido 501", s.Motivo));
     }
 
     [Fact]
@@ -317,17 +364,18 @@ public sealed class AlmacenesAppEnsayoM446Tests
 
     private sealed class Rq(string? error = null) : IComprasCrearRqAppPort
     {
-        public string? Cancelada, Reducida, Motivo;
+        public string? Cancelada, Reducida, Motivo, FolioErp;
         public IReadOnlyList<LineaQuitadaRqApp>? Quitadas;
         public Task<CrearRqAppResultado> CrearAsync(CrearRqAppSolicitud s, CancellationToken ct) => throw new NotSupportedException();
-        public Task<AvisoRqAppResultado> CancelarAsync(string folioExterno, string? motivo, CancellationToken ct)
+        public Task<AvisoRqAppResultado> CancelarAsync(string folioExterno, string? motivo, CancellationToken ct, string? folioErp = null)
         {
-            (Cancelada, Motivo) = (folioExterno, motivo);
+            (Cancelada, Motivo, FolioErp) = (folioExterno, motivo, folioErp);
             return Task.FromResult(new AvisoRqAppResultado("CNK2026-000001", error));
         }
-        public Task<AvisoRqAppResultado> ReducirAsync(string folioExterno, IReadOnlyList<LineaQuitadaRqApp> lineas, string? motivo, CancellationToken ct)
+        public Task<AvisoRqAppResultado> ReducirAsync(string folioExterno, IReadOnlyList<LineaQuitadaRqApp> lineas, string? motivo, CancellationToken ct,
+            string? folioErp = null)
         {
-            (Reducida, Quitadas, Motivo) = (folioExterno, lineas, motivo);
+            (Reducida, Quitadas, Motivo, FolioErp) = (folioExterno, lineas, motivo, folioErp);
             return Task.FromResult(new AvisoRqAppResultado("CNK2026-000001", error));
         }
     }

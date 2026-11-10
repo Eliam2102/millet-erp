@@ -100,4 +100,32 @@ public class RequisicionAlmacenesAppTests
         Assert.Equal(EstadoRequisicion.Cancelada, rq.Estado);
         Assert.Equal("RQ_APP_REDUCIR_ESTADO", Assert.Throws<BusinessRuleException>(() => rq.QuitarDeCompraApp([(1, 1m)], "m")).Code);
     }
+    [Fact]
+    public void CrearDesdeAlmacenesApp_ConservaLaPosicionDeLaAppYReducirLaUsa()
+    {
+        // M-283 (contrato v9): la RQ guarda la posicion de la app; REQUISICION_REDUCIDA se refiere a ella.
+        var rq = Requisicion.CrearDesdeAlmacenesApp(
+            Guid.CreateVersion7(), Guid.CreateVersion7(), Millet.Compras.Domain.Folio.Parse("MID2026-000003"), 2026,
+            Guid.CreateVersion7(), Guid.CreateVersion7(), null, Guid.CreateVersion7(), Guid.CreateVersion7(),
+            DateTimeOffset.UtcNow, "RQ-7", ProveedorApp,
+            [new LineaAppRequisicion(Guid.CreateVersion7(), 10m, "M2", Money.Of(1m, "MXN"), 10, 2440, 3660, Posicion: 3),
+             new LineaAppRequisicion(Guid.CreateVersion7(), 4m, "PZA", Money.Of(1m, "MXN"), 4, null, null, Posicion: 1)]);
+        Assert.Equal(new short[] { 3, 1 }, rq.Lineas.Select(l => l.Posicion));
+        rq.RegistrarCubrimiento(rq.Lineas.Select(l => new CubrimientoLinea(l.Id, 0, l.Cantidad)).ToList(), DateTimeOffset.UtcNow);
+        rq.QuitarDeCompraApp([(3, 4m)], "App Almacenes: entrada cancelada");
+        Assert.Equal(6m, rq.Lineas.Single(l => l.Posicion == 3).CantidadDeCompra);
+        Assert.Equal(4m, rq.Lineas.Single(l => l.Posicion == 1).CantidadDeCompra);
+    }
+
+    [Fact]
+    public void CrearDesdeAlmacenesApp_PosicionesRepetidasOAMedias_Lanza()
+    {
+        LineaAppRequisicion L(int? p) => new(Guid.CreateVersion7(), 1m, "PZA", Money.Of(1m, "MXN"), 1, null, null, Posicion: p);
+        Requisicion Crear(params LineaAppRequisicion[] ls) => Requisicion.CrearDesdeAlmacenesApp(
+            Guid.CreateVersion7(), Guid.CreateVersion7(), Millet.Compras.Domain.Folio.Parse("MID2026-000004"), 2026,
+            Guid.CreateVersion7(), Guid.CreateVersion7(), null, Guid.CreateVersion7(), Guid.CreateVersion7(),
+            DateTimeOffset.UtcNow, "RQ-8", ProveedorApp, ls);
+        Assert.Equal("RQ_APP_POSICIONES_INVALIDAS", Assert.Throws<BusinessRuleException>(() => Crear(L(1), L(1))).Code);
+        Assert.Equal("RQ_APP_POSICIONES_INVALIDAS", Assert.Throws<BusinessRuleException>(() => Crear(L(2), L(null))).Code);
+    }
 }

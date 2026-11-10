@@ -233,11 +233,16 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             proveedorSugeridoId: proveedorSugeridoId, descripcion: descripcion,
             origen: OrigenRequisicion.AlmacenesApp);
         rq.FolioExterno = folioExterno.Trim();
+        // M-283: con posicion, la línea lleva la de la app (todas o ninguna, sin repetir) para que REQUISICION_REDUCIDA la encuentre.
+        var posiciones = lineas.Where(l => l.Posicion is not null).Select(l => l.Posicion!.Value).ToList();
+        if (posiciones.Count > 0 && (posiciones.Count != lineas.Count || posiciones.Distinct().Count() != posiciones.Count))
+            throw new BusinessRuleException("RQ_APP_POSICIONES_INVALIDAS", "Las posiciones de la requisición deben venir en todas las líneas y sin repetirse.");
         foreach (var l in lineas)
         {
             var linea = rq.AgregarLinea(Guid.CreateVersion7(), l.ArticuloId, l.Cantidad, l.UnidadMedida, l.PrecioEstimado,
                 proyecto: l.Obra, fechaRequerida: l.FechaRequerida);
             linea.AsignarMedidaApp(l.Piezas, l.AnchoMm, l.AltoMm);
+            if (l.Posicion is { } posicion) linea.AsignarPosicionApp(posicion);
         }
         rq.Estado = EstadoRequisicion.Autorizada;
         return rq;
