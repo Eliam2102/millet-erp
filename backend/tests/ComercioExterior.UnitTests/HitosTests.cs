@@ -19,7 +19,14 @@ public sealed class HitosTests
     {
         if (clave == "embarcado")
         {
-            if (e.Tipo == TipoExpediente.Exportacion) e.AutorizarSalida(Guid.NewGuid(), new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), null, true);
+            if (e.Tipo == TipoExpediente.Exportacion)
+            {
+                var c = Guid.NewGuid();
+                e.GuardarContenedor(c, new("CONT-PRUEBA", null, null, "BL-PRUEBA", null, null, null, null));
+                e.RegistrarPedimentoExportacion("PED-PRUEBA", "A1", Hoy, Hoy, "16");
+                e.AutorizarSalida(Guid.NewGuid(), new(2026, 10, 16, 18, 0, 0, TimeSpan.Zero), null, true);
+                e.RegistrarEmbarque(c, fecha ?? Hoy, Hoy);
+            }
             else
             {
                 var c = Guid.NewGuid(); e.GuardarContenedor(c, new("CONT-PRUEBA", null, null, "BL-PRUEBA", null, null, null, null, ModalidadTransporte.Maritimo));

@@ -174,7 +174,15 @@ export interface Filtros {
   sucursalId?: string;
 }
 
+export interface AutorizacionDespacho {
+  nivel: string;
+  versionEmbarque: number;
+}
 export interface Contenedor {
+  preparadoParaFacturarEn?: string | null;
+  parcial?: AutorizacionDespacho | null;
+  excepcion?: AutorizacionDespacho | null;
+  facturasVigentes?: boolean;
   modalidad?: 1 | 2 | 3 | null;
   id: string;
   numero: string | null;
@@ -191,7 +199,7 @@ export interface Contenedor {
 }
 export type DatosContenedor = Omit<
   Contenedor,
-  'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion'
+  'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion' | 'preparadoParaFacturarEn' | 'parcial' | 'excepcion' | 'facturasVigentes'
 >;
 export interface PedimentoExportacion {
   aduana?: string | null;
