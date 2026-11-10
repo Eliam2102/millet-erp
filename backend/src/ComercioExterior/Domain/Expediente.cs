@@ -199,6 +199,8 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
         ExigirAbierto();
         if (tieneFacturas)
             throw new ConflictException("CE_EXPEDIENTE_CON_FACTURAS", "El expediente tiene partidas de pedidos con factura vigente.");
+        if (_contenedores.Any(c => c.Estado == EstadoContenedor.Activo && c.PreparadoParaFacturarEn is not null))
+            throw new ConflictException("CE_EXPEDIENTE_CON_PREPARACIONES", "Cancele primero cada contenedor preparado y resuelva sus facturas.");
         MotivoCancelacion = MotivoValido(motivo);
         foreach (var partida in _partidas) partida.Liberar();
         foreach (var vinculo in _vinculosPedidos) vinculo.Liberar();

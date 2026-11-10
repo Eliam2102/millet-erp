@@ -77,7 +77,8 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
         col.Item().Text($"Pedimento de exportación: {ce.NumeroPedimento} · {ce.ClavePedimento} · {ce.FechaPedimento:yyyy-MM-dd}" +
             (ce.Aduana is null ? "" : $" · Aduana {ce.Aduana} {ce.AduanaNombre}"));
         foreach (var c in ce.Contenedores)
-            col.Item().Text($"Contenedor: {c.Numero} · BL o guía: {c.BlGuia} · Embarque: {c.FechaEmbarqueReal:yyyy-MM-dd}");
+            col.Item().Text($"Contenedor: {c.Numero} · BL o guía: {c.BlGuia}" +
+                (c.FechaEmbarqueReal is DateOnly fecha ? $" · Embarque: {fecha:yyyy-MM-dd}" : ""));
     }
 
     private static byte[] GenerarTermica(FacturaVenta f) =>
