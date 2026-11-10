@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { separarSangria } from './ReporteDocument';
+import { separarSangria } from './separar-sangria';
 
 // O1 (QA CON-08): el PDF descarta los espacios iniciales; la sangría de los estados financieros pasa a margen izquierdo.
 describe('separarSangria', () => {

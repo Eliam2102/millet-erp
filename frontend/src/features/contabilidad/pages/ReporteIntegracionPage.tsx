@@ -18,7 +18,7 @@ import { usePeriodosContables, type PeriodoElegido } from '../lib/periodos-repor
 import { SELECT_CLASS } from '../lib/estilos';
 import { monto } from '../lib/polizas';
 
-export const INTEGRACIONES: { valor: IntegracionContable; etiqueta: string; descripcion: string }[] = [
+const INTEGRACIONES: { valor: IntegracionContable; etiqueta: string; descripcion: string }[] = [
   { valor: 'Ingresos', etiqueta: 'Ingresos', descripcion: 'Cuentas de los rubros de ingresos, por cliente.' },
   { valor: 'Costo', etiqueta: 'Costo', descripcion: 'Cuentas de los rubros de costo, por proveedor o cliente.' },
   { valor: 'Gastos', etiqueta: 'Gastos de operación', descripcion: 'Cuentas de los rubros de gastos, por proveedor.' },
