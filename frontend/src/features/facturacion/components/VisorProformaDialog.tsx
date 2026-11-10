@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { textoVigenciaProforma } from '@/features/facturacion/lib/proforma-vigencia';
 import { useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,7 @@ export function VisorProformaDialog({
               </DialogTitle>
               <DialogDescription className="text-xs text-ink-muted">
                 Sin valor fiscal · Generada {formatDateTime(proforma.generadaEn)}
+                {textoVigenciaProforma(proforma) ? ` · ${textoVigenciaProforma(proforma)}` : ''}
                 {proforma.generadaPor ? ` por ${proforma.generadaPor}` : ''}
               </DialogDescription>
             </DialogHeader>
