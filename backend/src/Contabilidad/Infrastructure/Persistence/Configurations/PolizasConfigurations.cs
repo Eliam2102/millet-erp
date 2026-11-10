@@ -16,7 +16,7 @@ public sealed class PolizaConfiguration : IEntityTypeConfiguration<Poliza>
         builder.ToTable("polizas", t =>
         {
             t.HasCheckConstraint("ck_polizas_estado", "estado BETWEEN 0 AND 2");
-            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 1");
+            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_polizas_tipo_sat", "tipo_sat BETWEEN 1 AND 3");
             t.HasCheckConstraint("ck_polizas_periodo", "periodo_numero BETWEEN 1 AND 13");
             t.HasCheckConstraint("ck_polizas_numero", "(estado = 0 AND numero IS NULL) OR (estado <> 0 AND numero BETWEEN 1 AND 999999)");
@@ -136,5 +136,21 @@ public sealed class ConsecutivoPolizaConfiguration : IEntityTypeConfiguration<Co
         builder.ToTable("consecutivos_poliza", t => t.HasCheckConstraint("ck_consecutivos_poliza_numero", "ultimo_numero BETWEEN 1 AND 999999"));
         builder.HasKey(x => new { x.EmpresaId, x.TipoOperacionId, x.Anio });
         builder.HasOne<TipoDocumentoContable>().WithMany().HasForeignKey(x => x.TipoOperacionId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+/// <summary>M-166: una apertura por empresa; la huella y el lote quedan para responder el reintento del mismo archivo.</summary>
+public sealed class AperturaContableConfiguration : IEntityTypeConfiguration<AperturaContable>
+{
+    public void Configure(EntityTypeBuilder<AperturaContable> builder)
+    {
+        builder.ToTable("aperturas");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Huella).HasMaxLength(AperturaContable.HuellaLargo).IsRequired();
+        builder.Property(x => x.Folio).HasMaxLength(40).IsRequired();
+        builder.Property(x => x.AplicadoPor).HasMaxLength(256).IsRequired();
+        builder.HasIndex(x => x.EmpresaId).IsUnique().HasDatabaseName("ux_aperturas_empresa");
+        builder.HasIndex(x => x.LoteId);
     }
 }

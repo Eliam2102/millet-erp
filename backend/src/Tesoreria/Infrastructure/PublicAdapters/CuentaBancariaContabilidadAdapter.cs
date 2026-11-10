@@ -19,6 +19,15 @@ public sealed class CuentaBancariaContabilidadAdapter(TesoreriaDbContext db) : I
             .ToDictionaryAsync(a => a.Id, ct);
     }
 
+    public async Task<IReadOnlyDictionary<string, AuxiliarContable>> ObtenerPorNumerosAsync(IReadOnlyCollection<string> numeros, CancellationToken ct)
+    {
+        var buscados = numeros.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()).Distinct().ToArray();
+        if (buscados.Length == 0) return new Dictionary<string, AuxiliarContable>();
+        var encontrados = await db.CuentasBancarias.AsNoTracking().Where(c => buscados.Contains(c.NumeroCuenta))
+            .Select(c => new AuxiliarContable(c.Id, c.NumeroCuenta, c.Banco + " " + c.Moneda, c.Activa)).ToListAsync(ct);
+        return encontrados.GroupBy(a => a.Clave.Trim().ToUpperInvariant()).ToDictionary(g => g.Key, g => g.First());
+    }
+
     public async Task<IReadOnlyList<AuxiliarContable>> BuscarAsync(string? q, int limite, CancellationToken ct)
     {
         var patron = string.IsNullOrWhiteSpace(q) ? null : $"%{q.Trim()}%";

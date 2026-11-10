@@ -17,7 +17,7 @@ export interface ColumnaReporteContable {
 export type NaturalezaCuenta = 'Deudora' | 'Acreedora';
 export type TipoAuxiliar = 'Cliente' | 'Proveedor' | 'Banco';
 export type EstadoPolizaReporte = 'Borrador' | 'Autorizada' | 'Anulada';
-export type OrigenPolizaReporte = 'Manual' | 'Automatica';
+export type OrigenPolizaReporte = 'Manual' | 'Automatica' | 'Apertura';
 
 export interface CuentaReporteRef {
   id: string;
