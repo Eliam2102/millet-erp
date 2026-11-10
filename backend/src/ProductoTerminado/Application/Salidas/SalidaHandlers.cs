@@ -64,6 +64,62 @@ internal static class SalidaMapeo
     public static IQueryable<SalidaPt> Completa(ProductoTerminadoDbContext db) => db.Salidas.Include(x => x.Albaranes).ThenInclude(a => a.Piezas);
 }
 
+/// <summary>
+/// Reglas de salida 1, 3 y 4 (Millet, 9-nov) sobre lo cargado hoy: pedidos sin factura válida (timbrada del día o anterior, o en
+/// PendientePedimento si es exportación) y pedidos que salen incompletos. Cada pedido va como «pedido:piezas cargadas», que es el alcance
+/// que una autorización cubre.
+/// </summary>
+internal static class ReglasHoja
+{
+    private static readonly EstadoPieza[] YaSalieron = [EstadoPieza.Embarcada, EstadoPieza.Entregada, EstadoPieza.EnRevision];
+
+    public static async Task<(IReadOnlyList<string> SinFactura, IReadOnlyList<string> Parciales)> EvaluarAsync(ProductoTerminadoDbContext db, IFacturacionSalidaPort facturacion,
+        SalidaPt s, DateOnly hoy, CancellationToken ct)
+    {
+        var conPiezas = s.Albaranes.Where(a => a.Piezas.Count > 0 && !a.Cancelado).OrderBy(a => a.Secuencia).ToList();
+        if (conPiezas.Count == 0) return ([], []);
+        var pedidoIds = conPiezas.Select(a => a.PedidoPtId).ToList();
+        var pedidos = await db.PedidosPt.AsNoTracking().Include(p => p.Posiciones).Where(p => pedidoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
+        var cargadasIds = conPiezas.SelectMany(a => a.Piezas.Select(p => p.PiezaId)).ToList();
+        var posicionDe = await db.Piezas.AsNoTracking().Where(p => cargadasIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Posicion, ct);
+        var salieron = await db.Piezas.AsNoTracking().Where(p => pedidoIds.Contains(p.PedidoPtId) && YaSalieron.Contains(p.Estado))
+            .GroupBy(p => new { p.PedidoPtId, p.Posicion }).Select(g => new { g.Key.PedidoPtId, g.Key.Posicion, Piezas = g.Count() }).ToListAsync(ct);
+        var facturas = await facturacion.FacturasDePedidosAsync([.. pedidos.Values.Select(p => p.PedidoFacturableId)], ct);
+
+        List<string> sinFactura = [], parciales = [];
+        foreach (var a in conPiezas)
+        {
+            var pedido = pedidos[a.PedidoPtId];
+            var clave = $"{pedido.NumeroPedido}:{a.Piezas.Count}";
+            if (!ReglasSalidaPt.TieneFactura(facturas.Where(f => f.PedidoFacturableId == pedido.PedidoFacturableId)
+                    .Select(f => (f.PendientePedimento, f.Exportacion, f.FechaTimbrado is { } t ? FechaContable.HoyLocal(t) : (DateOnly?)null)), hoy))
+                sinFactura.Add(clave);
+            if (ReglasSalidaPt.EsParcial(pedido.Posiciones.Select(x => (x.PiezasEsperadas, a.Piezas.Count(p => posicionDe[p.PiezaId] == x.Posicion),
+                    salieron.Where(y => y.PedidoPtId == pedido.Id && y.Posicion == x.Posicion).Sum(y => y.Piezas)))))
+                parciales.Add(clave);
+        }
+        return (sinFactura, parciales);
+    }
+
+    /// <summary>Lo requerido que la autorización no cubre (si la carga cambió después de autorizar, ya no lo cubre).</summary>
+    public static List<string> SinCubrir(IReadOnlyList<string> requeridos, AutorizacionSalidaPt? autorizacion) =>
+        requeridos.Where(r => autorizacion?.Alcance.Contains(r) != true).ToList();
+
+    public static string Pedidos(IEnumerable<string> alcance) => string.Join(", ", alcance.Select(x => x[..x.LastIndexOf(':')]));
+
+    public static AutorizacionSalidaDto? Dto(AutorizacionSalidaPt? a) => a is null ? null : new(a.Actor, a.Fecha, a.Nivel, a.Motivo, a.Suplencia, a.Alcance);
+
+    public static async Task<HojaSalidaDto> ConReglasAsync(ProductoTerminadoDbContext db, IFacturacionSalidaPort facturacion, SalidaPt s, HojaSalidaDto dto, DateOnly hoy, CancellationToken ct)
+    {
+        if (s.Estado != EstadoSalida.Borrador) return dto;
+        var (sinFactura, parciales) = await EvaluarAsync(db, facturacion, s, hoy, ct);
+        var excepcion = s.LeerAutorizacion(false);
+        var parcial = s.LeerAutorizacion(true);
+        return dto with { Reglas = new ReglasHojaDto(sinFactura, parciales, Dto(excepcion), Dto(parcial),
+            sinFactura.Count > 0 && SinCubrir(sinFactura, excepcion).Count == 0, parciales.Count > 0 && SinCubrir(parciales, parcial).Count == 0) };
+    }
+}
+
 public sealed class CrearHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, ICurrentEmpresaContext empresa, IClock clock)
     : IRequestHandler<CrearHojaSalidaCommand, HojaSalidaDto>
 {
@@ -100,7 +156,7 @@ public sealed class CrearHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcce
         var ahora = clock.UtcNow;
         var salida = SalidaPt.Crear(empresaId, c.SucursalId, c.Destino, c.Foranea, c.VehiculoId, c.OperadorId, c.DistanciaKm, c.PesoKg, c.OrigenCodigoPostal, c.OrigenEstado, c.DestinoCodigoPostal, c.DestinoEstado, ahora,
             // M11: el folio lleva el día local (a las 23:34 del 8-nov no puede decir 20261109).
-            HoraAw.FechaLocal(ahora));
+            HoraAw.FechaLocal(ahora), acceso.Actor);
         foreach (var p in c.Pedidos)
         {
             var pedido = pedidos[p.NumeroPedido.Trim()];
@@ -150,6 +206,15 @@ public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcc
         var pedidos = await db.PedidosPt.Where(p => pedidoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
 
         var ahora = clock.UtcNow;
+        // Reglas 1-4 (Millet, 9-nov): sin factura válida o incompleto, solo con la autorización vigente de su nivel.
+        var (sinFactura, parciales) = await ReglasHoja.EvaluarAsync(db, facturacion, s, FechaContable.HoyLocal(ahora), cancellationToken);
+        if (ReglasHoja.SinCubrir(sinFactura, s.LeerAutorizacion(false)) is { Count: > 0 } faltaFactura)
+            throw new BusinessRuleException("PT_SALIDA_SIN_FACTURA",
+                $"Pedidos sin factura timbrada del día o anterior: {ReglasHoja.Pedidos(faltaFactura)}. Factúrelos o pida la excepción a Dirección de Administración (en su ausencia, Planeación o Contraloría).");
+        if (ReglasHoja.SinCubrir(parciales, s.LeerAutorizacion(true)) is { Count: > 0 } faltaParcial)
+            throw new BusinessRuleException("PT_SALIDA_PARCIAL_SIN_AUTORIZAR",
+                $"Pedidos que salen incompletos: {ReglasHoja.Pedidos(faltaParcial)}. La salida parcial la autoriza Crédito y Cobranza (en su ausencia, Gerencia de Ventas).");
+
         // La Carta Porte primero (su falla más común es de configuración fiscal y no debe dejar una salida facturable sin embarcar); queda guardada para que un reintento no emita otra.
         if (s.Foranea && s.CartaPorteId is null)
         {
@@ -305,7 +370,7 @@ public sealed class ListarHojasSalidaHandler(ProductoTerminadoDbContext db, PtAc
     }
 }
 
-public sealed class ObtenerHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, ICurrentEmpresaContext empresa)
+public sealed class ObtenerHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion, ICurrentEmpresaContext empresa, IClock clock)
     : IRequestHandler<ObtenerHojaSalidaQuery, HojaSalidaDto>
 {
     public async Task<HojaSalidaDto> Handle(ObtenerHojaSalidaQuery q, CancellationToken cancellationToken)
@@ -317,6 +382,57 @@ public sealed class ObtenerHojaSalidaHandler(ProductoTerminadoDbContext db, PtAc
         var visibles = await acceso.SucursalesVisiblesAsync(todas, cancellationToken);
         if (visibles is not null && !visibles.Contains(s.SucursalId))
             throw new ForbiddenException("SUCURSAL_NO_ASOCIADA", "No tiene acceso a esta hoja de salida.");
-        return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
+        var dto = await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
+        return await ReglasHoja.ConReglasAsync(db, facturacion, s, dto, FechaContable.HoyLocal(clock.UtcNow), cancellationToken);
     }
+}
+
+public sealed class AutorizarHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion,
+    ICurrentEmpresaContext empresa, IClock clock) : IRequestHandler<AutorizarHojaSalidaCommand, HojaSalidaDto>
+{
+    public async Task<HojaSalidaDto> Handle(AutorizarHojaSalidaCommand c, CancellationToken cancellationToken)
+    {
+        var regla = ReglasSalidaPt.Nivel(c.Nivel) ?? throw new BusinessRuleException("PT_NIVEL_AUTORIZACION_INVALIDO", "Seleccione un nivel de autorización válido.");
+        await acceso.ExigirPermisoAsync(Permiso(c.Nivel), cancellationToken);
+        var s = await SalidaMapeo.Completa(db).FirstOrDefaultAsync(x => x.Id == c.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("PT_SALIDA_NO_ENCONTRADA", "No existe la hoja de salida.");
+        await acceso.VerificarSucursalAsync(s.SucursalId, PermisosCanonicos.ProductoTerminadoPiezasVerTodasSucursales, cancellationToken);
+        // Suplencia (igual que CE): el nivel que no es el primero dice por qué no autorizó el anterior.
+        var suplencia = regla.Suplencia ? ReglasSalidaPt.MotivoValido(c.Suplencia) : null;
+
+        var ahora = clock.UtcNow;
+        var hoy = FechaContable.HoyLocal(ahora);
+        var (sinFactura, parciales) = await ReglasHoja.EvaluarAsync(db, facturacion, s, hoy, cancellationToken);
+        var alcance = regla.Parcial ? parciales : sinFactura;
+        if (alcance.Count == 0)
+            throw new BusinessRuleException("PT_SALIDA_AUTORIZACION_INNECESARIA",
+                regla.Parcial ? "Ningún pedido de la hoja sale incompleto." : "Todos los pedidos de la hoja tienen factura válida.");
+
+        s.Autorizar(regla.Parcial, new AutorizacionSalidaPt(acceso.Actor, ahora, c.Nivel, c.Motivo, suplencia, alcance), await PreparadoresAsync(s, cancellationToken));
+        await db.SaveChangesAsync(cancellationToken);
+        var dto = await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
+        return await ReglasHoja.ConReglasAsync(db, facturacion, s, dto, hoy, cancellationToken);
+    }
+
+    /// <summary>Quien armó la hoja y quien cargó cualquiera de sus piezas (movimiento de carga con referencia al albarán).</summary>
+    private async Task<IReadOnlyCollection<Guid>> PreparadoresAsync(SalidaPt s, CancellationToken ct)
+    {
+        var piezaIds = s.Albaranes.SelectMany(a => a.Piezas.Select(p => p.PiezaId)).ToList();
+        var albaranes = s.Albaranes.Select(a => a.Id.ToString()).ToList();
+        var cargas = await db.Movimientos.AsNoTracking().Where(m => piezaIds.Contains(m.PiezaId) && m.Tipo == TipoMovimientoPieza.Carga)
+            .Select(m => new { m.Referencia, m.Usuario }).ToListAsync(ct);
+        var preparadores = cargas.Where(m => albaranes.Any(a => m.Referencia == a || m.Referencia.StartsWith(a + "/", StringComparison.Ordinal)))
+            .Select(m => Guid.TryParse(m.Usuario, out var id) ? id : Guid.Empty).Where(id => id != Guid.Empty).ToHashSet();
+        if (s.CreadaPorId is { } creador) preparadores.Add(creador);
+        return preparadores;
+    }
+
+    private static string Permiso(string nivel) => nivel switch
+    {
+        "administracion" => PermisosCanonicos.ProductoTerminadoSalidaAprobarAdministracion,
+        "planeacion" => PermisosCanonicos.ProductoTerminadoSalidaAprobarPlaneacion,
+        "contraloria" => PermisosCanonicos.ProductoTerminadoSalidaAprobarContraloria,
+        "credito" => PermisosCanonicos.ProductoTerminadoSalidaAprobarCredito,
+        _ => PermisosCanonicos.ProductoTerminadoSalidaAprobarVentas,
+    };
 }

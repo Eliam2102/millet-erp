@@ -209,6 +209,37 @@ export interface HojaSalidaDto {
   yaEmitida: boolean;
   /** PT5.6: albaranes con piezas cuya entrega aún no se confirma (solo hojas emitidas). */
   entregasPendientes?: number;
+  /** Reglas de salida (Millet, 9-nov): solo en el detalle de una hoja en carga. */
+  reglas?: ReglasHojaDto | null;
+}
+
+/** Niveles de autorización de la hoja de salida, en orden de suplencia. */
+export type NivelAutorizacionSalida = 'administracion' | 'planeacion' | 'contraloria' | 'credito' | 'ventas';
+
+export interface AutorizacionSalidaDto {
+  actor: string;
+  fecha: string;
+  nivel: NivelAutorizacionSalida;
+  motivo: string;
+  suplencia: string | null;
+  /** «pedido:piezas cargadas» que cubre; si la carga cambia deja de cubrirlo. */
+  alcance: string[];
+}
+
+/** Pedidos sin factura válida y pedidos que salen incompletos («pedido:piezas cargadas»), con su última autorización. */
+export interface ReglasHojaDto {
+  sinFactura: string[];
+  parciales: string[];
+  excepcionFactura: AutorizacionSalidaDto | null;
+  parcial: AutorizacionSalidaDto | null;
+  excepcionFacturaVigente: boolean;
+  parcialVigente: boolean;
+}
+
+export interface AutorizarHojaBody {
+  nivel: NivelAutorizacionSalida;
+  motivo: string;
+  suplencia: string | null;
 }
 
 export interface HojasSalidaPagina {

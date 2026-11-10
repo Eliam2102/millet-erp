@@ -574,6 +574,11 @@ export const PermisosCanonicos = {
   ProductoTerminadoPiezasVerTodasSucursales: 'producto_terminado.piezas.ver-todas-sucursales',
   ProductoTerminadoExcepcionesGestionar: 'producto_terminado.excepciones.gestionar',
   ProductoTerminadoExcepcionesGestionarTodasSucursales: 'producto_terminado.excepciones.gestionar-todas-sucursales',
+  ProductoTerminadoSalidaAprobarAdministracion: 'producto_terminado.salida.aprobar-administracion',
+  ProductoTerminadoSalidaAprobarPlaneacion: 'producto_terminado.salida.aprobar-planeacion',
+  ProductoTerminadoSalidaAprobarContraloria: 'producto_terminado.salida.aprobar-contraloria',
+  ProductoTerminadoSalidaAprobarCredito: 'producto_terminado.salida.aprobar-credito',
+  ProductoTerminadoSalidaAprobarVentas: 'producto_terminado.salida.aprobar-ventas',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

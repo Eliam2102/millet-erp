@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { ConfirmarEntregaBody, CrearHojaSalidaBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
+import type { AutorizarHojaBody, ConfirmarEntregaBody, CrearHojaSalidaBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -148,6 +148,17 @@ export function useAccionHojaSalida() {
   return useMutation({
     mutationFn: async ({ id, accion, estado }: { id: string; accion: 'emitir' | 'cancelar'; estado: string }) =>
       (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}/${accion}`, { method: 'POST', idempotencyKey: keyFor({ id, accion, estado }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Reglas de salida 2 y 4: autoriza la hoja sin factura o la salida parcial. La llave lleva el cuerpo: reintentar lo mismo no registra otra. */
+export function useAutorizarHojaSalida() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: AutorizarHojaBody }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}/autorizar`, { method: 'POST', body, idempotencyKey: keyFor({ id, body }) })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
   });
 }

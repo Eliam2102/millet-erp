@@ -41,7 +41,7 @@ public sealed class SalidasProductoTerminadoTests
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Millet.Facturacion.Application.AssemblyMarker).Assembly));
         _sp = services.BuildServiceProvider();
         // La Carta Porte no se usa aquí: el lector fiscal del emisor no hace falta.
-        _puerto = new FacturacionSalidaAdapter(_sp.GetRequiredService<ISender>(), null!, _sp.GetRequiredService<ICurrentEmpresaContext>());
+        _puerto = new FacturacionSalidaAdapter(_sp.GetRequiredService<ISender>(), null!, _sp.GetRequiredService<ICurrentEmpresaContext>(), Db());
     }
 
     private FacturacionDbContext Db() => _sp.CreateScope().ServiceProvider.GetRequiredService<FacturacionDbContext>();

@@ -701,6 +701,12 @@ public static class PermisosCanonicos
     public const string ProductoTerminadoPiezasVerTodasSucursales = "producto_terminado.piezas.ver-todas-sucursales";
     public const string ProductoTerminadoExcepcionesGestionar = "producto_terminado.excepciones.gestionar";
     public const string ProductoTerminadoExcepcionesGestionarTodasSucursales = "producto_terminado.excepciones.gestionar-todas-sucursales";
+    // Reglas de la hoja de salida (Millet, 9-nov): excepción sin factura (Administración; suplentes Planeación y Contraloría) y salida parcial (Crédito; suplente Ventas).
+    public const string ProductoTerminadoSalidaAprobarAdministracion = "producto_terminado.salida.aprobar-administracion";
+    public const string ProductoTerminadoSalidaAprobarPlaneacion = "producto_terminado.salida.aprobar-planeacion";
+    public const string ProductoTerminadoSalidaAprobarContraloria = "producto_terminado.salida.aprobar-contraloria";
+    public const string ProductoTerminadoSalidaAprobarCredito = "producto_terminado.salida.aprobar-credito";
+    public const string ProductoTerminadoSalidaAprobarVentas = "producto_terminado.salida.aprobar-ventas";
 
     // U-4 (86e3yzemw): incidencias comunes del ERP; el responsable siempre ve y atiende las suyas (ADR-0051 para el bypass).
     public const string CompartidoIncidenciasVer = "compartido.incidencias.ver";
@@ -1115,6 +1121,11 @@ public static class PermisosCanonicos
         (Guid.Parse("00000010-0001-0000-0000-000000000002"), ProductoTerminadoPiezasVerTodasSucursales, "Consultar las piezas de producto terminado de todas las sucursales"),
         (Guid.Parse("00000010-0002-0000-0000-000000000001"), ProductoTerminadoExcepcionesGestionar, "Gestionar la bandeja de excepciones de entrada de piezas (reintentar, descartar, marcar revisada) de las sucursales asociadas"),
         (Guid.Parse("00000010-0002-0000-0000-000000000002"), ProductoTerminadoExcepcionesGestionarTodasSucursales, "Gestionar la bandeja de excepciones de entrada de piezas de todas las sucursales"),
+        (Guid.Parse("00000010-0003-0000-0000-000000000001"), ProductoTerminadoSalidaAprobarAdministracion, "Autorizar hoja de salida sin factura por Dirección de Administración"),
+        (Guid.Parse("00000010-0003-0000-0000-000000000002"), ProductoTerminadoSalidaAprobarPlaneacion, "Autorizar hoja de salida sin factura por suplencia de Dirección de Planeación"),
+        (Guid.Parse("00000010-0003-0000-0000-000000000003"), ProductoTerminadoSalidaAprobarContraloria, "Autorizar hoja de salida sin factura por suplencia de Contraloría"),
+        (Guid.Parse("00000010-0003-0000-0000-000000000004"), ProductoTerminadoSalidaAprobarCredito, "Autorizar salida parcial de pedido por Crédito y Cobranza"),
+        (Guid.Parse("00000010-0003-0000-0000-000000000005"), ProductoTerminadoSalidaAprobarVentas, "Autorizar salida parcial de pedido por suplencia de Gerencia de Ventas"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000008"), ActivosFijosDepreciacionCorrer, "Activos fijos: depreciacion.correr"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000009"), ActivosFijosDepreciacionAnular, "Activos fijos: depreciacion.anular"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000010"), ActivosFijosBajasRegistrar, "Activos fijos: bajas.registrar"),

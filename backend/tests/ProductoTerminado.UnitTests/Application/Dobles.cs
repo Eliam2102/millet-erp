@@ -2,10 +2,61 @@ using Microsoft.EntityFrameworkCore;
 using Millet.ProductoTerminado.Application;
 using Millet.ProductoTerminado.Application.Escaneos;
 using Millet.ProductoTerminado.Application.Ports;
+using Millet.Administracion.Application.Abstractions;
+using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ProductoTerminado.UnitTests.Application;
+
+/// <summary>
+/// Reglas de salida del 9-nov en las pruebas que no tratan de ellas: antes de emitir, otra persona autoriza la excepción sin factura
+/// (Administración) y la parcialidad (Crédito); lo que no hace falta autorizar se ignora. Las reglas mismas están en ReglasSalidaTests.
+/// </summary>
+internal sealed class EmisorAutorizado(ProductoTerminadoDbContext db, IPedidosPtReadPort pedidos, IFacturacionSalidaPort facturacion, EmitirHojaSalidaHandler emitir, IClock reloj)
+{
+    public static readonly Guid AprobadorId = Guid.Parse("00000000-0000-0000-0000-0000000000dd");
+
+    public async Task<HojaSalidaDto> Handle(EmitirHojaSalidaCommand c, CancellationToken ct)
+    {
+        var aprobar = new AutorizarHojaSalidaHandler(db, new PtAcceso(new UsuarioFijo(AprobadorId), new PermisosTodos(), new SucursalesTodas()), pedidos, facturacion,
+            new EmpresaFija(EntornoPt.Empresa), reloj);
+        foreach (var nivel in new[] { "administracion", "credito" })
+        {
+            try { await aprobar.Handle(new AutorizarHojaSalidaCommand(c.Id, nivel, "Autorizada en la prueba", null), ct); }
+            catch (BusinessRuleException) { }
+            catch (EntityNotFoundException) { }
+        }
+        return await emitir.Handle(c, ct);
+    }
+}
+
+internal sealed class UsuarioFijo(Guid id) : ICurrentUserContext
+{
+    public Guid? UserId => id;
+    public string? UserName => null;
+}
+
+internal sealed class PermisosTodos : ICurrentUserPermissions
+{
+    public ValueTask<bool> TieneAsync(string permiso, CancellationToken ct = default) => ValueTask.FromResult(true);
+}
+
+internal sealed class SucursalesTodas : IUsuarioSucursalReadPort
+{
+    public Task<IReadOnlyList<Guid>> ListarIdsAsync(Guid usuarioId, CancellationToken ct) => Task.FromResult<IReadOnlyList<Guid>>([EntornoPt.Sucursal]);
+    public Task<bool> EstaAsociadoAsync(Guid usuarioId, Guid sucursalId, CancellationToken ct) => Task.FromResult(true);
+}
+
+/// <summary>Sin festivos; la sucursal de prueba en Mérida salvo que se indique otra zona.</summary>
+internal sealed class CalendarioFalso : IPtCalendarioSucursalesPort
+{
+    public Dictionary<Guid, SucursalCalendarioPt> Sucursales { get; } = new() { [EntornoPt.Sucursal] = new("CIR", "America/Merida") };
+    public Task<IReadOnlyDictionary<Guid, SucursalCalendarioPt>> SucursalesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, SucursalCalendarioPt>>(Sucursales.Where(s => ids.Contains(s.Key)).ToDictionary());
+    public Task<IReadOnlySet<DateOnly>> FestivosAsync(CancellationToken ct) => Task.FromResult<IReadOnlySet<DateOnly>>(new HashSet<DateOnly>());
+}
 
 internal sealed class FakePedidosPort : IPedidosPtReadPort
 {

@@ -53,6 +53,8 @@ public sealed class LiquidacionTests
             Cobros.AddRange(cobros.Select(c => (sucursalId, c)));
             return Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([.. cobros.Select(c => new CobroRutaRegistrado(c.AlbaranFolio, Guid.NewGuid()))]);
         }
+        public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
     }
 
     private static readonly DateTimeOffset Ahora = new(2026, 11, 5, 18, 0, 0, TimeSpan.Zero); // 12:00 en Ciudad de México
@@ -64,7 +66,8 @@ public sealed class LiquidacionTests
         public PtAcceso Acceso { get; } = new(new Usuario(), new Permisos(), new Sucursales());
         public FacturacionFalsa Facturacion { get; } = new();
         public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
-        public CerrarDiaContraEntregaHandler CerrarDia() => new(T.Db, T.Pedidos, T.Eventos, new RelojFijo(Ahora));
+        public CerrarDiaContraEntregaHandler CerrarDia(DateTimeOffset? ahora = null) => new(T.Db, T.Pedidos, T.Eventos, new RelojFijo(ahora ?? Ahora), new CalendarioFalso(),
+            Microsoft.Extensions.Options.Options.Create(new Millet.ProductoTerminado.Infrastructure.Workers.CierreContraEntregaOptions()));
         public void Dispose() => T.Dispose();
     }
 
@@ -86,7 +89,9 @@ public sealed class LiquidacionTests
         var emp = new EmpresaFija(EntornoPt.Empresa);
         var hoja = await new CrearHojaSalidaHandler(t.Db, acceso, t.Pedidos, emp, new RelojFijo(Ahora)).Handle(
             new CrearHojaSalidaCommand(EntornoPt.Sucursal, "Obra Mérida norte", false, null, null, null, null, null, null, null, null, pedidos), default);
-        hoja = await new EmitirHojaSalidaHandler(t.Db, acceso, t.Pedidos, new FacturacionFalsa(), t.Eventos, emp, new RelojFijo(Ahora)).Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
+        var facturacion = new FacturacionFalsa();
+        hoja = await new EmisorAutorizado(t.Db, t.Pedidos, facturacion, new EmitirHojaSalidaHandler(t.Db, acceso, t.Pedidos, facturacion, t.Eventos, emp, new RelojFijo(Ahora)), new RelojFijo(Ahora))
+            .Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
         return (e, hoja);
     }
 

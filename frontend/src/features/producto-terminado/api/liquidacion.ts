@@ -17,6 +17,10 @@ export interface LiquidacionResumenDto {
   contraEntrega: number;
   estado: EstadoLiquidacion;
   diferencia: number;
+  /** Regla de salida 5: 12 horas hábiles sin liquidar (alerta) y límite para liquidar; sin dato si ya se cerró. */
+  alertaAt?: string | null;
+  limiteAt?: string | null;
+  plazo?: 'EnPlazo' | 'Alerta' | 'Vencida' | null;
 }
 
 export interface LiquidacionLineaDto {

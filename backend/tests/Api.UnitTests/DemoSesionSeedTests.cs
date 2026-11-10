@@ -67,7 +67,7 @@ public sealed class DemoSesionSeedTests
     public void M45_Ningun_rol_distinto_del_administrador_recibe_permisos_de_producto_terminado(string rol)
     {
         var pt = PermisosCanonicos.Todos.Where(p => p.Codigo.StartsWith("producto_terminado.", StringComparison.Ordinal)).ToArray();
-        Assert.Equal(4, pt.Length);
+        Assert.Equal(9, pt.Length);
         Assert.All(pt, p => Assert.False(DemoSesionSeedHostedService.PermisoDelRol(rol, p.Codigo), $"{rol} no debe recibir {p.Codigo}"));
     }
 

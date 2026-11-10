@@ -53,6 +53,7 @@ public class PtLiquidacionHttpTests
         var hoja = await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida",
             new { sucursalId = a, destino = "Obra Mérida norte", foranea = false, pedidos = new[] { new { numeroPedido = numero, etiquetas } } }));
         var id = hoja.GetProperty("id").GetGuid();
+        await _d.AutorizarSalidaAsync(id, a);
         var emitida = await Json(await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null));
         return (a, id, emitida.GetProperty("albaranes")[0].GetProperty("id").GetGuid(), cliente);
     }

@@ -19,6 +19,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useAccionHojaSalida, useCrearHojaSalida, useHojaSalida, useHojasSalida } from '../api/hooks';
 import type { EstadoHojaSalida } from '../api/types';
+import { AutorizacionHojaPanel } from './AutorizacionHojaPanel';
 import { CargaHojaPanel } from './CargaHojaPanel';
 
 // Texto además del color: el estado no depende solo de la vista.
@@ -116,6 +117,7 @@ export function HojasSalidaPage() {
         {operar && abierto && detalle.data?.estado === 'Borrador' && (
           <CargaHojaPanel hoja={detalle.data} sucursal={nombre(detalle.data.sucursalId)} emitiendo={accion.isPending} onEmitir={() => ejecutar(detalle.data!.id, 'emitir', 'Borrador')} />
         )}
+        {abierto && detalle.data?.estado === 'Borrador' && <AutorizacionHojaPanel hoja={detalle.data} />}
         {operar && (
           <section aria-label="Nueva hoja de salida" className="flex flex-col gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
             <div className="flex flex-wrap items-center gap-3">

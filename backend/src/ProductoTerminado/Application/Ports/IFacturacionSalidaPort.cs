@@ -30,7 +30,15 @@ public interface IFacturacionSalidaPort
     /// Falla sin sesión en la sucursal o con un albarán sin factura timbrada.
     /// </summary>
     Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct);
+
+    /// <summary>
+    /// Reglas de salida 1 y 3: facturas de venta de los pedidos que cuentan para emitir la hoja: timbradas (con su fecha de timbrado) o, en un
+    /// pedido de exportación, retenidas en PendientePedimento. Sin factura así, el pedido no aparece.
+    /// </summary>
+    Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct);
 }
+
+public sealed record FacturaPedidoSalida(Guid PedidoFacturableId, bool Exportacion, bool PendientePedimento, DateTimeOffset? FechaTimbrado);
 
 public sealed record FacturaAlbaranRuta(string AlbaranFolio, Guid ComprobanteId, string Folio, decimal PorCobrar, Guid? CobroCajaId);
 

@@ -5605,6 +5605,76 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000010-0003-0000-0000-000000000001"),
+                            Accion = "aprobar-administracion",
+                            Codigo = "producto_terminado.salida.aprobar-administracion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar hoja de salida sin factura por Dirección de Administración",
+                            Modulo = "producto_terminado",
+                            Recurso = "salida",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0003-0000-0000-000000000002"),
+                            Accion = "aprobar-planeacion",
+                            Codigo = "producto_terminado.salida.aprobar-planeacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar hoja de salida sin factura por suplencia de Dirección de Planeación",
+                            Modulo = "producto_terminado",
+                            Recurso = "salida",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0003-0000-0000-000000000003"),
+                            Accion = "aprobar-contraloria",
+                            Codigo = "producto_terminado.salida.aprobar-contraloria",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar hoja de salida sin factura por suplencia de Contraloría",
+                            Modulo = "producto_terminado",
+                            Recurso = "salida",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0003-0000-0000-000000000004"),
+                            Accion = "aprobar-credito",
+                            Codigo = "producto_terminado.salida.aprobar-credito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar salida parcial de pedido por Crédito y Cobranza",
+                            Modulo = "producto_terminado",
+                            Recurso = "salida",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0003-0000-0000-000000000005"),
+                            Accion = "aprobar-ventas",
+                            Codigo = "producto_terminado.salida.aprobar-ventas",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar salida parcial de pedido por suplencia de Gerencia de Ventas",
+                            Modulo = "producto_terminado",
+                            Recurso = "salida",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000f-0001-0000-0000-000000000008"),
                             Accion = "correr",
                             Codigo = "activos_fijos.depreciacion.correr",

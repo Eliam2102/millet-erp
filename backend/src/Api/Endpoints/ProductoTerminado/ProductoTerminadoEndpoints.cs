@@ -88,6 +88,11 @@ public static class ProductoTerminadoEndpoints
             Results.Ok(await mediator.Send(new EmitirHojaSalidaCommand(id), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
+        // Reglas de salida 2 y 4: el permiso depende del nivel (producto_terminado.salida.aprobar-*); lo exige el handler.
+        hojas.MapPost("/{id:guid}/autorizar", async (Guid id, AutorizarHojaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AutorizarHojaSalidaCommand(id, body.Nivel, body.Motivo, body.Suplencia), ct)))
+            .RequireAuthorization()
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
         hojas.MapPost("/{id:guid}/cancelar", async (Guid id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new CancelarHojaSalidaCommand(id), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
@@ -164,6 +169,8 @@ public static class ProductoTerminadoEndpoints
     public sealed record LiquidarBody(IReadOnlyList<LiquidacionAlbaranInput> Albaranes, IReadOnlyList<ImprevistoInput>? Imprevistos);
 
     public sealed record CancelarAlbaranBody(string Motivo);
+
+    public sealed record AutorizarHojaBody(string Nivel, string Motivo, string? Suplencia);
 
     public sealed record SaldoDemoBody(decimal Saldo);
 }

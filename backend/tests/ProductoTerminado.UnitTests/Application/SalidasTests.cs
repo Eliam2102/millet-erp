@@ -58,6 +58,8 @@ public sealed class SalidasTests
             Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(new Dictionary<string, FacturaAlbaranRuta>());
         public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
+        public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
     }
 
     private static readonly DateTimeOffset Ahora = new(2026, 11, 5, 12, 0, 0, TimeSpan.Zero);
@@ -69,7 +71,8 @@ public sealed class SalidasTests
         public FacturacionFalsa Facturacion { get; } = new();
         public PtAcceso Acceso { get; } = new(new Usuario(), new Permisos(), new Sucursales());
         public CrearHojaSalidaHandler Crear() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
-        public EmitirHojaSalidaHandler Emitir() => new(T.Db, Acceso, T.Pedidos, Facturacion, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public EmisorAutorizado Emitir() => new(T.Db, T.Pedidos, Facturacion,
+            new EmitirHojaSalidaHandler(T.Db, Acceso, T.Pedidos, Facturacion, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora)), new RelojFijo(Ahora));
         public CancelarHojaSalidaHandler Cancelar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public CargarPiezaHojaHandler Cargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public DescargarPiezaHojaHandler Descargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
