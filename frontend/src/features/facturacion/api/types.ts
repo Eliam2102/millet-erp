@@ -225,6 +225,8 @@ export interface PedidoFacturableLineaInput {
 export interface BandejaScoped<TItem> {
   items: TItem[];
   sinAsignarCount: number | null;
+  /** Filas que cumplen el filtro en el servidor (paginación servidor); ausente en bandejas que aún no lo envían. */
+  total?: number;
 }
 
 /**

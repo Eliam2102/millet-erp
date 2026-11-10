@@ -54,6 +54,27 @@ const commandValido: CrearPedidoManualCommand = {
 };
 
 describe('useListarPedidos', () => {
+  it('envía q, offset y limit al servidor y expone el total real', async () => {
+    let url: URL | undefined;
+    mswServer.use(
+      http.get(BASE, ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json({ items: [], sinAsignarCount: null, total: 450 });
+      }),
+    );
+
+    const { result } = renderHook(
+      () => useListarPedidos({ q: '10448856', offset: 20, limit: 10 }),
+      { wrapper: createQueryWrapper(createTestQueryClient()) },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(url?.searchParams.get('q')).toBe('10448856');
+    expect(url?.searchParams.get('offset')).toBe('20');
+    expect(url?.searchParams.get('limit')).toBe('10');
+    expect(result.current.data?.total).toBe(450);
+  });
+
   it('200 OK: devuelve la lista de pedidos', async () => {
     mswServer.use(
       http.get(BASE, () =>
