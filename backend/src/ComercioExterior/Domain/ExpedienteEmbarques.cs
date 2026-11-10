@@ -188,14 +188,19 @@ public sealed partial class Expediente
         if (contenedorId is Guid id)
         {
             var c = _contenedores.SingleOrDefault(x => x.Id == id);
-            return c is not null && c.Estado == EstadoContenedor.Activo && c.FechaEmbarqueReal is not null && partidas.Any(p => p.ContenedorId == id)
-                ? (null, null)
-                : ("FAC_PEDIDO_NO_EMBARCADO", "El contenedor de la salida no está embarcado, se canceló o ya no lleva partidas de este pedido.");
+            if (c is null || c.Estado != EstadoContenedor.Activo || c.FechaEmbarqueReal is null || !partidas.Any(p => p.ContenedorId == id))
+                return ("FAC_PEDIDO_NO_EMBARCADO", "El contenedor de la salida no está embarcado, se canceló o ya no lleva partidas de este pedido.");
+            return BloqueoPreparacionFacturable(partidas.Where(p => p.ContenedorId == id));
         }
         var faltas = pedido.Lineas.Select(l => new { Linea = l, Embarcado = partidas.Where(p => p.Posicion == l.Posicion && p.Unidad == l.Unidad && Contenedor(p.ContenedorId).FechaEmbarqueReal != null).Sum(p => p.Cantidad) })
             .Where(x => x.Embarcado != x.Linea.Cantidad).Select(x => $"posición {x.Linea.Posicion}: embarcado {x.Embarcado} de {x.Linea.Cantidad} {x.Linea.Unidad}").ToArray();
         if (faltas.Length > 0 || pedido.Lineas.Count == 0)
             return ("FAC_PEDIDO_NO_EMBARCADO", "Falta embarcar el 100 % del pedido: " + string.Join("; ", faltas));
+        return BloqueoPreparacionFacturable(partidas);
+    }
+
+    private (string? Codigo, string? Motivo) BloqueoPreparacionFacturable(IEnumerable<PartidaEmbarcada> partidas)
+    {
         if (!SalidaAutorizada) return ("CE_SALIDA_SIN_AUTORIZAR", "Autorice la salida de la versión actual del embarque en Comercio Exterior.");
         if (partidas.Any(p => p.AduanalesRevisadoPorId is null))
             return ("CE_DATOS_ADUANALES_SIN_REVISAR", "Revise la fracción arancelaria y la unidad aduana de todas las partidas en Comercio Exterior antes de emitir la factura.");

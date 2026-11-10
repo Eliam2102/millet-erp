@@ -101,6 +101,31 @@ public sealed class ContenedoresTests
         Assert.Contains("40", e.BloqueoFacturacion(p2).Motivo);
     }
     [Fact]
+    public void La_factura_parcial_exige_autorizacion_de_la_version_y_revision_aduanal_del_contenedor()
+    {
+        var e = Nuevo();
+        var c = Contenedor(e);
+        var otroContenedor = Contenedor(e);
+        var pedido = Pedido(e);
+        Pedimento(e);
+        e.AsignarPartida(c, pedido, 1, 60, Actor);
+        e.AsignarPartida(otroContenedor, pedido, 1, 40, Actor);
+        var fecha = new DateTimeOffset(2026, 10, 16, 18, 0, 0, TimeSpan.Zero);
+        var autoriza = Guid.NewGuid();
+        e.AutorizarSalida(autoriza, fecha, null, true);
+        e.RegistrarEmbarque(c, Hoy, Hoy);
+
+        Assert.Equal("CE_DATOS_ADUANALES_SIN_REVISAR", e.BloqueoFacturacion(pedido, contenedorId: c).Codigo);
+        var partida = e.Partidas.Single(p => p.ContenedorId == c);
+        e.GuardarDatosAduanales(partida.Id, "70071999", "06", Actor, fecha, true);
+        Assert.Equal("CE_SALIDA_SIN_AUTORIZAR", e.BloqueoFacturacion(pedido, contenedorId: c).Codigo);
+        e.AutorizarSalida(autoriza, fecha, null, true);
+
+        Assert.Null(e.BloqueoFacturacion(pedido, contenedorId: c).Codigo);
+        Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", e.BloqueoFacturacion(pedido, contenedorId: otroContenedor).Codigo);
+    }
+
+    [Fact]
     public void K3_cantidad_en_todos_los_contenedores_no_excede_y_conserva_unidad()
     {
         var e = Nuevo(); var c1 = Contenedor(e); var c2 = Contenedor(e); var p = Pedido(e);
