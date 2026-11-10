@@ -4762,6 +4762,22 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("factura_relacionada_id");
 
+                    b.Property<DateTimeOffset?>("FirmaCreditoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("firma_credito_en");
+
+                    b.Property<Guid?>("FirmaCreditoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("firma_credito_por_id");
+
+                    b.Property<DateTimeOffset?>("FirmaGerenteEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("firma_gerente_en");
+
+                    b.Property<Guid?>("FirmaGerentePorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("firma_gerente_por_id");
+
                     b.Property<decimal>("ImporteAfectaInventario")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")

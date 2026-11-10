@@ -469,6 +469,8 @@ export const PermisosCanonicos = {
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
   FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
   FacturacionNotasCreditoAutorizar: 'facturacion.notas-credito.autorizar',
+  // M-087: segunda firma (Crédito y Cobranza) de las NC de A+W arriba del umbral.
+  FacturacionNotasCreditoAutorizarCredito: 'facturacion.notas-credito.autorizar-credito',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',
