@@ -13,11 +13,10 @@ namespace Millet.Api.Endpoints.Almacen;
 /// <c>documentoPrevio</c> (solo AJUSTE_SALIDA, opcional) y <c>almacenes[].grupos[]</c> (articuloAw, ancho/alto en mm
 /// sin redondear, piezas, costo). Se aplanan los grupos de todos los almacenes; cada grupo lleva la llave de su almacén
 /// (<c>almacenGeneral.tipo</c> + <c>linea</c>, M-446) y su lote (se toma primero), y se resuelven con una sola llamada al puerto; la
-/// salida es todo o nada. El costo (solo SALIDA_MANUAL, cualquiera que sea su origen: captura, cancelación de
-/// entrada o devolución de venta) es el promedio de A+W al momento del movimiento: <c>costoM2</c> en vidrio o
-/// <c>costoPieza</c> en material por cantidad; se guarda tal cual llega y nunca se recalcula. Costo de la hoja =
-/// costoM2 × m² de la hoja; del grupo = costoM2 × m2 del grupo. Ya no existe el costo total del grupo ni
-/// <c>origenCosto</c>. Con medida (vidrio) <c>piezas</c> son hojas enteras y el saldo vive en m²: se baja
+/// salida es todo o nada. Costo (contrato v9, 10-nov; Fernando, 9-nov): toda salida, incluida SALIDA_MANUAL, sale al
+/// costo promedio del ERP del saldo que toca. El <c>costoM2</c> (vidrio) o <c>costoPieza</c> (por cantidad) que trae
+/// SALIDA_MANUAL es el promedio de A+W y para el ERP es informativo: se valida su forma pero no se usa. <c>moneda</c>, si
+/// viene, debe ser PESOSMX (o MXN). <c>motivoClave</c> (v9) se guarda en el motivo del movimiento. Con medida (vidrio) <c>piezas</c> son hojas enteras y el saldo vive en m²: se baja
 /// piezas × m² de la hoja (el <c>m2</c> del grupo, si viene, debe coincidir). Sin medida, <c>piezas</c> es el conteo
 /// de unidades. Artículo, medida o sucursal inexistente → ERROR sin mover nada. Sin existencia → ERROR con folio de
 /// revisión y el mensaje queda marcado (el llamador lo acusa).
@@ -47,13 +46,16 @@ public static class AlmacenesAppSalida
         IDimensionesSalidaInventarioPort? dimensiones = null, bool exigirAreaEquipo = false)
     {
         if (datos.ValueKind != JsonValueKind.Object) return (null, "datos debe ser un objeto.");
+        // A+W manda PESOSMX (distingue mayúsculas); el ERP solo lleva inventario en pesos.
+        if (Texto(datos, "moneda")?.Trim() is { Length: > 0 } moneda && moneda is not ("PESOSMX" or "MXN"))
+            return (null, $"moneda no soportada: {moneda} (solo PESOSMX).");
         var sucursal = Texto(datos, "sucursal");
         if (string.IsNullOrWhiteSpace(sucursal)) return (null, "datos.sucursal es requerida.");
         if (!datos.TryGetProperty("almacenes", out var almacenes) || almacenes.ValueKind != JsonValueKind.Array
             || almacenes.GetArrayLength() == 0)
             return (null, "almacenes debe ser un arreglo con al menos un elemento.");
 
-        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? CostoUnitario, decimal? M2, string Ruta,
+        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? M2, string Ruta,
             LlaveAlmacenApp? Almacen, string? Lote)>();
         var i = 0;
         foreach (var alm in almacenes.EnumerateArray())
@@ -84,8 +86,8 @@ public static class AlmacenesAppSalida
                     return (null, $"{p}.ancho y {p}.alto deben venir juntos y ser mayores que cero, o no venir.");
                 if (!TryNumero(g, "m2", out var m2)) return (null, $"{p}.m2 debe ser numérico.");
                 if (m2 is <= 0) return (null, $"{p}.m2 debe ser mayor que cero.");
-                // Solo SALIDA_MANUAL trae costo (5-nov): promedio de A+W por m² (vidrio) o por pieza (por cantidad).
-                decimal? costo = null;
+                // Solo SALIDA_MANUAL trae costo: promedio de A+W por m² (vidrio) o por pieza (por cantidad). Desde v9 es
+                // informativo (sale al promedio del ERP), pero su forma sigue el contrato.
                 if (tipo == "SALIDA_MANUAL")
                 {
                     if (!TryNumero(g, "costoM2", out var costoM2)) return (null, $"{p}.costoM2 debe ser numérico.");
@@ -94,9 +96,8 @@ public static class AlmacenesAppSalida
                     var conMedida = ancho is not null;
                     if (conMedida && costoM2 is null && costoPieza is not null) return (null, $"{p} lleva medida: el costo va en costoM2.");
                     if (!conMedida && costoPieza is null && costoM2 is not null) return (null, $"{p} no lleva medida: el costo va en costoPieza.");
-                    costo = conMedida ? costoM2 : costoPieza;
                 }
-                items.Add((articulo, ancho, alto, piezas.Value, costo, m2, p, llave, Texto(g, "lote")));
+                items.Add((articulo, ancho, alto, piezas.Value, m2, p, llave, Texto(g, "lote")));
                 j++;
             }
             i++;
@@ -132,7 +133,9 @@ public static class AlmacenesAppSalida
                 Texto(datos, "mesa") is { Length: > 0 } mesa ? $" mesa {mesa}" : "",
                 Texto(datos, "jobid") is { Length: > 0 } job ? $" job {job}" : "",
                 Texto(datos, "pedidoAw") is { Length: > 0 } ped ? $" pedido {ped}" : "")
-            : Texto(datos, "motivo") is { Length: > 0 } mot ? $": {mot.Trim()}" : "";
+            : string.Concat(
+                Texto(datos, "motivo") is { Length: > 0 } mot ? $": {mot.Trim()}" : "",
+                Texto(datos, "motivoClave") is { Length: > 0 } clave ? $" [{clave.Trim()}]" : "");
         motivo += detalle;
         if (motivo.Length > 500) motivo = motivo[..500];
 
@@ -146,10 +149,9 @@ public static class AlmacenesAppSalida
             // El área de la hoja se redondea a 4 decimales; el m2 del grupo puede venir sin redondear, así que la tolerancia crece con las hojas.
             if (r.AreaHojaM2 is not null && x.M2 is { } m2 && Math.Abs(m2 - cantidad) > 0.0001m + x.Piezas * 0.00005m)
                 return (null, $"{x.Ruta}.m2 ({m2:0.####}) no coincide con piezas × área de la hoja ({cantidad:0.####}).");
-            // El valor que llega se guarda tal cual (a la precisión de la columna, 14,4); no se recalcula contra A+W.
-            var costoUnit = x.CostoUnitario is { } cu ? Math.Round(cu, 4) : (decimal?)null;
+            // Sin costo: SalidaAppAlmacenes toma el promedio del saldo del ERP (v9).
             salidas.Add(new SalidaApp(tipoMov, resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
-                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim(), CentroCostoId: centro,
+                cantidad, null, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim(), CentroCostoId: centro,
                 Almacen: x.Almacen, Lote: x.Lote));
         }
         return (new Resuelta(sp.EmpresaId, sp.Id, salidas), null);

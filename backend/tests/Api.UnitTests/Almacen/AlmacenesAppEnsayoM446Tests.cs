@@ -106,6 +106,27 @@ public sealed class AlmacenesAppEnsayoM446Tests
     }
 
     [Fact]
+    public async Task SALIDA_MANUAL_v9_valua_al_promedio_del_ERP_acepta_PESOSMX_y_guarda_motivoClave()
+    {
+        // M-447 (contrato v9): el costoM2 de A+W es informativo; sin costo, SalidaAppAlmacenes toma el promedio del saldo.
+        var datos = JsonDocument.Parse("""
+            {"sucursal":"CONKAL","movimiento":"MV-1","motivo":"Faltante de inventario","motivoClave":"FALTANTE","moneda":"PESOSMX",
+             "almacenes":[{"almacenGeneral":{"tipo":"EXPORTACION","linea":"HEGLA 1"},
+               "grupos":[{"articuloAw":"6MM CLARO","ancho":3210,"alto":2600,"piezas":3,"m2":25.038,"costoM2":215.50}]}]}
+            """).RootElement;
+        var (r, error) = await AlmacenesAppSalida.ManejarAsync("SALIDA_MANUAL", datos, new Resolver(), new UsuarioServicio(), default);
+        Assert.Null(error);
+        var s = Assert.Single(r!.Salidas);
+        Assert.Null(s.CostoUnitarioMxn);
+        Assert.EndsWith("Faltante de inventario [FALTANTE]", s.Motivo);
+
+        var usd = JsonDocument.Parse(datos.GetRawText().Replace("PESOSMX", "USD")).RootElement;
+        var (r2, error2) = await AlmacenesAppSalida.ManejarAsync("SALIDA_MANUAL", usd, new Resolver(), new UsuarioServicio(), default);
+        Assert.Null(r2);
+        Assert.Contains("moneda no soportada", error2);
+    }
+
+    [Fact]
     public async Task ENTRADA_ALMACEN_real_de_herraje_lleva_la_llave_sin_linea()
     {
         var herraje = DeTipo(AlmacenesAppEntrada.Tipo).Single(m => m.GetProperty("referencia").GetString() == "EN-002035");
