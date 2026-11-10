@@ -103,12 +103,12 @@ public sealed class EmitirNotaCreditoDevolucionAnticipoHandler(
         anticipo.RegistrarDevolucion(nc.Total);
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(db, nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-            fiscal, cfdiRepo, ahora, cancellationToken);
+            fiscal, cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(db, nc)); // M-173: con el saldo comprometido, antes del PAC
 
         if (nc.Estado == EstadoTimbrado.Timbrado)
             await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora, clienteId: anticipo.ClienteId),
                 cancellationToken);
-        db.NotasCredito.Add(nc);
         await ReembolsoNotaCredito.SolicitarProgramadoSiAplicaAsync(db, eventos, nc, user.UserId, ahora, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);

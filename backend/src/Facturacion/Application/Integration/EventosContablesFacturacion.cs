@@ -54,7 +54,36 @@ public static class EventosContablesFacturacion
             NumeroPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.NumeroPedido : null,
             VersionPedidoAw: pedido is { Origen: OrigenPedido.Aw } ? pedido.VersionOrigen : null,
             ExpedienteCeId: f.DatosEmbarqueCe?.ExpedienteId, VersionEmbarqueCe: f.DatosEmbarqueCe?.VersionEmbarque,
-            UuidOriginal: f.Relaciones.FirstOrDefault(r => r.TipoRelacion == "04")?.UuidRelacionado);
+            UuidOriginal: f.Relaciones.FirstOrDefault(r => r.TipoRelacion == "04")?.UuidRelacionado,
+            Impuestos: ImpuestosDe(f));
+
+    /// <summary>
+    /// M-209 (86e3zr7mp): base (importe menos descuento) e IVA de las líneas por tratamiento: ObjetoImp 01 o 03 → NOOBJETO; sin tasa de
+    /// traslado → EXENTO; tasa 0.16, 0.08 o 0 → TASA16, TASA8 o TASA0. Una tasa no reconocida no se clasifica (Contabilidad usa el IVA
+    /// total de la factura, como hoy). Null si la factura no tiene líneas.
+    /// </summary>
+    internal static List<ImpuestoTrasladoContablePayload>? ImpuestosDe(FacturaVenta f)
+    {
+        var partes = f.Lineas.Select(l => (Tratamiento: Tratamiento(l.ObjetoImp, l.TasaIvaTraslado), Base: l.Importe - l.Descuento,
+                Iva: l.TasaIvaTraslado is null ? 0m : l.ImpuestoTrasladadoImporte))
+            .Where(x => x.Tratamiento is not null).ToList();
+        if (partes.Count == 0) return null;
+        return [.. partes.GroupBy(x => x.Tratamiento!)
+            .Select(g => new ImpuestoTrasladoContablePayload(g.Key, g.Sum(x => x.Base), g.Sum(x => x.Iva)))];
+    }
+
+    internal static string? Tratamiento(string? objetoImp, decimal? tasaIva) => objetoImp?.Trim() switch
+    {
+        "01" or "03" => "NOOBJETO",
+        _ => tasaIva switch
+        {
+            null => "EXENTO",
+            0.16m => "TASA16",
+            0.08m => "TASA8",
+            0m => "TASA0",
+            _ => null,
+        },
+    };
 
     public static ComprobanteCanceladoIntegrationEvent ComprobanteCancelado(
         Comprobante c, DateTimeOffset ocurridoEn, PedidoFacturable? pedido = null)

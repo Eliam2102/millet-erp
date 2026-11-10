@@ -24,11 +24,11 @@ public sealed class DepositoFichasTests
     private static readonly DateTimeOffset Ahora = new(2026, 11, 3, 12, 0, 0, TimeSpan.Zero);
     private static readonly DateOnly DiaCorte = new(2026, 11, 2);
 
-    private static async Task<(TesoreriaDbContext db, CuentaBancaria cuenta)> Nueva()
+    private static async Task<(TesoreriaDbContext db, CuentaBancaria cuenta)> Nueva(string? cuentaContableRef = null)
     {
         var db = new TesoreriaDbContext(new DbContextOptionsBuilder<TesoreriaDbContext>()
             .UseInMemoryDatabase($"tes_fichas_{Guid.NewGuid()}").Options, new FakeEmpresa());
-        var cuenta = new CuentaBancaria(Empresa, "BBVA", "0123456789", null, "MXN");
+        var cuenta = new CuentaBancaria(Empresa, "BBVA", "0123456789", null, "MXN", cuentaContableRef);
         db.CuentasBancarias.Add(cuenta);
         await db.SaveChangesAsync();
         return (db, cuenta);
@@ -71,6 +71,23 @@ public sealed class DepositoFichasTests
         ev.CajeroId.Should().Be(CajeroA);
         ev.SucursalId.Should().Be(Sucursal);
         ev.Importe.Should().Be(4_200m);
+    }
+
+    /// <summary>M-174: la póliza del depósito carga a la cuenta contable de la cuenta bancaria de la ficha (no a la única de BANCOS).</summary>
+    [Theory]
+    [InlineData("102.01.01.02")]
+    [InlineData(null)]
+    public async Task M174_el_evento_del_deposito_lleva_la_cuenta_contable_de_su_cuenta_bancaria(string? cuentaContable)
+    {
+        var (db, cuenta) = await Nueva(cuentaContable); var pub = new FakePublisher();
+        var corte = Corte(db, 4_500m, CajeroA);
+        var ficha = Ingreso(db, cuenta, 4_500m, DiaCorte, "F-4500");
+        await db.SaveChangesAsync();
+
+        await Ligar(db, pub, corte, ficha);
+
+        pub.Publicados.Should().ContainSingle().Which.Should().BeOfType<DepositoCajaConfirmadoIntegrationEvent>()
+            .Which.CuentaContableRef.Should().Be(cuentaContable);
     }
 
     [Fact]

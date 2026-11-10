@@ -48,6 +48,30 @@ public sealed class AlmacenesAppEnsayoM446Tests
     }
 
     [Fact]
+    public void REQUISICION_ENVIADA_real_con_medidas_3302_punto_0_se_acepta()
+    {
+        // La app manda ancho y alto como número con decimales (1200.00 × 2600.00); antes se rechazaba «deben ser enteros».
+        var envios = DeTipo("REQUISICION_ENVIADA").ToList();
+        Assert.Equal(4, envios.Count);
+        foreach (var m in envios)
+        {
+            var (solicitud, error) = AlmacenesAppRequisicionEnviada.Parsear(m.GetProperty("datos"));
+            Assert.Null(error);
+            Assert.NotNull(solicitud);
+        }
+    }
+
+    [Fact]
+    public void REQUISICION_ENVIADA_con_medida_fraccionaria_se_rechaza()
+    {
+        var datos = JsonDocument.Parse(DeTipo("REQUISICION_ENVIADA").First(m => m.GetRawText().Contains("\"ancho\":1200"))
+            .GetProperty("datos").GetRawText().Replace("\"ancho\":1200.00", "\"ancho\":1200.50")).RootElement;
+        var (solicitud, error) = AlmacenesAppRequisicionEnviada.Parsear(datos);
+        Assert.Null(solicitud);
+        Assert.Contains("enteros", error);
+    }
+
+    [Fact]
     public async Task CAMBIO_ALMACEN_sin_destino_da_ERROR()
     {
         var datos = JsonDocument.Parse(DeTipo(AlmacenesAppCambio.Tipo).First().GetProperty("datos").GetRawText()

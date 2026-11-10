@@ -37,6 +37,7 @@ public sealed class IntegracionesFiscalDbContext : BaseDbContext
     }
 
     public DbSet<ConfiguracionPac> ConfiguracionesPac => Set<ConfiguracionPac>();
+    public DbSet<PruebaConexionPac> PruebasConexionPac => Set<PruebaConexionPac>();
     public DbSet<CertificadoCsd> CertificadosCsd => Set<CertificadoCsd>();
     public DbSet<AlertaCsd> AlertasCsd => Set<AlertaCsd>();
     public DbSet<RfcReceptor> RfcsReceptores => Set<RfcReceptor>();
@@ -64,6 +65,7 @@ public sealed class IntegracionesFiscalDbContext : BaseDbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new ConfiguracionPacConfiguration());
+        modelBuilder.ApplyConfiguration(new PruebaConexionPacConfiguration());
         modelBuilder.ApplyConfiguration(new CertificadoCsdConfiguration());
         modelBuilder.ApplyConfiguration(new AlertaCsdConfiguration());
         modelBuilder.ApplyConfiguration(new RfcReceptorConfiguration());

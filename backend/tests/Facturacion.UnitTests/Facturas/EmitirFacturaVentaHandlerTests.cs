@@ -820,4 +820,47 @@ public sealed class EmitirFacturaVentaHandlerTests
         // El pedido no queda tomado: se puede volver a facturar.
         (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Importado);
     }
+
+    [Fact]
+    public async Task M173_caida_del_PAC_durante_la_llamada_deja_la_factura_en_proceso_con_su_folio_y_el_pedido_tomado()
+    {
+        var empresa = Guid.NewGuid();
+        var nombre = Guid.NewGuid().ToString();
+        FacturacionDbContext Db() => new(new DbContextOptionsBuilder<FacturacionDbContext>().UseInMemoryDatabase(nombre).Options,
+            new FakeEmpresaContext(empresa));
+        using var db = Db();
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var pac = new FakeFiscalCaida();
+
+        var act = () => Handler(db, empresa, fiscal: pac, sender: new FakeSender(new ReservarFolioResponse("MER-A15230", 15230, "")))
+            .Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<HttpRequestException>();
+        pac.Llamadas.Should().Be(1);
+        // Otro contexto (como si el proceso hubiera muerto): lo guardado antes del PAC sigue ahí.
+        using var otra = Db();
+        var factura = await otra.FacturasVenta.SingleAsync();
+        (factura.Folio, factura.Estado).Should().Be(("MER-A15230", EstadoTimbrado.TimbradoEnProceso));
+        var guardado = await otra.PedidosFacturables.SingleAsync();
+        (guardado.Estado, guardado.ComprobanteVigenteId).Should().Be((EstadoPedidoFacturable.Facturado, factura.Id));
+    }
+
+    [Fact]
+    public async Task M173_emision_normal_timbra_igual_que_antes_y_guarda_una_sola_factura()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+
+        var resp = await Handler(db, empresa).Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        resp.Estado.Should().Be(nameof(EstadoTimbrado.Timbrado));
+        db.ChangeTracker.Clear();
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Uuid.Should().NotBeNullOrEmpty();
+        (await db.BitacorasIntentoTimbrado.CountAsync(b => b.ComprobanteId == factura.Id)).Should().Be(1);
+        (await db.PedidosFacturables.SingleAsync()).ComprobanteVigenteId.Should().Be(factura.Id);
+    }
 }

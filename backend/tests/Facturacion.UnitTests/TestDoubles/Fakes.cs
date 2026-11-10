@@ -388,3 +388,19 @@ public sealed class FakeFolioTransferenciaReadPort(params Millet.Facturacion.Dom
         Task.FromResult<IReadOnlyList<Millet.Facturacion.Domain.Ports.FolioTransferenciaCajaDto>>(
             emitidos.Where(f => f.ClienteId == clienteId && f.Vigente).ToList());
 }
+
+/// <summary>
+/// M-173: el PAC se cae durante la llamada (la solicitud pudo llegar y la respuesta no). Simula que el
+/// proceso no recibe nada: la llamada lanza en vez de devolver un resultado.
+/// </summary>
+public sealed class FakeFiscalCaida : ICfdiTimbradoPort
+{
+    public int Llamadas { get; private set; }
+    public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken cancellationToken)
+    {
+        Llamadas++;
+        throw new HttpRequestException("Conexión con el PAC interrumpida (simulada).");
+    }
+    public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud solicitud, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud solicitud, CancellationToken cancellationToken) => throw new NotSupportedException();
+}

@@ -360,7 +360,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                     empresaId, nc.Id, nc.ProveedorId, factura.Id, 1, nc.Total, ahora,
                     Uuid: nc.UuidCfdi, Subtotal: nc.Subtotal, Iva: nc.ImpuestosTrasladados,
                     RetencionesTotal: nc.Retenciones, Retenciones: datos.RetencionesDetalle,
-                    Moneda: nc.Moneda, TipoCambio: nc.TipoCambio, SucursalId: factura.SucursalId), cancellationToken);
+                    Moneda: nc.Moneda, TipoCambio: nc.TipoCambio, SucursalId: factura.SucursalId, Impuestos: datos.TrasladosIva), cancellationToken);
             }
         }
         factura.AsignarMetodoPago(cfdi?.MetodoPago);
@@ -426,7 +426,9 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 SucursalId: factura.SucursalId,
                 CentroCostoId: cecos.Count == 1 ? cecos[0] : null,
                 RecepcionId: factura.RecepcionId,
-                ConceptoRetencion: factura.ConceptoRetencion), cancellationToken);
+                ConceptoRetencion: factura.ConceptoRetencion,
+                // M-209: IVA por tratamiento del XML (sin XML, Contabilidad lo trata como hoy: todo al 16 %).
+                Impuestos: xml?.TrasladosIva), cancellationToken);
 
         }
 

@@ -63,6 +63,23 @@ public interface IProveedorReadPort
     }
 
     /// <summary>
+    /// F1-CXP-10 (DIOT): datos fiscales del tercero (origen, país alfa-3 e ID fiscal del extranjero). La implementación
+    /// por defecto recorre <see cref="ObtenerAsync"/> y los da como nacionales; el adapter productivo lee el catálogo.
+    /// </summary>
+    async Task<IReadOnlyDictionary<Guid, ProveedorFiscalDto>> ObtenerFiscalesPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, ProveedorFiscalDto>();
+        foreach (var id in proveedorIds)
+        {
+            var p = await ObtenerAsync(id, cancellationToken);
+            if (p is not null) resultado[id] = new ProveedorFiscalDto(p.Id, p.Rfc, p.RazonSocial, false, null, null);
+        }
+        return resultado;
+    }
+
+    /// <summary>
     /// 86e3ke2d3 (P8.3): proveedores (de los pedidos) sin opinión de cumplimiento vigente. Sin adapter productivo: ninguno.
     /// </summary>
     Task<IReadOnlySet<Guid>> ObtenerSinOpinionCumplimientoAsync(IReadOnlyCollection<Guid> proveedorIds, CancellationToken cancellationToken) =>
@@ -81,6 +98,9 @@ public sealed record ProveedorDto(
     // 86e3tactf: bloqueo total; CxP sigue capturando y validando facturas, Tesorería no las paga.
     bool Bloqueado = false,
     string? MotivoBloqueo = null);
+
+/// <summary>F1-CXP-10: datos del tercero para la DIOT. <c>Pais</c> ISO 3166 alfa-3; <c>IdFiscal</c> solo del extranjero.</summary>
+public sealed record ProveedorFiscalDto(Guid Id, string Rfc, string RazonSocial, bool Extranjero, string? Pais, string? IdFiscal);
 
 public sealed record ToleranciaProveedorDto(
     ToleranciaTipo Tipo,

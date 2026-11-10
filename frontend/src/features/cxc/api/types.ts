@@ -637,6 +637,8 @@ export interface CreditoDisponibleLineaResponse {
   estado: EstadoLineaCredito;
   origen: OrigenLineaCredito;
   plazoDias: number;
+  /** R2: bloqueada por vencimiento (C7.5). */
+  bloqueoAutomatico?: boolean;
 }
 
 /**

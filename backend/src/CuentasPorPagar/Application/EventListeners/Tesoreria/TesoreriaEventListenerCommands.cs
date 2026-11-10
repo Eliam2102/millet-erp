@@ -85,8 +85,9 @@ public sealed class PagoFacturaProveedorAplicadoHandler : IRequestHandler<PagoFa
             observacion: $"Pago Tesorería {p.PagoId} ref={p.ReferenciaBancaria ?? "-"}", confirmadoPorTesoreria: true);
 
         var pagoLocal = await _db.PagosProveedorLocal.FirstOrDefaultAsync(x => x.PagoId == p.PagoId, cancellationToken);
-        if (pagoLocal is null) _db.PagosProveedorLocal.Add(new(factura.EmpresaId, factura.Id, p.PagoId, p.Monto, p.FechaPago));
+        if (pagoLocal is null) _db.PagosProveedorLocal.Add(pagoLocal = new(factura.EmpresaId, factura.Id, p.PagoId, p.Monto, p.FechaPago));
         else pagoLocal.Confirmar(p.Monto, p.FechaPago);
+        pagoLocal.AsignarMoneda(p.Moneda, p.TipoCambio);
         var pagosActuales = await _db.PagosProveedorLocal.Where(x => x.FacturaProveedorId == factura.Id && !x.Revertido).ToListAsync(cancellationToken);
         pagosActuales = pagosActuales.Concat(_db.PagosProveedorLocal.Local.Where(x => x.FacturaProveedorId == factura.Id && !x.Revertido)).DistinctBy(x => x.PagoId).ToList();
         factura.ActualizarReppRecibido(pagosActuales.Count > 0 && pagosActuales.All(x => x.Importe > 0 && x.CubiertoRepp >= x.Importe), _clock.UtcNow);

@@ -490,6 +490,8 @@ export const PermisosCanonicos = {
   FacturacionComprobantesReintentarTimbrado:
     'facturacion.comprobantes.reintentar-timbrado',
   FacturacionComprobantesDescartar: 'facturacion.comprobantes.descartar',
+  // M-284: adoptar el CFDI que el PAC sí timbró (XML del portal).
+  FacturacionComprobantesAdoptarCfdi: 'facturacion.comprobantes.adoptar-cfdi',
 
   // Centros de Costo (backend CECO-PR1, renombre dim3.leer-todos en
   // CECO-PR4; FE desde CECO-FE-PR1). OJO: namespace snake

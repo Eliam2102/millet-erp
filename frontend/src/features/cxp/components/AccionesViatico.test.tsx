@@ -5,7 +5,7 @@ import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { EstadoSolicitudViaticos } from '@/features/cxp/api/types';
-import { AccionesViatico, MOTIVO_SIN_EMPLEADO, type SolicitudAccionable } from './AccionesViatico';
+import { AccionesViatico, MOTIVO_EXCESO_SIN_AUTORIZAR, MOTIVO_SIN_EMPLEADO, type SolicitudAccionable } from './AccionesViatico';
 
 const solicitud = (estado: EstadoSolicitudViaticos): SolicitudAccionable => ({
   id: 'v-1',
@@ -130,5 +130,43 @@ describe('<AccionesViatico>', () => {
     expect(screen.getByRole('button', { name: 'Corregir y reenviar' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Autorizar como jefe' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Rechazar' })).toBeNull();
+  });
+  // M-449: la comprobación fuera de política no se libera hasta que Dirección de Finanzas autoriza el exceso.
+  describe('comprobación fuera de política', () => {
+    const fuera = (autorizado: string | null): SolicitudAccionable => ({
+      ...solicitud(EstadoSolicitudViaticos.ComprobacionCapturada),
+      comprobacionFueraDePolitica: true,
+      excesoComprobacion: 500,
+      excesoAutorizadoPor: autorizado,
+    });
+
+    it('sin autorización: «Liberar» deshabilitado con su motivo y DF ve «Autorizar exceso» con el monto', async () => {
+      meConEmpleado('e-1');
+      useAuthStore.setState({ permisos: ['cuentas_por_pagar.viaticos.liberar', 'cuentas_por_pagar.viaticos.autorizar-df'] });
+      render(<AccionesViatico s={fuera(null)} />, { wrapper: createQueryWrapper() });
+
+      const liberar = screen.getByRole('button', { name: 'Liberar' });
+      expect(liberar).toBeDisabled();
+      expect(liberar).toHaveAttribute('title', MOTIVO_EXCESO_SIN_AUTORIZAR);
+      fireEvent.click(screen.getByRole('button', { name: 'Autorizar exceso' }));
+      expect(await screen.findByRole('alertdialog')).toHaveTextContent('500.00');
+    });
+
+    it('con el exceso autorizado se puede liberar y ya no se ofrece autorizar', () => {
+      meConEmpleado('e-1');
+      useAuthStore.setState({ permisos: ['cuentas_por_pagar.viaticos.liberar', 'cuentas_por_pagar.viaticos.autorizar-df'] });
+      render(<AccionesViatico s={fuera('df-1')} />, { wrapper: createQueryWrapper() });
+
+      expect(screen.getByRole('button', { name: 'Liberar' })).toBeEnabled();
+      expect(screen.queryByRole('button', { name: 'Autorizar exceso' })).toBeNull();
+    });
+
+    it('sin permiso de Dirección de Finanzas no aparece «Autorizar exceso»', () => {
+      meConEmpleado('e-1');
+      useAuthStore.setState({ permisos: ['cuentas_por_pagar.viaticos.liberar'] });
+      render(<AccionesViatico s={fuera(null)} />, { wrapper: createQueryWrapper() });
+
+      expect(screen.queryByRole('button', { name: 'Autorizar exceso' })).toBeNull();
+    });
   });
 });
