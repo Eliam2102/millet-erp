@@ -121,7 +121,9 @@ El ERP cuenta con tres mecanismos de alerta integrados en `AwTipoCambioWorker`:
 1. **Alerta 1 · TC de mañana sin publicar (I13.2-a):**  
    Si a las 18:00 hrs el ERP no ha publicado el tipo de cambio de la fecha de mañana (por ejemplo, porque Banxico no emitió el FIX y no hubo captura manual en el ERP), se emite una alerta diaria al equipo de Contabilidad y TI.
 2. **Alerta 2 · A+W no aplicó el TC de hoy (I13.2-e):**  
-   Si a las 09:00 hrs la fila correspondiente a la fecha de hoy continúa con `resultado IS NULL` o acumula `intentos >= 3` con `resultado = 2`, se notifica al equipo de soporte de TI.
+   Si a las 08:00 hrs (`IntegracionesAw:TipoCambio:HoraLimiteAplicacion`, acordado con TI de Millet el 10-nov) la fila de hoy no existe, sigue con `resultado IS NULL` o tiene `resultado = 2`, se manda **un correo** con fecha, moneda, valor, error y la instrucción «corran la tarea a mano hoy». Lo mismo si la publicación del ERP falla después de esa hora. TI corre su tarea a mano ese mismo día.
+   - **Destinatarios:** parámetro global `integraciones.aw.tipo-cambio.correos-aviso` (Administración → Parámetros), lista separada por coma; se edita sin desplegar. Valor inicial: `soportemillet@millet.com.mx, contadorgeneral@millet.com.mx, falejos@millet.com.mx`. Vacío apaga el correo (la alerta sigue en el log).
+   - **Sin spam:** un correo por ciclo con todas las monedas pendientes y, por moneda, uno al día. Si el proveedor de correo lo rechaza, se reintenta en el siguiente ciclo (cada hora). Un reinicio de la API puede repetir el aviso una vez (la marca vive en memoria).
 3. **Alerta 3 · Desfase ERP vs A+W (Control de CA13.9):**  
    El ERP lee periódicamente el valor vigente en `SYSADM.KA_WAEHRUNGEN` (cruce por `WAEHRUNG`) (permiso de `SELECT` ya otorgado al login `millet_erp_integracion`). Si el factor vigente en A+W no coincide con el valor publicado para hoy (invertido y redondeado a 8 decimales, §4.2) después de la hora límite, se emite una alerta de discrepancia cambiaria.
 
