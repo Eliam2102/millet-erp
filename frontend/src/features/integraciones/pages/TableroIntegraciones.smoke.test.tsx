@@ -135,6 +135,6 @@ describe('<TableroIntegraciones> — smoke (I13.6)', () => {
     const fila = await screen.findByTestId('mensaje-d-1');
     expect(within(fila).queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
     expect(screen.getByText(/no se reintenta desde aquí/)).toBeInTheDocument();
-    expect(screen.getByText('Sin alertas registradas.')).toBeInTheDocument();
+    expect(await screen.findByText('Sin alertas registradas.')).toBeInTheDocument();
   });
 });
