@@ -412,6 +412,12 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Application.Cajas.Sesiones.CajasOptions.SectionName));
 
+// === Adopción de CFDI (M-284, QA O1) ===
+// Certificado del SAT (por NoCertificadoSAT) para verificar el SelloSAT del timbre adoptado.
+builder.Services.AddHttpClient<
+    Millet.Facturacion.Application.Timbrado.Adopcion.ICertificadoSatProvider,
+    Millet.Facturacion.Infrastructure.Cfdi.CertificadoSatRdcProvider>(c => c.Timeout = TimeSpan.FromSeconds(15));
+
 // === Terminal de tarjetas (86e3vr1tf, Parte A) ===
 // Mapeo de columnas del archivo diario del banco; por omisión «Transacciones por
 // día» de Getnet más columnas supuestas de comisión (Facturacion:TerminalTarjeta:*).
