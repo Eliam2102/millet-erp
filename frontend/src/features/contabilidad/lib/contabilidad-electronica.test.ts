@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { nombreDeDisposicion, rutaArchivoCe, type RevisionContabilidadElectronica } from '../api/contabilidad-electronica';
+import {
+  nombreDeDisposicion,
+  nombreSatArchivoCe,
+  rutaArchivoCe,
+  type RevisionContabilidadElectronica,
+} from '../api/contabilidad-electronica';
 import { motivoArchivoCe, resumenProblemasCe } from './contabilidad-electronica';
 
 const revision: RevisionContabilidadElectronica = {
@@ -20,6 +25,15 @@ const revision: RevisionContabilidadElectronica = {
 const base = { anio: 2027, mes: 1, formato: 'zip' as const };
 
 describe('contabilidad electrónica (K10.8)', () => {
+  it('H1: sin Content-Disposition legible, el nombre del SAT se arma con el RFC (RFC+AAAAMM+CT/BN/BC/PL)', () => {
+    const p = { anio: 2026, mes: 11, formato: 'zip' as const, rfc: 'min120224147' };
+    expect(nombreSatArchivoCe({ ...p, tipo: 'catalogo' })).toBe('MIN120224147202611CT.zip');
+    expect(nombreSatArchivoCe({ ...p, tipo: 'balanza', tipoEnvio: 'N' })).toBe('MIN120224147202611BN.zip');
+    expect(nombreSatArchivoCe({ ...p, tipo: 'balanza', tipoEnvio: 'C' })).toBe('MIN120224147202611BC.zip');
+    expect(nombreSatArchivoCe({ ...p, tipo: 'polizas', formato: 'xml' })).toBe('MIN120224147202611PL.xml');
+    expect(nombreSatArchivoCe({ ...p, tipo: 'catalogo', rfc: null })).toBe('contabilidad-electronica-catalogo-2026-11.zip');
+  });
+
   it('O2: cuenta cuentas distintas, como el bloqueo del servidor, y aclara cuando una cuenta tiene dos pendientes', () => {
     const p = (cuentaId: string, problema: string) => ({ cuentaId, codigo: cuentaId, nombre: cuentaId, codigoAgrupador: null, problema });
     const dos = [p('a', 'Sin código agrupador'), p('a', 'Sin naturaleza'), p('b', 'Sin código agrupador')];

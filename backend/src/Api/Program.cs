@@ -1460,7 +1460,9 @@ builder.Services.AddCors(options =>
                   // Sin esto el browser NO puede leer ETag cross-origin
                   // (Access-Control-Expose-Headers) y el If-Match de las
                   // mutaciones nunca se envía (ADR-0012).
-                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion");
+                  // Content-Disposition: las descargas (p. ej. contabilidad electrónica) toman de ahí el nombre del archivo.
+                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion",
+                      Microsoft.Net.Http.Headers.HeaderNames.ContentDisposition);
         }
         // Si AllowedOrigins está vacío, la policy queda sin orígenes
         // permitidos — preflight siempre falla. Comportamiento secure-by-default.
