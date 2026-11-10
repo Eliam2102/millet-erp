@@ -10,14 +10,16 @@ using Millet.SharedKernel.Application;
 namespace Millet.Facturacion.Infrastructure.Workers;
 
 /// <summary>
-/// Worker en-proceso (§9 diseño) que empareja las Hojas de Salida ↔ pedimento
-/// (<see cref="ISalidasPedimentosReader"/>) y dispara <see cref="AplicarPedimentoCommand"/>
-/// para las facturas retenidas en <c>PendientePedimento</c>. En dev el reader es
-/// stub (vacío); con <c>Integraciones.Origenes</c> drena los pedimentos del
-/// Sistema de Salidas.
+/// Worker en-proceso (§9 diseño) que lee los pedimentos listos
+/// (<see cref="ISalidasPedimentosReader"/>, M-216: del expediente de Comercio exterior)
+/// y dispara <see cref="AplicarPedimentoCommand"/> para las facturas retenidas en
+/// <c>PendientePedimento</c>. La bitácora registra el origen <see cref="OrigenAuditoria"/>.
 /// </summary>
 public sealed class PedimentoSalidasWorker : BackgroundService
 {
+    /// <summary>Origen que queda en la bitácora de auditoría al liberar la factura.</summary>
+    public const string OrigenAuditoria = "PedimentoExpedienteCe";
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptionsMonitor<PedimentoSalidasOptions> _options;
     private readonly ILogger<PedimentoSalidasWorker> _logger;
@@ -72,7 +74,7 @@ public sealed class PedimentoSalidasWorker : BackgroundService
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
 
         var originContext = sp.GetRequiredService<IAuditOriginContext>();
-        using var origin = originContext.SetOrigin(nameof(PedimentoSalidasWorker));
+        using var origin = originContext.SetOrigin(OrigenAuditoria);
         using var bypass = empresaContext.Bypass();
 
         var pendientes = await reader.LeerPendientesAsync(opts.BatchSize, cancellationToken);
