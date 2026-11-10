@@ -1770,31 +1770,14 @@ public static class OrdenesCompraEndpoints
             var nombreArchivoLimpio = Path.GetFileName(archivo.FileName);
             var contentType = archivo.ContentType ?? "application/octet-stream";
 
-            byte[] cabecera = new byte[8];
-            int bytesLeidos;
-            await using (var previewStream = archivo.OpenReadStream())
-            {
-                bytesLeidos = await previewStream.ReadAsync(cabecera.AsMemory(0, 8), cancellationToken);
-            }
-
-            politicaOptions.Value.ValidarInstancia(
-                nombreArchivoLimpio,
-                contentType,
-                archivo.Length,
-                cabecera.AsSpan(0, bytesLeidos));
+            await using var stream = archivo.OpenReadStream();
+            await politicaOptions.Value.ValidarContenidoAsync(
+                nombreArchivoLimpio, contentType, stream, cancellationToken);
 
             // 3. Subir blob físico
             var adjuntoId = Guid.CreateVersion7();
-            string blobUrl;
-            await using (var stream = archivo.OpenReadStream())
-            {
-                blobUrl = await blob.SubirAsync(
-                    adjuntoId,
-                    stream,
-                    contentType,
-                    nombreArchivoLimpio,
-                    cancellationToken);
-            }
+            var blobUrl = await blob.SubirAsync(
+                adjuntoId, stream, contentType, nombreArchivoLimpio, cancellationToken);
 
             // 4. Persistir metadata en BD con compensación: si falla, se elimina el blob físico
             AdjuntarDocumentoResponse response;

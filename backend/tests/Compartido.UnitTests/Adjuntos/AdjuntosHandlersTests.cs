@@ -18,7 +18,26 @@ public sealed class AdjuntosHandlersTests
     private const string SubirP = "datos_maestros.proveedores.adjuntos-subir";
     private const string BajaP = "datos_maestros.proveedores.adjuntos-baja";
 
-    private static readonly byte[] Pdf = [.. "%PDF-1.4 contenido de prueba"u8];
+    private static readonly byte[] Pdf = CrearPdf();
+
+    private static byte[] CrearPdf()
+    {
+        var documento = new UglyToad.PdfPig.Writer.PdfDocumentBuilder();
+        documento.AddPage(200, 200);
+        return documento.Build();
+    }
+
+    [Fact]
+    public async Task Subir_pdf_truncado_no_persiste_blob_ni_fila()
+    {
+        var (e, id) = await PrepararAsync();
+        using var entorno = e;
+        var intento = () => Subidor(e).Handle(Subir(id, Siembra.TipoContrato, "%PDF-1.4"u8.ToArray()), default);
+
+        (await intento.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ADJUNTO_PDF_INVALIDO");
+        e.Blob.Blobs.Should().BeEmpty();
+        e.Db.Adjuntos.Should().BeEmpty();
+    }
 
     // ---------------------------------------------------------------- entorno
 
