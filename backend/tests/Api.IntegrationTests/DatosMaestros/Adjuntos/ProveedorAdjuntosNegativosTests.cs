@@ -93,9 +93,10 @@ public class ProveedorAdjuntosNegativosTests
         using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var limite = new byte[10 * 1024 * 1024];
-        Pdf.CopyTo(limite, 0);
+        Array.Fill(limite, (byte)' ');
+        "<Documento/>"u8.CopyTo(limite);
 
-        var r = await SubirAsync(admin, prov, TipoContrato, limite, "limite.pdf", "application/pdf");
+        var r = await SubirAsync(admin, prov, TipoContrato, limite, "limite.xml", "application/xml");
 
         Assert.Equal(HttpStatusCode.Created, r.StatusCode);
     }

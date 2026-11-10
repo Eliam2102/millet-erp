@@ -64,6 +64,7 @@ public static class PasosIncidencia
     public const string AlmValeRectificar = "alm.vale.rectificar";
     public const string AlmSalidaAcuse = "alm.salida.acuse";
     public const string AlmCostoNetoFactura = "alm.costo.neto-factura";
+    public const string FisPacConexionRechazada = "fis.pac.conexion-rechazada";
 
     // Pasos donde se retoma.
     public const string AlmRecepcionRegistrar = "alm.recepcion.registrar";
@@ -73,6 +74,7 @@ public static class PasosIncidencia
     public const string AlmValeRegularizar = "alm.vale.regularizar";
     public const string AlmSalidaDevolucionInterna = "alm.salida.devolucion-interna";
     public const string CxpFacturaRevision = "cxp.factura.revision";
+    public const string FisPacConfiguracion = "fis.pac.configuracion";
 
     public static IReadOnlyList<PasoIncidencia> Todos { get; } =
     [
@@ -90,6 +92,8 @@ public static class PasosIncidencia
         new(AlmValeRegularizar, "Regularizar el vale con su requisición", "almacen"),
         new(AlmSalidaDevolucionInterna, "Devolución interna de la salida", "almacen"),
         new(CxpFacturaRevision, "Revisión de la factura del proveedor", "cuentas_por_pagar"),
+        new(FisPacConexionRechazada, "El timbrador rechazó la conexión", "integraciones_fiscal"),
+        new(FisPacConfiguracion, "Configuración del timbrador", "integraciones_fiscal"),
     ];
 
     private static readonly Dictionary<string, PasoIncidencia> PorClave = Todos.ToDictionary(p => p.Clave);

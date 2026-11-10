@@ -449,7 +449,8 @@ public static class DatosMaestrosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId,
+                a.ConsumoPorTamborALinea, a.KgPorPresentacion));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosArticulosGestionar)
         .WithName("ObtenerArticuloDatosMaestros")

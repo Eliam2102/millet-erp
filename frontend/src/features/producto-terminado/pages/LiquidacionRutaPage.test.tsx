@@ -43,14 +43,23 @@ describe('LiquidacionRutaPage', () => {
     fireEvent.click(screen.getByLabelText('Albarán HS-20261105-A1B2C/1 firmado'));
     fireEvent.change(screen.getByLabelText('Voucher HS-20261105-A1B2C/1'), { target: { value: '8000' } });
     expect(screen.getByText(/Falta/)).toBeInTheDocument();
-    // un voucher exige su folio
-    expect(screen.getByRole('button', { name: 'Liquidar ruta' })).toBeDisabled();
+    // un voucher exige su folio, el tipo de tarjeta y los últimos 4 dígitos (M-177: la caja lo registra con ellos)
+    const liquidar = screen.getByRole('button', { name: 'Liquidar ruta' });
+    expect(liquidar).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Folio del voucher HS-20261105-A1B2C/1'), { target: { value: 'TPV-004821' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Liquidar ruta' }));
+    expect(liquidar).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Débito' }));
+    expect(screen.getByRole('button', { name: 'Débito' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.change(screen.getByLabelText('Últimos 4 de la tarjeta HS-20261105-A1B2C/1'), { target: { value: '48a21' } });
+    expect(screen.getByLabelText('Últimos 4 de la tarjeta HS-20261105-A1B2C/1')).toHaveValue('4821');
+    fireEvent.click(liquidar);
     await waitFor(() => expect(state.liquidar).toHaveBeenCalled());
     expect(state.liquidar.mock.calls[0]![0]).toMatchObject({
       salidaId: 'h1',
-      body: { albaranes: [{ albaranId: 'a1', firmado: true, efectivo: 0, voucher: 8000, voucherReferencia: 'TPV-004821' }], imprevistos: [] },
+      body: {
+        albaranes: [{ albaranId: 'a1', firmado: true, efectivo: 0, voucher: 8000, voucherReferencia: 'TPV-004821', tipoTarjeta: 'Debito', tarjetaUltimos4: '4821' }],
+        imprevistos: [],
+      },
     });
   });
 
@@ -70,6 +79,28 @@ describe('LiquidacionRutaPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ver liquidación' }));
     expect(screen.getByLabelText('Voucher HS-20261105-A1B2C/1')).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Liquidar ruta' })).toBeNull();
+  });
+
+  it('M-177: el efectivo no pide datos de tarjeta y la línea muestra la factura y el cobro en caja', async () => {
+    state.detalle.mockReturnValue({ data: { ...dto('Pendiente'), albaranes: [{ ...dto('Pendiente').albaranes[0], facturaFolio: 'FA-000101', cobradoEnCaja: false }] } });
+    render(<LiquidacionRutaPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Liquidar' }));
+    expect(screen.getByText('FA-000101')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Albarán HS-20261105-A1B2C/1 firmado'));
+    fireEvent.change(screen.getByLabelText('Efectivo HS-20261105-A1B2C/1'), { target: { value: '8500' } });
+    expect(screen.getByRole('button', { name: 'Crédito' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Liquidar ruta' }));
+    await waitFor(() => expect(state.liquidar).toHaveBeenCalled());
+    expect(state.liquidar.mock.calls[0]![0].body.albaranes[0]).toMatchObject({ efectivo: 8500, voucher: 0, tipoTarjeta: null, tarjetaUltimos4: null });
+  });
+
+  it('M-177: una liquidación cerrada muestra que el cobro ya entró a caja', () => {
+    state.lista.mockReturnValue({ data: { items: [resumen('Cerrada')], total: 1 }, isLoading: false, isError: false, refetch: vi.fn() });
+    state.detalle.mockReturnValue({ data: { ...dto('Cerrada', 8500), albaranes: [{ ...dto('Cerrada', 8500).albaranes[0], cobradoEnCaja: true }] } });
+    render(<LiquidacionRutaPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ver liquidación' }));
+    expect(screen.getByText('Cobrado en caja')).toBeInTheDocument();
+    expect(screen.getByText(/entró a tu sesión de caja/)).toBeInTheDocument();
   });
 
   it('el cierre del día avisa cuántas contra entregas se mandaron a CxC', async () => {

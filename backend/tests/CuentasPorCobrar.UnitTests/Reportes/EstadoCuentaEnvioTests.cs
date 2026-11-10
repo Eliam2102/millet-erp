@@ -21,7 +21,15 @@ public sealed class EstadoCuentaEnvioTests
     private static readonly DateTimeOffset Ahora = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
     private static readonly Guid EmpresaId = Guid.NewGuid();
     private static readonly Guid ClienteId = Guid.NewGuid();
-    private static readonly byte[] Pdf = "%PDF-1.4 estado de cuenta"u8.ToArray();
+    private static readonly byte[] Pdf = CrearPdf();
+
+    private static byte[] CrearPdf()
+    {
+        var pdf = new UglyToad.PdfPig.Writer.PdfDocumentBuilder();
+        pdf.AddPage(200, 200);
+        return pdf.Build();
+    }
+
 
     private static ReppPendienteResumen PagoSinRep(decimal monto = 1_160m) =>
         new(Guid.NewGuid(), "Pendiente", new DateOnly(2026, 10, 1), new DateOnly(2026, 11, 5),
@@ -199,14 +207,15 @@ public sealed class EstadoCuentaEnvioTests
     }
 
     [Theory]
-    [InlineData("no-es-correo", "application/pdf", 10, false)]
-    [InlineData("cobranza@cliente.mx", "image/png", 10, false)]
+    [InlineData("no-es-correo", "application/pdf", -1, false)]
+    [InlineData("cobranza@cliente.mx", "image/png", -1, false)]
     [InlineData("cobranza@cliente.mx", "application/pdf", 0, false)]
     [InlineData("cobranza@cliente.mx", "application/pdf", EnviarEstadoCuentaValidator.TamanoMaximoBytes + 1, false)]
-    [InlineData("cobranza@cliente.mx", "application/pdf", 10, true)]
+    [InlineData("cobranza@cliente.mx", "application/pdf", 10, false)]
+    [InlineData("cobranza@cliente.mx", "application/pdf", -1, true)]
     public void Validador_exige_correo_valido_y_pdf_acotado(string destinatario, string contentType, int bytes, bool valido)
     {
-        var pdf = new byte[bytes];
+        var pdf = bytes == -1 ? Pdf : new byte[bytes];
         if (bytes >= 5) "%PDF-"u8.ToArray().CopyTo(pdf, 0);
         var resultado = new EnviarEstadoCuentaValidator().Validate(
             new EnviarEstadoCuentaCommand(ClienteId, destinatario, null, "estado-cuenta.pdf", contentType, pdf));

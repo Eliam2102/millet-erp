@@ -29,6 +29,8 @@ public sealed class LiquidacionRutaPt : BaseEntity, IAuditable, IPerteneceAEmpre
 
     public LiquidacionRutaPt(Guid empresa, Guid salidaId) : base(Guid.CreateVersion7()) => (EmpresaId, SalidaPtId) = (empresa, salidaId);
 
+    public const string TarjetaCredito = "Credito", TarjetaDebito = "Debito";
+
     /// <summary>Una condición «Crédito 24 horas» es contra entrega (Manual §2.3); el resto no se cobra en la ruta.</summary>
     public static bool EsContraEntrega(string? condicionPago)
     {
@@ -38,7 +40,7 @@ public sealed class LiquidacionRutaPt : BaseEntity, IAuditable, IPerteneceAEmpre
     }
 
     /// <summary>Guarda lo capturado en caja (reemplaza lo anterior) y decide si cierra. Una liquidación cerrada no se toca.</summary>
-    public void Registrar(IEnumerable<(AlbaranPt Albaran, decimal Esperado, bool Firmado, decimal Efectivo, decimal Voucher, string? Referencia)> lineas, IEnumerable<(string Descripcion, decimal Importe)> imprevistos, DateTimeOffset ahora, string usuario)
+    public void Registrar(IEnumerable<(AlbaranPt Albaran, decimal Esperado, bool Firmado, decimal Efectivo, decimal Voucher, string? Referencia, string? TipoTarjeta, string? Ultimos4)> lineas, IEnumerable<(string Descripcion, decimal Importe)> imprevistos, DateTimeOffset ahora, string usuario)
     {
         if (Estado == EstadoLiquidacion.Cerrada)
             throw new BusinessRuleException("PT_LIQUIDACION_CERRADA", "La liquidación ya está cerrada.");
@@ -47,9 +49,14 @@ public sealed class LiquidacionRutaPt : BaseEntity, IAuditable, IPerteneceAEmpre
             if (l.Efectivo < 0 || l.Voucher < 0) throw new BusinessRuleException("PT_LIQUIDACION_IMPORTE_NEGATIVO", "Los importes cobrados no pueden ser negativos.");
             if (l.Voucher > 0 && string.IsNullOrWhiteSpace(l.Referencia))
                 throw new BusinessRuleException("PT_LIQUIDACION_VOUCHER_SIN_REFERENCIA", "El voucher lleva su folio para conciliarlo con el pedido.");
+            // M-177: la caja registra el voucher con su forma SAT (04 crédito, 28 débito) y los últimos 4 dígitos de la tarjeta.
+            if (l.Voucher > 0 && l.TipoTarjeta is not (null or TarjetaCredito or TarjetaDebito))
+                throw new BusinessRuleException("PT_LIQUIDACION_VOUCHER_TARJETA", "El tipo de tarjeta del voucher es crédito o débito.");
+            if (l.Voucher > 0 && !string.IsNullOrWhiteSpace(l.Ultimos4) && (l.Ultimos4.Trim().Length != 4 || !l.Ultimos4.Trim().All(char.IsAsciiDigit)))
+                throw new BusinessRuleException("PT_LIQUIDACION_VOUCHER_ULTIMOS4", "Los últimos dígitos de la tarjeta son exactamente 4 números.");
             var existente = _albaranes.FirstOrDefault(a => a.AlbaranPtId == l.Albaran.Id);
-            if (existente is null) _albaranes.Add(new LiquidacionAlbaranPt(EmpresaId, Id, l.Albaran.Id, l.Esperado, l.Firmado, l.Efectivo, l.Voucher, l.Referencia));
-            else existente.Actualizar(l.Esperado, l.Firmado, l.Efectivo, l.Voucher, l.Referencia);
+            if (existente is null) _albaranes.Add(new LiquidacionAlbaranPt(EmpresaId, Id, l.Albaran.Id, l.Esperado, l.Firmado, l.Efectivo, l.Voucher, l.Referencia, l.TipoTarjeta, l.Ultimos4));
+            else existente.Actualizar(l.Esperado, l.Firmado, l.Efectivo, l.Voucher, l.Referencia, l.TipoTarjeta, l.Ultimos4);
         }
         _imprevistos.Clear();
         _imprevistos.AddRange(imprevistos.Select(i => new ImprevistoRutaPt(EmpresaId, Id, i.Descripcion, i.Importe)));
@@ -69,19 +76,31 @@ public sealed class LiquidacionAlbaranPt : BaseEntity, IAuditable, IPerteneceAEm
     public decimal Efectivo { get; private set; }
     public decimal Voucher { get; private set; }
     public string? VoucherReferencia { get; private set; }
+    /// <summary>M-177: «Credito» o «Debito»; con los últimos 4 dígitos, la caja registra el voucher (formas 04 y 28).</summary>
+    public string? TipoTarjeta { get; private set; }
+    public string? TarjetaUltimos4 { get; private set; }
+    /// <summary>M-177: cobro de caja que registró lo cobrado de este albarán al cerrarse la liquidación (null = aún no o no cobra en ruta).</summary>
+    public Guid? CobroCajaId { get; private set; }
     public decimal Diferencia => Esperado - Efectivo - Voucher;
     public bool Conciliado => Firmado && Diferencia == 0m;
 
     private LiquidacionAlbaranPt() { }
 
-    internal LiquidacionAlbaranPt(Guid empresa, Guid liquidacionId, Guid albaranId, decimal esperado, bool firmado, decimal efectivo, decimal voucher, string? referencia) : base(Guid.CreateVersion7())
+    internal LiquidacionAlbaranPt(Guid empresa, Guid liquidacionId, Guid albaranId, decimal esperado, bool firmado, decimal efectivo, decimal voucher, string? referencia,
+        string? tipoTarjeta = null, string? ultimos4 = null) : base(Guid.CreateVersion7())
     {
         (EmpresaId, LiquidacionRutaPtId, AlbaranPtId) = (empresa, liquidacionId, albaranId);
-        Actualizar(esperado, firmado, efectivo, voucher, referencia);
+        Actualizar(esperado, firmado, efectivo, voucher, referencia, tipoTarjeta, ultimos4);
     }
 
-    internal void Actualizar(decimal esperado, bool firmado, decimal efectivo, decimal voucher, string? referencia)
-        => (Esperado, Firmado, Efectivo, Voucher, VoucherReferencia) = (esperado, firmado, efectivo, voucher, voucher > 0 ? referencia?.Trim() : null);
+    internal void Actualizar(decimal esperado, bool firmado, decimal efectivo, decimal voucher, string? referencia, string? tipoTarjeta = null, string? ultimos4 = null)
+    {
+        (Esperado, Firmado, Efectivo, Voucher, VoucherReferencia) = (esperado, firmado, efectivo, voucher, voucher > 0 ? referencia?.Trim() : null);
+        (TipoTarjeta, TarjetaUltimos4) = voucher > 0 ? (tipoTarjeta, string.IsNullOrWhiteSpace(ultimos4) ? null : ultimos4.Trim()) : (null, null);
+    }
+
+    /// <summary>M-177: liga el cobro de caja que registró lo cobrado de este albarán.</summary>
+    public void RegistrarCobroCaja(Guid cobroCajaId) => CobroCajaId = cobroCajaId;
 }
 
 /// <summary>Imprevisto de la ruta (descarga que se demoró, maniobra extra, desvío): queda registrado con su importe, no entra a la diferencia de cobro.</summary>

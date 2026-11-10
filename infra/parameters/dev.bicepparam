@@ -82,3 +82,8 @@ param awSolicitudesEmpresaId = '00000003-0000-0000-0000-000000000001'
 // (ventana Integraciones Fiscal). Prod queda con el default true hasta
 // tener su propio tenant productivo en su propio KV.
 param integracionesFiscalSdkDisabled = false
+
+// M-185: el monitor del cierre del día consulta el estatus SAT real vía
+// FiscalAPI (sandbox en este ambiente). Requiere la consulta habilitada en la
+// cuenta de FiscalAPI; un error se cuenta «con error» y no cambia el estatus.
+param consultaEstatusSatProveedor = 'FiscalApi'

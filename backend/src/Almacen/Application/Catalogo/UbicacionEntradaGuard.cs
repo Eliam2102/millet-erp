@@ -22,7 +22,8 @@ namespace Millet.Almacen.Application.Catalogo;
 ///   <item>La ÚNICA/default ("almacén general") recibe consumibles y refacciones
 ///   sin A+W, nuevos o con existencia previa, sin asignación (acuerdo 28-oct),
 ///   salvo en MAT-REV. Los artículos de A+W siguen exigiendo rack
-///   (<c>ENTRADA_A_UBICACION_UNICA</c>).</item>
+///   (<c>ENTRADA_A_UBICACION_UNICA</c>), salvo con <c>awAlGeneral</c>: la recepción
+///   con factura admite la medida de A+W en el almacén general de la sucursal (M-159).</item>
 ///   <item>El artículo está asignado y activo a esa ubicación
 ///   (<c>ENTRADA_SIN_ASIGNACION</c>), molde de
 ///   <c>ConfiguracionReordenCommands.ValidarAsignacionExisteAsync</c>.</item>
@@ -50,7 +51,8 @@ public static class UbicacionEntradaGuard
         Guid articuloId,
         CancellationToken ct,
         Guid? subEsperado = null,
-        bool ligadoAw = true)
+        bool ligadoAw = true,
+        bool awAlGeneral = false)
     {
         var ubicacion = await db.Ubicaciones.AsNoTracking()
             .Where(u => u.Id == ubicacionId)
@@ -71,7 +73,7 @@ public static class UbicacionEntradaGuard
 
         if (ubicacion.EsDefault)
         {
-            if (ligadoAw)
+            if (ligadoAw && !awAlGeneral)
                 throw new BusinessRuleException(
                     "ENTRADA_A_UBICACION_UNICA",
                     "Los artículos de A+W entran a un rack; el almacén general es para consumibles y refacciones.");
@@ -82,7 +84,7 @@ public static class UbicacionEntradaGuard
                 throw new BusinessRuleException(
                     "ENTRADA_A_UBICACION_UNICA",
                     "El sub-almacén de material en revisión no recibe en su almacén general; elige otro sub-almacén.");
-            return ubicacion.SubAlmacenId; // artículo sin A+W al almacén general: sin asignación
+            return ubicacion.SubAlmacenId; // al almacén general: sin asignación
         }
 
         var tieneAsignacion = await db.AsignacionesArticuloUbicacion.AsNoTracking()

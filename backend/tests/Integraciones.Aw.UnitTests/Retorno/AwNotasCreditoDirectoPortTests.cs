@@ -122,6 +122,20 @@ public sealed class AwNotasCreditoDirectoPortTests
         [80024995, 80275799, 1204, 1500m, Dia, 0m, "VPRUEBA2", null, null]));                // nota comercial, vendedor sin ficha
 
     [Fact]
+    public async Task Ranura_con_redondeo_de_A_W_menor_a_un_peso_se_marca_como_ranura()
+    {
+        // Nota 80024676 de MILMAIN (10-nov): 266.83 contra ranura del pedido 265.97; una de 2.00 de diferencia ya no.
+        var (puerto, _, _) = Armar(new Sim(() => Tabla(
+            [80024676, 80274031, 1205, 266.83m, Dia, 265.97m, "VPRUEBA", "Ana", "Prueba"],
+            [80024677, 80274032, 1206, 267.97m, Dia, 265.97m, "VPRUEBA", "Ana", "Prueba"])));
+
+        var n = await puerto.LeerNotasPendientesAsync(50, default);
+
+        n.Single(x => x.NumeroNota == "80024676").EsRanura.Should().BeTrue();
+        n.Single(x => x.NumeroNota == "80024677").EsRanura.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Caso_feliz_la_lectura_arma_la_solicitud_con_ranura_vendedor_y_motivo()
     {
         var (puerto, sim, _) = Armar(Dos());
@@ -209,8 +223,8 @@ public sealed class AwNotasCreditoDirectoPortTests
     [Fact]
     public async Task Con_una_ranura_de_cero_o_importe_distinto_no_es_ranura()
     {
-        var f = Tabla([1, 2, 3, 100m, Dia, 0m, "V", null, null], [2, 2, 3, 100m, Dia, 100.05m, "V", null, null]);
-        // Los dos casos: sin ranura en el pedido y con diferencia mayor a 0.02.
+        var f = Tabla([1, 2, 3, 100m, Dia, 0m, "V", null, null], [2, 2, 3, 100m, Dia, 101.50m, "V", null, null]);
+        // Los dos casos: sin ranura en el pedido y con diferencia mayor a la tolerancia de 1.00 (RanuraAw.Tolerancia).
         var sim = new Sim(() => f);
         var (puerto, _, _) = Armar(sim);
         var n = await puerto.LeerNotasPendientesAsync(5, default);

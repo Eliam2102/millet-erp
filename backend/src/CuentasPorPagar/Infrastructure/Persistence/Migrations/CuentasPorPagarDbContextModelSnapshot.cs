@@ -2601,6 +2601,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("importe");
 
+                    b.Property<string>("Moneda")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
                     b.Property<Guid>("PagoId")
                         .HasColumnType("uuid")
                         .HasColumnName("pago_id");
@@ -2608,6 +2613,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Revertido")
                         .HasColumnType("boolean")
                         .HasColumnName("revertido");
+
+                    b.Property<decimal?>("TipoCambio")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tipo_cambio");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2627,6 +2637,9 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("FacturaProveedorId")
                         .HasDatabaseName("ix_pagos_proveedor_local_factura_proveedor_id");
+
+                    b.HasIndex("EmpresaId", "FechaPago")
+                        .HasDatabaseName("ix_pagos_proveedor_local_empresa_id_fecha_pago");
 
                     b.HasIndex("EmpresaId", "PagoId")
                         .IsUnique()
@@ -4397,6 +4410,21 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<bool>("ExcedePolitica")
                         .HasColumnType("boolean")
                         .HasColumnName("excede_politica");
+
+                    b.Property<DateTimeOffset?>("ExcesoAutorizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("exceso_autorizado_en");
+
+                    b.Property<Guid?>("ExcesoAutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("exceso_autorizado_por");
+
+                    b.Property<decimal>("ExcesoComprobacion")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("exceso_comprobacion");
 
                     b.Property<DateTimeOffset?>("FechaAnticipoPagado")
                         .HasColumnType("timestamp with time zone")

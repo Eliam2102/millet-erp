@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Application.Repp.EmitirRepp;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Domain.Repp;
@@ -98,7 +99,45 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
 {
     private readonly ICuentaBancariaMilletReadPort _cuentasMillet = cuentasMillet;
 
+    /// <summary>
+    /// M-173: el REP confirma su transacción antes de llamar al PAC (durable ante una caída), lo que
+    /// libera el bloqueo de la fila del pendiente. Para que dos emisiones del mismo pendiente sigan
+    /// esperándose de punta a punta (la segunda ve el resultado de la primera), se toma un candado
+    /// consultivo de sesión por pendiente que no se suelta al confirmar.
+    /// </summary>
     public async Task<EmitirReppPendienteResultado> Handle(EmitirReppPendienteCommand c, CancellationToken cancellationToken)
+    {
+        if (!db.Database.IsRelational())
+            return await EmitirAsync(c, cancellationToken);
+        var llave = c.Id.ToString();
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_lock(hashtextextended({llave}, 0))", cancellationToken);
+            try
+            {
+                return await EmitirAsync(c, cancellationToken);
+            }
+            finally
+            {
+                try
+                {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_unlock(hashtextextended({llave}, 0))", CancellationToken.None);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Al devolverse la conexión al pool, Npgsql reinicia la sesión y libera el candado.
+                    logger?.LogWarning(ex, "No se pudo liberar el candado del pendiente REP {PendienteId}.", c.Id);
+                }
+            }
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private async Task<EmitirReppPendienteResultado> EmitirAsync(EmitirReppPendienteCommand c, CancellationToken cancellationToken)
     {
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         var p = await servicio.ObtenerAsync(c.Id, true, cancellationToken);
@@ -143,25 +182,28 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
                 p.RegistrarError(ex.Code, ex.Message);
                 await db.SaveChangesAsync(cancellationToken);
             }
-            if (tx is not null) await tx.CommitAsync(cancellationToken);
+            if (TimbradoDurable.TransaccionAbierta(db, tx)) await tx!.CommitAsync(cancellationToken);
             return new(p.Id, false, p.IntentoReciboPagoId, ex.Code, ex.Message);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger?.LogError(ex, "Error de emisión del pendiente REP {PendienteId}", p.Id);
+            if (TimbradoDurable.TransaccionAbierta(db, tx))
+                await tx!.RollbackAsync(cancellationToken);
             if (tx is not null)
-            {
-                await tx.RollbackAsync(cancellationToken);
                 await tx.DisposeAsync();
-            }
             db.ChangeTracker.Clear();
             var fallido = await servicio.ObtenerAsync(c.Id, false, cancellationToken);
-            fallido.RegistrarError("REPP_RESULTADO_INCIERTO",
-                "No se pudo confirmar el resultado. Verifica el intento con el PAC antes de volver a emitir.");
+            // M-173: un rechazo del adaptador previo al envío no es incierto: el REP quedó fallido con su motivo.
+            if (TimbradoEjecutor.NoSeEnvio(ex) && ex is Millet.SharedKernel.Domain.Exceptions.DomainException rechazo)
+                fallido.RegistrarError(rechazo.Code, rechazo.Message);
+            else
+                fallido.RegistrarError("REPP_RESULTADO_INCIERTO",
+                    "No se pudo confirmar el resultado. Verifica el intento con el PAC antes de volver a emitir.");
             await db.SaveChangesAsync(cancellationToken);
             return new(fallido.Id, false, fallido.IntentoReciboPagoId, fallido.UltimoErrorCodigo, fallido.UltimoErrorMensaje);
         }
-        if (tx is not null) await tx.CommitAsync(cancellationToken);
+        if (TimbradoDurable.TransaccionAbierta(db, tx)) await tx!.CommitAsync(cancellationToken);
         return new(p.Id, p.Estado == EstadoReppPendiente.Emitido,
             p.ReciboPagoId ?? p.IntentoReciboPagoId, p.UltimoErrorCodigo, p.UltimoErrorMensaje, aviso);
     }

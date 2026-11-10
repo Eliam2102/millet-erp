@@ -372,7 +372,7 @@ entonces.
 | `RechazarPropuestaDepositoCommand` | Rechazo con motivo [T-G7] | `propuesta-aplicacion.rechazada.v1` |
 | `RegistrarReppRecibidoCommand` | UUID + XML a Blob | `repp-proveedor.recibido.v1` |
 | `SolicitarCancelacionPasivoCommand` | Solicitud hacia CxP | `cancelacion-pasivo.solicitada.v1` |
-| `CargarExtractoCommand` | Parse por perfil → `extracto_linea[]` + matching automático sugerido | — |
+| `CargarExtractoCommand` | Parse por perfil → `extracto_linea[]` + matching automático sugerido. Sin formato explícito usa `perfil_extracto` de la cuenta. Perfiles probados con los auxiliares reales de octubre-2026 (M-190): **SANTANDER** (CSV con encabezado, apóstrofos, signo `+/-` en «Cargo/Abono» e importe aparte) y **BBVA** (auxiliar sin encabezado, «31 oct 2026», indicador 0 abono / 1 cargo, del más reciente al más antiguo). **MIFEL** existe pero rechaza todo archivo hasta recibir el layout real (M-102). Un archivo que no cumple el perfil se rechaza completo (`EXTRACTO_FORMATO_NO_RECONOCIDO`) | — |
 | `ConfirmarMatchCommand` / `ConfirmarMatchesEnLoteCommand` | Fija matches sugeridos/manuales | — |
 | `AltaAsistidaDesdeExtractoCommand` | Crea movimiento faltante desde línea (comisiones, intereses) | — |
 | `CerrarConciliacionCommand` | Valida RN-7, genera acta | — |

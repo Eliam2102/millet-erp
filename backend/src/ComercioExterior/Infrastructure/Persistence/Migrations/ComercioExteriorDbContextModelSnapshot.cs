@@ -556,6 +556,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AutorizacionParcialJson")
+                        .HasColumnType("text")
+                        .HasColumnName("autorizacion_parcial_json");
+
                     b.Property<string>("BlGuia")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -591,6 +595,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("estado");
 
+                    b.Property<string>("ExcepcionSinFacturaJson")
+                        .HasColumnType("text")
+                        .HasColumnName("excepcion_sin_factura_json");
+
                     b.Property<Guid>("ExpedienteId")
                         .HasColumnType("uuid")
                         .HasColumnName("expediente_id");
@@ -621,6 +629,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 6)
                         .HasColumnType("numeric(18,6)")
                         .HasColumnName("peso_kg");
+
+                    b.Property<DateTimeOffset?>("PreparadoParaFacturarEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("preparado_para_facturar_en");
 
                     b.Property<string>("Ruta")
                         .HasMaxLength(200)

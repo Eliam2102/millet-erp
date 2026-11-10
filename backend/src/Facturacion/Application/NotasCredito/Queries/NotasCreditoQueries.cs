@@ -28,7 +28,9 @@ public sealed record NotaCreditoBandejaItem(
     string Motivo, decimal Total, string Moneda, DateTimeOffset? FechaTimbrado,
     // 86e3wjt5r: bandeja «Por autorizar» de las notas que llegan de A+W.
     string? FolioAw = null, string? FacturaFolio = null, DateTimeOffset? FechaRecibida = null,
-    string? VendedorAw = null);
+    string? VendedorAw = null,
+    // M-087: arriba del umbral se requiere también la firma de Crédito y Cobranza.
+    bool RequiereFirmaCredito = false, bool FirmadaGerente = false, bool FirmadaCredito = false);
 
 public sealed class BandejaNotasCreditoHandler
     : IRequestHandler<BandejaNotasCreditoQuery, BandejaNotasCreditoResponse>
@@ -36,10 +38,14 @@ public sealed class BandejaNotasCreditoHandler
     private readonly FacturacionDbContext _db;
     private readonly IAlcanceCajaEvaluator _alcance;
 
-    public BandejaNotasCreditoHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance)
+    private readonly AutorizarNotaCredito.NotasCreditoAwOptions _umbral;
+
+    public BandejaNotasCreditoHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance,
+        Microsoft.Extensions.Options.IOptions<AutorizarNotaCredito.NotasCreditoAwOptions>? opciones = null)
     {
         _db = db;
         _alcance = alcance;
+        _umbral = opciones?.Value ?? new AutorizarNotaCredito.NotasCreditoAwOptions();
     }
 
     public async Task<BandejaNotasCreditoResponse> Handle(
@@ -59,13 +65,17 @@ public sealed class BandejaNotasCreditoHandler
             {
                 n.Id, n.Folio, n.Estado, n.Uuid, n.ReceptorNombre, n.ReceptorRfc,
                 n.Motivo, n.Total, n.Moneda, n.FechaTimbrado, n.AwNumeroNota, n.CreatedAt, n.AwVendedor,
+                n.TipoCambio, n.FirmaGerentePorId, n.FirmaCreditoPorId,
                 FacturaFolio = _db.FacturasVenta.Where(f => f.Id == n.FacturaRelacionadaId).Select(f => f.Folio).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 
         var items = rows.Select(r => new NotaCreditoBandejaItem(
             r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.ReceptorNombre, r.ReceptorRfc,
-            r.Motivo.ToString(), r.Total, r.Moneda, r.FechaTimbrado, r.AwNumeroNota, r.FacturaFolio, r.CreatedAt, r.AwVendedor)).ToList();
+            r.Motivo.ToString(), r.Total, r.Moneda, r.FechaTimbrado, r.AwNumeroNota, r.FacturaFolio, r.CreatedAt, r.AwVendedor,
+            r.Estado == EstadoTimbrado.PorAutorizar
+                && Math.Round(r.Total * (r.TipoCambio ?? 1m), 2, MidpointRounding.AwayFromZero) > _umbral.UmbralSegundaFirmaMxn,
+            r.FirmaGerentePorId is not null, r.FirmaCreditoPorId is not null)).ToList();
 
         return new BandejaNotasCreditoResponse(items, sinAsignarCount);
     }

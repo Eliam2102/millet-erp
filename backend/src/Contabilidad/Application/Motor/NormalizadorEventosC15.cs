@@ -258,7 +258,8 @@ public static partial class NormalizadorEventos
                 ["TotalMenosRetenciones"] = total, // el Total del CFDI ya viene neto de retenciones
                 [RetencionesContables.CampoTotalMas] = total + retenciones, // 86e3zcbjw: #3b/#3c v3 (factura por el total)
             },
-            [], payload, puente, n.FacturaOrigenId);
+            // M-209: el IVA de la nota por tratamiento (revierte el pendiente de la tasa correspondiente); sin detalle, como hoy.
+            ImpuestosTrasladados.LineasDocumento(ImpuestosTrasladados.Agrupar(n.Impuestos), n.Iva), payload, puente, n.FacturaOrigenId);
     }
 
     /// <summary>#4 AN: cargo ANTICIPO_A_PROVEEDORES · abono BANCOS.</summary>
@@ -348,6 +349,8 @@ public static partial class NormalizadorEventos
             .Select(l => new LineaEventoContable(null, l.Importe - l.Descuento, null, false, Clasificador: l.TipoProducto)).ToList();
         // 86e3zcbjw: una línea por concepto de retención del cliente (fletes, servicios, desperdicio, importación) → su cuenta (#7 v3).
         lineas.AddRange(RetencionesContables.Lineas(f.Retenciones, null));
+        // M-209: IVA trasladado por tratamiento (p. ej. TASA8 en zona fronteriza) a su rol; sin detalle, como hoy.
+        lineas.AddRange(ImpuestosTrasladados.LineasDocumento(ImpuestosTrasladados.Agrupar(f.Impuestos), f.Iva));
         return new(FacturaVentaTimbrada, eventoId, f.EmpresaId, f.FechaContable ?? FechaContable.HoyLocal(f.OcurridoEn),
             Doc(DocComprobante, f.FacturaVentaId, f.Folio, f.Uuid), f.SucursalId, null, f.ClienteId, null, null, MonedaDe(f.Moneda),
             f.TipoCambio,
@@ -491,7 +494,8 @@ public static partial class NormalizadorEventos
 
     private sealed record NotaProveedorContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid? NotaCreditoId, Guid? NotaCargoId,
         Guid ProveedorId, Guid? FacturaOrigenId, decimal? Total, decimal? Monto, string? Uuid, decimal? Subtotal, decimal? Iva,
-        decimal? RetencionesTotal, string? Moneda, decimal? TipoCambio, Guid? SucursalId);
+        decimal? RetencionesTotal, string? Moneda, decimal? TipoCambio, Guid? SucursalId,
+        IReadOnlyList<ImpuestosTrasladados.ImpuestoTrasladoContrato>? Impuestos = null);
 
     private sealed record AnticipoProveedorContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid AnticipoId, Guid ProveedorId,
         decimal MontoEntregado, string? Moneda, decimal? TipoCambio, Guid? SucursalId);
@@ -513,7 +517,8 @@ public static partial class NormalizadorEventos
     private sealed record FacturaVentaContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid FacturaVentaId, string? Uuid, decimal Total,
         string? Moneda, string? Folio, decimal? Subtotal, decimal? Descuento, decimal? Iva, decimal? RetencionesTotal, Guid? SucursalId,
         Guid? ClienteId, decimal? TipoCambio, DateOnly? FechaContable, IReadOnlyList<FacturaLineaContrato>? Lineas,
-        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null);
+        IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null,
+        IReadOnlyList<ImpuestosTrasladados.ImpuestoTrasladoContrato>? Impuestos = null);
 
     private sealed record FacturaLineaContrato(string? TipoProducto, decimal Importe, decimal Descuento);
 

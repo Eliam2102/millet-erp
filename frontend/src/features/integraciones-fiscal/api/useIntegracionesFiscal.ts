@@ -13,6 +13,7 @@ import type {
   SubirFielReceptorPayload,
   TestConexionPacPayload,
   TestConexionPacResponse,
+  UltimaPruebaConexionPac,
 } from '@/features/integraciones-fiscal/api/types';
 
 /**
@@ -46,6 +47,21 @@ export function useConfiguracionPac(empresaId: string | null, proveedor: Proveed
   });
 }
 
+/** M-232: última prueba de conexión registrada (null si no hay o aún no existe la configuración). */
+export function useUltimaPruebaConexionPac(empresaId: string | null, proveedor: ProveedorPac, enabled = true) {
+  return useQuery<UltimaPruebaConexionPac | null>({
+    queryKey: integracionesFiscalKeys.ultimaPrueba(empresaId ?? '', proveedor),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<UltimaPruebaConexionPac>(
+        `/api/v1/integraciones/fiscal/configuracion/${empresaId}/${proveedor}/pruebas/ultima`,
+        { signal },
+      );
+      return data ?? null;
+    },
+    enabled: enabled && empresaId !== null && empresaId !== '',
+  });
+}
+
 export function useGuardarConfiguracionPac() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -75,6 +91,7 @@ export function useGuardarConfiguracionPac() {
         queryKey: integracionesFiscalKeys.configuracionByEmpresa(vars.empresaId, vars.proveedor),
       });
       queryClient.invalidateQueries({ queryKey: integracionesFiscalKeys.csdEstado() });
+      queryClient.invalidateQueries({ queryKey: integracionesFiscalKeys.ultimaPrueba(vars.empresaId, vars.proveedor) });
     },
   });
 }
@@ -134,6 +151,7 @@ export function useRevocarCsd() {
 }
 
 export function useTestConexionPac() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
       empresaId: string;
@@ -148,6 +166,10 @@ export function useTestConexionPac() {
         },
       );
       return data;
+    },
+    // M-232: probar la configuración guardada registra la prueba aparte (la configuración no cambia).
+    onSettled: (_data, _error, vars) => {
+      queryClient.invalidateQueries({ queryKey: integracionesFiscalKeys.ultimaPrueba(vars.empresaId, vars.proveedor) });
     },
   });
 }

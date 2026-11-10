@@ -122,6 +122,41 @@ export interface Poliza {
   plantillaRecurrenteNombre?: string | null;
   /** K10.4: pólizas derivadas de esta (su reversa automática y sus reclasificaciones). */
   ligadas?: PolizaLigada[];
+  /** M-212: anulación solicitada que espera la aprobación de otra persona. */
+  anulacionPendiente?: AnulacionPendiente | null;
+}
+
+/** M-212: solicitud de anulación con segunda firma. */
+export type EstadoSolicitudAnulacion = 'Pendiente' | 'Aprobada' | 'Rechazada';
+
+export interface AnulacionPendiente {
+  solicitudId: string;
+  motivo: string;
+  solicitadaPorId: string | null;
+  solicitadaPor: string;
+  solicitadaEn: string;
+}
+
+export interface SolicitudAnulacion {
+  id: string;
+  polizaId: string;
+  polizaFolio: string | null;
+  polizaConcepto: string;
+  polizaFecha: string;
+  polizaTotal: number;
+  motivo: string;
+  periodoAnio: number | null;
+  periodoNumero: number | null;
+  estado: EstadoSolicitudAnulacion;
+  solicitadaPorId: string | null;
+  solicitadaPor: string;
+  solicitadaEn: string;
+  decididaPorId: string | null;
+  decididaPor: string | null;
+  decididaEn: string | null;
+  motivoRechazo: string | null;
+  polizaAnulacionId: string | null;
+  version: number;
 }
 
 export interface PolizaLigada {

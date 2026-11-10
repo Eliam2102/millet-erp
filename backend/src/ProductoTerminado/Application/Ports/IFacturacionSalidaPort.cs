@@ -18,7 +18,26 @@ public interface IFacturacionSalidaPort
 
     /// <summary>Emite la Carta Porte de traslado (mercancía propia) del tramo de la hoja de salida.</summary>
     Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct);
+
+    /// <summary>
+    /// M-177: factura timbrada de cada albarán (por folio) y lo que la caja cobra de ella (total neto de NC). Sin factura, el albarán no aparece.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct);
+
+    /// <summary>
+    /// M-177: registra lo cobrado contra entrega en la sesión de caja abierta del usuario en <paramref name="sucursalId"/> (origen «Liquidación de
+    /// ruta»), cada albarán sobre su factura. Todo o nada; una factura que ya tiene cobro de caja devuelve ese cobro sin cobrar otra vez.
+    /// Falla sin sesión en la sucursal o con un albarán sin factura timbrada.
+    /// </summary>
+    Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct);
 }
+
+public sealed record FacturaAlbaranRuta(string AlbaranFolio, Guid ComprobanteId, string Folio, decimal PorCobrar, Guid? CobroCajaId);
+
+/// <summary><c>TipoTarjeta</c>: «Credito» o «Debito» (formas SAT 04 y 28).</summary>
+public sealed record CobroRutaAlbaran(string AlbaranFolio, decimal Efectivo, decimal Voucher, string? VoucherReferencia, string? TipoTarjeta, string? TarjetaUltimos4);
+
+public sealed record CobroRutaRegistrado(string AlbaranFolio, Guid CobroCajaId);
 
 public sealed record SolicitudCartaPorte(
     Guid SucursalId, string Origen, string OrigenCodigoPostal, string OrigenEstado, string Destino, string DestinoCodigoPostal, string DestinoEstado, decimal DistanciaKm,

@@ -78,7 +78,8 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, factura)); // M-173: con el pedimento, en proceso antes del PAC
 
         // FAC-08b: sustituta retenida por pedimento: al timbrar se solicita la cancelación de la original.
         await Sustituciones.SustitucionCfdi.SolicitarCancelacionOriginalAsync(

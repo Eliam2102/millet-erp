@@ -190,6 +190,32 @@ reintentar. Mientras está en proceso tampoco puede descartarse.
 Worker: `Facturacion:Workers:TimbradoPendiente` (`Disabled` false,
 `IntervalSeconds` 300, `UmbralMinutos` 30, `BatchSize` 20).
 
+### Estatus SAT de los CFDI emitidos (F6.7 · M-185)
+
+El monitor del cierre del día (Facturación → Reportes → Cierre del día →
+«Verificar estatus SAT») compara cada CFDI timbrado del día contra el SAT.
+El adaptador se elige con `Facturacion:ConsultaEstatusSat:Proveedor`:
+
+| Ambiente | Valor | Dónde se fija |
+|---|---|---|
+| Local / pruebas automáticas | `Simulado` (por omisión) | `backend/src/Api/appsettings.json` |
+| dev (servidor de pruebas) | `FiscalApi` (sandbox) | `infra/parameters/dev.bicepparam` → app setting `Facturacion__ConsultaEstatusSat__Proveedor` |
+| qa | `FiscalApi` (sandbox) | `infra/parameters/qa.bicepparam` |
+| prod | `FiscalApi` | `infra/parameters/prod.bicepparam` (requiere el SDK encendido) |
+
+- **Se fija en bicep, no en el portal:** el deploy re-aplica la lista completa de app settings, así que un valor puesto a mano en el portal se borra. El cambio se aplica con `what-if` y después `create` (sección 2).
+- **Requisito:** la consulta de estatus habilitada en la cuenta de FiscalAPI del ambiente. Sin ella, cada consulta da error.
+- `UuidsCancelados` y `UuidsNoEncontrados` solo aplican al simulado; con `FiscalApi` se ignoran.
+
+**Cómo comprobar qué adaptador está activo:** el encabezado del monitor y la columna «Estatus SAT» del reporte muestran la fuente: «SAT (FiscalAPI)» o «Simulado (adaptador de prueba)». La respuesta de `POST /api/v1/facturacion/reportes/monitor-cfdi/verificar-sat` trae el mismo dato en `fuente`.
+
+**Emisión controlada (evidencia):**
+1. Timbrar una factura en el servidor de pruebas y anotar el UUID.
+2. Verificar estatus SAT: la fila queda «Vigente».
+3. Cancelar la factura con motivo 02 y, cuando el SAT la acepte, verificar de nuevo: queda «Cancelado».
+
+**Si FiscalAPI falla:** el lote termina y el aviso dice «N con error». El estatus guardado de esos CFDI **no cambia** y se reintentan primero en la siguiente verificación, porque van por la consulta más vieja. Detalle en la bitácora: `[F6.7] No se pudo consultar el estatus SAT…`.
+
 ---
 
 ## 6. Inventario de `PLATFORM-TODO` abiertos
@@ -231,3 +257,4 @@ Worker: `Facturacion:Workers:TimbradoPendiente` (`Disabled` false,
 | Versión | Fecha | Cambios |
 |---|---|---|
 | 1.0 | 2026-05-30 | Runbook inicial. |
+| 1.1 | 2026-11-09 | M-185: estatus SAT real por ambiente (FiscalApi) y cómo comprobarlo. |

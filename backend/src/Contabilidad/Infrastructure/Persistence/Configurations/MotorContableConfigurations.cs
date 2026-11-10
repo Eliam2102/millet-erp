@@ -75,6 +75,16 @@ public sealed class RechazoContableConfiguration : IEntityTypeConfiguration<Rech
         builder.Property(x => x.Mensaje).HasMaxLength(1000).IsRequired();
         builder.Property(x => x.ResueltoPor).HasMaxLength(200);
         builder.Property(x => x.MotivoDescarte).HasMaxLength(500);
+        // M-207: tipo de cambio sustituto.
+        builder.Property(x => x.TcAccion).HasConversion<short?>();
+        builder.Property(x => x.TcValor).HasPrecision(18, 6);
+        builder.Property(x => x.TcMotivo).HasMaxLength(500);
+        builder.Property(x => x.TcCapturadoPor).HasMaxLength(200);
+        builder.Property(x => x.TcCapturadoPorId);
+        builder.Property(x => x.TcAutorizadoPor).HasMaxLength(200);
+        builder.Ignore(x => x.EsDeTipoCambio);
+        builder.Ignore(x => x.TcPorAutorizar);
+        builder.Ignore(x => x.TcAutorizado);
         builder.Property(x => x.Version).IsConcurrencyToken();
         builder.HasIndex(x => new { x.EmpresaId, x.TipoEvento, x.EventoId }).IsUnique().HasDatabaseName("ux_rechazos_contables_evento");
         builder.HasIndex(x => new { x.EmpresaId, x.Estado, x.CreadoEn }).HasDatabaseName("ix_rechazos_contables_bandeja");

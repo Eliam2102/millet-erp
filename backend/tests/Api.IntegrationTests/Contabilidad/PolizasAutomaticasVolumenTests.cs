@@ -230,10 +230,10 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
 
             fallidos.Should().BeEmpty("ningún evento revienta al consumirse: o genera póliza o entra a la bandeja");
             procesados.Should().Be(EventosMes, "cada evento entregado quedó registrado como procesado (ninguno se perdió)");
-            polizas.Should().Be(esperado.Polizas, "cada evento contabilizable generó su póliza (o entró a la de su sesión de caja)");
+            polizas.Should().Be(esperado.Polizas, "cada evento contabilizable generó su póliza (cada cobro en efectivo la suya)");
             bandeja.Should().BeEquivalentTo(esperado.Bandeja, "la bandeja tiene exactamente los eventos enviados a propósito, con su causa");
             reprocesados.Should().Be(esperado.Reprocesados, "los pagos que llegaron antes que su factura salieron solos de la bandeja");
-            efectivoPendiente.Should().Be(0, "todo cobro en efectivo quedó en la póliza de liquidación de su sesión");
+            efectivoPendiente.Should().Be(0, "todo cobro en efectivo quedó con su póliza");
             descuadradas.Should().Be(0);
             cargos.Should().Be(abonos, "la balanza del mes cuadra");
             netoReal.Where(kv => kv.Value != 0m).ToDictionary(kv => kv.Key, kv => kv.Value)
@@ -438,7 +438,8 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
             {
                 var sesion = Guid.NewGuid();
                 var efectivo = 0m;
-                for (var k = 0; k < 2 + rng.Next(3); k++)
+                var cobrosSesion = 2 + rng.Next(3);
+                for (var k = 0; k < cobrosSesion; k++)
                 {
                     var importe = Importe(rng, maximo: 3_000);
                     efectivo += importe;
@@ -448,7 +449,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                     Guid.NewGuid(), dia, 500m, efectivo + 500m, efectivo + 500m, 0m, false, [new CajaSesionCorteTotal("01", efectivo + 500m, efectivo + 500m)])));
                 x.Mover("EFECTIVO_CAJA_COBRANZA", efectivo);
                 x.Mover("CLIENTES", -efectivo);
-                x.Polizas += 1;
+                x.Polizas += cobrosSesion;   // M-174: una póliza por cobro en efectivo; el cierre no genera asiento
                 break;
             }
             case "I":

@@ -29,3 +29,10 @@ reales del backend.
 - Verifica build y lint, las pruebas afectadas y la pantalla en navegador antes
   de afirmar que la migración visual está completa. Preserva impresión, teclado,
   formularios, navegación y controles de acceso.
+
+## Validación de entradas
+
+- Cada campo nuevo o modificado declara obligatoriedad, formatos y límites aplicables. Verifica también reglas condicionales y relaciones entre campos. Reutiliza los esquemas y componentes existentes del módulo.
+- La UI anticipa las restricciones, identifica el campo inválido, conserva lo capturado y muestra el error devuelto por la API. Prueba el flujo por teclado y la corrección del error.
+- Las fechas se validan según su propósito y el calendario del ERP. Una fecha real puede tener un máximo de hoy. La fecha prevista o de vencimiento conserva su propio rango.
+- En cargas, muestra formatos y tamaño permitidos. La API confirma el contenido antes de guardar. Si el proceso exige revisión del documento, el estado pendiente se distingue del archivo técnicamente aceptado.

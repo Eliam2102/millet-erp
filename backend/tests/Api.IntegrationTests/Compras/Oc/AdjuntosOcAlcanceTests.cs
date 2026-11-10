@@ -25,7 +25,7 @@ public class AdjuntosOcAlcanceTests
     private static readonly Guid ProveedorActivoId = Guid.Parse("00000005-0001-0000-0000-000000000001");
     private static readonly Guid TipoDocumentoCotizacionId = Guid.Parse("00000003-0003-0010-0000-000000000001");
 
-    private static readonly byte[] ContenidoPdfOriginal = "%PDF-1.4 Millet ERP Test Adjunto"u8.ToArray();
+    private static readonly byte[] ContenidoPdfOriginal = Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba");
 
     private readonly WebApplicationFactory<Program> _factory;
 

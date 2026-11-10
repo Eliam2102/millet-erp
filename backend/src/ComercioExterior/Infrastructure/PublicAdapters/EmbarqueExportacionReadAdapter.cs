@@ -9,6 +9,10 @@ using Millet.ComercioExterior.Infrastructure.Persistence;
 namespace Millet.ComercioExterior.Infrastructure.PublicAdapters;
 public sealed class EmbarqueExportacionReadAdapter(ComercioExteriorDbContext db, IPedidosEmbarcablesReadPort pedidos, ICatalogosCeReadPort catalogos) : IEmbarqueExportacionReadPort
 {
+    public Task<bool> PreparacionVigenteAsync(Guid empresaId, Guid contenedorId, CancellationToken ct) =>
+        db.Expedientes.AnyAsync(e => e.EmpresaId == empresaId && e.Estado != EstadoExpediente.Cancelado
+            && e.Contenedores.Any(c => c.Id == contenedorId && c.Estado == EstadoContenedor.Activo && c.PreparadoParaFacturarEn != null), ct);
+
     public Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, CancellationToken ct) => ObtenerAsync(pedidoFacturableId, null, ct);
 
     /// <summary>FAC-08: con contenedor, la compuerta y los contenedores del CCE se limitan a ese contenedor.</summary>
@@ -24,8 +28,8 @@ public sealed class EmbarqueExportacionReadAdapter(ComercioExteriorDbContext db,
         var bloqueo = pedido is null ? (Codigo: (string?)"FAC_PEDIDO_NO_EMBARCADO", Motivo: (string?)"El pedido ya no existe.") :
             e.BloqueoFacturacion(pedido, await catalogos.AdjuntosVigentesAsync(e.Id, ct), contenedorId);
         var ids = e.Partidas.Where(p => p.PedidoFacturableId == pedidoFacturableId).Select(p => p.ContenedorId).ToHashSet();
-        var contenedores = e.Contenedores.Where(c => ids.Contains(c.Id) && (contenedorId == null || c.Id == contenedorId) && c.Estado == EstadoContenedor.Activo && c.FechaEmbarqueReal != null)
-            .OrderBy(c => c.Numero).ThenBy(c => c.Id).Select(c => new ContenedorExportacionLectura(c.Id, c.Numero!, c.BlGuia!, c.FechaEmbarqueReal!.Value)).ToArray();
+        var contenedores = e.Contenedores.Where(c => ids.Contains(c.Id) && (contenedorId == null || c.Id == contenedorId) && c.Estado == EstadoContenedor.Activo && (c.FechaEmbarqueReal != null || contenedorId != null && c.PreparadoParaFacturarEn != null))
+            .OrderBy(c => c.Numero).ThenBy(c => c.Id).Select(c => new ContenedorExportacionLectura(c.Id, c.Numero!, c.BlGuia!, c.FechaEmbarqueReal)).ToArray();
         var incoterms = await catalogos.IncotermsAsync([e.IncotermId], ct);
         var incoterm = incoterms.GetValueOrDefault(e.IncotermId);
         if (string.IsNullOrWhiteSpace(incoterm))

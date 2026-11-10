@@ -103,7 +103,7 @@ public sealed class OtrHttpTests
         Assert.Equal(0L, await cmd.ExecuteScalarAsync()); // A+W no recibe ninguna escritura del ERP.
     }
     [Fact]
-    public async Task Entrada_versiones_propuestas_y_embarque_se_quedan_en_el_erp_sin_salida_hacia_aw()
+    public async Task Entrada_y_booking_se_quedan_en_erp_y_el_hito_no_permite_omitir_el_despacho()
     {
         await using var e = await Escenario(); await Preparar(e); using var admin = await e.ClienteAsync(true);
         Assert.Equal(2, await Entrada(e));
@@ -144,7 +144,9 @@ public sealed class OtrHttpTests
         var detalle = await admin.GetAsync($"{Expedientes}/{expediente}"); detalle.EnsureSuccessStatusCode();
         using var autorizador = await e.ClienteAsync(true);
         var autorizada = await Post(autorizador, $"{Expedientes}/{expediente}/autorizar-salida", new { }, detalle.Headers.ETag!.Tag); autorizada.EnsureSuccessStatusCode();
-        var embarcado = await Post(admin, $"{Expedientes}/{expediente}/hitos/embarcado/real", new { fechaReal = hoy, responsableUsuarioId = e.Responsable }, autorizada.Headers.ETag!.Tag); embarcado.EnsureSuccessStatusCode();
+        var embarcado = await Post(admin, $"{Expedientes}/{expediente}/hitos/embarcado/real", new { fechaReal = hoy, responsableUsuarioId = e.Responsable }, autorizada.Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, embarcado.StatusCode);
+        Assert.Equal("CE_EMBARQUE_PENDIENTE", (await Json(embarcado)).GetProperty("code").GetString());
         var contenedores = await admin.GetAsync($"{Expedientes}/{expediente}/contenedores");
         using var patch = new HttpRequestMessage(HttpMethod.Patch, $"{Expedientes}/{expediente}/contenedores/{contenedor}") { Content = JsonContent.Create(new { numero = "DEMO-C", booking = "DEMO-BOOK", ruta = "DEMO-R", pesoKg = 125, bultos = 2 }) };
         patch.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); patch.Headers.TryAddWithoutValidation("If-Match", contenedores.Headers.ETag!.Tag); (await admin.SendAsync(patch)).EnsureSuccessStatusCode();

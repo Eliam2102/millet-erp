@@ -31,7 +31,9 @@ public sealed record CreditoDisponibleLineaResponse(
     decimal Disponible,
     EstadoLineaCredito Estado,
     OrigenLineaCredito Origen,
-    int PlazoDias);
+    int PlazoDias,
+    // R2: bloqueada por vencimiento (C7.5); la serie que siempre libera se retiene y solo Crédito y Cobranza la libera.
+    bool BloqueoAutomatico = false);
 
 public sealed record CreditoDisponibleResponse(
     Guid ClienteId,
@@ -80,7 +82,8 @@ public sealed class CreditoDisponibleHandler : IRequestHandler<CreditoDisponible
                 Disponible: l.Limite - facturado - liberadoSinFactura,
                 Estado: l.Estado,
                 Origen: l.Origen,
-                PlazoDias: l.PlazoDias);
+                PlazoDias: l.PlazoDias,
+                BloqueoAutomatico: l.BloqueoAutomatico);
         }).ToList();
 
         return new CreditoDisponibleResponse(

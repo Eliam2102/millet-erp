@@ -195,7 +195,7 @@ function NuevaReglaInline({ onCerrar }: { onCerrar: () => void }) {
           value={prefijo}
           onChange={(e) => setPrefijo(e.target.value)}
           inputMode="numeric"
-          placeholder="p. ej. 6100"
+          placeholder="p. ej. 61"
           className="w-32 font-mono"
           aria-invalid={error != null}
           autoFocus

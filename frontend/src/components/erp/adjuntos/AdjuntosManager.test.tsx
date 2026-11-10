@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -83,4 +83,22 @@ describe('<AdjuntosManager> — contenido vía endpoint (Camino a)', () => {
     );
     expect(container.querySelector('a[download]')).toBeNull();
   });
+});
+
+it.each([
+  [new File([], 'vacio.pdf', { type: 'application/pdf' }), /archivo está vacío/i],
+  [new File(['contenido'], 'imagen.pdf', { type: 'image/png' }), /corresponder a un archivo PDF/i],
+])('explica por qué no admite el archivo seleccionado', (archivo, mensaje) => {
+  const subir = vi.fn();
+  render(
+    <AdjuntosManager adjuntos={[]} tipos={[]} onUpload={subir} canUpload canRemove={false} />,
+    { wrapper: createQueryWrapper() },
+  );
+
+  const campo = screen.getByLabelText(/seleccionar archivo/i);
+  fireEvent.change(campo, { target: { files: [archivo] } });
+
+  expect(screen.getByRole('alert')).toHaveTextContent(mensaje);
+  expect(campo).toHaveAttribute('aria-invalid', 'true');
+  expect(subir).not.toHaveBeenCalled();
 });

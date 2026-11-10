@@ -188,6 +188,19 @@ public class UbicacionEntradaGuardTests
     }
 
     [Fact]
+    public async Task Guard_vidrio_a_la_unica_pasa_solo_con_aw_al_general_de_la_recepcion_con_factura()
+    {
+        // M-159: la recepción con factura admite la medida de A+W en el almacén general; los demás flujos siguen exigiendo rack.
+        var (db, subId, _, unicaId, articuloId) = DbConRack();
+        await using var _ = db;
+
+        var sub = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
+            db, unicaId, articuloId, CancellationToken.None, ligadoAw: true, awAlGeneral: true);
+        sub.Should().Be(subId);
+        (await db.AsignacionesArticuloUbicacion.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Guard_no_vidrio_a_rack_real_sin_asignacion_sigue_rechazado()
     {
         var (db, subId, rackId, _, articuloId) = DbConRack();
