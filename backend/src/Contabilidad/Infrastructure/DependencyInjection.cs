@@ -28,6 +28,8 @@ public static class DependencyInjection
         services.AddScoped<Millet.Contabilidad.Application.Catalogo.SolicitudesCatalogo>();
         // M-166: validación contable de la balanza de apertura (la usan la vista previa del lote y su aplicación).
         services.AddScoped<Millet.Contabilidad.Application.SaldosIniciales.ValidadorBalanzaApertura>();
+        // M-047/M-167: el tipo de carga «contabilidad.saldos-iniciales» del lote común (adaptador sobre M-166).
+        services.AddScoped<Millet.SharedKernel.Application.Cargas.IProcesadorCarga, Millet.Contabilidad.Infrastructure.Cargas.SaldosInicialesProcesadorCarga>();
         services.AddScoped<ICuentaContableReadPort, CuentaContableReadAdapter>();
         services.AddScoped<ISaldosContablesReadPort, SaldosContablesReadAdapter>();
         // CXC-06: pólizas de cobro para la conciliación de cartera de CxC.
