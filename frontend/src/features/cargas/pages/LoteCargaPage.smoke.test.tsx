@@ -88,4 +88,23 @@ describe('<LoteCargaPage> — smoke (M-047 + M-167)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Autorizar y aplicar' }));
     await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Carga aplicada: SI-000001.'));
   });
+
+  it('QA O1: sin el tipo en el servidor dice «aún no está habilitado» y no pide los lotes', async () => {
+    let pidioLotes = false;
+    mswServer.use(
+      http.get('*/api/v1/cargas/tipos', () => HttpResponse.json([])),
+      http.get(`*/api/v1/cargas/tipos/${TIPO}/lotes`, () => { pidioLotes = true; return HttpResponse.json([]); }),
+    );
+    render(<LoteCargaPage tipo={TIPO} titulo="Saldos iniciales contables" descripcion="d" />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText(/Este tipo de carga aún no está habilitado/)).toBeInTheDocument();
+    expect(screen.queryByText(/para su usuario/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Nueva carga/ })).toBeNull();
+    expect(pidioLotes).toBe(false);
+  });
+
+  it('QA O1: con el tipo pero sin permisos dice que no tiene permiso', async () => {
+    mswServer.use(http.get('*/api/v1/cargas/tipos', () => HttpResponse.json([{ ...tipo, puedeSubir: false, puedeAutorizar: false }])));
+    render(<LoteCargaPage tipo={TIPO} titulo="Saldos iniciales contables" descripcion="d" />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText(/no tiene permiso para esta carga/)).toBeInTheDocument();
+  });
 });

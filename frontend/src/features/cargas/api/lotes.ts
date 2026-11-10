@@ -5,9 +5,13 @@ import { apiRequest } from '@/lib/api';
 const BASE = '/api/v1/cargas';
 
 export interface ColumnaTipoCarga { nombre: string; ayuda: string; obligatoria: boolean; alias: string[] }
+export interface ParametroCarga {
+  nombre: string; etiqueta: string; ayuda: string; obligatorio: boolean; porOmision: string | null;
+  opciones?: { valor: string; etiqueta: string }[] | null;
+}
 export interface TipoCarga {
   tipo: string; nombre: string; columnas: ColumnaTipoCarga[]; requiereFechaCorte: boolean;
-  puedeSubir: boolean; puedeAutorizar: boolean;
+  puedeSubir: boolean; puedeAutorizar: boolean; parametros?: ParametroCarga[];
 }
 export interface EncabezadosArchivo { encabezados: string[]; mapeoSugerido: Record<string, string> }
 export type EstadoLoteCarga = 'Subido' | 'Autorizado' | 'Rechazado' | 'Aplicado';
@@ -20,7 +24,8 @@ export interface ErrorCarga { fila: number | null; campo: string; codigo: string
 export interface FilaLote { fila: number; valores: Record<string, string>; errores: ErrorCarga[] }
 export interface HistorialLote { accion: string; usuario: string; en: string; detalle: string | null }
 export interface LoteCargaDetalle {
-  lote: LoteCargaResumen; huella: string; mapeo: Record<string, string>; resumen: Record<string, string>;
+  lote: LoteCargaResumen; huella: string; mapeo: Record<string, string>; parametros?: Record<string, string | null>;
+  resumen: Record<string, string>;
   erroresArchivo: ErrorCarga[]; filas: FilaLote[]; filasMostradas: number; motivoRechazo: string | null;
   referencia: string | null; historial: HistorialLote[]; puedeAutorizar: boolean; puedeRechazar: boolean; puedeReintentar: boolean;
 }
@@ -38,9 +43,10 @@ export function useTiposCarga() {
   });
 }
 
-export function useLotesCarga(tipo: string) {
+export function useLotesCarga(tipo: string, habilitado = true) {
   return useQuery({
     queryKey: cargasKeys.lotes(tipo),
+    enabled: habilitado,
     queryFn: async () => (await apiRequest<LoteCargaResumen[]>(`${BASE}/tipos/${encodeURIComponent(tipo)}/lotes`)).data,
   });
 }
@@ -66,11 +72,14 @@ export function useEncabezadosArchivo(tipo: string) {
 export function useSubirLote(tipo: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { archivo: File; fechaCorte: string | null; mapeo: Record<string, string> }) => {
+    mutationFn: async (args: {
+      archivo: File; fechaCorte: string | null; mapeo: Record<string, string>; parametros?: Record<string, string>;
+    }) => {
       const body = new FormData();
       body.append('archivo', args.archivo, args.archivo.name);
       if (args.fechaCorte) body.append('fechaCorte', args.fechaCorte);
       body.append('mapeo', JSON.stringify(args.mapeo));
+      if (args.parametros) body.append('parametros', JSON.stringify(args.parametros));
       return (await apiRequest<LoteCargaDetalle>(`${BASE}/tipos/${encodeURIComponent(tipo)}/lotes`,
         { method: 'POST', body, idempotencyKey: crypto.randomUUID() })).data;
     },
