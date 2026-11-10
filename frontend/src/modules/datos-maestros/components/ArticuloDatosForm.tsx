@@ -26,6 +26,7 @@ import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import { CategoriaSelector } from '@/components/erp/selectors/CategoriaSelector';
 import { ProductoAwSelector } from '@/features/facturacion/components/selectors/ProductoAwSelector';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { TamborALineaCampos } from '@/modules/datos-maestros/components/TamborALineaCampos';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
@@ -93,6 +94,9 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
               ? values.productoAwId
               : null,
           limpiarProductoAw: articulo.productoAwId != null && values.productoAwId == null,
+          consumoPorTamborALinea: values.consumoPorTamborALinea,
+          kgPorPresentacion: values.kgPorPresentacion,
+          limpiarKgPorPresentacion: values.kgPorPresentacion == null && articulo.kgPorPresentacion != null,
         },
         // Key fresca por submit: este form es multi-submit (queda montado tras
         // guardar), así que una key estable daría 422 al 2º guardado con un body
@@ -254,6 +258,12 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
           </FormCampo>
         )}
 
+        <TamborALineaCampos
+          control={form.control as unknown as Parameters<typeof TamborALineaCampos>[0]['control']}
+          errors={form.formState.errors as Parameters<typeof TamborALineaCampos>[0]['errors']}
+          disabled={!canEditar}
+        />
+
         <FormCampo span={12}>
           <div className="md:col-span-2">
             <FormRow
@@ -386,5 +396,7 @@ function buildDefaults(a: ArticuloDetalle): ActualizarArticuloValues {
     precioReferenciaMonto: a.precioReferenciaMonto ?? null,
     precioReferenciaMoneda: a.precioReferenciaMoneda ?? null,
     productoAwId: a.productoAwId ?? null,
+    consumoPorTamborALinea: a.consumoPorTamborALinea ?? false,
+    kgPorPresentacion: a.kgPorPresentacion ?? null,
   };
 }

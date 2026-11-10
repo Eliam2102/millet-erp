@@ -21,6 +21,8 @@ export const LineaSalidaSchema = z.object({
   productoAwVarianteId: z.string().nullish(),
   // S4b: lote del que sale (null = sin lote / apertura); solo se pide con medida y existencia con lote.
   lote: z.string().max(50).nullish(),
+  // M-172: línea de producción destino (solo artículos por tambor; el backend la exige).
+  lineaProduccionId: z.string().regex(UUID_SHAPE_RE).nullish(),
   articuloId: z.string().regex(UUID_SHAPE_RE, 'Artículo requerido'),
   // Solo frontend (no se envía al backend): el unidadMedidaId del artículo
   // seleccionado, para la validación advisory de decimales (ADR-0046 2c).
@@ -69,6 +71,7 @@ export const FilaSalidaSchema = z
     unidadCapturada: z.string().max(20).nullish(),
     productoAwVarianteId: z.string().nullish(),
     lote: z.string().max(50).nullish(),
+    lineaProduccionId: z.string().regex(UUID_SHAPE_RE).nullish(),
     cantidadSolicitada: z.number(),
     cantidadPlaneadaAlmacen: z.number(),
     cantidadYaEntregada: z.number(),

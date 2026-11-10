@@ -608,4 +608,102 @@ public class AlmacenesAppSalidasTests
         Assert.Null(origen.AcuseDe(m2));
         Assert.Equal(9 * Area, await DisponibleAsync(otro.ArticuloId));
     }
+
+    // ── M-159: ENTRADA_ALMACEN (contrato v8) ──────────────────────────────────
+
+    /// <summary>ÚNICA activa de materiales directos en MID, para que la sucursal tenga almacén general aunque el seed no lo traiga.</summary>
+    private async Task AsegurarAlmacenGeneralMidAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var mid = await compartido.Sucursales.AsNoTracking().Where(x => x.Clave == "MID").Select(x => x.Id).SingleAsync();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        var n = Guid.NewGuid().ToString("N").ToUpperInvariant();
+        var alm = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), $"E-{n[..16]}", "DEMO entrada app", mid);
+        var sub = new SubAlmacen(Guid.NewGuid(), alm.Id, "E", "DEMO E", TipoSubAlmacen.MaterialesDirectos);
+        db.AddRange(alm, sub, new Ubicacion(Guid.NewGuid(), sub.Id, "ÚNICA", "Almacén general", esDefault: true));
+        await db.SaveChangesAsync();
+    }
+
+    private static object DatosEntrada(string entrada, string articuloAw, int piezas, int reclamadas = 0) => new
+    {
+        entrada, compra = "OC-NO-ERP", sucursal = "MID", piezas,
+        lineas = new[]
+        {
+            new
+            {
+                requisicion = "RQ-1", posicion = 1, articuloAw, articuloAlmacenAw = 501, articulo = "6MM CLARO", ancho = 2440, alto = 3660,
+                almacenGeneral = new { id = 2, nombre = "Conkal exportacion", tipo = "EXPORTACION", linea = "HEGLA 1" },
+                piezas, reclamadas,
+                grupos = new[] { Grupo(articuloAw, piezas) },
+                almacenes = new[]
+                {
+                    new
+                    {
+                        almacenGeneral = new { id = 2, nombre = "Conkal exportacion", tipo = "EXPORTACION", linea = "HEGLA 1" },
+                        piezas, grupos = new[] { Grupo(articuloAw, piezas) },
+                    },
+                },
+            },
+        },
+    };
+
+    [Fact]
+    public async Task M159_ENTRADA_ALMACEN_sube_hojas_por_m2_al_almacen_general_sin_rack_y_el_reenvio_es_DUPLICADO()
+    {
+        await AsegurarAlmacenGeneralMidAsync();
+        var s = await SembrarAsync(0);
+        await using var f = ConLlave();
+        var id = Guid.NewGuid().ToString();
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ENTRADA_ALMACEN", DatosEntrada("EN-1", s.ArticuloAw, 10, reclamadas: 2))));
+
+        Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.StartsWith("M-ENT", a.GetProperty("folio").GetString());
+        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId)); // el total, incluidas las reclamadas
+        var mov = Assert.Single(await MovsAsync(s.ArticuloId));
+        Assert.Equal(TipoMovimiento.EntradaCompra, mov.Tipo);
+        Assert.Contains("EN-1 compra OC-NO-ERP", mov.Motivo);
+        using (var scope = f.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+            var ubicacion = await (from l in db.LineasMovimiento.AsNoTracking()
+                                   join u in db.Ubicaciones.AsNoTracking() on l.UbicacionId equals u.Id
+                                   where l.ArticuloId == s.ArticuloId
+                                   select u.EsDefault).SingleAsync();
+            Assert.True(ubicacion); // sin rack: almacén general
+        }
+
+        var a2 = await Acuse(await f.CreateClient().SendAsync(Req(id, "ENTRADA_ALMACEN", DatosEntrada("EN-1", s.ArticuloAw, 10, reclamadas: 2))));
+        Assert.Equal("DUPLICADO", a2.GetProperty("estado").GetString());
+        Assert.Equal(a.GetProperty("folio").GetString(), a2.GetProperty("folio").GetString());
+        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
+    }
+
+    [Fact]
+    public async Task M159_ENTRADA_ALMACEN_de_articulo_desconocido_acusa_ERROR_con_folio_frena_su_referencia_y_no_mueve_saldo()
+    {
+        await AsegurarAlmacenGeneralMidAsync();
+        var s = await SembrarAsync(0);
+        var origen = _factory.Services.GetRequiredService<Millet.Integraciones.Aw.Infrastructure.AlmMensaje.SimuladoAlmMensajeOrigen>();
+        var lector = _factory.Services.GetRequiredService<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
+        var n = Guid.NewGuid().ToString("N")[..10];
+        string Sobre(string id, string referencia, object datos) => JsonSerializer.Serialize(new
+        {
+            mensajeId = id, tipo = "ENTRADA_ALMACEN", version = 1, fecha = "2026-11-09T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
+        });
+        var (m1, m2) = ($"E1-{n}", $"E2-{n}");
+        origen.Encolar(m1, "ENTRADA_ALMACEN", $"EN-{n}", Sobre(m1, $"EN-{n}", DatosEntrada($"EN-{n}", "NO-EXISTE-" + n, 3)));
+        origen.Encolar(m2, "ENTRADA_ALMACEN", $"EN-{n}", Sobre(m2, $"EN-{n}", DatosEntrada($"EN-{n}", s.ArticuloAw, 3)));
+
+        await lector.ProcesarAsync(default);
+
+        var a1 = origen.AcuseDe(m1)!;
+        Assert.Equal(("ERROR", $"REV-{m1}"), (a1.Estado, a1.Folio));
+        Assert.Contains("NO-EXISTE-", a1.Error);
+        Assert.Null(origen.AcuseDe(m2)); // espera: su referencia tiene un ERROR sin revisar
+        Assert.Equal(0m, await DisponibleAsync(s.ArticuloId));
+        Assert.Equal(0, await MovimientosAsync(s.ArticuloId));
+    }
 }
