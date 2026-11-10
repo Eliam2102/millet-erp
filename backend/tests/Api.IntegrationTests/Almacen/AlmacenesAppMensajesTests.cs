@@ -100,7 +100,7 @@ public class AlmacenesAppMensajesTests
     {
         await using var f = ConLlave(Llave);
         var id = Guid.NewGuid().ToString();
-        var resp = await f.CreateClient().SendAsync(Req(id, tipo: "ENTRADA_ALMACEN"));
+        var resp = await f.CreateClient().SendAsync(Req(id, tipo: "CAMBIO_ALMACEN"));
         var a = await Acuse(resp);
 
         Assert.NotEqual(HttpStatusCode.Accepted, resp.StatusCode);
@@ -112,7 +112,7 @@ public class AlmacenesAppMensajesTests
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var fila = await db.MensajesApp.AsNoTracking().SingleAsync(m => m.MensajeId == id);
         Assert.Equal("ERROR", fila.Estado);
-        Assert.Equal("ENTRADA_ALMACEN", fila.Tipo);
+        Assert.Equal("CAMBIO_ALMACEN", fila.Tipo);
         Assert.Equal("RQ-1", fila.Referencia);
     }
 }

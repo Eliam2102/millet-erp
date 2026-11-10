@@ -1,4 +1,5 @@
 import { errorUsuario } from '@/lib/error-usuario';
+import { TamborALineaCampos } from '@/modules/datos-maestros/components/TamborALineaCampos';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -118,6 +119,8 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
       naturaleza: Naturaleza.Estandar,
       descripcionLarga: null,
       categoriaId: null,
+      consumoPorTamborALinea: false,
+      kgPorPresentacion: null,
       precioReferenciaMonto: null,
       precioReferenciaMoneda: null,
     },
@@ -140,6 +143,8 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
           categoriaId: values.categoriaId,
           precioReferenciaMonto: values.precioReferenciaMonto,
           precioReferenciaMoneda: values.precioReferenciaMoneda,
+          consumoPorTamborALinea: values.consumoPorTamborALinea,
+          kgPorPresentacion: values.kgPorPresentacion,
         },
         idempotencyKey,
       },
@@ -298,6 +303,8 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
               />
             </FormRow>
           </FormCampo>
+
+          <TamborALineaCampos control={form.control as unknown as Parameters<typeof TamborALineaCampos>[0]['control']} errors={form.formState.errors as Parameters<typeof TamborALineaCampos>[0]['errors']} />
         </FormSeccion>
       </SheetBody>
       <SheetFooter>

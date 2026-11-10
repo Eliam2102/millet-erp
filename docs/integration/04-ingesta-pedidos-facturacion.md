@@ -316,6 +316,19 @@ Reglas confirmadas:
   - **Probado**: SELECT real contra A+W (conteos, columnas, filtros, vendedor); simulador y pruebas unitarias (caso feliz, duplicado, falla, lento, sin escritura). Pendiente contra el sistema real: encender la bandera en un ambiente con facturas del ERP ligadas a pedidos de A+W y ver el flujo completo.
 - **Clientes y obras**: A+W no crea clientes ni obras de forma automática (proceso manual, sin SQL); el ERP **no** tiene ni debe tener salida de altas hacia A+W y no necesita rango de numeración. La clave de A+W del cliente se guarda en `ReferenciaExterna` (`Origen = Aw`, ver `LigarAw` en doc 05) y el id de la obra (`KA_OBJEKT.ID`) viaja como `ObraId` en pedido, factura y anticipo.
 
+### 8.1 A+W caído: avisos pendientes y reintento (M-160)
+
+Si `aw_retorno` no responde **por conexión** (SQL Server inalcanzable, login o base no disponible, tiempo agotado, socket; en el origen Demo, cualquier falla transitoria de Npgsql), el aviso no se pierde ni cae a dead-letter:
+
+- El listener (`FacturacionRetornoListenerWorker`, `integraciones-aw-subscription`) y el consumidor de PT (`ProductoTerminadoRetornoLocalConsumer`, `integraciones-aw-pt-sub`) guardan el evento tal cual (tipo + JSON) en `integraciones_aw.retorno_pendiente` con estado `Pendiente`, intento 1 y su error, y **completan** el mensaje. Si guardar el pendiente falla (base del ERP caída), el mensaje se abandona como antes.
+- La clasificación vive en `AwRetornoAplicador.EsDeConexion`. Payload corrupto (`JsonException`) sigue yendo a dead-letter con motivo `InvalidPayload`; una regla (`AW_RETORNO_MAPEO_PAGO`) o un error SQL del aviso (constraint, tabla inexistente) sigue el camino de siempre (abandono → dead-letter tras 5 entregas).
+- `AwRetornoAcuseWorker` corre cada minuto: reintenta los pendientes vencidos en orden de llegada con espera **1, 5, 15 y 60 min, y luego cada hora, sin tope**. Si A+W sigue caído, el resto de la pasada cuenta el intento con el mismo error sin esperar el timeout de cada uno. Al aplicarse queda `Aplicado` (con `aplicado_en_utc`); si la falla ya no es de conexión queda `Detenido` para revisión. La conciliación del acuse sigue cada 5 minutos.
+- **Una sola vez**: el reintento corre el mismo código que el evento y `aw_retorno` es idempotente en todos los tipos (documento por UUID + tipo, estatus por estatus, pago por último importe del grupo, saldo solo si cambió).
+- **Alerta**: si el pendiente más antiguo pasa de 4 h, el worker deja un warning en el log y el tablero lo marca.
+- **Tablero**: «Sincronización con A+W» muestra la sección «Avisos a A+W» (pendientes, detenidos, el más antiguo, intentos, siguiente intento y último error) a quien tiene `integraciones.aw.administracion.configuracion`. API: `GET /api/v1/integraciones/aw/retorno/pendientes/resumen`.
+- **Dead-letter**: `POST /api/v1/integraciones/aw/retorno/dead-letter/reprocesar` (mismo permiso, `Idempotency-Key`) lee la dead-letter de `integraciones-aw-subscription` (hasta 500 por llamada), aplica cada mensaje con el mismo servicio (o lo deja pendiente si A+W sigue caído) y lo completa. El payload inválido y las demás fallas se quedan en la dead-letter. Sin Service Bus responde 422 `SERVICE_BUS_NO_CONFIGURADO`.
+- Límite conocido: mientras hay pendientes, un aviso nuevo con A+W ya de vuelta se escribe de inmediato y puede quedar antes que uno viejo del mismo pedido; el pago que llega antes que su factura no se escribe (lo recalcula la factura al aplicarse).
+
 ## Anexo A — Procedencia: diseño JSON de mayo 2026 (no construido)
 
 El contrato de las vistas deriva de un diseño previo de integración por JSON
