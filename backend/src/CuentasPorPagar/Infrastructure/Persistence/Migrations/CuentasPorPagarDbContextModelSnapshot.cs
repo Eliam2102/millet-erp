@@ -4398,6 +4398,21 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("excede_politica");
 
+                    b.Property<DateTimeOffset?>("ExcesoAutorizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("exceso_autorizado_en");
+
+                    b.Property<Guid?>("ExcesoAutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("exceso_autorizado_por");
+
+                    b.Property<decimal>("ExcesoComprobacion")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("exceso_comprobacion");
+
                     b.Property<DateTimeOffset?>("FechaAnticipoPagado")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_anticipo_pagado");
