@@ -18,7 +18,8 @@ public sealed record CfdiTimbradoLeido(
     string? SelloCfd,
     string? SelloSat,
     string? NoCertificadoSat,
-    string? RfcProvCertif);
+    string? RfcProvCertif,
+    string? SelloComprobante = null);
 
 /// <summary>
 /// Lectura del XML de un CFDI 4.0 timbrado que el usuario descarga del portal del PAC (M-284).
@@ -81,7 +82,8 @@ public static class LectorCfdiTimbrado
             SelloCfd: (string?)timbre.Attribute("SelloCFD"),
             SelloSat: (string?)timbre.Attribute("SelloSAT"),
             NoCertificadoSat: (string?)timbre.Attribute("NoCertificadoSAT"),
-            RfcProvCertif: (string?)timbre.Attribute("RfcProvCertif"));
+            RfcProvCertif: (string?)timbre.Attribute("RfcProvCertif"),
+            SelloComprobante: (string?)raiz.Attribute("Sello"));
     }
 
     private static BusinessRuleException Invalido(string mensaje) => new("CFDI_XML_INVALIDO", mensaje);

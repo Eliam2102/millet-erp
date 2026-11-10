@@ -9,6 +9,7 @@ using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.UnitTests.TestDoubles;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Integraciones.Fiscal.Domain.Ports;
 using Xunit;
 
 namespace Millet.Facturacion.UnitTests.Timbrado;
@@ -43,10 +44,10 @@ public sealed class AdoptarCfdiTimbradoTests
     }
 
     private static string Xml(string folio = "15230", string total = "11600.00", string rfcEmisor = "MIL010101AAA",
-        string tipo = "I", bool conTimbre = true, string uuid = Uuid) => $"""
+        string tipo = "I", bool conTimbre = true, string uuid = Uuid, string sello = "SELLOCFD") => $"""
         <?xml version="1.0" encoding="utf-8"?>
         <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital"
-            Version="4.0" Serie="MERA" Folio="{folio}" Total="{total}" SubTotal="10000.00" Moneda="MXN" TipoDeComprobante="{tipo}">
+            Version="4.0" Serie="MERA" Folio="{folio}" Total="{total}" SubTotal="10000.00" Moneda="MXN" TipoDeComprobante="{tipo}" Sello="{sello}">
           <cfdi:Emisor Rfc="{rfcEmisor}" Nombre="MILLET" RegimenFiscal="601" />
           <cfdi:Receptor Rfc="AAA010101AAA" Nombre="CLIENTE" UsoCFDI="G03" />
           <cfdi:Complemento>
@@ -55,8 +56,8 @@ public sealed class AdoptarCfdiTimbradoTests
         </cfdi:Comprobante>
         """;
 
-    private AdoptarCfdiTimbradoHandler Handler(FacturacionDbContext db) =>
-        new(db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), new FakeFiscalApiClient(),
+    private AdoptarCfdiTimbradoHandler Handler(FacturacionDbContext db, ICfdiTimbradoPort? fiscal = null) =>
+        new(db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), fiscal ?? new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), _eventos, ReceptorFiscalTestFactory.Crear(db),
             new FakeUserContext(Guid.NewGuid(), "Facturación prueba"), new FakeClock(Ahora));
 
@@ -181,5 +182,52 @@ public sealed class AdoptarCfdiTimbradoTests
         var act = () => Handler(db).Handle(new AdoptarCfdiTimbradoCommand(f.Id, Xml(folio: "15231")), default);
 
         (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CFDI_UUID_EN_USO");
+    }
+
+    [Fact]
+    public async Task O1_timbre_de_otro_CFDI_se_rechaza_aunque_los_datos_coincidan()
+    {
+        using var db = Db();
+        var f = await FacturaSinRespuestaAsync(db);
+
+        var act = () => Handler(db).Handle(new AdoptarCfdiTimbradoCommand(f.Id, Xml(sello: "SELLODEOTROCFDI")), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+            .Should().Contain("El Timbre Fiscal Digital del XML no corresponde al sello del comprobante");
+        db.ChangeTracker.Clear();
+        (await db.FacturasVenta.SingleAsync()).Estado.Should().Be(EstadoTimbrado.TimbradoFallido);
+    }
+
+    [Theory]
+    [InlineData(false, "El SAT no reporta este CFDI como vigente (estatus: No Encontrado)")]
+    [InlineData(true, "No se pudo verificar el CFDI ante el SAT")]
+    public async Task O1_CFDI_no_vigente_o_sin_respuesta_del_SAT_se_rechaza(bool consultaFalla, string mensaje)
+    {
+        using var db = Db();
+        var f = await FacturaSinRespuestaAsync(db);
+        var sat = new SatEstatus(consultaFalla);
+
+        var act = () => Handler(db, sat).Handle(new AdoptarCfdiTimbradoCommand(f.Id, Xml()), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Contain(mensaje);
+        sat.Consulta.Should().NotBeNull();
+        (sat.Consulta!.Uuid, sat.Consulta.RfcEmisor, sat.Consulta.RfcReceptor, sat.Consulta.Total, sat.Consulta.Sello8)
+            .Should().Be((Uuid, "MIL010101AAA", "AAA010101AAA", 11600m, "SELLOCFD"[^8..]));
+        _eventos.Publicados.Should().BeEmpty();
+    }
+
+    /// <summary>SAT que no encuentra el CFDI (o cuya consulta falla).</summary>
+    private sealed class SatEstatus(bool falla) : ICfdiTimbradoPort
+    {
+        public EstatusCfdiSolicitud? Consulta { get; private set; }
+        public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken ct) => throw new NotSupportedException();
+        public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud s, CancellationToken ct) => throw new NotSupportedException();
+        public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud s, CancellationToken ct)
+        {
+            Consulta = s;
+            return falla
+                ? throw new InvalidOperationException("servicio del SAT sin respuesta (simulado)")
+                : Task.FromResult(new EstatusCfdiResultado(false, "No Encontrado", null, null));
+        }
     }
 }
