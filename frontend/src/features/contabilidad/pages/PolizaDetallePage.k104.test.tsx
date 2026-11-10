@@ -117,14 +117,14 @@ describe('<PolizaDetallePage> · K10.4', () => {
 
   it('anular una póliza con reversa vigente muestra el rechazo del servidor', async () => {
     servidor(poliza());
-    mswServer.use(http.post(`${API}/polizas/p1/anular`, () =>
+    mswServer.use(http.post(`${API}/polizas/p1/solicitar-anulacion`, () =>
       problem(422, { code: 'CONTAB_POLIZA_TIENE_REVERSA', detail: 'La póliza tiene una reversa automática vigente (TT-000131): anula primero la reversa.' })));
     permisos(PermisosCanonicos.ContabilidadPolizasAnular);
     render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
-    fireEvent.click(await screen.findByRole('button', { name: 'Anular' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Solicitar anulación' }));
     const dialogo = await screen.findByRole('dialog');
     fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'FIX Provisión duplicada' } });
-    fireEvent.click(within(dialogo).getByRole('button', { name: 'Anular póliza' }));
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Solicitar anulación' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('anula primero la reversa');
   });
 });

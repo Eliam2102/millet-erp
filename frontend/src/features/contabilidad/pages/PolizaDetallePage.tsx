@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/erp';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
@@ -242,6 +243,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           relacion={p.relacion}
           esRecurrente={!!p.plantillaRecurrenteId}
         />
+        {p.anulacionPendiente && <Badge variant="warning">Anulación pendiente de aprobación</Badge>}
         <span className="ml-auto flex flex-wrap items-center gap-2">
           {esBorrador && puedeCapturar && (
             <>
@@ -281,6 +283,12 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           {p.estado === 'Autorizada' && !esAnulacion && puedeAnular && (
             <Button
               variant="secondary-danger"
+              disabled={!!p.anulacionPendiente}
+              title={
+                p.anulacionPendiente
+                  ? 'Ya hay una anulación pendiente: la aprueba o rechaza otra persona con facultad.'
+                  : undefined
+              }
               onClick={() => {
                 setMensaje('');
                 setAviso('');
@@ -288,7 +296,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
               }}
             >
               <Ban className="mr-1 size-3.5" aria-hidden="true" />
-              Anular
+              Solicitar anulación
             </Button>
           )}
           <Button
@@ -343,6 +351,22 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           </p>
         )}
 
+        {p.anulacionPendiente && (
+          <section
+            aria-label="Anulación pendiente"
+            className="rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg"
+          >
+            <p className="font-medium">
+              Anulación pendiente de aprobación: la póliza sigue vigente hasta que otra persona con
+              facultad la apruebe.
+            </p>
+            <p className="mt-1">Motivo: {p.anulacionPendiente.motivo}</p>
+            <p className="mt-1 text-xs">
+              Solicitada por {p.anulacionPendiente.solicitadaPor} ·{' '}
+              {formatDateTime(p.anulacionPendiente.solicitadaEn)}
+            </p>
+          </section>
+        )}
         {p.anuladaPorPolizaId && (
           <section
             aria-label="Anulación"
@@ -543,9 +567,9 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
       <AnularPolizaDialog
         poliza={anulando ? p : null}
         onClose={() => setAnulando(false)}
-        onAnulada={(nueva) => {
+        onSolicitada={() => {
           setAnulando(false);
-          onNavegar(nueva.id);
+          setAviso('Anulación solicitada: queda pendiente de que otra persona con facultad la apruebe.');
         }}
       />
     </div>

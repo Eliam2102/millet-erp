@@ -526,7 +526,10 @@ export const PermisosCanonicos = {
   ContabilidadPolizasLeer: 'contabilidad.polizas.leer',
   ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',
   ContabilidadPolizasAutorizar: 'contabilidad.polizas.autorizar',
+  /** M-212: solicitar la anulación (la aprueba otra persona con el permiso siguiente). */
   ContabilidadPolizasAnular: 'contabilidad.polizas.anular',
+  /** M-212: aprobar o rechazar la anulación solicitada por otra persona (segunda firma). */
+  ContabilidadPolizasAnularAprobar: 'contabilidad.polizas.anular-aprobar',
   // K10.4: pólizas recurrentes (0000000d-0006). `administrar` prepara, suspende, reanuda y genera; `autorizar` activa
   // (no quien la preparó).
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',

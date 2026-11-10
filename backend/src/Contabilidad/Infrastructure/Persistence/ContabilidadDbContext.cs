@@ -44,6 +44,8 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<Poliza> Polizas => Set<Poliza>();
     public DbSet<PolizaPartida> PolizasPartidas => Set<PolizaPartida>();
     public DbSet<ConsecutivoPoliza> ConsecutivosPoliza => Set<ConsecutivoPoliza>();
+    // M-212: anulación de póliza con segunda firma.
+    public DbSet<SolicitudAnulacionPoliza> SolicitudesAnulacionPoliza => Set<SolicitudAnulacionPoliza>();
     // K10.4: pólizas recurrentes.
     public DbSet<PlantillaRecurrente> PlantillasRecurrentes => Set<PlantillaRecurrente>();
     // K10.5: auxiliar por OC de la cuenta puente recepción–factura.
