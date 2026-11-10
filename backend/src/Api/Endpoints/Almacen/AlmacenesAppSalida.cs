@@ -11,8 +11,8 @@ namespace Millet.Api.Endpoints.Almacen;
 /// AJUSTE_SALIDA, ROTURA y SALIDA_MANUAL de la app de Almacenes (F1-MP-07). Lee <c>datos</c> según el contrato v6
 /// §7.1, §8.3 y §8.5 con las correcciones de TI del 5-nov: sucursal, movimiento, motivo/origen/mesa/jobid/pedidoAw,
 /// <c>documentoPrevio</c> (solo AJUSTE_SALIDA, opcional) y <c>almacenes[].grupos[]</c> (articuloAw, ancho/alto en mm
-/// sin redondear, piezas, costo). Se aplanan los grupos de todos los almacenes (el almacén general y su id se
-/// ignoran: el ERP decide el sub-almacén y no se amarra a ids) y se resuelven con una sola llamada al puerto; la
+/// sin redondear, piezas, costo). Se aplanan los grupos de todos los almacenes; cada grupo lleva la llave de su almacén
+/// (<c>almacenGeneral.tipo</c> + <c>linea</c>, M-446) y su lote (se toma primero), y se resuelven con una sola llamada al puerto; la
 /// salida es todo o nada. El costo (solo SALIDA_MANUAL, cualquiera que sea su origen: captura, cancelación de
 /// entrada o devolución de venta) es el promedio de A+W al momento del movimiento: <c>costoM2</c> en vidrio o
 /// <c>costoPieza</c> en material por cantidad; se guarda tal cual llega y nunca se recalcula. Costo de la hoja =
@@ -53,11 +53,13 @@ public static class AlmacenesAppSalida
             || almacenes.GetArrayLength() == 0)
             return (null, "almacenes debe ser un arreglo con al menos un elemento.");
 
-        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? CostoUnitario, decimal? M2, string Ruta)>();
+        var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? CostoUnitario, decimal? M2, string Ruta,
+            LlaveAlmacenApp? Almacen, string? Lote)>();
         var i = 0;
         foreach (var alm in almacenes.EnumerateArray())
         {
             if (alm.ValueKind != JsonValueKind.Object) return (null, $"almacenes[{i}] debe ser un objeto.");
+            var llave = Llave(alm);
             if (!alm.TryGetProperty("grupos", out var grupos) || grupos.ValueKind != JsonValueKind.Array
                 || grupos.GetArrayLength() == 0)
                 return (null, $"almacenes[{i}].grupos debe ser un arreglo con al menos un elemento.");
@@ -94,7 +96,7 @@ public static class AlmacenesAppSalida
                     if (!conMedida && costoPieza is null && costoM2 is not null) return (null, $"{p} no lleva medida: el costo va en costoPieza.");
                     costo = conMedida ? costoM2 : costoPieza;
                 }
-                items.Add((articulo, ancho, alto, piezas.Value, costo, m2, p));
+                items.Add((articulo, ancho, alto, piezas.Value, costo, m2, p, llave, Texto(g, "lote")));
                 j++;
             }
             i++;
@@ -110,9 +112,11 @@ public static class AlmacenesAppSalida
         if (!TryClave(datos, "area", out var area)) return (null, "datos.area debe ser texto o numérico.");
         if (!TryClave(datos, "equipo", out var equipo)) return (null, "datos.equipo debe ser texto o numérico.");
         Guid? centro = null;
-        if (dimensiones is not null && (area is not null || equipo is not null || exigirAreaEquipo))
+        var tipoMov = tipo == AlmacenesAppCambio.Tipo ? TipoMovimiento.TrasladoInterno : Tipos[tipo];
+        // El traslado (CAMBIO_ALMACEN) no hace póliza: no lleva área ni equipo.
+        if (dimensiones is not null && tipo != AlmacenesAppCambio.Tipo && (area is not null || equipo is not null || exigirAreaEquipo))
         {
-            var causa = SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(Tipos[tipo]);
+            var causa = SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(tipoMov);
             var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(sp.EmpresaId, resuelto.SucursalId, causa,
                 DateOnly.FromDateTime(DateTime.UtcNow), area, equipo), ct);
             if (d.Error is not null) return (null, d.Error);
@@ -144,11 +148,22 @@ public static class AlmacenesAppSalida
                 return (null, $"{x.Ruta}.m2 ({m2:0.####}) no coincide con piezas × área de la hoja ({cantidad:0.####}).");
             // El valor que llega se guarda tal cual (a la precisión de la columna, 14,4); no se recalcula contra A+W.
             var costoUnit = x.CostoUnitario is { } cu ? Math.Round(cu, 4) : (decimal?)null;
-            salidas.Add(new SalidaApp(Tipos[tipo], resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
-                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim(), CentroCostoId: centro));
+            salidas.Add(new SalidaApp(tipoMov, resuelto.SucursalId, r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId,
+                cantidad, costoUnit, motivo, r.AnchoMm, r.AltoMm, ArticuloAw: x.Articulo.Trim(), CentroCostoId: centro,
+                Almacen: x.Almacen, Lote: x.Lote));
         }
         return (new Resuelta(sp.EmpresaId, sp.Id, salidas), null);
     }
+
+    /// <summary>
+    /// Llave del almacén de un renglón (M-446): <c>almacenGeneral.tipo</c> + <c>almacenGeneral.linea</c> (vacía en herraje). Sin
+    /// tipo → null (el ERP resuelve como antes, por sucursal). El id del almacén general es dato acompañante y no se usa.
+    /// </summary>
+    internal static LlaveAlmacenApp? Llave(JsonElement contenedor, string propiedad = "almacenGeneral") =>
+        contenedor.TryGetProperty(propiedad, out var ag) && ag.ValueKind == JsonValueKind.Object
+        && Texto(ag, "tipo") is { } tipo && !string.IsNullOrWhiteSpace(tipo)
+            ? new LlaveAlmacenApp(tipo, Texto(ag, "linea"))
+            : null;
 
     // documentoPrevio: el contrato aún no fija su forma; solo se toma si viene como texto o número (otra forma se ignora, sin inventar campos).
     private static string? DocumentoPrevio(JsonElement datos)

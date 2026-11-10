@@ -431,4 +431,21 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
         CantidadLiberadaApartado += cantidad;
         MotivoUltimaLiberacion = motivo.Trim();
     }
+
+    /// <summary>
+    /// M-446 (REQUISICION_REDUCIDA de la app): Compras ya no compra <paramref name="cantidad"/> de esta línea. Baja
+    /// <see cref="CantidadDeCompra"/> sin quedar debajo de lo ya recibido y lo pasa a <see cref="CantidadSinCompra"/>, así el
+    /// saldo por comprar y lo vigente bajan juntos. Devuelve lo que sí se quitó.
+    /// </summary>
+    internal decimal QuitarDeCompra(decimal cantidad, string motivo)
+    {
+        if (cantidad <= 0)
+            throw new BusinessRuleException("RQ_APP_PIEZAS_QUITADAS_INVALIDAS", "Las piezas quitadas deben ser positivas.");
+        var quita = Math.Min(cantidad, CantidadDeCompra - CantidadRecibida);
+        if (quita <= 0) return 0m;
+        CantidadDeCompra -= quita;
+        CantidadSinCompra += quita;
+        MotivoUltimaLiberacion = motivo.Length > 500 ? motivo[..500] : motivo;
+        return quita;
+    }
 }

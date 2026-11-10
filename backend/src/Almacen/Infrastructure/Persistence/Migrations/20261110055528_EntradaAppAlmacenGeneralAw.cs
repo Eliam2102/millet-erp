@@ -11,7 +11,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
     /// </summary>
     public partial class EntradaAppAlmacenGeneralAw : Migration
     {
-        private const string BloqueAwAUnica = """
+        internal const string BloqueAwAUnica = """
     -- Artículo de A+W (línea con variante de medida) entra a un rack; lo que no es
     -- de A+W (consumibles, refacciones) puede entrar a la ÚNICA (almacén general).
     IF v_es_entrada AND v_ubi_es_default AND NEW.producto_aw_variante_id IS NOT NULL THEN

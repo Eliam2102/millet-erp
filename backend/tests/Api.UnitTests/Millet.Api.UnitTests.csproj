@@ -14,6 +14,9 @@
     <ProjectReference Include="../../src/Api/Millet.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Almacen/Muestras/*.jsonl" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="../Facturacion.UnitTests/TestDoubles/Fakes.cs" Link="PruA/Fakes.cs" />
     <Compile Include="../Facturacion.UnitTests/TestDoubles/ReceptorFiscalTestFactory.cs" Link="PruA/ReceptorFiscalTestFactory.cs" />
   </ItemGroup>
