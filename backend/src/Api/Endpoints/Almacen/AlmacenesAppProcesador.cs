@@ -104,8 +104,10 @@ public sealed class AlmacenesAppProcesador(
                 var (resuelta, errorEntrada) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct);
                 if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorEntrada, ct);
                 var primera = resuelta.Salidas[0];
+                // La carga inicial (alm_carga_inicial, v9 §4) entra al costo de su renglón: es el costo de arranque.
+                var carga = AlmCargaInicialLector.EsCargaInicial(mensajeId);
                 var entradas = resuelta.Salidas.Select(s => new EntradaApp(s.ArticuloId, s.UnidadMedida, s.ProductoAwVarianteId, s.Cantidad,
-                    s.AnchoMm, s.AltoMm, s.Lote, s.Almacen, s.CostoUnitarioMxn)).ToList();
+                    s.AnchoMm, s.AltoMm, s.Lote, s.Almacen, s.CostoUnitarioMxn, carga)).ToList();
                 var g = await salidasGuardado.GuardarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
                     resuelta.EmpresaId, resuelta.UsuarioId, primera.SucursalId, primera.Motivo, null, null, entradas, ct,
                     Millet.Almacen.Domain.Movimientos.TipoMovimiento.AjustePositivo, resuelta.Origen, primera.MotivoClave);

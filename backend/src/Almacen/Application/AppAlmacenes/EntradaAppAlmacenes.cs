@@ -19,11 +19,11 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 /// Partida de ENTRADA_ALMACEN ya resuelta a ids del ERP (cantidad en la unidad del saldo: m² en vidrio). Una por grupo de la
 /// app: <c>Lote</c> es el <c>grupos[].lote</c>, parte de la llave del saldo (dos lotes en una línea = dos filas de saldo).
 /// <c>CostoRespaldoMxn</c> (ENTRADA_MANUAL, v9): el promedio de A+W del mensaje en la unidad del saldo; solo se usa si el ERP no tiene
-/// promedio de esa medida en ese almacén.
+/// promedio de esa medida en ese almacén. Con <c>CostoDelMensaje</c> (carga inicial, v9 §4) ese costo manda sobre el promedio.
 /// </summary>
 public sealed record EntradaApp(
     Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal Cantidad, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Lote = null, LlaveAlmacenApp? Almacen = null, decimal? CostoRespaldoMxn = null);
+    string? Lote = null, LlaveAlmacenApp? Almacen = null, decimal? CostoRespaldoMxn = null, bool CostoDelMensaje = false);
 
 /// <summary>Puertos que usa la entrada de la app (lectura de la OC, conversión de unidades, periodo contable y outbox).</summary>
 public sealed record EntradaAppPuertos(
@@ -113,7 +113,8 @@ public static class EntradaAppAlmacenes
             foreach (var e in entradas)
             {
                 var ubicacionId = ubicacion(e);
-                var costo = CostoOrigenApp.Costo(original, e.ArticuloId, e.ProductoAwVarianteId, e.Lote) ?? await db.SaldosInventario.AsNoTracking()
+                var costo = (e.CostoDelMensaje && e.CostoRespaldoMxn > 0m ? e.CostoRespaldoMxn : null)
+                    ?? CostoOrigenApp.Costo(original, e.ArticuloId, e.ProductoAwVarianteId, e.Lote) ?? await db.SaldosInventario.AsNoTracking()
                     .Where(s => s.UbicacionId == ubicacionId && s.ArticuloId == e.ArticuloId && s.ProductoAwVarianteId == e.ProductoAwVarianteId)
                     .Select(s => (decimal?)s.CostoPromedioMxn).FirstOrDefaultAsync(ct);
                 if (costo is not > 0m) costo = e.CostoRespaldoMxn;

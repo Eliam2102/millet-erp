@@ -212,14 +212,20 @@ public sealed class AlmMensajeLectorTests
         Poner(b, "M1", null);
         var sp = new ServiceCollection().AddSingleton<IProcesadorMensajeApp>(b.Proc).BuildServiceProvider();
         var opciones = Options.Create(new AlmMensajeOptions());
+        var carga = new SimuladoAlmCargaInicialOrigen();
+        carga.Agregar(new AlmCargaInicialRenglon(1, 1, "CONKAL", "GENERAL", null, 300120, null, null, null, null, null, null, 1, null,
+            null, 1m, "PESOSMX", null));
         var worker = new AlmMensajeWorker(
             new AlmMensajeLector(b.Origen, sp.GetRequiredService<IServiceScopeFactory>(), opciones, NullLogger<AlmMensajeLector>.Instance),
+            new AlmCargaInicialLector(carga, sp.GetRequiredService<IServiceScopeFactory>(), opciones, NullLogger<AlmCargaInicialLector>.Instance),
             opciones, NullLogger<AlmMensajeWorker>.Instance);
 
         await worker.StartAsync(default);
         await worker.StopAsync(default);
 
         opciones.Value.Habilitado.Should().BeFalse();
+        opciones.Value.CargaInicialHabilitada.Should().BeFalse();
         b.Origen.AcuseDe("M1").Should().BeNull();
+        carga.Acuse(1, 1).Should().Be(((string?)null, (string?)null)); // M-283: la carga inicial también está apagada
     }
 }

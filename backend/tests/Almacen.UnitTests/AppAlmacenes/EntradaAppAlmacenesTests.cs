@@ -393,6 +393,20 @@ public class EntradaAppAlmacenesTests
         CostoOrigenApp.Costo(lineas, Articulo, null, "L-1").Should().BeNull();
     }
 
+    [Fact]
+    public async Task La_carga_inicial_entra_al_costo_de_su_renglon_aunque_haya_promedio()
+    {
+        var (db, unica, sub) = Db();
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 20.1422m, 100m, Variante));
+        await db.SaveChangesAsync();
+
+        await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "carga-inicial:1:1",
+            [Hojas(1) with { CostoRespaldoMxn = 130m, CostoDelMensaje = true }], default, TipoMovimiento.AjustePositivo);
+        await db.SaveChangesAsync();
+
+        (await db.LineasMovimiento.SingleAsync()).CostoUnitarioMxn.Should().Be(130m);
+    }
+
     // ── motivoClave (M-283, v9): dato del movimiento, sin catálogo ─────────────────────────────
 
     [Fact]

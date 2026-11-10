@@ -357,6 +357,26 @@ public sealed class AlmacenesAppEnsayoM446Tests
     }
 
     [Fact]
+    public async Task El_renglon_de_la_carga_inicial_se_lee_como_ENTRADA_MANUAL()
+    {
+        // M-283 (v9 §4): alm_carga_inicial → sobre ENTRADA_MANUAL con el mismo parseo que los mensajes.
+        var hoja = new AlmCargaInicialRenglon(3, 1, "CONKAL", "EXPORTACION", "HEGLA 1", 100006, 501, 3302.00m, 6100.00m, "L-1", null, "E-7",
+            3, 60.4266m, 130m, null, "PESOSMX", null);
+        var herraje = new AlmCargaInicialRenglon(3, 2, "CONKAL", "GENERAL", null, 300120, 7812, null, null, null, null, null,
+            20, null, null, 18.5m, "PESOSMX", null);
+        foreach (var (r, costo, cantidad) in new[] { (hoja, 130m, 3 * AreaHoja.M2(3302m, 6100m)), (herraje, 18.5m, 20m) })
+        {
+            var sobre = JsonDocument.Parse(AlmCargaInicialLector.Sobre(r)).RootElement;
+            Assert.Null(AlmacenesAppProcesador.ErrorDeSobre(sobre));
+            var (res, error) = await AlmacenesAppSalida.ManejarAsync(AlmacenesAppSalida.EntradaManual, sobre.GetProperty("datos"),
+                new Resolver(), new UsuarioServicio(), default);
+            Assert.Null(error);
+            var s = Assert.Single(res!.Salidas);
+            Assert.Equal((costo, cantidad, AlmCargaInicialLector.MotivoClave), (s.CostoUnitarioMxn!.Value, s.Cantidad, s.MotivoClave!));
+        }
+    }
+
+    [Fact]
     public void ENTRADA_MANUAL_y_RECLAMACION_en_ERROR_se_reevaluan_al_reenviarse()
     {
         Assert.Contains(AlmacenesAppSalida.EntradaManual, AlmacenesAppProcesador.TiposReevaluables);

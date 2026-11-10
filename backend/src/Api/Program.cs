@@ -502,6 +502,7 @@ builder.Services
     .AddOptions<Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions.SectionName));
 builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmCargaInicialLector>(); // M-283, apagado por omisión
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.AlmMensajeWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
