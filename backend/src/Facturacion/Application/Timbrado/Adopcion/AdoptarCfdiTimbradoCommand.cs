@@ -165,7 +165,34 @@ public sealed class AdoptarCfdiTimbradoHandler(
         // REP y traslado llevan Total 0 en el CFDI; el importe se coteja en ingresos y egresos.
         if (c.Tipo is TipoComprobante.Ingreso or TipoComprobante.Egreso)
             campos.Add(new("Total", Importe(c.Total), Importe(xml.Total), c.Total == xml.Total));
+
+        // QA O1: el Timbre Fiscal Digital debe ser el de este CFDI (su SelloCFD es el Sello del comprobante).
+        var selloTimbre = !string.IsNullOrWhiteSpace(xml.SelloComprobante)
+            && string.Equals(xml.SelloComprobante.Trim(), xml.SelloCfd?.Trim(), StringComparison.Ordinal);
+        campos.Add(new(CampoTimbre, "Sello del comprobante", selloTimbre ? "Coincide" : "No coincide", selloTimbre));
+
+        // QA O1: el CFDI existe y está vigente ante el SAT (UUID, RFC emisor y receptor, total y sello).
+        campos.Add(await EstatusSatAsync(c, xml, ct));
         return campos;
+    }
+
+    private const string CampoTimbre = "Timbre fiscal";
+    private const string CampoSat = "Estatus en el SAT";
+
+    private async Task<CampoCotejado> EstatusSatAsync(Comprobante c, CfdiTimbradoLeido xml, CancellationToken ct)
+    {
+        try
+        {
+            var sello = xml.SelloComprobante?.Trim();
+            var estatus = await fiscal.ConsultarEstatusAsync(new EstatusCfdiSolicitud(
+                c.EmpresaId, xml.Uuid, xml.RfcEmisor, xml.RfcReceptor, xml.Total,
+                sello is { Length: >= 8 } ? sello[^8..] : null), ct);
+            return new(CampoSat, "Vigente", estatus.EstatusSat, estatus.EsVigente);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new(CampoSat, "Vigente", $"No se pudo consultar: {ex.Message}", false);
+        }
     }
 
     private static CampoCotejado Campo(string campo, string erp, string xml) => new(campo, erp, xml, Igual(erp, xml));
@@ -177,6 +204,12 @@ public sealed class AdoptarCfdiTimbradoHandler(
 
     private static string Mensaje(CampoCotejado c)
     {
+        if (c.Campo == CampoTimbre)
+            return "El Timbre Fiscal Digital del XML no corresponde al sello del comprobante; el archivo pudo modificarse.";
+        if (c.Campo == CampoSat)
+            return c.Xml.StartsWith("No se pudo consultar", StringComparison.Ordinal)
+                ? $"No se pudo verificar el CFDI ante el SAT ({c.Xml}). Intenta más tarde."
+                : $"El SAT no reporta este CFDI como vigente (estatus: {c.Xml}); no se adopta.";
         var sujeto = c.Campo switch
         {
             "Serie" => "La serie",
