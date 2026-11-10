@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Millet.SharedKernel.Application.Integration;
 using Millet.SharedKernel.Infrastructure.Outbox;
@@ -48,6 +50,28 @@ public sealed class ServiceBusConsumerWorkerTests
             body: BinaryData.FromString(cuerpo), messageId: id.ToString(), subject: tipo);
         var worker = new ServiceBusConsumerWorker(null!, consumidor, "sub", NullLogger.Instance);
         return worker.ProcesarAsync(new ProcessMessageEventArgs(mensaje, receptor, CancellationToken.None), CancellationToken.None);
+    }
+
+    [Fact]
+    public void Registrar_varios_consumidores_deja_un_worker_por_suscripcion()
+    {
+        var services = new ServiceCollection();
+        services.AddConsumidorServiceBus<ConsumidorA>("sub-a");
+        services.AddConsumidorServiceBus<ConsumidorB>("sub-b");
+
+        services.Count(d => d.ServiceType == typeof(IHostedService)).Should().Be(2);
+    }
+
+    private sealed class ConsumidorA : ILocalIntegrationEventConsumer
+    {
+        public string TopicName => "a";
+        public Task ConsumirLocalAsync(string eventType, Guid eventId, string body, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private sealed class ConsumidorB : ILocalIntegrationEventConsumer
+    {
+        public string TopicName => "b";
+        public Task ConsumirLocalAsync(string eventType, Guid eventId, string body, CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class Consumidor(Action? alRecibir = null) : ILocalIntegrationEventConsumer
