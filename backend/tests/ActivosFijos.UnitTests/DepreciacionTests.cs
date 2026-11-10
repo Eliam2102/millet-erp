@@ -94,7 +94,10 @@ public sealed class DepreciacionTests
     {
         Assert.Throws<BusinessRuleException>(() => EvidenciaBaja.Validar("adjunto.pdf"));
         Assert.Throws<BusinessRuleException>(() => EvidenciaBaja.Validar("data:text/html;base64,PGgxPnBydWViYTwvaDE+"));
-        EvidenciaBaja.Validar("data:application/pdf;base64,JVBERi0xLjc=");
+        Assert.Throws<BusinessRuleException>(() => EvidenciaBaja.Validar("data:application/pdf;base64,JVBERi0xLjc="));
+        var pdf = new UglyToad.PdfPig.Writer.PdfDocumentBuilder();
+        pdf.AddPage(200, 200);
+        EvidenciaBaja.Validar("data:application/pdf;base64," + Convert.ToBase64String(pdf.Build()));
     }
     [Fact] public void SAP_acumulada_no_supera_valor_y_conserva_numero()
     {

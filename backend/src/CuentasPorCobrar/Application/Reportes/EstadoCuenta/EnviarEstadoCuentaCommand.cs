@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Adjuntos;
 using System.Security.Cryptography;
 using System.Text.Json;
 using FluentValidation;
@@ -75,7 +76,7 @@ public sealed class EnviarEstadoCuentaValidator : AbstractValidator<EnviarEstado
         RuleFor(c => c.Pdf).NotNull()
             .Must(p => p is { Length: > 0 }).WithMessage("Adjunta el PDF del estado de cuenta.")
             .Must(p => p is null || p.Length <= TamanoMaximoBytes).WithMessage("El PDF excede 10 MB.")
-            .Must(p => p is null || p.Length == 0 || p.AsSpan().StartsWith("%PDF-"u8))
+            .Must(p => p is null || p.Length == 0 || p.Length > TamanoMaximoBytes || AdjuntosPoliticaOptions.EsPdfValido(p))
             .WithMessage("El archivo adjunto no es un PDF válido.");
     }
 }
