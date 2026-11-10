@@ -49,10 +49,10 @@ public static class ReppEndpoints
         // ?alcance=sin-asignar restringe al bucket (solo caja.leer-todas).
         group.MapGet("/", async (
             [FromQuery] EstadoTimbrado? estado, [FromQuery] int? offset, [FromQuery] int? limit,
-            [FromQuery] string? alcance, IMediator mediator, CancellationToken ct) =>
+            [FromQuery] string? alcance, [FromQuery] string? q, IMediator mediator, CancellationToken ct) =>
         {
             var response = await mediator.Send(
-                new BandejaReppQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance)), ct);
+                new BandejaReppQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), q), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(leer)
@@ -122,8 +122,8 @@ public static class ReppEndpoints
         var pendientes = group.MapGroup("/pendientes");
         var emitir = PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionReppEmitir;
         pendientes.MapGet("/", async ([FromQuery] EstadoReppPendiente? estado, [FromQuery] string? indicador,
-            [FromQuery] int? offset, [FromQuery] int? limit, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ReppPendientesQuery(estado, indicador, offset ?? 0, limit ?? 10), ct)))
+            [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] string? q, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ReppPendientesQuery(estado, indicador, offset ?? 0, limit ?? 10, q), ct)))
             .RequireAuthorization(leer).WithName("ListarReppPendientes");
         pendientes.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ReppPendienteQuery(id), ct)))

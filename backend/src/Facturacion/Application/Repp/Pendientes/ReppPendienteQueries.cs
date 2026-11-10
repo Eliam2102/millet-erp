@@ -9,7 +9,7 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Facturacion.Application.Repp.Pendientes;
 
 public sealed record ReppPendientesQuery(EstadoReppPendiente? Estado = EstadoReppPendiente.Pendiente,
-    string? Indicador = null, int Offset = 0, int Limit = 10) : IRequest<ReppPendientesResponse>;
+    string? Indicador = null, int Offset = 0, int Limit = 10, string? Q = null) : IRequest<ReppPendientesResponse>;
 public sealed record ReppPendienteQuery(Guid Id) : IRequest<ReppPendienteDto>;
 public sealed record ReppPendientesResponse(IReadOnlyList<ReppPendienteDto> Items, int Total, ReppPendientesKpis Kpis);
 public sealed record ReppPendientesKpis(int Pendientes, int CercaDelPlazo, int Vencidos, int ConError);
@@ -53,12 +53,19 @@ public sealed class ReppPendienteQueryHandler(FacturacionDbContext db, ReppPendi
             "error" => lista.Where(p => p.Estado == EstadoReppPendiente.Pendiente && p.UltimoErrorCodigo != null),
             _ => lista,
         };
-        var total = await lista.CountAsync(cancellationToken);
-        var items = await lista.Include(p => p.Facturas).OrderBy(p => p.FechaLimite).ThenBy(p => p.Id)
-            .Skip(Math.Max(0, q.Offset)).Take(Math.Clamp(q.Limit, 1, 50)).ToListAsync(cancellationToken);
+        if (q.Q?.Trim() is { Length: > 0 } texto)
+        {
+            // El nombre del cliente vive en el maestro: se resuelven sus ids y se busca junto con la referencia.
+            var patron = PaginacionExtensions.PatronContiene(texto);
+            var ids = (await clientes.BuscarAsync(null, texto, 50, cancellationToken)).Select(c => c.ClienteId).ToList();
+            lista = lista.Where(p => (p.Referencia != null && EF.Functions.ILike(p.Referencia, patron))
+                                  || ids.Contains(p.ClienteId));
+        }
+        var pagina = await lista.Include(p => p.Facturas).OrderBy(p => p.FechaLimite).ThenBy(p => p.Id)
+            .ToPaginaAsync(q.Offset, q.Limit, cancellationToken);
         var resultado = new List<ReppPendienteDto>();
-        foreach (var p in items) resultado.Add(await MapearAsync(p, false, cancellationToken));
-        return new(resultado, total, kpis);
+        foreach (var p in pagina.Items) resultado.Add(await MapearAsync(p, false, cancellationToken));
+        return new(resultado, pagina.Total, kpis);
     }
 
     private async Task<ReppPendienteDto> MapearAsync(ReppPendiente p, bool validar, CancellationToken cancellationToken)

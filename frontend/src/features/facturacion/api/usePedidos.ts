@@ -5,6 +5,7 @@ import {
   type ListarPedidosFiltros,
 } from '@/features/facturacion/api/keys';
 import type {
+  BandejaPaginada,
   BandejaScoped,
   ExcepcionImportacionItem,
   PedidoBandejaItem,
@@ -215,13 +216,22 @@ export function useCrearPedidoManual() {
  * <c>useExcepciones(soloPendientes)</c> — bandeja de excepciones de
  * importación A+W / Planta Pintura (B/F3).
  */
-export function useExcepciones(soloPendientes: boolean) {
-  return useQuery<ExcepcionImportacionItem[]>({
-    queryKey: facturacionKeys.pedidosExcepcionesList(soloPendientes),
+export function useExcepciones(
+  soloPendientes: boolean,
+  pagina: { q?: string; offset?: number; limit?: number } = {},
+) {
+  return useQuery<BandejaPaginada<ExcepcionImportacionItem>>({
+    queryKey: [...facturacionKeys.pedidosExcepcionesList(soloPendientes), pagina],
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       params.set('soloPendientes', String(soloPendientes));
-      const { data } = await apiRequest<ExcepcionImportacionItem[]>(
+      // Pestaña «Resuelta»: el servidor devuelve solo las resueltas.
+      if (!soloPendientes) params.set('soloResueltas', 'true');
+      if (pagina.q) params.set('q', pagina.q);
+      if (pagina.offset != null) params.set('offset', String(pagina.offset));
+      if (pagina.limit != null) params.set('limit', String(pagina.limit));
+      const { data } = await apiRequest<BandejaPaginada<ExcepcionImportacionItem>>(
         `${BASE}/excepciones?${params.toString()}`,
         { signal },
       );

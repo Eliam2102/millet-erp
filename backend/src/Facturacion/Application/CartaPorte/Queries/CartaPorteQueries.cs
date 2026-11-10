@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.CartaPorte.Queries;
@@ -9,30 +10,41 @@ namespace Millet.Facturacion.Application.CartaPorte.Queries;
 // ---- Bandeja (B11) ----
 
 /// <summary>Bandeja de Carta Porte (B11, FE-F8).</summary>
-public sealed record BandejaCartaPorteQuery(EstadoTimbrado? Estado, int Offset, int Limit) : IRequest<IReadOnlyList<CartaPorteBandejaItem>>;
+public sealed record BandejaCartaPorteQuery(EstadoTimbrado? Estado, int Offset, int Limit, string? Q = null)
+    : IRequest<BandejaCartaPorteResponse>;
+
+public sealed record BandejaCartaPorteResponse(IReadOnlyList<CartaPorteBandejaItem> Items, int Total = 0);
 
 public sealed record CartaPorteBandejaItem(
     Guid Id, string Folio, string Estado, string? Uuid, string Tipo, string Tramo, DateTimeOffset FechaSalida);
 
-public sealed class BandejaCartaPorteHandler : IRequestHandler<BandejaCartaPorteQuery, IReadOnlyList<CartaPorteBandejaItem>>
+public sealed class BandejaCartaPorteHandler : IRequestHandler<BandejaCartaPorteQuery, BandejaCartaPorteResponse>
 {
     private readonly FacturacionDbContext _db;
     public BandejaCartaPorteHandler(FacturacionDbContext db) => _db = db;
 
-    public async Task<IReadOnlyList<CartaPorteBandejaItem>> Handle(BandejaCartaPorteQuery query, CancellationToken cancellationToken)
+    public async Task<BandejaCartaPorteResponse> Handle(BandejaCartaPorteQuery query, CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(query.Limit <= 0 ? 50 : query.Limit, 1, 200);
         var q = _db.CartasPorte.AsNoTracking();
         if (query.Estado is { } estado) q = q.Where(c => c.Estado == estado);
+        if (query.Q?.Trim() is { Length: > 0 } texto)
+        {
+            var patron = PaginacionExtensions.PatronContiene(texto);
+            q = q.Where(c => EF.Functions.ILike(c.Folio, patron)
+                          || (c.Uuid != null && EF.Functions.ILike(c.Uuid, patron))
+                          || EF.Functions.ILike(c.Origen, patron)
+                          || EF.Functions.ILike(c.Destino, patron));
+        }
 
-        var rows = await q
+        var pagina = await q
             .OrderByDescending(c => c.FolioNumero)
-            .Skip(Math.Max(0, query.Offset)).Take(limit)
+            .ThenBy(c => c.Id)
             .Select(c => new { c.Id, c.Folio, c.Estado, c.Uuid, c.Tipo, c.Origen, c.Destino, c.FechaSalida })
-            .ToListAsync(cancellationToken);
+            .ToPaginaAsync(query.Offset, query.Limit, cancellationToken);
 
-        return rows.Select(c => new CartaPorteBandejaItem(
+        var items = pagina.Items.Select(c => new CartaPorteBandejaItem(
             c.Id, c.Folio, c.Estado.ToString(), c.Uuid, TipoCfdi(c.Tipo), $"{c.Origen} → {c.Destino}", c.FechaSalida)).ToList();
+        return new BandejaCartaPorteResponse(items, pagina.Total);
     }
 
     internal static string TipoCfdi(TipoComprobante t) => t == TipoComprobante.Traslado ? "T" : "I";

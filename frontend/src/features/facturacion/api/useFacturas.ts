@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import {
   facturacionKeys,
@@ -61,6 +61,7 @@ export function useEmisorDefaults() {
 export function useListarFacturas(filtros: ListarFacturasFiltros) {
   return useQuery<BandejaScoped<FacturaBandejaItem>>({
     queryKey: facturacionKeys.facturasList(filtros),
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (filtros.estado != null) params.set('estado', String(filtros.estado));
@@ -69,6 +70,7 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
       if (filtros.clase != null) params.set('clase', filtros.clase);
       if (filtros.ncPendiente) params.set('ncPendiente', 'true');
+      if (filtros.q) params.set('q', filtros.q);
       const qs = params.toString();
       const { data } = await apiRequest<BandejaScoped<FacturaBandejaItem>>(
         qs ? `${BASE}?${qs}` : `${BASE}/`,

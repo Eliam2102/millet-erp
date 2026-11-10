@@ -4,6 +4,7 @@ using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Repp.Queries;
@@ -16,11 +17,13 @@ namespace Millet.Facturacion.Application.Repp.Queries;
 /// restringe al bucket "Sin asignar" (requiere <c>facturacion.caja.leer-todas</c>).
 /// </summary>
 public sealed record BandejaReppQuery(
-    EstadoTimbrado? Estado, int Offset, int Limit, bool SoloSinAsignar = false) : IRequest<BandejaReppResponse>;
+    EstadoTimbrado? Estado, int Offset, int Limit, bool SoloSinAsignar = false, string? Q = null)
+    : IRequest<BandejaReppResponse>;
 
 public sealed record BandejaReppResponse(
     IReadOnlyList<ReppBandejaItem> Items,
-    int? SinAsignarCount);
+    int? SinAsignarCount,
+    int Total = 0);
 
 public sealed record ReppBandejaItem(
     Guid Id, string Folio, string Estado, string? Uuid, string ReceptorNombre, decimal ImporteTotalPago, DateTimeOffset FechaPago,
@@ -40,29 +43,35 @@ public sealed class BandejaReppHandler : IRequestHandler<BandejaReppQuery, Bande
 
     public async Task<BandejaReppResponse> Handle(BandejaReppQuery query, CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(query.Limit <= 0 ? 50 : query.Limit, 1, 200);
         var q = _db.RecibosPago.AsNoTracking();
         if (query.Estado is { } estado) q = q.Where(r => r.Estado == estado);
+        if (query.Q?.Trim() is { Length: > 0 } texto)
+        {
+            var patron = PaginacionExtensions.PatronContiene(texto);
+            q = q.Where(r => EF.Functions.ILike(r.Folio, patron)
+                          || (r.Uuid != null && EF.Functions.ILike(r.Uuid, patron))
+                          || EF.Functions.ILike(r.ReceptorNombre, patron));
+        }
 
         (q, var sinAsignarCount) = await AlcanceBandejaHelper.AplicarAsync(
             _alcance, q, query.SoloSinAsignar, cancellationToken);
 
-        var rows = await q
+        var pagina = await q
             .OrderByDescending(r => r.FolioNumero)
-            .Skip(Math.Max(0, query.Offset)).Take(limit)
+            .ThenBy(r => r.Id)
             .Select(r => new
             {
                 r.Id, r.Folio, r.Estado, r.Uuid, r.ReceptorNombre, r.ImporteTotalPago, r.FechaPago,
                 CuentaOrdenante = r.FacturasPagadas.Select(f => f.CuentaOrdenante).FirstOrDefault(),
                 CuentaBeneficiaria = r.FacturasPagadas.Select(f => f.CuentaBeneficiaria).FirstOrDefault(),
             })
-            .ToListAsync(cancellationToken);
+            .ToPaginaAsync(query.Offset, query.Limit, cancellationToken);
 
-        var items = rows.Select(r => new ReppBandejaItem(
+        var items = pagina.Items.Select(r => new ReppBandejaItem(
             r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.ReceptorNombre, r.ImporteTotalPago, r.FechaPago,
             CuentasPagoSat.Enmascarar(r.CuentaOrdenante), CuentasPagoSat.Enmascarar(r.CuentaBeneficiaria))).ToList();
 
-        return new BandejaReppResponse(items, sinAsignarCount);
+        return new BandejaReppResponse(items, sinAsignarCount, pagina.Total);
     }
 }
 
