@@ -28,17 +28,24 @@ public sealed class ProductoTerminadoRetornoLocalConsumer(IServiceScopeFactory s
 
     public string TopicName => "producto-terminado-events";
 
+    public static bool EsAviso(string eventType) => eventType is EventTypeEstadoCambiado or EventTypeFacturadoEntregado or EventTypeEnRuta;
+
+    /// <summary>M-160: si A+W no responde por conexión, el aviso queda pendiente de reintento y el mensaje se completa.</summary>
     public async Task ConsumirLocalAsync(string eventType, Guid eventId, string body, CancellationToken cancellationToken)
     {
-        if (eventType is not (EventTypeEstadoCambiado or EventTypeFacturadoEntregado or EventTypeEnRuta)) return;
+        if (!EsAviso(eventType)) return;
+        if (!await AwRetornoAplicador.AplicarOPendienteAsync(scopes, nameof(ProductoTerminadoRetornoLocalConsumer), eventType, body, cancellationToken))
+            logger.LogWarning("A+W no responde; el aviso {EventType} queda pendiente de reintento.", eventType);
+    }
+
+    /// <summary>Escribe el estatus (y su saldo de control) en aw_retorno con los servicios del scope dado.</summary>
+    internal static async Task AplicarAsync(IServiceProvider sp, string eventType, string body, CancellationToken cancellationToken)
+    {
         var p = JsonSerializer.Deserialize<AvisoPayload>(body, Json) ?? throw new JsonException("Payload null.");
         var manual = eventType == EventTypeEstadoCambiado && p.Estado == "Liberado" && p.Motivo == "DecisionCxc"
             && !string.IsNullOrWhiteSpace(p.LiberadoPor) && p.LiberadoPor != UsuarioSistemaCxc;
         if (eventType == EventTypeEstadoCambiado && !manual) return; // Retenido, o 70 que decide el servicio de A+W
 
-        using var scope = scopes.CreateScope();
-        var sp = scope.ServiceProvider;
-        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var servicio = sp.GetRequiredService<AwRetornoDocumentoService>();
         var enRuta = eventType == EventTypeEnRuta;
         var secuencia = manual
@@ -46,7 +53,8 @@ public sealed class ProductoTerminadoRetornoLocalConsumer(IServiceScopeFactory s
             : enRuta
                 ? await servicio.RegistrarHojaSalidaEmitidaAsync(p.NumeroPedido, cancellationToken)
                 : await servicio.RegistrarFacturadoEntregadoAsync(p.NumeroPedido, cancellationToken);
-        logger.LogInformation("aw_retorno {Evento} del pedido {Pedido}: {Efecto}", manual ? "70 manual" : enRuta ? "72" : "115", p.NumeroPedido,
+        sp.GetService<ILogger<ProductoTerminadoRetornoLocalConsumer>>()?.LogInformation(
+            "aw_retorno {Evento} del pedido {Pedido}: {Efecto}", manual ? "70 manual" : enRuta ? "72" : "115", p.NumeroPedido,
             secuencia is null ? "sin fila nueva" : $"secuencia {secuencia}");
 
         if (await sp.GetRequiredService<ISaldoPedidoReadPort>().ObtenerAsync(p.Empresa, p.NumeroPedido, cancellationToken) is { } saldo)

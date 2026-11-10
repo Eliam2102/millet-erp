@@ -33,6 +33,7 @@ import { usePolizas } from '../api/polizas';
 import type { EstadoPoliza, Poliza } from '../api/polizas-types';
 import { EstadoPolizaBadge } from '../components/polizas/EstadoPolizaBadge';
 import { PolizaSheet } from '../components/polizas/PolizaSheet';
+import { SolicitudesAnulacionPanel } from '../components/polizas/SolicitudesAnulacionPanel';
 import { fechaCorta } from '../lib/dimensiones';
 import { SELECT_CLASS } from '../lib/estilos';
 import {
@@ -61,6 +62,7 @@ interface Props {
 export function PolizasPage({ search, onSearch, onAbrir }: Props) {
   const puedeCapturar = useHasPermission(PermisosCanonicos.ContabilidadPolizasCapturar);
   const puedeVerRecurrentes = useHasPermission(PermisosCanonicos.ContabilidadRecurrentesLeer);
+  const puedeAprobarAnulacion = useHasPermission(PermisosCanonicos.ContabilidadPolizasAnularAprobar);
   const [nueva, setNueva] = useState(false);
   const [busqueda, setBusqueda] = useState(search.q ?? '');
   const q = useDebouncedValue(busqueda.trim(), 200);
@@ -106,7 +108,7 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
         descripcion={
           <>
             Captura de pólizas manuales, autorización con folio por tipo de operación y anulación
-            con motivo.
+            con motivo y segunda firma.
           </>
         }
         acciones={
@@ -136,6 +138,8 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
           </>
         }
       />
+
+      {puedeAprobarAnulacion && <SolicitudesAnulacionPanel />}
 
       <ListadoModulo
         tabs={

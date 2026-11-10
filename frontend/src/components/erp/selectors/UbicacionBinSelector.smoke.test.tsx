@@ -21,6 +21,7 @@ const UBIC_RACK = {
   subAlmacenNombre: 'Insumos',
   almacenClave: 'ALM',
   almacenNombre: 'Almacén',
+  sucursalId: 'conkal',
 };
 const UBIC_UNICA = { ...UBIC_RACK, id: 'unica', clave: 'ÚNICA', esDefault: true };
 
@@ -136,6 +137,46 @@ describe('<UbicacionBinSelector>', () => {
       expect(screen.getByText('ALM › INS · Almacén general')).toBeInTheDocument(),
     );
     expect(screen.queryByText('ALM › INS · R-1')).not.toBeInTheDocument();
+  });
+
+  it('sucursalId: no ofrece el almacén general de otra sucursal (OC de Conkal, ÚNICA de MTY)', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/asignaciones', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 500, total: 0 }),
+      ),
+      http.get('*/api/v1/almacen/sub-almacenes', () =>
+        HttpResponse.json({ items: [{ id: SUB, tipo: 0 }, { id: 'sub-mty', tipo: 0 }], offset: 0, limit: 500, total: 2 }),
+      ),
+      http.get('*/api/v1/almacen/ubicaciones', () =>
+        HttpResponse.json({
+          items: [
+            UBIC_UNICA,
+            { ...UBIC_UNICA, id: 'unica-mty', subAlmacenId: 'sub-mty', almacenClave: 'MTY', sucursalId: 'mty' },
+          ],
+          offset: 0,
+          limit: 500,
+          total: 2,
+        }),
+      ),
+    );
+    render(
+      <UbicacionBinSelector
+        modo="asignacion"
+        articuloId={ART}
+        subAlmacenId={null}
+        requiereSubAlmacen={false}
+        incluirGeneral
+        sucursalId="conkal"
+        value={null}
+        onChange={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByRole('combobox'));
+    await waitFor(() =>
+      expect(screen.getByText('ALM › INS · Almacén general')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('MTY › INS · Almacén general')).not.toBeInTheDocument();
   });
 
 it('incluirGeneral: no ofrece el almacén general de un sub Material en revisión', async () => {

@@ -230,7 +230,8 @@ public static class CfdiPdfModelBuilder
             partes.Add($"PEDIMENTO: {ce.NumeroPedimento} ({ce.ClavePedimento}) {ce.FechaPedimento:dd/MM/yyyy}" +
                 (ce.Aduana is null ? "" : $" · ADUANA {ce.Aduana} {ce.AduanaNombre}".TrimEnd()));
             foreach (var cont in ce.Contenedores)
-                partes.Add($"CONTENEDOR: {cont.Numero} · BL: {cont.BlGuia} · EMBARQUE: {cont.FechaEmbarqueReal:dd/MM/yyyy}");
+                partes.Add($"CONTENEDOR: {cont.Numero} · BL: {cont.BlGuia}" +
+                    (cont.FechaEmbarqueReal is DateOnly fecha ? $" · EMBARQUE: {fecha:dd/MM/yyyy}" : ""));
         }
         if (!string.IsNullOrWhiteSpace(f.Observaciones)) partes.Add(f.Observaciones.Trim());
         return partes.Count == 0 ? null : string.Join('\n', partes);

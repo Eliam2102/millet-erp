@@ -11,7 +11,11 @@ public sealed class P18DocumentosTests
         var e = new Expediente(Guid.NewGuid(), Guid.NewGuid(), "EXP-P18", TipoExpediente.Exportacion, Guid.NewGuid(), "Documentos por hito", null, Guid.NewGuid(), "USD", Actor, ["Cliente prueba"]);
         e.InicializarHitos(Hoy);
         e.AgregarParticipante(Guid.NewGuid(), "Agente prueba", TipoParticipante.AgenteAduanal, null, PapelParticipante.Captura, null, null);
+        var contenedor = Guid.NewGuid();
+        e.GuardarContenedor(contenedor, new("CONT-PRUEBA", null, null, "BL-PRUEBA", null, null, null, null));
+        e.RegistrarPedimentoExportacion("PED-PRUEBA", "A1", Hoy, Hoy, "16");
         e.AutorizarSalida(Guid.NewGuid(), new(2026, 11, 5, 18, 0, 0, TimeSpan.Zero), null, true);
+        e.RegistrarEmbarque(contenedor, Hoy, Hoy);
         var evidencia = Guid.NewGuid();
         foreach (var h in e.Hitos.OrderBy(h => h.Orden).Where(h => h.Orden > 1 && h.Orden < e.Hitos.Single(x => x.Clave == clave).Orden))
             e.RegistrarHito(h.Clave, Hoy, Actor, evidencia, null, [], [evidencia], Hoy);

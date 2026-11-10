@@ -81,7 +81,7 @@ public sealed class TestConexionPacHandlerTests
     }
 
     [Fact]
-    public async Task Ping_con_config_persistida_no_la_muta()
+    public async Task M232_ping_de_la_config_persistida_no_la_muta_y_registra_la_prueba_aparte()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -97,20 +97,27 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(true, 200, "OK", 50, Ahora) };
-        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
+        var handler = new TestConexionPacHandler(sdk, db, cipher, sdk);
+        var version = config.Version;
 
         await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi,
                 BaseUrl: null, ApiKey: null, TimeoutSegundos: null),
             CancellationToken.None);
 
+        // La configuración no cambia (ni su versión ni sus datos de la última prueba).
         var refreshed = db.ConfiguracionesPac.Single();
+        (refreshed.BaseUrl, refreshed.Activo, refreshed.Version).Should().Be(("https://live.fiscalapi.com", true, version));
         refreshed.UltimaTestConexionAt.Should().BeNull();
-        refreshed.UltimaTestConexionExitosa.Should().BeNull();
+        // La prueba queda en su propia tabla.
+        var prueba = db.PruebasConexionPac.Single();
+        (prueba.ConfiguracionPacId, prueba.Exitosa, prueba.RealizadaEn, prueba.Origen)
+            .Should().Be((config.Id, true, Ahora, OrigenPruebaConexionPac.Prueba));
+        prueba.Mensaje.Should().Be("Conexión exitosa con FiscalAPI.");
     }
 
     [Fact]
-    public async Task Ping_fallido_no_deja_estado_ambiguo_persistido()
+    public async Task M232_ping_fallido_de_la_config_persistida_queda_registrado_aparte_como_falla()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -125,7 +132,7 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(false, 401, "Unauthorized", 30, Ahora) };
-        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
+        var handler = new TestConexionPacHandler(sdk, db, cipher, sdk);
 
         var response = await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi, null, null, null),
@@ -134,7 +141,10 @@ public sealed class TestConexionPacHandlerTests
         response.Exitosa.Should().BeFalse();
         response.StatusCode.Should().Be(401);
         response.Mensaje.Should().Be("FiscalAPI rechazó la conexión (HTTP 401). Revisa la configuración.");
-        db.ConfiguracionesPac.Single().UltimaTestConexionExitosa.Should().BeNull();
+        var guardada = db.ConfiguracionesPac.Single();
+        (guardada.Activo, guardada.UltimaTestConexionExitosa).Should().Be((true, (bool?)null));
+        var prueba = db.PruebasConexionPac.Single();
+        (prueba.Exitosa, prueba.StatusCode, prueba.Mensaje).Should().Be((false, 401, response.Mensaje));
     }
 
     [Theory]

@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Web;
 using Millet.Contabilidad.Application;
+using Millet.Contabilidad.Application.Nomina;
 using Millet.Contabilidad.Application.Polizas;
 using Millet.Contabilidad.Domain;
 using Millet.Identidad.Domain;
@@ -19,7 +20,9 @@ namespace Millet.Api.Endpoints.Contabilidad;
 /// </summary>
 public static class ContabilidadPolizasEndpoints
 {
-    public sealed record AnularPolizaRequest(string Motivo, int? PeriodoAnio, int? PeriodoNumero);
+    /// <summary>M-212: solicitud de anulación (motivo y, si el periodo de la póliza ya no admite pólizas, el periodo destino).</summary>
+    public sealed record SolicitarAnulacionRequest(string Motivo, int? PeriodoAnio, int? PeriodoNumero);
+    public sealed record RechazarAnulacionRequest(string Motivo);
 
     public static IEndpointRouteBuilder MapContabilidadPolizasEndpoints(this IEndpointRouteBuilder app)
     {
@@ -27,6 +30,7 @@ public static class ContabilidadPolizasEndpoints
         var capturar = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadPolizasCapturar;
         var autorizar = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadPolizasAutorizar;
         var anular = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadPolizasAnular;
+        var aprobarAnulacion = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadPolizasAnularAprobar;
 
         var g = app.MapGroup("/api/v1/contabilidad/polizas").WithTags("Contabilidad · Pólizas").RequireAuthorization();
 
@@ -109,20 +113,68 @@ public static class ContabilidadPolizasEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
-        g.MapPost("/{id:guid}/anular", async (
-            Guid id, [FromHeader(Name = "If-Match")] string? ifMatch, AnularPolizaRequest b, IMediator mediator, CancellationToken ct) =>
+        // M-212 (86e3zr7pq): la anulación pide segunda firma. Se solicita (la póliza sigue autorizada) y otra persona la aprueba o la
+        // rechaza. La ruta directa /{id}/anular se retiró.
+        g.MapPost("/{id:guid}/solicitar-anulacion", async (
+            Guid id, [FromHeader(Name = "If-Match")] string? ifMatch, SolicitarAnulacionRequest b, IMediator mediator, CancellationToken ct) =>
         {
             if (!Helpers.TryParseVersion(ifMatch, out var version)) return Helpers.IfMatchRequerido();
-            var r = await mediator.Send(new AnularPolizaCommand(id, version, b.Motivo, b.PeriodoAnio, b.PeriodoNumero), ct);
+            var r = await mediator.Send(new SolicitarAnulacionPolizaCommand(id, version, b.Motivo, b.PeriodoAnio, b.PeriodoNumero), ct);
+            return Results.Created($"/api/v1/contabilidad/polizas/solicitudes-anulacion/{r.Id}", r);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(anular).WithName("SolicitarAnulacionPoliza")
+        .WithSummary("Solicita con motivo la anulación de una póliza autorizada; la póliza sigue vigente hasta que otra persona la apruebe")
+        .WithDescription("Si el periodo de la póliza ya no admite pólizas, indique periodoAnio y periodoNumero abiertos. Una sola solicitud pendiente por póliza.")
+        .Produces<SolicitudAnulacionResponse>(StatusCodes.Status201Created).ProducesValidationProblem().ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        g.MapGet("/solicitudes-anulacion", async ([FromQuery] EstadoSolicitudAnulacion? estado, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarSolicitudesAnulacionQuery(estado ?? EstadoSolicitudAnulacion.Pendiente), ct)))
+        .RequireAuthorization(leer).WithName("ListarSolicitudesAnulacionPoliza")
+        .WithSummary("Solicitudes de anulación (por omisión, las pendientes), la más antigua primero")
+        .Produces<IReadOnlyList<SolicitudAnulacionResponse>>();
+
+        g.MapPost("/solicitudes-anulacion/{id:guid}/aprobar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new AprobarAnulacionPolizaCommand(id), ct);
             return Results.Created($"/api/v1/contabilidad/polizas/{r.Id}", r);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(anular).WithName("AnularPolizaContable")
-        .WithSummary("Anula una póliza autorizada con motivo: crea la póliza con las mismas partidas en negativo («Anulación de TT-000123»)")
-        .WithDescription("Devuelve la póliza de anulación. Si el periodo de la original ya no admite pólizas, indique periodoAnio y periodoNumero abiertos.")
-        .Produces<PolizaResponse>(StatusCodes.Status201Created).ProducesValidationProblem().ProducesProblem(StatusCodes.Status404NotFound)
-        .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+        .RequireAuthorization(aprobarAnulacion).WithName("AprobarAnulacionPoliza")
+        .WithSummary("Aprueba la anulación solicitada por otra persona: crea la póliza con las mismas partidas en negativo («Anulación de TT-000123»)")
+        .Produces<PolizaResponse>(StatusCodes.Status201Created).ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        g.MapPost("/solicitudes-anulacion/{id:guid}/rechazar", async (Guid id, RechazarAnulacionRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RechazarAnulacionPolizaCommand(id, b.Motivo), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(aprobarAnulacion).WithName("RechazarAnulacionPoliza")
+        .WithSummary("Rechaza con motivo la anulación solicitada por otra persona; la póliza no cambia")
+        .Produces<SolicitudAnulacionResponse>().ProducesValidationProblem().ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // K10.11 (F1-CON-13): póliza de la nómina externa por archivo. La vista previa valida y no guarda; importar crea el borrador
+        // cuadrado solo si ningún renglón tiene error (K10.11-b). El archivo original se adjunta a la póliza con los adjuntos de abajo.
+        g.MapPost("/nomina/vista-previa", async (ImportacionNominaRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new VistaPreviaNominaQuery(b), ct)))
+        .RequireAuthorization(capturar).WithName("VistaPreviaPolizaNomina")
+        .WithSummary("Vista previa de la póliza de nómina externa: errores por renglón, totales y cuadre; no guarda nada")
+        .Produces<VistaPreviaNominaResponse>().ProducesValidationProblem();
+
+        g.MapPost("/nomina", async (ImportacionNominaRequest b, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new ImportarNominaCommand(b), ct);
+            Helpers.SetEtag(response, r.Version);
+            return Results.Created($"/api/v1/contabilidad/polizas/{r.Id}", r);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(capturar).WithName("ImportarPolizaNomina")
+        .WithSummary("Importa la póliza de nómina externa en borrador y cuadrada; con cualquier error responde el detalle por renglón y no crea nada")
+        .WithDescription("Formato (supuesto a validar): un renglón por partida con cuenta, cargo, abono, sucursal, centro, proyecto, concepto y empleado. La referencia identifica el lote: repetirla responde NOM_LOTE_DUPLICADO.")
+        .Produces<PolizaResponse>(StatusCodes.Status201Created).ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         g.MapGroup("/{id:guid}").MapAdjuntos(PolizaAdjuntoPropietario.Tipo,
             PermisosCanonicos.ContabilidadPolizasLeer, PermisosCanonicos.ContabilidadPolizasCapturar, PermisosCanonicos.ContabilidadPolizasCapturar);

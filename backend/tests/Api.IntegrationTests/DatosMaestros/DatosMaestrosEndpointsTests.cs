@@ -118,6 +118,42 @@ public class DatosMaestrosEndpointsTests
         }
     }
 
+    [Fact]
+    public async Task ObtenerArticulo_Detalle_Expone_Marca_De_Tambor_Y_Kilos()
+    {
+        // Regresión M-172: el detalle de /datos-maestros devolvía la marca «por tambor» en false y los kilos
+        // vacíos; el form de edición los mostraba así y al guardar borraba la marca.
+        var client = await CreateSuperAdminClientAsync();
+        var unidad = await client.PostAsJsonAsync("/api/v1/catalogos/unidades-medida", new
+        {
+            Codigo = $"TB{new Random().Next(100000, 999999)}",
+            Nombre = "Tambor",
+            Dimension = 0,
+            FactorABase = 1m,
+            Decimales = 0,
+            EsBase = false,
+        });
+        unidad.EnsureSuccessStatusCode();
+        var unidadId = (await ReadJsonAsync(unidad)).GetProperty("id").GetGuid();
+
+        var creado = await client.PostAsJsonAsync("/api/v1/catalogos/articulos", new
+        {
+            Clave = $"SIL-T-{Guid.NewGuid().ToString("N")[..6]}",
+            Nombre = "Silicón estructural componente A",
+            UnidadMedidaId = unidadId,
+            Naturaleza = 0,
+            ConsumoPorTamborALinea = true,
+            KgPorPresentacion = 200m,
+        });
+        Assert.Equal(HttpStatusCode.Created, creado.StatusCode);
+        var id = (await ReadJsonAsync(creado)).GetProperty("id").GetGuid();
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"/api/v1/datos-maestros/articulos/{id}"));
+
+        Assert.True(detalle.GetProperty("consumoPorTamborALinea").GetBoolean());
+        Assert.Equal(200m, detalle.GetProperty("kgPorPresentacion").GetDecimal());
+    }
+
     // --- Case-insensitive (Defect B): textos con folding, códigos con lower() ---
 
     [Fact]

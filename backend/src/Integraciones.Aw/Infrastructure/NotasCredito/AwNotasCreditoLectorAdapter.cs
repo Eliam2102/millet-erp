@@ -84,8 +84,8 @@ public sealed class AwNotasCreditoLectorAdapter(Func<DbConnection> fabrica, AwNo
         return lista;
     }
 
-    /// <summary>Tolerancia de redondeo entre el importe de la NC y la ranura del pedido (A+W difiere por centavos: 292.56 vs 292.55).</summary>
-    internal const decimal ToleranciaRanura = 0.02m;
+    /// <summary>Tolerancia de redondeo entre el importe de la NC y la ranura del pedido (ver <see cref="Millet.Facturacion.Domain.Ports.RanuraAw"/>).</summary>
+    internal const decimal ToleranciaRanura = Millet.Facturacion.Domain.Ports.RanuraAw.Tolerancia;
 
     private static NotaCreditoAwLeida Mapear(DbDataReader r)
     {

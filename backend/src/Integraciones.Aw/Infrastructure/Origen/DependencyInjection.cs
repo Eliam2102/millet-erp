@@ -59,6 +59,7 @@ public static class OrigenDependencyInjection
         ConservarReal<IAwRetornoPort>(services);
         ConservarReal<IAwTipoCambioPort>(services);
         services.AddScoped<AwRetornoDocumentoService>();
+        services.AddScoped<AwRetornoPendientes>();
         ConservarReal<IAwClientesReader>(services);
         ConservarReal<IAwArticulosReader>(services);
         ConservarReal<IMasterProvisioningPort>(services);

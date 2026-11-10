@@ -53,7 +53,7 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
         // Índices para no recorrer el historial por cada traslado: posición de cada línea y reincorporaciones por (salida, posición).
         var indice = historial.Select((h, i) => (h.Id, i)).ToDictionary(x => x.Id, x => x.i);
         var salidasPorEntrada = dictamenes.ToLookup(d => d.Entrada, d => d.Salida);
-        var reincorporaciones = historial.Where(e => e.Tipo == TipoMovimiento.ReincorporacionTrasRevision)
+        var reincorporaciones = historial.Where(e => e.Tipo is TipoMovimiento.ReincorporacionTrasRevision or TipoMovimiento.EntradaTrasladoInterno)
             .SelectMany(e => salidasPorEntrada[e.MovimientoId].Append(e.SalidaOrigenId).OfType<Guid>().Distinct()
                 .Select(salida => (Salida: salida, Entrada: e)))
             .ToLookup(x => (x.Salida, x.Entrada.Posicion), x => x.Entrada);

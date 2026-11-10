@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Millet.CuentasPorPagar.Application.Reportes.AuxiliarProveedores;
 using Microsoft.AspNetCore.Http;
@@ -7,6 +8,7 @@ using Millet.CuentasPorPagar.Application.Reportes.AntiguedadAnticipos;
 using Millet.CuentasPorPagar.Application.Reportes.AntiguedadSaldos;
 using Millet.CuentasPorPagar.Application.Reportes.CarteraPorCategoriaRevision;
 using Millet.CuentasPorPagar.Application.Reportes.Comun;
+using Millet.CuentasPorPagar.Application.Reportes.Diot;
 using Millet.CuentasPorPagar.Application.Reportes.EstadosCuentaTcConsolidado;
 using Millet.CuentasPorPagar.Application.Reportes.MovimientosTcPendientes;
 using Millet.CuentasPorPagar.Application.Reportes.PasivosObras;
@@ -82,6 +84,35 @@ public static class ReportesEndpoints
         .WithSummary("Cartera de proveedores — cruz revisión × antigüedad")
         .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
 
+        // ============ F1-CXP-10 · DIOT ============
+
+        // anio y mes se leen como texto: un valor no numérico o ausente llega como 0 y el validador responde 400 en español
+        // («Año inválido.» / «Mes inválido.») en vez del mensaje en inglés del binder de Minimal API.
+        group.MapGet("/diot", async (
+            [FromQuery] string? anio,
+            [FromQuery] string? mes,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new DiotQuery(Entero(anio), Entero(mes)), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReportesDiot)
+        .WithName("ReporteDiot")
+        .WithSummary("DIOT del mes por flujo de efectivo: actos pagados por tercero, tipo de operación y tasa")
+        .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
+
+        group.MapGet("/diot/archivo", async (
+            [FromQuery] string? anio,
+            [FromQuery] string? mes,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var archivo = await mediator.Send(new DiotArchivoQuery(Entero(anio), Entero(mes)), cancellationToken);
+            return Results.File(archivo.Contenido, "text/plain; charset=utf-8", archivo.NombreArchivo);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReportesDiot)
+        .WithName("ReporteDiotArchivo")
+        .WithSummary("Archivo TXT de carga masiva de la DIOT (layout SAT de 54 campos)")
+        .Produces(StatusCodes.Status200OK, contentType: "text/plain");
+
         // ============ F8-PR2 ============
 
         group.MapGet("/movimientos-tc-pendientes", async (
@@ -139,4 +170,8 @@ public static class ReportesEndpoints
 
         return app;
     }
+
+    /// <summary>Entero de un parámetro de consulta; 0 si viene vacío o no es numérico (lo rechaza el validador).</summary>
+    private static int Entero(string? valor) =>
+        int.TryParse(valor, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : 0;
 }

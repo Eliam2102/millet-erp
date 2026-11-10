@@ -1,3 +1,4 @@
+using Millet.Facturacion.Domain.Comprobantes;
 using System.Net;
 using System.Data.Common;
 using System.Collections.Concurrent;
@@ -131,14 +132,22 @@ public sealed class ContenedoresHttpTests
         var asignar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/partidas", new { pedidoFacturableId = p1, posicion = 1, cantidad = 60 }, alta.Headers.ETag!.Tag); asignar.EnsureSuccessStatusCode();
         var exceder = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/partidas", new { pedidoFacturableId = p1, posicion = 1, cantidad = 1 }, asignar.Headers.ETag!.Tag);
         Assert.Equal("CE_CANTIDAD_EXCEDE_PEDIDO", (await Body(exceder)).GetProperty("code").GetString());
-        var autorizado = await PrepararSalidaAsync(e);
-        var embarcar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, autorizado); embarcar.EnsureSuccessStatusCode();
+        await PrepararSalidaAsync(e);
+        // Un embarque histórico continúa facturando por la ruta anterior.
+        using (var scope = e.Scope())
+        using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var expediente = await db.Expedientes.Include(x => x.Contenedores).Include(x => x.AutorizacionesSalida).SingleAsync(x => x.Id == ExpId);
+            expediente.RegistrarEmbarque(cid, new(2026, 10, 12), new(2026, 10, 12));
+            await db.SaveChangesAsync();
+        }
         (await Emitir(e, c, p1)).EnsureSuccessStatusCode();
         var bloqueada = await Emitir(e, c, p2); Assert.Equal(HttpStatusCode.UnprocessableEntity, bloqueada.StatusCode); Assert.Equal("FAC_PEDIDO_NO_EMBARCADO", (await Body(bloqueada)).GetProperty("code").GetString());
     }
 
     [Fact]
-    public async Task FAC08_embarcar_un_contenedor_publica_el_evento_y_su_salida_se_factura_sin_esperar_el_100()
+    public async Task FAC08_prepara_y_factura_una_parcialidad_antes_de_la_salida_fisica()
     {
         await using var e = await Escenario(); using var c = await e.ClienteAsync(true, facturacion: true);
         var respuesta = await Detalle(c); var d = await Body(respuesta);
@@ -150,7 +159,20 @@ public sealed class ContenedoresHttpTests
         var asignar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/partidas", new { pedidoFacturableId = p1, posicion = 1, cantidad = 30 }, alta.Headers.ETag!.Tag); asignar.EnsureSuccessStatusCode();
         // Desde #464 el embarque exige datos aduanales revisados y la salida autorizada por otra persona.
         var autorizado = await PrepararSalidaAsync(e);
-        var embarcar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, autorizado); embarcar.EnsureSuccessStatusCode();
+        var prepararRuta = $"{Base}/{ExpId}/contenedores/{cid}/preparar-factura";
+        using var sinParcial = await Enviar(c, HttpMethod.Post, prepararRuta, etag: autorizado);
+        Assert.Equal("CE_PARCIAL_SIN_AUTORIZAR", (await Body(sinParcial)).GetProperty("code").GetString());
+        using var aprobador = await e.ClienteAsync(true);
+        using var parcial = await Enviar(aprobador, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/aprobar-despacho",
+            new { nivel = "credito", motivo = "Parcialidad de prueba" }, autorizado);
+        parcial.EnsureSuccessStatusCode();
+        using var preparada = await Enviar(c, HttpMethod.Post, prepararRuta, etag: parcial.Headers.ETag!.Tag);
+        preparada.EnsureSuccessStatusCode();
+        var contenedorPreparado = (await Body(preparada)).GetProperty("contenedores").EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == cid);
+        Assert.Equal(JsonValueKind.Null, contenedorPreparado.GetProperty("fechaEmbarqueReal").ValueKind);
+        using var sinFactura = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar",
+            new { fecha = "2026-10-12" }, preparada.Headers.ETag!.Tag);
+        Assert.Equal("CE_FACTURA_DESPACHO_REQUERIDA", (await Body(sinFactura)).GetProperty("code").GetString());
 
         // Sin salida, el pedido completo sigue bloqueado: solo se embarcó una parte.
         var completo = await Emitir(e, c, p1);
@@ -161,7 +183,7 @@ public sealed class ContenedoresHttpTests
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var fila = await scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>().OutboxEntries.AsNoTracking()
-                .SingleAsync(x => x.EventType == ContenedorEmbarcadoEvent.Tipo);
+                .SingleAsync(x => x.EventType == ContenedorPreparadoEvent.Tipo);
             payload = fila.Payload;
             var ev = JsonSerializer.Deserialize<JsonElement>(payload);
             Assert.Equal(cid, ev.GetProperty("ContenedorId").GetGuid());
@@ -177,8 +199,8 @@ public sealed class ContenedoresHttpTests
             Millet.SharedKernel.Application.Integration.ILocalIntegrationEventConsumer consumidor = new Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker(
                 null!, scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(),
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<Millet.Facturacion.Infrastructure.Workers.ComercioExteriorEventListenerWorker>.Instance);
-            await consumidor.ConsumirLocalAsync(ContenedorEmbarcadoEvent.Tipo, Guid.NewGuid(), payload, default);
-            await consumidor.ConsumirLocalAsync(ContenedorEmbarcadoEvent.Tipo, Guid.NewGuid(), payload, default);
+            await consumidor.ConsumirLocalAsync(ContenedorPreparadoEvent.Tipo, Guid.NewGuid(), payload, default);
+            await consumidor.ConsumirLocalAsync(ContenedorPreparadoEvent.Tipo, Guid.NewGuid(), payload, default);
         }
 
         Millet.Facturacion.Domain.Pedidos.SalidaFacturable salida;
@@ -201,6 +223,22 @@ public sealed class ContenedoresHttpTests
         };
         var factura = await Enviar(c, HttpMethod.Post, "/api/v1/facturacion/facturas/", comando);
         Assert.True(factura.IsSuccessStatusCode, await factura.Content.ReadAsStringAsync());
+        DateOnly hoy;
+        using (var scope = e.Scope())
+        using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            var ahora = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.IClock>().UtcNow;
+            hoy = Millet.SharedKernel.Application.FechaContable.HoyLocal(ahora);
+            var emitida = await db.FacturasVenta.SingleAsync(f => f.SalidaFacturableId == salida.Id);
+            if (emitida.Estado == EstadoTimbrado.Borrador) emitida.MarcarTimbradoEnProceso();
+            if (emitida.Estado == EstadoTimbrado.TimbradoEnProceso)
+                emitida.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, ahora, null, null);
+            await db.SaveChangesAsync();
+        }
+        using var despachada = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{cid}/embarcar",
+            new { fecha = hoy }, preparada.Headers.ETag!.Tag);
+        Assert.True(despachada.IsSuccessStatusCode, await despachada.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -222,7 +260,7 @@ public sealed class ContenedoresHttpTests
         (await Emitir(e, c, p)).EnsureSuccessStatusCode();
     }
     [Fact]
-    public async Task Asignar_y_embarcar_exige_pedimento_y_respeta_permisos_sucursal_y_etag()
+    public async Task Asignar_y_embarcar_exige_partidas_y_respeta_permisos_sucursal_y_etag()
     {
         await using var e = await Escenario(); using var c = await e.ClienteAsync(true);
         var alta = await c.PostAsJsonAsync(Base, new { tipo = 2, sucursalId = e.SucursalId, referencia = "DEMO exportación CE02", moneda = "USD", responsableUsuarioId = e.Responsable, clientes = ClientesDemo }); alta.EnsureSuccessStatusCode();
@@ -230,7 +268,7 @@ public sealed class ContenedoresHttpTests
         var crear = await Enviar(c, HttpMethod.Post, $"{Base}/{id}/contenedores", new { numero = "DEMO-C", blGuia = "DEMO-BL" }, alta.Headers.ETag!.Tag); crear.EnsureSuccessStatusCode();
         var cid = (await Body(crear)).GetProperty("contenedores")[0].GetProperty("id").GetGuid();
         var no = await Enviar(c, HttpMethod.Post, $"{Base}/{id}/contenedores/{cid}/embarcar", new { fecha = "2026-10-12" }, crear.Headers.ETag!.Tag);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, no.StatusCode); Assert.Equal("CE_EMBARQUE_SIN_PEDIMENTO", (await Body(no)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, no.StatusCode); Assert.Equal("CE_EMBARQUE_SIN_PARTIDAS", (await Body(no)).GetProperty("code").GetString());
         using var ajeno = await e.ClienteAsync(true, asociar: false); using var ninguno = await e.ClienteAsync(false);
         using var facturadorAjeno = await e.ClienteAsync(true, asociar: false, facturacion: true);
         var origen = (await Body(await Detalle(c))).GetProperty("pedidos")[0].GetProperty("id").GetGuid();
@@ -361,7 +399,7 @@ public sealed class ContenedoresHttpTests
         var etag = actual.Headers.ETag!.Tag;
         foreach (var p in (await Body(actual)).GetProperty("partidas").EnumerateArray().Where(p => p.GetProperty("estado").GetInt32() != 3))
         {
-            using var revisada = await Enviar(documental, HttpMethod.Put, $"{Base}/{ExpId}/partidas/{p.GetProperty("id").GetGuid()}/aduanales", new { fraccionArancelaria = "70071999", unidadAduana = "06", revisar = true }, etag);
+            using var revisada = await Enviar(documental, HttpMethod.Put, $"{Base}/{ExpId}/partidas/{p.GetProperty("id").GetGuid()}/aduanales", new { fraccionArancelaria = "7007199900", unidadAduana = "06", revisar = true }, etag);
             revisada.EnsureSuccessStatusCode(); etag = revisada.Headers.ETag!.Tag;
         }
         using var autorizada = await Enviar(autorizador, HttpMethod.Post, $"{Base}/{ExpId}/autorizar-salida", etag: etag);
@@ -376,7 +414,7 @@ public sealed class ContenedoresHttpTests
         return new(p.SucursalId, "XEXX010101000", p.ClienteNombre, "616", "42501", "S01", "USA", "MIL010101AAA", "601", "PPD", "99", "USD", 20, 1,
             Millet.Facturacion.Domain.Facturas.ComportamientoFiscal.ExportacionConCce, null, null, false,
             p.Lineas.Select(l => new EmitirFacturaVentaLinea(null, l.ClaveProdServSat!, l.ProductoDescripcion, l.ClaveUnidadSat!, l.Cantidad, l.Precio, 0, "02", 0, null, null)).ToArray(),
-            Cce: new("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", p.Lineas.Sum(l => l.Cantidad), 100, p.Total, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000"), PedidoFacturableId: p.Id, ClienteId: p.ClienteId);
+            Cce: new("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", p.Lineas.Sum(l => l.Cantidad), 100, p.Total, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000"), PedidoFacturableId: p.Id, ClienteId: p.ClienteId);
     }
     private static async Task<JsonElement> Body(HttpResponseMessage r) { using var d = JsonDocument.Parse(await r.Content.ReadAsStringAsync()); return d.RootElement.Clone(); }
     private static Task<HttpResponseMessage> Enviar(HttpClient c, HttpMethod method, string url, object? body = null, string? etag = null, string? key = null)

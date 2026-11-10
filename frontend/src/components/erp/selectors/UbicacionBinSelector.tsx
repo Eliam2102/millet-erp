@@ -57,6 +57,8 @@ export interface UbicacionBinSelectorProps {
   varianteId?: string | null;
   /** En modo asignación, lista también el almacén general (esDefault activo, salvo el de sub-almacenes en revisión) además de los racks asignados: para lo que no es de A+W. */
   incluirGeneral?: boolean;
+  /** En modo asignación, solo las ubicaciones de esta sucursal (p. ej. la destino de la OC que se recibe). */
+  sucursalId?: string | null;
 }
 
 interface BinOption {
@@ -87,6 +89,7 @@ export function UbicacionBinSelector({
   accionSinUbicaciones,
   varianteId,
   incluirGeneral = false,
+  sucursalId,
 }: UbicacionBinSelectorProps) {
   // El prop modula ambos modos: salida-con-RQ y recepción pasan false (sin sub
   // de cabecera, el bin deriva el sub); vale y devolución omiten el prop (true).
@@ -158,6 +161,7 @@ export function UbicacionBinSelector({
         )
       : [];
     return [...asignadas, ...generales]
+      .filter((u) => !sucursalId || u.sucursalId === sucursalId)
       .map((u) => ({
         id: u.id,
         clave: u.clave,
@@ -166,7 +170,7 @@ export function UbicacionBinSelector({
         almacenClave: u.almacenClave,
         subAlmacenClave: u.subAlmacenClave,
       }));
-  }, [habilitado, modo, incluirGeneral, subsEnRevision, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
+  }, [habilitado, modo, incluirGeneral, sucursalId, subsEnRevision, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
 
   const loading =
     modo === 'saldo'

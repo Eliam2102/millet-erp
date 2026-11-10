@@ -70,7 +70,7 @@ public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory)
                 var anticipo = Anticipo.Capturar(EmpresaBootstrapId, null, Guid.NewGuid().ToString(), puertos.ProveedorId, "FANT", "FIX-P8", fecha, "MXN", null, 100, null, null, fecha);
                 var nc = Nc.Capturar(EmpresaBootstrapId, null, Guid.NewGuid().ToString(), puertos.ProveedorId, "FIX-P8", null, fecha, "MXN", null, 100, 0, 0, 100,
                     TipoNotaCredito.Descuento, TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), f.Id, null, fecha);
-                var cargo = Cargo.Crear(EmpresaBootstrapId, FolioInternoNotaCargo.FromAnioSecuencial(2026, Random.Shared.Next(800000, 999999)), puertos.ProveedorId, puertos.SucursalId,
+                var cargo = Cargo.Crear(EmpresaBootstrapId, FolioInternoNotaCargo.FromAnioSecuencial(2026, Millet.Api.IntegrationTests.Fixtures.FoliosPrueba.Siguiente()), puertos.ProveedorId, puertos.SucursalId,
                     "FIX-P8", null, 100, "MXN", null, f.Id, null, null, fecha); cargo.Autorizar(Guid.NewGuid(), fecha);
                 db.AddRange(f, anticipo, nc, cargo); await db.SaveChangesAsync();
                 facturaId=f.Id; version=f.Version; anticipoId=anticipo.Id; anticipoVersion=anticipo.Version;

@@ -27,4 +27,17 @@ public sealed class FacturacionCfdiReadAdapter : IFacturacionCfdiReadPort
             .Select(r => new CfdiObraLectura(r.Id, r.Folio, r.Uuid, r.Total, r.Moneda, r.Estado.ToString(), r.FechaTimbrado))
             .ToList();
     }
+
+    public async Task<IReadOnlyList<CfdiEmitidoLectura>> ObtenerPorUuidsAsync(IReadOnlyCollection<string> uuids, CancellationToken cancellationToken)
+    {
+        // El UUID se guarda como lo devuelve el PAC; se busca en mayúsculas y en minúsculas para usar el índice sin funciones en SQL.
+        var lista = uuids.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim())
+            .SelectMany(u => new[] { u.ToUpperInvariant(), u.ToLowerInvariant() }).Distinct().ToList();
+        if (lista.Count == 0) return [];
+        var rows = await _db.Comprobantes.AsNoTracking()
+            .Where(c => c.Uuid != null && lista.Contains(c.Uuid))
+            .Select(c => new { c.Uuid, c.ReceptorRfc, c.Total, c.Moneda, c.TipoCambio })
+            .ToListAsync(cancellationToken);
+        return rows.Select(r => new CfdiEmitidoLectura(r.Uuid!.ToUpperInvariant(), r.ReceptorRfc, r.Total, r.Moneda, r.TipoCambio)).ToList();
+    }
 }

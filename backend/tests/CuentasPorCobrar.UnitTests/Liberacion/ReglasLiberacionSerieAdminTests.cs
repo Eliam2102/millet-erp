@@ -21,8 +21,8 @@ public sealed class ReglasLiberacionSerieAdminTests
         var nunca = ReglaLiberacionSerieConfiguration.SeriesMillet
             .Where(s => s.Comportamiento == ComportamientoSerie.NuncaLibera).Select(s => s.Prefijo);
 
-        siempre.Should().BeEquivalentTo(["5000", "5500", "5600", "7000", "7200", "7500"]);
-        nunca.Should().BeEquivalentTo(["5800", "5900", "7800", "7900", "9000"]);
+        siempre.Should().BeEquivalentTo(["50", "55", "56", "70", "72", "75"]);
+        nunca.Should().BeEquivalentTo(["58", "59", "78", "79", "90"]);
         ReglaLiberacionSerieConfiguration.SeriesMillet.Select(s => s.Id).Should().OnlyHaveUniqueItems();
     }
 
@@ -61,7 +61,7 @@ public sealed class ReglasLiberacionSerieAdminTests
         await using var db = CrearDbContext();
 
         var act = () => new CrearReglaLiberacionSerieHandler(db).Handle(
-            new CrearReglaLiberacionSerieCommand("7800", ComportamientoSerie.SiempreLibera), CancellationToken.None);
+            new CrearReglaLiberacionSerieCommand("78", ComportamientoSerie.SiempreLibera), CancellationToken.None);
 
         await act.Should().ThrowAsync<ConflictException>().Where(e => e.Code == "RLS_PREFIJO_DUPLICADO");
     }
@@ -92,14 +92,14 @@ public sealed class ReglasLiberacionSerieAdminTests
     public async Task Cambiar_con_version_vieja_es_conflicto_de_concurrencia()
     {
         await using var db = CrearDbContext();
-        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "5500");
+        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "55");
 
         var act = () => new CambiarComportamientoSerieHandler(db).Handle(
             new CambiarComportamientoSerieCommand(regla.Id, regla.Version + 1, ComportamientoSerie.NuncaLibera),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<ConcurrencyException>();
-        (await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "5500")).Comportamiento
+        (await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "55")).Comportamiento
             .Should().Be(ComportamientoSerie.SiempreLibera);
     }
 
@@ -118,7 +118,7 @@ public sealed class ReglasLiberacionSerieAdminTests
     public async Task Desactivar_y_reactivar_una_regla()
     {
         await using var db = CrearDbContext();
-        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "9000");
+        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "90");
         var handler = new CambiarEstadoReglaSerieHandler(db);
 
         var inactiva = await handler.Handle(new CambiarEstadoReglaSerieCommand(regla.Id, regla.Version, false), CancellationToken.None);

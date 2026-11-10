@@ -16,6 +16,7 @@ const ubicaciones: UbicacionListItem[] = [
     subAlmacenNombre: 'Insumos A',
     almacenClave: 'ALM-A',
     almacenNombre: 'Almacén A',
+    sucursalId: 'suc-1',
   },
   {
     id: 'ub-b',
@@ -28,6 +29,7 @@ const ubicaciones: UbicacionListItem[] = [
     subAlmacenNombre: 'Insumos B',
     almacenClave: 'ALM-B',
     almacenNombre: 'Almacén B',
+    sucursalId: 'suc-1',
   },
 ];
 

@@ -326,6 +326,7 @@ public sealed class CancelacionDosPasosTests
 
         resp.EstadoComprobante.Should().Be("Timbrado");
         resp.EstadoSolicitud.Should().Be("Rechazada");
+        resp.MensajeError.Should().Be("El receptor rechazó.", "M18: la respuesta lleva el motivo del rechazo");
         (await db.FacturasVenta.SingleAsync()).Estado.Should().Be(EstadoTimbrado.Timbrado);
         (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Facturado);
     }
@@ -423,4 +424,12 @@ public sealed class CancelacionDosPasosTests
         todas.Select(f => f.ComprobanteId).Should().BeEquivalentTo([pendiente.Id, decidida.Id]);
         todas.Single(f => f.ComprobanteId == decidida.Id).EstadoSolicitud.Should().NotBe("PendienteAutorizacion");
     }
+
+    [Theory]
+    [InlineData("Sorry, it's not me, it's you. — SAT 205: el SAT aún no refleja este CFDI", "SAT 205: el SAT aún no refleja este CFDI")]
+    [InlineData("El receptor rechazó.", "El receptor rechazó.")]
+    [InlineData(null, null)]
+    [InlineData("  ", null)]
+    public void M18_el_mensaje_del_rechazo_quita_el_texto_del_PAC(string? guardado, string? esperado) =>
+        SolicitarCancelacionResponse.MensajeSatParaUsuario(guardado).Should().Be(esperado);
 }

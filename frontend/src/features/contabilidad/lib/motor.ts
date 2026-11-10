@@ -13,6 +13,8 @@ export const TEXTO_CAUSA: Record<CausaRechazo, string> = {
   CuentaNoValida: 'Cuenta no válida',
   DatoFaltante: 'Dato faltante',
   NoCuadra: 'No cuadra',
+  TipoCambioFueraDeTolerancia: 'Tipo de cambio fuera de tolerancia',
+  TipoCambioFaltante: 'Sin tipo de cambio',
 };
 
 /** Todas las causas son bloqueos que Contabilidad resuelve: warning las de configuración, danger las de datos. */
@@ -23,7 +25,21 @@ export const VARIANTE_CAUSA: Record<CausaRechazo, VarianteBadge> = {
   CuentaNoValida: 'danger',
   DatoFaltante: 'danger',
   NoCuadra: 'danger',
+  TipoCambioFueraDeTolerancia: 'warning',
+  TipoCambioFaltante: 'danger',
 };
+
+/** M-207: rechazo que se resuelve capturando y autorizando un tipo de cambio. */
+export function esRechazoTipoCambio(causa: string | null | undefined): boolean {
+  return causa === 'TipoCambioFueraDeTolerancia' || causa === 'TipoCambioFaltante';
+}
+
+/** M-207: TC del documento y del catálogo del detalle «18.9500|18.4520» y su diferencia en %; null si no aplica. */
+export function tiposCambioDelDetalle(detalle: string | null | undefined): { documento: number; catalogo: number; diferenciaPct: number } | null {
+  const [doc, cat] = (detalle ?? '').split('|').map(Number);
+  if (!doc || !cat || Number.isNaN(doc) || Number.isNaN(cat)) return null;
+  return { documento: doc, catalogo: cat, diferenciaPct: Math.round((Math.abs(doc - cat) / cat) * 10000) / 100 };
+}
 
 /** Un estado = un color (DESIGN §2.1). */
 export const ESTADO_RECHAZO_UI: Record<EstadoRechazo, { texto: string; variante: VarianteBadge }> = {

@@ -962,7 +962,7 @@ resource comercioExteriorFacturacionFilter 'Microsoft.ServiceBus/namespaces/topi
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'comercio_exterior.contenedor.embarcado.v1\', \'comercio_exterior.contenedor.cancelado.v1\')'
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.contenedor.embarcado.v1\', \'comercio_exterior.contenedor.preparado.v1\', \'comercio_exterior.contenedor.cancelado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1188,24 +1188,9 @@ resource ptEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
   }
 }
 
-var ptSubscriptions = [
-  {
-    name: 'cuentas-por-cobrar-pt-sub'
-    types: ['producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.contra-entrega.no-liquidada.v1']
-  }
-  {
-    name: 'integraciones-aw-pt-sub'
-    types: ['producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.pedido.facturado-entregado.v1']
-  }
-  {
-    name: 'contabilidad-producto-terminado-sub'
-    types: ['producto_terminado.entrega.confirmada.v1']
-  }
-]
-
-resource ptSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = [for s in ptSubscriptions: {
+resource ptCxcSub 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: ptEventsTopic
-  name: s.name
+  name: 'cuentas-por-cobrar-pt-sub'
   properties: {
     deadLetteringOnMessageExpiration: true
     deadLetteringOnFilterEvaluationExceptions: true
@@ -1214,19 +1199,69 @@ resource ptSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@20
     lockDuration: 'PT1M'
     enableBatchedOperations: true
   }
-}]
+}
 
-resource ptSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = [for (s, i) in ptSubscriptions: {
-  parent: ptSubscription[i]
+resource ptCxcSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptCxcSub
   name: 'EventTypeFilter'
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (${join(map(s.types, t => '\'${t}\''), ', ')})'
+      sqlExpression: 'user.EventType IN (\'producto_terminado.pedido.estado-cambiado.v1\', \'producto_terminado.contra-entrega.no-liquidada.v1\')'
       compatibilityLevel: 20
     }
   }
-}]
+}
+
+resource ptAwSub 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: ptEventsTopic
+  name: 'integraciones-aw-pt-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource ptAwSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptAwSub
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'producto_terminado.pedido.estado-cambiado.v1\', \'producto_terminado.pedido.en-ruta.v1\', \'producto_terminado.pedido.facturado-entregado.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+resource ptContabilidadSub 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: ptEventsTopic
+  name: 'contabilidad-producto-terminado-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource ptContabilidadSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptContabilidadSub
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'producto_terminado.entrega.confirmada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
 
 // PT aplica la decisión de liberación de CxC (CxcDecisionLocalConsumer).
 resource ptCxcDecisionSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {

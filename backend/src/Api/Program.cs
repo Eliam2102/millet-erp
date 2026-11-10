@@ -412,6 +412,20 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Application.Cajas.Sesiones.CajasOptions.SectionName));
 
+// === Notas de crédito de A+W (M-087) ===
+// Umbral de la segunda firma (Crédito y Cobranza); por omisión 35,000 MXN
+// (Facturacion:NotasCreditoAw:UmbralSegundaFirmaMxn).
+builder.Services
+    .AddOptions<Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito.NotasCreditoAwOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Facturacion.Application.NotasCredito.AutorizarNotaCredito.NotasCreditoAwOptions.SectionName));
+
+// === Adopción de CFDI (M-284, QA O1) ===
+// Certificado del SAT (por NoCertificadoSAT) para verificar el SelloSAT del timbre adoptado.
+builder.Services.AddHttpClient<
+    Millet.Facturacion.Application.Timbrado.Adopcion.ICertificadoSatProvider,
+    Millet.Facturacion.Infrastructure.Cfdi.CertificadoSatRdcProvider>(c => c.Timeout = TimeSpan.FromSeconds(15));
+
 // === Terminal de tarjetas (86e3vr1tf, Parte A) ===
 // Mapeo de columnas del archivo diario del banco; por omisión «Transacciones por
 // día» de Getnet más columnas supuestas de comisión (Facturacion:TerminalTarjeta:*).
@@ -995,6 +1009,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ITipoCambioContabilidadReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioContabilidadReadAdapter>();
+// M-207 (86e3zr7nf): tolerancia del TC del CFDI contra el catálogo (parámetro global).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.IToleranciaTipoCambioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ToleranciaTipoCambioReadAdapter>();
 
 // IUsuarioReadPort de Almacén → adapter hospedado en Identidad (ADR-0042).
 // Reemplaza el NoOpUsuarioReadPort que registró AddAlmacenModule(). El adapter
@@ -1104,6 +1122,9 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICfdiRecibidoBancoRea
 // K10.7: marca de cumplimiento de la liquidación de IVA (CxP: método de pago y REP recibido; Facturación: REP timbrado).
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaProveedorFiscalReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaProveedorFiscalReadAdapter>();
 builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ICumplimientoIvaReadPort, Millet.Api.Infrastructure.Adapters.CumplimientoIvaReadAdapter>();
+// K10.8: contabilidad electrónica. RFC de la empresa (Compartido) y CFDI de las pólizas (CxP recibidos + Facturación emitidos).
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IEmpresaContabilidadReadPort, Millet.Compartido.Infrastructure.PublicAdapters.EmpresaContabilidadReadAdapter>();
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IComprobanteFiscalContabilidadReadPort, Millet.Api.Infrastructure.Adapters.ComprobanteFiscalContabilidadReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
@@ -1457,7 +1478,9 @@ builder.Services.AddCors(options =>
                   // Sin esto el browser NO puede leer ETag cross-origin
                   // (Access-Control-Expose-Headers) y el If-Match de las
                   // mutaciones nunca se envía (ADR-0012).
-                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion");
+                  // Content-Disposition: las descargas (p. ej. contabilidad electrónica) toman de ahí el nombre del archivo.
+                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion",
+                      Microsoft.Net.Http.Headers.HeaderNames.ContentDisposition);
         }
         // Si AllowedOrigins está vacío, la policy queda sin orígenes
         // permitidos — preflight siempre falla. Comportamiento secure-by-default.
@@ -1802,6 +1825,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMoto
 Millet.Api.Endpoints.Contabilidad.ContabilidadCuentaPuenteEndpoints.MapContabilidadCuentaPuenteEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadConciliacionAuxiliaresEndpoints.MapContabilidadConciliacionAuxiliaresEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadReportesEndpoints.MapContabilidadReportesEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadEstadosFinancierosEndpoints.MapContabilidadEstadosFinancierosEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadIvaEndpoints.MapContabilidadIvaEndpoints(app);
 // CON-11 (86e3kdypd): revaluación de cierre de bancos y clientes con reversa automática del día 1.
 Millet.Api.Endpoints.Contabilidad.ContabilidadRevaluacionEndpoints.MapContabilidadRevaluacionEndpoints(app);
@@ -1815,6 +1839,7 @@ Millet.Api.Endpoints.Almacen.Reorden.AlmacenReordenEndpoints.MapAlmacenReordenEn
 // === Almacén — Configuración del módulo (interruptor de reabasto automático) ===
 Millet.Api.Endpoints.Almacen.AlmacenSettingsEndpoints.MapAlmacenSettingsEndpoints(app);
 Millet.Api.Endpoints.Almacen.NormasConsumoEndpoints.MapNormasConsumoEndpoints(app);
+Millet.Api.Endpoints.Almacen.TamboresLineaEndpoints.MapTamboresLineaEndpoints(app);
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
 Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
 Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
@@ -1994,6 +2019,7 @@ Millet.Api.Endpoints.CuentasPorPagar.RevaluacionCierreEndpoints.MapRevaluacionCi
 // Idempotency-Key requerido en todos los POST.
 Millet.Api.Endpoints.IntegracionesAw.IntegracionesAwEndpoints.MapIntegracionesAwEndpoints(app);
 Millet.Api.Endpoints.IntegracionesAw.AwOrigenEndpoints.MapAwOrigenEndpoints(app);
+Millet.Api.Endpoints.IntegracionesAw.AwRetornoEndpoints.MapAwRetornoEndpoints(app);
 Millet.Api.Endpoints.Almacen.AlmacenesAppMensajesEndpoint.MapAlmacenesAppMensajesEndpoint(app);
 
 // === Endpoints del módulo Integraciones.Fiscal (PR-4) ===

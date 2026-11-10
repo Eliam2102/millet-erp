@@ -184,6 +184,86 @@ public class EventosContablesG16Tests
         e.Motivo.Should().BeNull();
     }
 
+    private static async Task<ConteoInventario> ConteoAprobadoAsync(AlmacenDbContext db)
+    {
+        var conteo = new ConteoInventario(Guid.NewGuid(), EmpresaId, TipoConteo.Rotativo,
+            new DateOnly(2026, 5, 25), Guid.NewGuid(), SubId);
+        conteo.AgregarLinea(new LineaConteo(Guid.NewGuid(), conteo.Id, ArticuloId, SubId, BinId, 100m, 50m));
+        conteo.Iniciar(new Millet.Almacen.Domain.Conteos.ConteoUmbrales(5m, 1000m, 1000m, 10000m));
+        conteo.Lineas.Single().Capturar(95m, Guid.NewGuid());
+        conteo.EnviarAConciliacion();
+        conteo.Aprobar(Guid.NewGuid());
+        db.Set<ConteoInventario>().Add(conteo);
+        await db.SaveChangesAsync();
+        return conteo;
+    }
+
+    [Fact]
+    public async Task M450_sin_el_area_que_exige_la_cuenta_del_ajuste_el_conteo_no_se_aplica()
+    {
+        await using var db = await NuevaDbAsync();
+        var conteo = await ConteoAprobadoAsync(db);
+        var events = new CapturaEventos();
+        var puerto = new DimensionesAjusteFake(faltante: "Falta el área: la cuenta 504.FIX de esta salida lo exige (regla de dimensiones C-03).");
+
+        var act = () => new AplicarConteoHandler(db, events, new FakeUser(), new FakeEmpresa(), new PeriodoContableStub(true), dimensiones: puerto)
+            .Handle(new AplicarConteoCommand(conteo.Id), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CONTEO_AREA_EQUIPO_FALTANTE");
+        events.Eventos.Should().BeEmpty();
+        puerto.Recibida!.TipoEvento.Should().Be(AplicarConteoHandler.EventoAjuste);
+        puerto.Recibida.Campo.Should().Be(AplicarConteoHandler.CampoAjuste);
+        puerto.Recibida.SucursalId.Should().Be(SucursalId);
+    }
+
+    [Fact]
+    public async Task M450_el_area_y_equipo_capturados_viajan_como_centro_del_ajuste()
+    {
+        await using var db = await NuevaDbAsync();
+        var conteo = await ConteoAprobadoAsync(db);
+        var events = new CapturaEventos();
+        var puerto = new DimensionesAjusteFake();
+
+        await new AplicarConteoHandler(db, events, new FakeUser(), new FakeEmpresa(), new PeriodoContableStub(true), dimensiones: puerto)
+            .Handle(new AplicarConteoCommand(conteo.Id, "A01", "E01"), default);
+
+        events.Unico<AjusteInventarioAplicadoIntegrationEvent>().CentroCostoId.Should().Be(DimensionesAjusteFake.Centro);
+        puerto.Recibida!.AreaClave.Should().Be("A01");
+        puerto.Recibida.EquipoClave.Should().Be("E01");
+    }
+
+    [Fact]
+    public async Task M450_una_clave_invalida_no_aplica_el_conteo()
+    {
+        await using var db = await NuevaDbAsync();
+        var conteo = await ConteoAprobadoAsync(db);
+        var events = new CapturaEventos();
+
+        var act = () => new AplicarConteoHandler(db, events, new FakeUser(), new FakeEmpresa(), new PeriodoContableStub(true),
+                dimensiones: new DimensionesAjusteFake(error: "El área X99 no existe."))
+            .Handle(new AplicarConteoCommand(conteo.Id, "X99", null), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CONTEO_AREA_EQUIPO_INVALIDO");
+        events.Eventos.Should().BeEmpty();
+    }
+
+    /// <summary>Contabilidad: valida las claves (o devuelve el error o el faltante dados); con dato, el centro es <see cref="Centro"/>.</summary>
+    private sealed class DimensionesAjusteFake(string? error = null, string? faltante = null)
+        : Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort
+    {
+        public static readonly Guid Centro = Guid.NewGuid();
+        public Millet.Contabilidad.Application.PublicPorts.SolicitudDimensionesSalida? Recibida { get; private set; }
+
+        public Task<Millet.Contabilidad.Application.PublicPorts.DimensionesSalidaResultado> ResolverAsync(
+            Millet.Contabilidad.Application.PublicPorts.SolicitudDimensionesSalida solicitud, CancellationToken ct)
+        {
+            Recibida = solicitud;
+            var capturado = !string.IsNullOrWhiteSpace(solicitud.AreaClave) || !string.IsNullOrWhiteSpace(solicitud.EquipoClave);
+            return Task.FromResult(new Millet.Contabilidad.Application.PublicPorts.DimensionesSalidaResultado(
+                error, capturado ? null : faltante, capturado && error is null ? Centro : null, true, true, "504.FIX"));
+        }
+    }
+
     [Fact]
     public async Task D18_diferencia_de_precio_no_crea_movimientos_ni_eventos_de_valoracion()
     {

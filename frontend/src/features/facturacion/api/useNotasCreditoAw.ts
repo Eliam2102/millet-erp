@@ -15,6 +15,10 @@ export interface NotaCreditoPorAutorizar {
   facturaFolio: string | null;
   fechaRecibida: string | null;
   vendedorAw?: string | null;
+  /** M-087: arriba del umbral (35,000 MXN por omisión) firma también Crédito y Cobranza. */
+  requiereFirmaCredito?: boolean;
+  firmadaGerente?: boolean;
+  firmadaCredito?: boolean;
 }
 export interface AutorizarNotaCreditoResultado {
   id: string;
@@ -22,6 +26,11 @@ export interface AutorizarNotaCreditoResultado {
   uuid: string | null;
   folio: string;
   total: number;
+  requiereFirmaCredito?: boolean;
+  firmadaGerente?: boolean;
+  firmadaCredito?: boolean;
+  /** M-087: firma que falta para timbrar ('CreditoYCobranza' | 'Gerente'); null si ya se timbró. */
+  pendiente?: string | null;
 }
 const BASE = '/api/v1/facturacion/notas-credito';
 const KEY = ['facturacion', 'notas-credito-por-autorizar'] as const;
@@ -47,6 +56,21 @@ export function useAutorizarNotaCredito() {
     mutationFn: async ({ id, idempotencyKey }: { id: string; idempotencyKey: string }) =>
       (
         await apiRequest<AutorizarNotaCreditoResultado>(`${BASE}/${id}/autorizar`, {
+          method: 'POST',
+          idempotencyKey,
+        })
+      ).data,
+    onSettled: () => client.invalidateQueries({ queryKey: ['facturacion'] }),
+  });
+}
+
+/** M-087: firma de Crédito y Cobranza; si el gerente ya firmó, la nota se timbra. */
+export function useFirmarCreditoNotaCredito() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, idempotencyKey }: { id: string; idempotencyKey: string }) =>
+      (
+        await apiRequest<AutorizarNotaCreditoResultado>(`${BASE}/${id}/autorizar-credito`, {
           method: 'POST',
           idempotencyKey,
         })

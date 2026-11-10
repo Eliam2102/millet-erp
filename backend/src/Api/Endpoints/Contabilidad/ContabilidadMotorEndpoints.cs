@@ -21,6 +21,7 @@ public static class ContabilidadMotorEndpoints
     public sealed record CrearRolRequest(string Codigo, string Descripcion, Guid? CuentaId, Guid? SucursalId, string? Moneda, DateOnly? VigenteDesde);
     public sealed record CambiarCuentaRolRequest(Guid CuentaId, string? Motivo);
     public sealed record DescartarRequest(string Motivo);
+    public sealed record CapturarTipoCambioRequest(AccionTipoCambioRechazo Accion, decimal? Valor, string Motivo);
     public sealed record ProcesarEventoRequest(string Tipo, Guid EventoId, JsonElement Payload);
 
     public static IEndpointRouteBuilder MapContabilidadMotorEndpoints(this IEndpointRouteBuilder app, IHostEnvironment env)
@@ -28,6 +29,7 @@ public static class ContabilidadMotorEndpoints
         var leer = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadMotorLeer;
         var roles = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadRolesCuentaAdministrar;
         var rechazos = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadRechazosGestionar;
+        var autorizarTc = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadTipoCambioAutorizarSustituto;
 
         var g = app.MapGroup("/api/v1/contabilidad/motor").WithTags("Contabilidad · Motor de pólizas").RequireAuthorization();
 
@@ -72,6 +74,21 @@ public static class ContabilidadMotorEndpoints
             .WithMetadata(new RequireIdempotencyKeyAttribute())
             .RequireAuthorization(rechazos).WithName("ReprocesarRechazoContable")
             .WithSummary("Vuelve a correr la plantilla vigente con el mismo payload y la misma llave")
+            .Produces<ResultadoMotor>().ProducesProblem(StatusCodes.Status409Conflict);
+
+        // M-207: tipo de cambio sustituto de un rechazo por TC (captura → autorización de otra persona → reproceso).
+        g.MapPost("/rechazos/{id:guid}/tipo-cambio", async (Guid id, CapturarTipoCambioRequest b, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new CapturarTipoCambioRechazoCommand(id, b.Accion, b.Valor, b.Motivo), ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(rechazos).WithName("CapturarTipoCambioRechazo")
+            .WithSummary("Captura el TC sustituto (o aceptar el del documento) con motivo; queda por autorizar")
+            .Produces<RechazoContableResponse>().ProducesProblem(StatusCodes.Status409Conflict);
+
+        g.MapPost("/rechazos/{id:guid}/tipo-cambio/autorizar", async (Guid id, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new AutorizarTipoCambioRechazoCommand(id), ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(autorizarTc).WithName("AutorizarTipoCambioRechazo")
+            .WithSummary("Autoriza el TC capturado (otra persona) y reprocesa el evento con él")
             .Produces<ResultadoMotor>().ProducesProblem(StatusCodes.Status409Conflict);
 
         g.MapPost("/rechazos/{id:guid}/descartar", async (Guid id, DescartarRequest b, IMediator m, CancellationToken ct) =>

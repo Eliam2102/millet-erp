@@ -34,6 +34,12 @@ public sealed class SaldoIvaDocumentoConfiguration : IEntityTypeConfiguration<Sa
             b.ToJson("retenciones");
             b.Ignore(r => r.Pendiente);
         });
+        // M-209: base e IVA por tratamiento.
+        builder.OwnsMany(x => x.Tratamientos, b =>
+        {
+            b.ToJson("tratamientos");
+            b.Ignore(t => t.Pendiente);
+        });
         builder.Ignore(x => x.Saldo);
         builder.Ignore(x => x.IvaPendiente);
         builder.Ignore(x => x.Saldado);
@@ -60,6 +66,7 @@ public sealed class ReclasificacionIvaConfiguration : IEntityTypeConfiguration<R
         builder.Property(x => x.IvaMxn).HasPrecision(18, 2);
         builder.Property(x => x.IvaRetenidoMxn).HasPrecision(18, 2);
         builder.OwnsMany(x => x.Retenciones, b => b.ToJson("retenciones"));
+        builder.OwnsMany(x => x.Tratamientos, b => b.ToJson("tratamientos"));
         builder.HasOne<SaldoIvaDocumento>().WithMany().HasForeignKey(x => x.SaldoIvaDocumentoId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.EmpresaId, x.PagoModulo, x.PagoTipo, x.PagoId, x.SaldoIvaDocumentoId }).IsUnique()
             .HasDatabaseName("ux_reclasificaciones_iva_pago_documento");

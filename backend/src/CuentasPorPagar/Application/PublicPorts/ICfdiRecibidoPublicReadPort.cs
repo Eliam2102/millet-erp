@@ -11,8 +11,11 @@ public interface ICfdiRecibidoPublicReadPort
         DateTimeOffset desde, DateTimeOffset hasta, string? rfcEmisor, int limite, CancellationToken ct);
 
     Task<CfdiRecibidoPublico?> ObtenerAsync(Guid id, CancellationToken ct);
+
+    /// <summary>K10.8: CFDI recibidos por UUID (los que no están en el buzón no aparecen); UUID con o sin mayúsculas.</summary>
+    Task<IReadOnlyList<CfdiRecibidoPublico>> ListarPorUuidsAsync(IReadOnlyCollection<string> uuids, CancellationToken ct);
 }
 
 public sealed record CfdiRecibidoPublico(
     Guid Id, string Uuid, string RfcEmisor, string? Serie, string? Folio, DateTimeOffset FechaCfdi,
-    decimal Subtotal, decimal ImpuestosTrasladados, decimal Total, string Moneda, string Tipo, string Estado);
+    decimal Subtotal, decimal ImpuestosTrasladados, decimal Total, string Moneda, string Tipo, string Estado, decimal? TipoCambio = null);
