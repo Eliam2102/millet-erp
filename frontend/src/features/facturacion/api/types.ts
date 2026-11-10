@@ -1604,6 +1604,8 @@ export interface SolicitarCancelacionResponse {
   estadoComprobante: string;
   estadoSolicitud: string;
   estatusSat: string | null;
+  /** M18: motivo del rechazo del SAT (sin el texto en inglés del PAC); null si no hubo rechazo. */
+  mensajeError?: string | null;
 }
 
 /** Estatus de la cancelación de un comprobante (GET /comprobantes/{id}/cancelar). */
