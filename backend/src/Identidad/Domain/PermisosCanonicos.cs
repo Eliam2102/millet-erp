@@ -515,6 +515,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarLineasCreditoGestionar  = "cuentas_por_cobrar.lineas-credito.gestionar";
     public const string CuentasPorCobrarLiberacionDecidir       = "cuentas_por_cobrar.liberacion.decidir";
     public const string CuentasPorCobrarLiberacionOverride      = "cuentas_por_cobrar.liberacion.override";
+    /// <summary>M-085: autorizar excepciones de crédito con exceso mayor al tope de Crédito y Cobranza (Dirección).</summary>
+    public const string CuentasPorCobrarLiberacionOverrideDireccion = "cuentas_por_cobrar.liberacion.override-direccion";
     public const string CuentasPorCobrarCobranzaRegistrar       = "cuentas_por_cobrar.cobranza.registrar";
     public const string CuentasPorCobrarCarteraLeer             = "cuentas_por_cobrar.cartera.leer";
     public const string CuentasPorCobrarAplicacionPagoProponer  = "cuentas_por_cobrar.aplicacion-pago.proponer";
@@ -991,6 +993,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0001-0000-0000-000000000002"), CuentasPorCobrarLineasCreditoGestionar,  "Crear, editar, bloquear y desbloquear líneas de crédito"),
         (Guid.Parse("0000000a-0002-0000-0000-000000000001"), CuentasPorCobrarLiberacionDecidir,       "Decidir la liberación de pedidos por crédito"),
         (Guid.Parse("0000000a-0002-0000-0000-000000000002"), CuentasPorCobrarLiberacionOverride,      "Otorgar autorización consumible de override de crédito (gerente)"),
+        (Guid.Parse("0000000a-0002-0000-0000-000000000003"), CuentasPorCobrarLiberacionOverrideDireccion, "Autorizar excepciones de crédito con exceso mayor al tope de Crédito y Cobranza (Dirección)"),
         (Guid.Parse("0000000a-0003-0000-0000-000000000001"), CuentasPorCobrarCobranzaRegistrar,       "Registrar gestiones de cobranza (llamadas, correos, promesas de pago)"),
         (Guid.Parse("0000000a-0004-0000-0000-000000000001"), CuentasPorCobrarCarteraLeer,             "Consultar cartera, antigüedad de saldos, estado de cuenta y alertas"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),

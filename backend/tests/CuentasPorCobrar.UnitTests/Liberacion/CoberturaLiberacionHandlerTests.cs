@@ -663,6 +663,101 @@ public sealed class CoberturaLiberacionHandlerTests
         return a;
     }
 
+    // --------------------------------------------------- M-085: tope de exceso de Crédito y Cobranza (50,000) y Dirección
+
+    private sealed class Permisos(params string[] permisos) : Millet.SharedKernel.Application.ICurrentUserPermissions
+    {
+        public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(permisos.Contains(permiso));
+    }
+
+    private static readonly Permisos CreditoYCobranza = new(Millet.Identidad.Domain.PermisosCanonicos.CuentasPorCobrarLiberacionOverride);
+    private static readonly Permisos Direccion = new(Millet.Identidad.Domain.PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
+        Millet.Identidad.Domain.PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion);
+
+    private static async Task<DecisionLiberacionResponse> AutorizarCon(CuentasPorCobrarDbContext db, Guid decisionId, Permisos permisos)
+    {
+        var handler = new AutorizarLiberacionPendienteHandler(db, new FakePublisher(), new FakeEmpresaContext(EmpresaId),
+            new FakeUserContext(Nestor), new FakeClock(Ahora), new PedidosSinFacturarFalso(), permisos);
+        return await handler.Handle(new AutorizarLiberacionPendienteCommand(decisionId, "Pago comprometido"), CancellationToken.None);
+    }
+
+    /// <summary>Pedido de 200,000 con 120,000 disponibles: cobertura 60 % (pendiente) y exceso de 80,000.</summary>
+    private static async Task<DecisionLiberacionResponse> PendienteConExcesoDe80Mil(CuentasPorCobrarDbContext db, string folio)
+    {
+        await LineaConDisponible(db, limite: 300_000m, disponible: 120_000m);
+        var (pendiente, _) = await Decidir(db, Comando(folio, 200_000m));
+        pendiente.Resultado.Should().Be(ResultadoLiberacion.PendienteAutorizacion);
+        return pendiente;
+    }
+
+    [Fact]
+    public async Task M085_Credito_y_Cobranza_no_autoriza_un_exceso_mayor_a_50000()
+    {
+        await using var db = CrearDbContext();
+        var pendiente = await PendienteConExcesoDe80Mil(db, "6008501");
+
+        var act = () => AutorizarCon(db, pendiente.Id, CreditoYCobranza);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be(ExcesoCredito.CodigoRequiereDireccion);
+    }
+
+    [Fact]
+    public async Task M085_Direccion_autoriza_el_exceso_mayor_a_50000()
+    {
+        await using var db = CrearDbContext();
+        var pendiente = await PendienteConExcesoDe80Mil(db, "6008502");
+
+        var res = await AutorizarCon(db, pendiente.Id, Direccion);
+
+        res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+        (await db.AutorizacionesCredito.SingleAsync()).AutorizadaPorDireccion.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task M085_un_exceso_de_hasta_50000_lo_autoriza_Credito_y_Cobranza()
+    {
+        await using var db = CrearDbContext();
+        await LineaConDisponible(db, limite: 300_000m, disponible: 100_000m);
+        var (pendiente, _) = await Decidir(db, Comando("6008503", 150_000m));   // exceso exacto 50,000
+
+        var res = await AutorizarCon(db, pendiente.Id, CreditoYCobranza);
+
+        res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task M085_la_excepcion_previa_de_Credito_y_Cobranza_no_cubre_un_exceso_mayor_a_50000(bool deDireccion, bool rechaza)
+    {
+        await using var db = CrearDbContext();
+        await LineaConDisponible(db, limite: 300_000m, disponible: 120_000m);
+        var aut = AutorizacionCredito.Crear(EmpresaId, Nestor, Coordinador, "Cliente estratégico", "6008504", Ahora,
+            TimeSpan.FromHours(24), autorizadaPorDireccion: deDireccion);
+        db.AutorizacionesCredito.Add(aut);
+        await db.SaveChangesAsync();
+
+        var act = () => Decidir(db, Comando("6008504", 200_000m, aut.Id));
+
+        if (rechaza)
+            (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be(ExcesoCredito.CodigoRequiereDireccion);
+        else
+            (await act()).Item1.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+    }
+
+    [Theory]
+    [InlineData(120_000, 200_000, 80_000)]
+    [InlineData(-5_000, 10_000, 10_000)]
+    [InlineData(300_000, 200_000, 0)]
+    public void M085_exceso_es_el_monto_sobre_el_disponible(decimal disponible, decimal monto, decimal exceso) =>
+        ExcesoCredito.Calcular(disponible, monto).Should().Be(exceso);
+
+    [Fact]
+    public void M085_el_tope_solo_aplica_a_pedidos_en_pesos() =>
+        (ExcesoCredito.RequiereDireccion("MXN", 50_000.01m), ExcesoCredito.RequiereDireccion("USD", 999_999m))
+            .Should().Be((true, false));
+
     [Fact]
     public async Task Reglas_serie_lista_solo_activas_con_su_comportamiento()
     {
