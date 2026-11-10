@@ -282,6 +282,20 @@ public sealed class ReppPendienteTests
     }
 
     [Fact]
+    public async Task Bandeja_pagina_en_servidor_y_devuelve_el_total_real()
+    {
+        using var db = Db();
+        db.ReppPendientes.AddRange(Pendiente(), Pendiente(), Pendiente());
+        await db.SaveChangesAsync();
+        var handler = new ReppPendienteQueryHandler(db, Servicio(db), new FakeClientesReadPort(), new Banco(null), new FakeClock(Ahora), new FakeCuentaBancariaMilletReadPort());
+
+        var resultado = await handler.Handle(new ReppPendientesQuery(Offset: 1, Limit: 1), default);
+
+        resultado.Items.Should().HaveCount(1);
+        resultado.Total.Should().Be(3);
+    }
+
+    [Fact]
     public void Resultado_incierto_no_admite_editar_ni_generar_un_nuevo_intento()
     {
         var p = Pendiente();

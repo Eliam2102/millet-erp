@@ -4,6 +4,7 @@ using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Facturacion.Application.Facturas.Queries;
 
@@ -25,11 +26,14 @@ public sealed record BandejaFacturasQuery(
     bool SoloSinAsignar = false,
     ClasePedidoManual? Clase = null,
     // U-1 (86e3yxn2p): solo facturas con una NC pendiente de timbrar.
-    bool SoloNcPendiente = false) : IRequest<BandejaFacturasResponse>;
+    bool SoloNcPendiente = false,
+    // Búsqueda en el servidor por folio, UUID, receptor o RFC.
+    string? Q = null) : IRequest<BandejaFacturasResponse>;
 
 public sealed record BandejaFacturasResponse(
     IReadOnlyList<FacturaBandejaItem> Items,
-    int? SinAsignarCount);
+    int? SinAsignarCount,
+    int Total = 0);
 
 public sealed record FacturaBandejaItem(
     Guid Id,
@@ -65,9 +69,6 @@ public sealed class BandejaFacturasHandler
         BandejaFacturasQuery query,
         CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(query.Limit <= 0 ? 50 : query.Limit, 1, 200);
-        var offset = Math.Max(0, query.Offset);
-
         var q = _db.FacturasVenta.AsNoTracking();
         if (query.Estado is { } estado) q = q.Where(f => f.Estado == estado);
         if (query.Clase is { } clase)
@@ -78,20 +79,24 @@ public sealed class BandejaFacturasHandler
             q = q.Where(f => _db.NotasCredito.Any(n => n.FacturaRelacionadaId == f.Id
                 && (n.Estado == EstadoTimbrado.TimbradoFallido || n.Estado == EstadoTimbrado.TimbradoEnProceso)));
 
+        if (query.Q?.Trim() is { Length: > 0 } texto)
+        {
+            var patron = PaginacionExtensions.PatronContiene(texto);
+            q = q.Where(f => EF.Functions.ILike(f.Folio, patron)
+                          || (f.Uuid != null && EF.Functions.ILike(f.Uuid, patron))
+                          || EF.Functions.ILike(f.ReceptorNombre, patron)
+                          || EF.Functions.ILike(f.ReceptorRfc, patron));
+        }
+
         (q, var sinAsignarCount) = await AlcanceBandejaHelper.AplicarAsync(
             _alcance, q, query.SoloSinAsignar, cancellationToken);
 
-        var pagina = q
-            .OrderByDescending(f => f.FolioNumero)
-            .Skip(offset)
-            .Take(limit);
-
-        var rows = await (
-                from f in pagina
+        var pagina = await (
+                from f in q
                 join p in _db.PedidosFacturables.AsNoTracking()
                     on f.PedidoFacturableId equals (Guid?)p.Id into pj
                 from p in pj.DefaultIfEmpty()
-                orderby f.FolioNumero descending
+                orderby f.FolioNumero descending, f.Id
                 select new
                 {
                     f.Id, f.Folio, f.Estado, f.Uuid, f.ReceptorNombre,
@@ -102,9 +107,9 @@ public sealed class BandejaFacturasHandler
                     NcPendiente = _db.NotasCredito.Any(n => n.FacturaRelacionadaId == f.Id
                         && (n.Estado == EstadoTimbrado.TimbradoFallido || n.Estado == EstadoTimbrado.TimbradoEnProceso)),
                 })
-            .ToListAsync(cancellationToken);
+            .ToPaginaAsync(query.Offset, query.Limit, cancellationToken);
 
-        var items = rows
+        var items = pagina.Items
             .Select(r =>
             {
                 var clase = r.Origen == OrigenPedido.Manual ? r.ClaseManual : null;
@@ -118,6 +123,6 @@ public sealed class BandejaFacturasHandler
             })
             .ToList();
 
-        return new BandejaFacturasResponse(items, sinAsignarCount);
+        return new BandejaFacturasResponse(items, sinAsignarCount, pagina.Total);
     }
 }

@@ -74,6 +74,7 @@ public static class FacturasEndpoints
             [FromQuery] string? alcance,
             [FromQuery] ClasePedidoManual? clase,
             [FromQuery] bool? ncPendiente,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -81,7 +82,7 @@ public static class FacturasEndpoints
             // U-1: ?ncPendiente=true deja solo las facturas con una NC pendiente de timbrar.
             var response = await mediator.Send(
                 new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase,
-                    ncPendiente == true),
+                    ncPendiente == true, q),
                 cancellationToken);
             return Results.Ok(response);
         })

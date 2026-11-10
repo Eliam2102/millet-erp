@@ -116,12 +116,13 @@ public static class NotasCreditoEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
                 new BandejaNotasCreditoQuery(
-                    estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance)),
+                    estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), q),
                 cancellationToken);
             return Results.Ok(response);
         })

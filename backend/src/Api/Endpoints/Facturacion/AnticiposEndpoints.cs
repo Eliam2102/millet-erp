@@ -122,12 +122,13 @@ public static class AnticiposEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
                 new BandejaFacturasAnticipoQuery(
-                    estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance)),
+                    estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), q),
                 cancellationToken);
             return Results.Ok(response);
         })

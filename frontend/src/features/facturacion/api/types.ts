@@ -222,6 +222,12 @@ export interface PedidoFacturableLineaInput {
  * (FE en cajas-pr6). Los hooks de lista desenvuelven <c>items</c> para no
  * tocar a los consumidores actuales.
  */
+/** Bandeja paginada en el servidor sin el contador «Sin asignar» (Carta Porte, excepciones). */
+export interface BandejaPaginada<TItem> {
+  items: TItem[];
+  total?: number;
+}
+
 export interface BandejaScoped<TItem> {
   items: TItem[];
   sinAsignarCount: number | null;

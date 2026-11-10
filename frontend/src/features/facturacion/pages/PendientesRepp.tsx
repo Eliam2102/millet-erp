@@ -29,6 +29,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import type {
@@ -67,7 +68,14 @@ export function PendientesRepp() {
   const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => setAbierto(null));
   const [resultados, setResultados] = useState<EmisionPendiente[]>([]);
   const puedeEscribir = useHasPermission(PermisosCanonicos.FacturacionReppEmitir);
-  const query = useReppPendientes(estado, indicador, offset);
+  const [busqueda, setBusqueda] = useState('');
+  const q = useDebouncedValue(busqueda, 300).trim();
+  const [qPrevia, setQPrevia] = useState(q);
+  if (q !== qPrevia) {
+    setQPrevia(q);
+    setOffset(0);
+  }
+  const query = useReppPendientes(estado, indicador, offset, q);
   const detalle = useReppPendiente(abierto);
   const { emitir } = useAccionesReppPendiente();
   const kpis = query.data?.kpis;
@@ -77,10 +85,7 @@ export function PendientesRepp() {
     ['Vencidos', kpis?.vencidos, 'vencidos'],
     ['Con error', kpis?.conError, 'error'],
   ] as const;
-  const [busqueda, setBusqueda] = useState('');
-  const items = (query.data?.items ?? []).filter((p) =>
-    (p.clienteNombre + ' ' + (p.referencia ?? '')).toLowerCase().includes(busqueda.toLowerCase()),
-  );
+  const items = query.data?.items ?? [];
   function filtrar(nuevoEstado: EstadoPendiente | '', nuevoIndicador: string) {
     setEstado(nuevoEstado);
     setIndicador(nuevoIndicador);
@@ -182,8 +187,8 @@ export function PendientesRepp() {
           <BarraFiltros
             busqueda={
               <Input
-                aria-label="Buscar en los pagos de esta página"
-                placeholder="Cliente o referencia en esta página"
+                aria-label="Buscar por cliente o referencia"
+                placeholder="Cliente o referencia"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />

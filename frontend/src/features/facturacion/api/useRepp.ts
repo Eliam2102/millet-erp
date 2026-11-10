@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import type {
@@ -13,13 +13,21 @@ import type {
 const BASE = '/api/v1/facturacion/repp';
 
 /** <c>useListarRepp(estado, alcance?)</c> — bandeja de complementos de pago (B9). */
-export function useListarRepp(estado: number | undefined, alcance?: 'sin-asignar') {
+export function useListarRepp(
+  estado: number | undefined,
+  alcance?: 'sin-asignar',
+  pagina: { q?: string; offset?: number; limit?: number } = {},
+) {
   return useQuery<BandejaScoped<ReppBandejaItem>>({
-    queryKey: facturacionKeys.reppList({ estado: estado ?? null, alcance: alcance ?? null }),
+    queryKey: facturacionKeys.reppList({ estado: estado ?? null, alcance: alcance ?? null, ...pagina }),
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (estado != null) params.set('estado', String(estado));
       if (alcance != null) params.set('alcance', alcance);
+      if (pagina.q) params.set('q', pagina.q);
+      if (pagina.offset != null) params.set('offset', String(pagina.offset));
+      if (pagina.limit != null) params.set('limit', String(pagina.limit));
       const qs = params.toString();
       // CAJAS-PR6: expone el envelope {items, sinAsignarCount} completo
       // (badge "Sin asignar" [Decisión 12-B], solo caja.leer-todas).

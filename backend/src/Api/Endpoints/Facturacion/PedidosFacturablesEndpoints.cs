@@ -187,18 +187,20 @@ public static class PedidosFacturablesEndpoints
             [FromQuery] bool? soloPendientes,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
+            [FromQuery] bool? soloResueltas,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
-            var items = await mediator.Send(
-                new BandejaExcepcionesImportacionQuery(soloPendientes ?? true, offset ?? 0, limit ?? 50),
+            var response = await mediator.Send(
+                new BandejaExcepcionesImportacionQuery(soloPendientes ?? true, offset ?? 0, limit ?? 50, q, soloResueltas == true),
                 cancellationToken);
-            return Results.Ok(items);
+            return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
         .WithName("BandejaExcepcionesImportacion")
         .WithSummary("Bandeja de excepciones de importación A+W/Planta Pintura")
-        .Produces<IReadOnlyList<ExcepcionImportacionItem>>(StatusCodes.Status200OK);
+        .Produces<BandejaExcepcionesImportacionResponse>(StatusCodes.Status200OK);
 
         // POST: resuelve una excepción de importación (F3-PR1b).
         group.MapPost("/excepciones/{id:guid}/resolver", async (

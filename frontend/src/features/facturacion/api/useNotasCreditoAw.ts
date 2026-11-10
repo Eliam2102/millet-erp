@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 
 /** Fila de la bandeja de NC (backend `NotaCreditoBandejaItem`); 86e3wjt5r agrega folio A+W, factura y fecha. */
@@ -35,18 +35,19 @@ export interface AutorizarNotaCreditoResultado {
 const BASE = '/api/v1/facturacion/notas-credito';
 const KEY = ['facturacion', 'notas-credito-por-autorizar'] as const;
 
-export function useNotasCreditoPorAutorizar() {
+export const TAMANO_PAGINA_NC_POR_AUTORIZAR = 10;
+
+export function useNotasCreditoPorAutorizar(offset = 0) {
   return useQuery({
-    queryKey: KEY,
+    queryKey: [...KEY, offset],
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) =>
       (
-        await apiRequest<{ items: NotaCreditoPorAutorizar[] }>(
-          `${BASE}?estado=PorAutorizar&limit=100`,
-          {
-            signal,
-          },
+        await apiRequest<{ items: NotaCreditoPorAutorizar[]; total?: number }>(
+          `${BASE}?estado=PorAutorizar&limit=${TAMANO_PAGINA_NC_POR_AUTORIZAR}&offset=${offset}`,
+          { signal },
         )
-      ).data.items,
+      ).data,
   });
 }
 
