@@ -1281,7 +1281,8 @@ function FilaLineaOc({
                   value={field.value ?? null}
                   onChange={(id) => field.onChange(id)}
                   disabled={!incluida}
-                  incluirGeneral={!fila.medida}
+                  // M-159: la medida de A+W también entra al almacén general (solo se recibe con factura).
+                  incluirGeneral
                   accionSinUbicaciones={
                     fila.medida ? (
                       <AsignarUbicacionEnLinea
