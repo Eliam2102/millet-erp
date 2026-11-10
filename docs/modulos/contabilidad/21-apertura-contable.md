@@ -91,3 +91,20 @@ Además, cada partida pasa por las mismas reglas que cualquier póliza (dimensio
 - El lote común (M-047).
 - El ajuste único (M-300).
 - La conciliación de la apertura contra CxC, CxP y Tesorería (M-301 y M-302).
+
+## 8. Adaptador con el lote común (tipo `contabilidad.saldos-iniciales`)
+`Api/Infrastructure/Adapters/SaldosInicialesProcesadorCarga.cs` implementa `IProcesadorCarga` (M-047):
+
+| Elemento | Valor |
+|---|---|
+| Columnas | `cuenta`, `cargo`, `abono` y `sucursal` (obligatorias); `tipoAuxiliar`, `claveAuxiliar` y `concepto` (opcionales) |
+| Fecha de corte | Obligatoria |
+| Permisos | `contabilidad.polizas.capturar` para subir; `contabilidad.polizas.autorizar` para autorizar o rechazar |
+
+**Validar:** convierte las filas en `FilaBalanzaApertura` y llama a `ValidarBalanzaAperturaQuery`. El resumen trae totales, diferencia, cuentas, auxiliares y la apertura existente.
+
+**Aplicar:** llama a `AplicarSaldosInicialesCommand` con quien subió y quien autorizó; los nombres salen de Identidad. Si un error de validación aparece al aplicar, el lote queda autorizado con el motivo.
+
+**Sucursal:** es obligatoria porque el contexto del lote no trae una sucursal por omisión.
+
+**Ubicación:** vive en Api, la raíz de composición, porque Contabilidad no puede referenciar Compartido. Compartido ya referencia Contabilidad.
