@@ -29,7 +29,7 @@ public class AdjuntosOcSubidaTests : IClassFixture<AdjuntosOcSubidaTests.Servido
     private static readonly Guid ProveedorActivoId = Guid.Parse("00000005-0001-0000-0000-000000000001");
     private static readonly Guid TipoDocumentoCotizacionId = Guid.Parse("00000003-0003-0010-0000-000000000001");
 
-    private static readonly byte[] CabeceraPdfValida = "%PDF-1.4 Contenido de prueba subida atomica"u8.ToArray();
+    private static readonly byte[] CabeceraPdfValida = Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba");
     private static readonly byte[] CabeceraExeMz = [0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00];
 
     private readonly WebApplicationFactory<Program> _factory;

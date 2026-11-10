@@ -1528,7 +1528,7 @@ public partial class OrdenesCompraEndpointsTests
         ocResp.EnsureSuccessStatusCode();
         var ocId = (await ReadJsonAsync(ocResp)).GetProperty("id").GetGuid();
 
-        var contenidoOriginal = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 }; // "%PDF-1.4"
+        var contenidoOriginal = Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba");
         var adjuntoId = await SubirAdjuntoAsync(
             client, ocId, contenidoOriginal, "application/pdf", "prueba.pdf");
 

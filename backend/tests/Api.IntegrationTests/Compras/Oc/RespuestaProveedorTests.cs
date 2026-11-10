@@ -14,7 +14,7 @@ namespace Millet.Api.IntegrationTests.Compras.Oc;
 // F1-COM-11: respuesta del proveedor sobre la OC (confirmación/rechazo, parcialidades, evidencia G1.2).
 public partial class OrdenesCompraEndpointsTests
 {
-    private static readonly byte[] PdfMinimo = "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"u8.ToArray();
+    private static readonly byte[] PdfMinimo = Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba");
 
     // Fecha de la OC = hoy local - 3; la respuesta se fecha hoy local - 1 (válida contra "no futura" y "no anterior a la OC").
     private async Task<(Guid OcId, Guid LineaId, DateOnly FechaRespuesta, HttpClient Client)> SembrarOcRespuestaAsync(bool borrador = false)
