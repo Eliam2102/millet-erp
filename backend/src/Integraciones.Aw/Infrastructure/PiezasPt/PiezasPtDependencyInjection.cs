@@ -21,7 +21,7 @@ public static class PiezasPtDependencyInjection
     {
         services.AddOptions<PiezasPtOptions>().Bind(config.GetSection(PiezasPtOptions.SectionName))
             .Validate(o => o.IntervalSeconds > 0 && o.BatchSize is > 0 and <= 1000 && o.MaxIntentos > 0 && o.PospuestoHoras > 0
-                && o.TraslapeMinutos >= 0 && o.BarridoMinutos > 0 && EstacionesValidas(o.EstacionesPt), "Revise intervalo, lote, reintentos, traslape, barrido y estaciones de PT.")
+                && o.TraslapeMinutos >= 0 && o.BarridoMinutos > 0 && o.AlbaranAwVentanaDias > 0 && EstacionesValidas(o.EstacionesPt), "Revise intervalo, lote, reintentos, traslape, barrido y estaciones de PT.")
             .ValidateOnStart();
         var options = config.GetSection(PiezasPtOptions.SectionName).Get<PiezasPtOptions>() ?? new();
 
@@ -52,6 +52,14 @@ public static class PiezasPtDependencyInjection
         services.AddScoped<IPedidosInternosOrigenReader, PedidosInternosOrigenSelector>();
         services.AddScoped<Millet.Almacen.Application.Taller.IPedidosTallerDiaReadPort, PedidosTallerDiaReadAdapter>();
         services.AddHostedService<Serie9000Worker>();
+
+        // Albaranes de A+W → descuento de PT (script 20, vw_erp_albaran_pos). Real solo con I13.4, conexión de integración y bandera.
+        services.AddKeyedScoped<IAlbaranesAwOrigenReader>("Demo", (_, _) => new AlbaranesAwOrigenAdapter(() => new AwOrigenPg.Fabrica(config).CreateConnection(), true));
+        if (options.ContratoI134Firmado && !string.IsNullOrWhiteSpace(config.GetConnectionString(cadenaIntegracion)) && options.AlbaranAwHabilitado)
+            services.AddKeyedScoped<IAlbaranesAwOrigenReader>("Real", (_, _) => new AlbaranesAwOrigenAdapter(
+                () => new SqlConnection(AwSqlTls.Validar(config.GetConnectionString(cadenaIntegracion)!, cadenaIntegracion)), false));
+        services.AddScoped<IAlbaranesAwOrigenReader, AlbaranesAwOrigenSelector>();
+        services.AddHostedService<Workers.AlbaranesAwWorker>();
         services.AddScoped<IPtSucursalPorClaveAwPort, PtSucursalPorClaveAwAdapter>();
         services.AddScoped<ISaldoPedidoReadPort, SaldoPedidoSelector>();
         services.AddHostedService<PiezasPtEntradaWorker>();

@@ -207,6 +207,21 @@ Del catálogo de productos A+W: `producto_ref`, `descripcion`,
 `unidad_medida` normalizada. Claves SAT **no existen en A+W** — las asigna el
 master del ERP (`compartido.producto_aw`) vía mapeo de unidad + UI.
 
+### 3.6 `vw_erp_albaran_pos` (descuento de PT por albarán de A+W) · propuesta 10-nov
+
+El albarán se queda en A+W; el ERP solo emite la hoja de salida (Geovany, 10-nov). En A+W el albarán es un dato de la
+cabecera (`BW_AUFTR_KOPF.NR_LIEFERSCHEIN` y `DATUM_LIEFERSCHEIN`, Jorge Toache 10-nov). DDL en
+[`20_create_vista_albaran.sql`](../operacion/aw-integracion-scripts/20_create_vista_albaran.sql), pendiente de visto bueno de TI.
+
+- Una fila por albarán y posición: `numero_pedido`, `numero_posicion` (donde se produjeron las piezas: lote de PT
+  pedido-posición), `pedido_albaran`, `posicion_albaran`, `piezas`, `albaran_folio`, `albaran_fecha`, `estatus_pedido`.
+- La cabecera guarda un solo folio. Cada entrega parcial es un pedido hijo (`DOK_TYP = 'Expedición parcial'`) con su folio;
+  sus posiciones apuntan al origen por `REF_AUSLIEF_AUFTR_ID/POS`. Las reclamaciones se quedan con su propio pedido.
+- Lector: `AlbaranesAwOrigenAdapter` (Demo/Real), worker `AlbaranesAwWorker`, bandera `IntegracionesAw:PiezasPt:AlbaranAwHabilitado`
+  (apagada), ventana `AlbaranAwVentanaDias` (7). PT: `AplicarAlbaranesAwCommand`, idempotente por pedido + posición + albarán
+  (movimiento `aw-albaran:{folio}`); no descuenta otra vez lo que ya salió o está cargado por la hoja de salida del ERP.
+- Límite: si TI borra o cambia un folio ya leído, el ERP no revierte la salida.
+
 ## 4. Mapeos A+W → tipos del ERP
 
 Rediseño 2026-07-07 (sustituye a los diccionarios de configuración por
