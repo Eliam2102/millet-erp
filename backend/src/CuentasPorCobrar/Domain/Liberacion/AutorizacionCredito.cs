@@ -67,6 +67,27 @@ public sealed class AutorizacionCredito : BaseEntity, IPerteneceAEmpresa, IAudit
         Estado = EstadoAutorizacionCredito.Autorizada;
     }
 
+    /// <summary>
+    /// M-085 (Crédito y Cobranza, 9-nov): la otorgó alguien con el permiso de Dirección. Crédito y Cobranza autoriza hasta
+    /// <see cref="ExcesoCredito.TopeCreditoYCobranza"/> de exceso; arriba de eso solo vale una autorización de Dirección.
+    /// </summary>
+    public bool AutorizadaPorDireccion { get; private set; }
+
+    public static AutorizacionCredito Crear(
+        Guid empresaId,
+        Guid supervisorUsuarioId,
+        Guid beneficiarioUsuarioId,
+        string motivo,
+        string clienteOPedidoRef,
+        DateTimeOffset ahora,
+        TimeSpan vigencia,
+        bool autorizadaPorDireccion)
+    {
+        var a = Crear(empresaId, supervisorUsuarioId, beneficiarioUsuarioId, motivo, clienteOPedidoRef, ahora, vigencia);
+        a.AutorizadaPorDireccion = autorizadaPorDireccion;
+        return a;
+    }
+
     public static AutorizacionCredito Crear(
         Guid empresaId,
         Guid supervisorUsuarioId,

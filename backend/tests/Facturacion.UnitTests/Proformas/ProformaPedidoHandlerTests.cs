@@ -144,6 +144,10 @@ public sealed class ProformaPedidoHandlerTests
         Assert.Equal(2, segunda.Version);
         Assert.Equal("Cajera Prueba", segunda.GeneradaPor);
         Assert.Equal(Ahora, segunda.GeneradaEn);
+        // M-145: 15 días naturales desde la emisión (21-oct en México) → vale hasta el 5-nov.
+        Assert.Equal(new DateOnly(2026, 11, 5), primera.VigenteHasta);
+        Assert.False(primera.Vencida);
+        Assert.Equal(new DateOnly(2026, 11, 5), (await db.ProformasPedido.FirstAsync(p => p.Id == primera.Id)).VigenteHasta);
         Assert.Equal("Cfdi", primera.Contenido.SerieFiscalPrevista);
         Assert.Equal(2, await db.ProformasPedido.CountAsync());
         Assert.Equal(EstadoPedidoFacturable.Importado, pedido.Estado);
@@ -297,5 +301,25 @@ public sealed class ProformaPedidoHandlerTests
         Assert.Equal(2, r.Version);
         Assert.Equal("PF-PED-1001-2", r.Folio);
         Assert.Equal(2, r.Contenido.Conceptos.Count);
+    }
+
+    [Theory]
+    [InlineData("2026-10-21T17:00:00Z", 15, "2026-11-05")]
+    [InlineData("2026-10-22T03:00:00Z", 15, "2026-11-05")] // 21-oct a las 21:00 en México: cuenta el día local
+    [InlineData("2026-10-21T17:00:00Z", 30, "2026-11-20")]
+    public void M145_la_vigencia_cuenta_dias_naturales_desde_el_dia_local_de_emision(string generada, int dias, string esperado) =>
+        Assert.Equal(DateOnly.Parse(esperado), new Millet.Facturacion.Application.Proformas.ProformaOpciones { VigenciaDias = dias }
+            .VigenteHasta(DateTimeOffset.Parse(generada)));
+
+    [Fact]
+    public void M145_vence_al_dia_siguiente_de_su_vigencia()
+    {
+        var p = Millet.Facturacion.Domain.Proformas.ProformaPedido.Generar(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, "PED-1",
+            "{}", "[]", 10m, "MXN", null, null, Ahora, new DateOnly(2026, 11, 5));
+        Assert.False(p.VencidaEl(new DateOnly(2026, 11, 5)));
+        Assert.True(p.VencidaEl(new DateOnly(2026, 11, 6)));
+        var anterior = Millet.Facturacion.Domain.Proformas.ProformaPedido.Generar(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, "PED-1",
+            "{}", "[]", 10m, "MXN", null, null, Ahora);
+        Assert.False(anterior.VencidaEl(new DateOnly(2030, 1, 1)));
     }
 }

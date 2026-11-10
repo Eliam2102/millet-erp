@@ -193,6 +193,7 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         ResultadoLiberacion resultado;
         ReglaAplicadaLiberacion regla;
         decimal? porcentaje = null;
+        var aplicaTopeExceso = false;
         string? motivo = null;
 
         // R2 (Crédito y Cobranza, 9-nov): la serie que siempre libera NO libera a un cliente bloqueado por vencimiento (C7.5):
@@ -239,6 +240,8 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
             {
                 resultado = ResultadoLiberacion.LiberadoConOverride;
                 regla = ReglaAplicadaLiberacion.Override;
+                // M-085: la excepción de crédito (cobertura 50–99 %) tiene tope de exceso para Crédito y Cobranza.
+                aplicaTopeExceso = true;
             }
             else
             {
@@ -291,6 +294,10 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
                 .FirstOrDefaultAsync(a => a.Id == command.OverrideId, cancellationToken)
                 ?? throw new EntityNotFoundException("AC_NO_ENCONTRADA",
                     $"No se encontró la autorización '{command.OverrideId}'.");
+            // M-085: una excepción de Crédito y Cobranza cubre hasta el tope de exceso; arriba de eso debe ser de Dirección.
+            // Supuesto a validar: el tope aplica a la excepción de crédito; la de serie que nunca libera no lo lleva.
+            if (aplicaTopeExceso)
+                ExcesoCredito.ExigirNivel(command.Moneda, snapshot.Disponible, command.MontoPedido, autorizacion.AutorizadaPorDireccion);
             autorizacion.Consumir(decision.Id, usuarioId, ahora, command.PedidoRef);
         }
 

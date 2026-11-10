@@ -17,13 +17,17 @@ public sealed record ProformaPedidoResponse(
     string? GeneradaPor,
     string? NumeroPedido,
     ProformaCfdi Contenido,
-    IReadOnlyList<string> Avisos)
+    IReadOnlyList<string> Avisos,
+    DateOnly? VigenteHasta = null,
+    bool Vencida = false)
 {
-    public static ProformaPedidoResponse Desde(ProformaPedido p)
+    public static ProformaPedidoResponse Desde(ProformaPedido p, DateTimeOffset? ahoraUtc = null)
     {
         ArgumentNullException.ThrowIfNull(p);
+        var hoy = Timbrado.CfdiEmisionBuilder.DiaFiscal(ahoraUtc ?? DateTimeOffset.UtcNow);
         return new(p.Id, p.PedidoFacturableId, p.Folio, p.NumeroVersion, p.GeneradaEn, p.GeneradaPorNombre,
-            p.NumeroPedido, ProformaJson.LeerContenido(p.ContenidoJson), ProformaJson.LeerAvisos(p.AvisosJson));
+            p.NumeroPedido, ProformaJson.LeerContenido(p.ContenidoJson), ProformaJson.LeerAvisos(p.AvisosJson),
+            p.VigenteHasta, p.VencidaEl(hoy));
     }
 }
 

@@ -142,6 +142,8 @@ public sealed class AutorizacionCreditoConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.VigenteHasta).IsRequired();
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Property(e => e.DecisionLiberacionId);
+        // M-085: autorización otorgada por Dirección (exceso arriba del tope de Crédito y Cobranza).
+        builder.Property(e => e.AutorizadaPorDireccion).HasDefaultValue(false);
 
         // Bandeja de vigentes por beneficiario.
         builder.HasIndex(e => new { e.BeneficiarioUsuarioId, e.Estado })
