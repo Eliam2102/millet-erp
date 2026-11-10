@@ -169,11 +169,11 @@ public static class AlmacenesAppSalida
         return true;
     }
 
-    private static string? Texto(JsonElement o, string n) =>
+    internal static string? Texto(JsonElement o, string n) =>
         o.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     // Ausente o null → true con null; presente con tipo distinto de número → false.
-    private static bool TryNumero(JsonElement o, string n, out decimal? valor)
+    internal static bool TryNumero(JsonElement o, string n, out decimal? valor)
     {
         valor = null;
         if (!o.TryGetProperty(n, out var v) || v.ValueKind == JsonValueKind.Null) return true;

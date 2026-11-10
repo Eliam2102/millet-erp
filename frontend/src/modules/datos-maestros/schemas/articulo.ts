@@ -31,6 +31,9 @@ export const CrearArticuloSchema = z.object({
   // FK del catálogo de categorías (ADR-0046 PR2). null = sin categoría / no
   // reconciliado. El nombre legacy viaja en el read DTO (para el cold value).
   categoriaId: z.string().nullable(),
+  // M-172: consumo por tambor a línea (silicón, Ködispace) y kilos por presentación.
+  consumoPorTamborALinea: z.boolean(),
+  kgPorPresentacion: z.number().positive('Debe ser mayor que cero').nullable(),
   precioReferenciaMonto: z
     .number()
     .min(0, 'Mínimo 0')
@@ -65,6 +68,9 @@ export const ActualizarArticuloSchema = z.object({
   categoriaId: z.string().nullable(),
   // Familia A+W del vidrio crudo (E07 D5). null = sin vínculo.
   productoAwId: z.string().nullable().optional(),
+  // M-172: consumo por tambor a línea (silicón, Ködispace) y kilos por presentación.
+  consumoPorTamborALinea: z.boolean(),
+  kgPorPresentacion: z.number().positive('Debe ser mayor que cero').nullable(),
   precioReferenciaMonto: z
     .number()
     .min(0, 'Mínimo 0')

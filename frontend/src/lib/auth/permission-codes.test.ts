@@ -135,6 +135,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
   'datos_maestros.clientes.sincronizar',
+  'integraciones.aw.administracion.configuracion',
   'datos_maestros.clientes.origen-ver',
   'datos_maestros.clientes.fiscal-editar',
   'datos_maestros.clientes.unificar',

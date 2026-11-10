@@ -191,6 +191,7 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesGestionar: 'datos_maestros.clientes.gestionar',
   // Sincronización de clientes desde A+W (F1-ADM-06).
   DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
+  IntegracionesAwAdministracionConfiguracion: 'integraciones.aw.administracion.configuracion',
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
   DatosMaestrosClientesUnificar: 'datos_maestros.clientes.unificar',

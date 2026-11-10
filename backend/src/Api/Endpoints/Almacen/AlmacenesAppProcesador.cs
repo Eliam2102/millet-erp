@@ -23,7 +23,8 @@ public sealed class AlmacenesAppProcesador(
     MermaProcesoAppGuardado mermasGuardado, IDimensionesSalidaInventarioPort dimensiones,
     IOptions<AlmMensajeOptions> opciones) : IProcesadorMensajeApp
 {
-    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos];
+    // Tipos que, rechazados (ERROR/EN_REVISION), se reevalúan al llegar el reenvío del mismo mensajeId.
+    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos, AlmacenesAppEntrada.Tipo];
 
     /// <summary>Forma del sobre (tipo, version, datos, mensajeId ≤ 64); null = válido.</summary>
     public static string? ErrorDeSobre(JsonElement root)
@@ -80,6 +81,16 @@ public sealed class AlmacenesAppProcesador(
                     return g.Estado == SalidaAppAlmacenes.EnRevision
                         ? new AcuseApp(mensajeId, "ERROR", g.Folio, g.Error)
                         : new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
+                previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+            }
+            else if (tipo == AlmacenesAppEntrada.Tipo)
+            {
+                // M-159: sube existencia en el almacén general de la sucursal; movimiento y MensajeApp se confirman juntos.
+                var (resuelta, errorEntrada) = await AlmacenesAppEntrada.ManejarAsync(datos, salidaResolver, usuarioServicio, ct);
+                if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorEntrada, ct);
+                var g = await salidasGuardado.GuardarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.SucursalId, resuelta.Motivo, resuelta.Entradas, ct);
+                if (!g.Duplicado) return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
                 previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
             }
             else if (AlmacenesAppMerma.Tipos.Contains(tipo))

@@ -15,7 +15,8 @@ namespace Millet.Almacen.Infrastructure.PublicAdapters;
 /// → revisión, con folio). Sucursal (D7) y artículo se resuelven con el mismo puerto que las salidas de la app.
 /// </summary>
 public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpresaContext empresa,
-    IAppSalidaResolverPort resolver, IUsuarioServicioReadPort usuarioServicio, IIntegrationEventPublisher events)
+    IAppSalidaResolverPort resolver, IUsuarioServicioReadPort usuarioServicio, IIntegrationEventPublisher events,
+    IArticuloReadPort articulos)
 {
     /// <summary>Hora del último escaneo registrado para el origen (marca de agua del lector).</summary>
     public async Task<DateTime?> MarcaAguaAsync(Guid empresaId, string origen, CancellationToken ct)
@@ -90,6 +91,12 @@ public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpr
         var r = await resolver.ResolverAsync(c.ClaveSucursal, [new GrupoSalidaApp(c.ComponenteRef, null, null)], ct);
         if (r.Error is not null) { Revision(r.Error); return; }
         var g = r.Grupos[0];
+        // M-172 (AC-030): silicón y Ködispace ya salieron del inventario por tambor a la línea; la pieza no los descuenta.
+        if (await articulos.ObtenerAsync(g.ArticuloId, ct) is { ConsumoPorTamborALinea: true })
+        {
+            c.Resolver(ConsumoComponenteAw.PorTambor, null, null, null);
+            return;
+        }
         var norma = await db.NormasConsumoComponente.AsNoTracking()
             .FirstOrDefaultAsync(n => n.EmpresaId == c.EmpresaId && n.ArticuloId == g.ArticuloId, ct);
         var (cantidad, error) = ConsumoComponentes.Calcular(g.UnidadMedida, c.AnchoMm, c.AltoMm, norma, c.ComponenteRef);

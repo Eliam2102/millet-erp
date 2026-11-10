@@ -18,6 +18,7 @@ public class ConsumoComponentesTests
     private static readonly Guid EmpresaId = Guid.NewGuid();
     private static readonly Guid Sucursal = Guid.NewGuid();
     private static readonly Guid Separador = Guid.NewGuid();
+    private static readonly Guid Silicon = Guid.NewGuid();
 
     private static NormaConsumoComponente Norma(decimal consumo = 1m, decimal merma = 0m, decimal? factor = null) =>
         new(Guid.NewGuid(), consumo, merma, factor);
@@ -79,8 +80,17 @@ public class ConsumoComponentesTests
     {
         public Task<ResolverSalidaResultado> ResolverAsync(string sucursalCodigo, IReadOnlyList<GrupoSalidaApp> grupos, CancellationToken ct) =>
             Task.FromResult(sucursalCodigo == "MID"
-                ? new ResolverSalidaResultado(null, Sucursal, [new GrupoSalidaResuelto(Separador, "M LIN.", null, null, null)])
+                ? new ResolverSalidaResultado(null, Sucursal, [new GrupoSalidaResuelto(grupos[0].ArticuloAw == "SIL" ? Silicon : Separador, "M LIN.", null, null, null)])
                 : new ResolverSalidaResultado($"No existe la sucursal '{sucursalCodigo}'.", Guid.Empty, []));
+    }
+
+    /// <summary>M-172: solo el silicón está marcado «Se consume por tambor a línea».</summary>
+    private sealed class Articulos : IArticuloReadPort
+    {
+        private static ArticuloLectura L(Guid id) => new(id, "X", "X", "M LIN.", null, true, ConsumoPorTamborALinea: id == Silicon);
+        public Task<ArticuloLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ArticuloLectura?>(L(id));
+        public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(ids.ToDictionary(i => i, L));
     }
 
     private sealed class Usuario : IUsuarioServicioReadPort
@@ -100,7 +110,7 @@ public class ConsumoComponentesTests
         db.SaldosInventario.Add(new SaldoInventario(ubi, sub, Separador, 100, 10m, null));
         if (conNorma) db.NormasConsumoComponente.Add(new NormaConsumoComponente(Separador, 1m, 0m, null) { EmpresaId = EmpresaId });
         db.SaveChanges();
-        return (db, new ConsumoComponentesGuardado(db, new FakeEmpresa(), new Resolver(), new Usuario(), eventos ?? new Eventos()));
+        return (db, new ConsumoComponentesGuardado(db, new FakeEmpresa(), new Resolver(), new Usuario(), eventos ?? new Eventos(), new Articulos()));
     }
 
     private static PiezaComponenteAw Pieza(string sucursal = "MID") =>
@@ -170,5 +180,23 @@ public class ConsumoComponentesTests
         await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { ComponenteRef = "" }, default);
         (await db.ConsumosComponenteAw.SingleAsync()).Estado.Should().Be(ConsumoComponenteAw.Excepcion);
         (await db.Movimientos.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Criterio4_el_silicon_por_tambor_no_se_descuenta_por_pieza_y_el_separador_si()
+    {
+        var (db, g) = Guardado(conNorma: true);
+        for (var i = 1; i <= 5; i++)
+        {
+            var etiqueta = $"03178187{i}";
+            await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { Etiqueta = etiqueta }, default);
+            await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { Etiqueta = etiqueta, ComponenteRef = "SIL" }, default);
+        }
+
+        var consumos = await db.ConsumosComponenteAw.AsNoTracking().ToListAsync();
+        consumos.Where(c => c.ComponenteRef == "SIL").Should().HaveCount(5).And.OnlyContain(c => c.Estado == ConsumoComponenteAw.PorTambor && c.Folio == null);
+        consumos.Where(c => c.ComponenteRef == "520042").Should().HaveCount(5).And.OnlyContain(c => c.Estado == ConsumoComponenteAw.Recibido);
+        var lineas = await db.Movimientos.Include(m => m.Lineas).SelectMany(m => m.Lineas).ToListAsync();
+        lineas.Should().HaveCount(5).And.OnlyContain(l => l.ArticuloId == Separador);
     }
 }

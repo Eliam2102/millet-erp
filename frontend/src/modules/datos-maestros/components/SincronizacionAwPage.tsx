@@ -30,6 +30,7 @@ import {
   useEjecucionesSync,
 } from '@/modules/datos-maestros/api/clientes';
 import { CausaConflictoAw, EstadoConflictoAwBadge } from '@/modules/datos-maestros/components/ConflictoAwCeldas';
+import { AvisosRetornoAwSection } from '@/modules/datos-maestros/components/AvisosRetornoAwSection';
 import { UnificarClientesRfcSheet } from '@/modules/datos-maestros/components/UnificarClientesRfcSheet';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import {
@@ -56,6 +57,7 @@ function mensaje(error: unknown) {
 export function SincronizacionAwPage() {
   const puedeClientes = useHasPermission(PermisosCanonicos.DatosMaestrosClientesSincronizar);
   const puedeProductos = useHasPermission(PermisosCanonicos.DatosMaestrosProductosAwGestionar);
+  const puedeRetorno = useHasPermission(PermisosCanonicos.IntegracionesAwAdministracionConfiguracion);
   const [entidadElegida, setEntidad] = useState<EntidadConflictoAw>('clientes');
   const entidad: EntidadConflictoAw =
     entidadElegida === 'clientes' && !puedeClientes && puedeProductos
@@ -120,6 +122,7 @@ export function SincronizacionAwPage() {
         Administración / Datos maestros / Sincronización con A+W
       </nav>
       <PageHeader titulo="Sincronización con A+W" />
+      {puedeRetorno && <AvisosRetornoAwSection />}
 
       <section className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Corridas">
         <div className="flex flex-wrap items-center justify-between gap-3">
