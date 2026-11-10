@@ -52,22 +52,31 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
         _logger = logger;
     }
 
+    /// <summary>Minutos que espera un pedido Pospuesto (catálogo incompleto) antes de volver a entrar al lote.</summary>
+    public const int EsperaPospuestaMinutos = 10;
+
     public async Task<IReadOnlyList<SolicitudAw>> LeerPendientesAsync(
         int max, CancellationToken cancellationToken)
     {
-        // Pendiente = resultado NULL o Pospuesta(3), en orden (pedido, version)
-        // — doc 04 §2. El índice IX_asp_barrido cubre exactamente este scan.
+        // Pendiente = resultado NULL o Pospuesta(3), en orden (pedido, version) — doc 04 §2.
+        // Un pedido con una versión Pospuesta reintentada hace menos de EsperaPospuestaMinutos sale del lote completo
+        // (todas sus versiones, para no romper el orden): sin esto las 50 pospuestas de número más bajo llenaban cada
+        // lote y los pendientes nuevos nunca se leían (QA, 10-nov: 1,048 sin procesar desde el 26-oct).
         const string sql = """
-            SELECT TOP(@max) solicitud_id, numero_pedido, operacion, [version], creada_at
-              FROM dbo.aw_solicitud_pedido
-             WHERE resultado IS NULL OR resultado = 3
-             ORDER BY numero_pedido, [version]
+            SELECT TOP(@max) s.solicitud_id, s.numero_pedido, s.operacion, s.[version], s.creada_at
+              FROM dbo.aw_solicitud_pedido s
+             WHERE (s.resultado IS NULL OR s.resultado = 3)
+               AND NOT EXISTS (SELECT 1 FROM dbo.aw_solicitud_pedido e
+                                WHERE e.numero_pedido = s.numero_pedido AND e.resultado = 3
+                                  AND e.procesada_at > DATEADD(MINUTE, -@espera, SYSDATETIMEOFFSET()))
+             ORDER BY s.numero_pedido, s.[version]
             """;
 
         return await EjecutarAsync("LeerPendientes", async connection =>
         {
             using var command = CrearCommand(connection, sql);
             command.Parameters.Add(new SqlParameter("@max", SqlDbType.Int) { Value = max });
+            command.Parameters.Add(new SqlParameter("@espera", SqlDbType.Int) { Value = EsperaPospuestaMinutos });
 
             var rows = new List<SolicitudAw>();
             using var reader = await command.ExecuteReaderAsync(cancellationToken);

@@ -41,10 +41,13 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
         // Pendiente = resultado NULL o Pospuesta(3), en orden (pedido, version)
         // — doc 04 §2. El índice IX_asp_barrido cubre exactamente este scan.
         const string sql = """
-            SELECT solicitud_id, numero_pedido, operacion, version, creada_at
-              FROM dbo.aw_solicitud_pedido
-             WHERE resultado IS NULL OR resultado = 3
-             ORDER BY numero_pedido, version
+            SELECT s.solicitud_id, s.numero_pedido, s.operacion, s.version, s.creada_at
+              FROM dbo.aw_solicitud_pedido s
+             WHERE (s.resultado IS NULL OR s.resultado = 3)
+               AND NOT EXISTS (SELECT 1 FROM dbo.aw_solicitud_pedido e
+                                WHERE e.numero_pedido = s.numero_pedido AND e.resultado = 3
+                                  AND e.procesada_at > now() - make_interval(mins => @espera))
+             ORDER BY s.numero_pedido, s.version
              LIMIT @max
             """;
 
@@ -52,6 +55,7 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
         {
             using var command = PgPlumbing.CrearCommand(connection, sql, _options);
             PgPlumbing.Param(command, "@max", DbType.Int32, max);
+            PgPlumbing.Param(command, "@espera", DbType.Int32, Pedidos.AwSolicitudesSqlReader.EsperaPospuestaMinutos);
 
             var rows = new List<SolicitudAw>();
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
