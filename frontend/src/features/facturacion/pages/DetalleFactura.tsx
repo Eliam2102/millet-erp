@@ -40,6 +40,7 @@ import { IntentosTimbradoPanel } from '@/features/facturacion/components/Intento
 import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { SustituirFacturaPanel } from '@/features/facturacion/components/SustituirFacturaPanel';
 import { NotasCreditoPendientesAviso } from '@/features/facturacion/components/NotasCreditoPendientesAviso';
+import { EfectosComprobanteSeccion } from '@/features/facturacion/components/EfectosComprobanteSeccion';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { descargarArchivo } from '@/features/facturacion/lib/descargas';
@@ -282,6 +283,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       />
 
       <NotasCreditoPendientesAviso notas={f.notasCreditoPendientes ?? []} />
+
+      <EfectosComprobanteSeccion comprobanteId={f.id} />
 
       <AvisoSustitucion f={f} />
 

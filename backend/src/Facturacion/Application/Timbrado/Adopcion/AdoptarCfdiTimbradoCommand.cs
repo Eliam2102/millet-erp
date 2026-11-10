@@ -104,8 +104,12 @@ public sealed class AdoptarCfdiTimbradoHandler(
         await ContingenciasTimbrado.AplicarIntentoAsync(db, comprobante, null, null, timbrado: true, ahora, ct);
 
         // Los efectos posteriores al timbrado (evento contable, pedido, A+W, NC de ranura, REP) una sola vez.
-        await new EfectosPostTimbrado(db, sender, fiscal, cfdiRepo, eventos, receptorFiscal, productos)
-            .AplicarAsync(comprobante, ahora, ct);
+        // M-285: en la factura de venta se registran con el timbrado y se aplican uno por uno.
+        var efectos = new EfectosPostTimbrado(db, sender, fiscal, cfdiRepo, eventos, receptorFiscal, productos);
+        if (comprobante is FacturaVenta venta)
+            await efectos.RegistrarAsync(venta, await Integration.ClienteContableFacturacion.ResolverAsync(db, venta, ct), ct);
+        else
+            await efectos.AplicarAsync(comprobante, ahora, ct);
 
         try
         {
@@ -116,6 +120,8 @@ public sealed class AdoptarCfdiTimbradoHandler(
             throw new ConflictException("COMPROBANTE_CAMBIO",
                 "El comprobante cambió mientras se adoptaba el CFDI (otro reintento o adopción). Recarga y revisa su estado.", ex);
         }
+        if (comprobante is FacturaVenta timbrada)
+            await efectos.EjecutarPendientesAsync(timbrada, ahora, ct);
         return Respuesta(comprobante, adoptado: true, cotejo);
     }
 

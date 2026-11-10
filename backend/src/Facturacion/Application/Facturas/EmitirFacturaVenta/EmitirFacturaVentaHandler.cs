@@ -417,13 +417,12 @@ public sealed class EmitirFacturaVentaHandler
 
         // 9. F10-PR1: evento de integración (al Outbox en la misma TX vía el
         // interceptor); Contabilidad arma la póliza desde el evento (C1.5). Solo si quedó Timbrada.
+        // M-285: el evento, el aviso a A+W y la NC de ranura quedan registrados con la factura y se
+        // aplican uno por uno después de guardarla; si uno falla queda pendiente para reintentarlo.
+        var efectos = new EfectosPostTimbrado(_db, _sender, _fiscal, _cfdiRepo, _eventos, _receptorFiscal, _productos);
         if (factura.Estado == EstadoTimbrado.Timbrado)
-        {
-            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
-                factura, ahora, command.ClienteId ?? pedido?.ClienteId,
-                await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken), pedido),
-                cancellationToken);
-        }
+            await efectos.RegistrarAsync(factura, command.ClienteId ?? pedido?.ClienteId, cancellationToken,
+                incluirSustitucion: false);
 
         // [Decisión 01-G] G5: el pedido queda tomado por su factura desde el
         // PRIMER intento (1 pedido → 1 documento → N intentos), falle o no el
@@ -437,18 +436,8 @@ public sealed class EmitirFacturaVentaHandler
         if (pedido is not null && salida is null)
         {
             pedido.MarcarFacturado(factura.Id);
-
-            // TR-01: el aviso a A+W ya no es un UPDATE por pedido (B6): la factura viaja en
-            // FacturaVentaTimbradaIntegrationEvent y Integraciones.Aw deja su fila Documento.
-            if (pedido.Origen == OrigenPedido.Aw && factura.Estado == EstadoTimbrado.Timbrado)
-            {
-                var control = await _db.IngestaControles
-                    .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
-                if (control is not null)
-                {
-                    control.CambiarEstado(EstadoIngesta.Facturado);
-                }
-            }
+            // TR-01: el aviso a A+W viaja en FacturaVentaTimbradaIntegrationEvent; el control de
+            // ingesta pasa a Facturado con el efecto EstadoPedido (M-285).
         }
 
         // U-1 (86e3yxn2p): la factura timbrada ya existe ante el SAT; se guarda
@@ -458,6 +447,10 @@ public sealed class EmitirFacturaVentaHandler
         _db.FacturasVenta.Add(factura);
         await _db.SaveChangesAsync(cancellationToken);
         _facturaPersistida = true;
+
+        // 9.bis M-285: evento contable y estado del pedido (A+W), antes de las NC (mismo orden que antes).
+        await efectos.EjecutarPendientesAsync(factura, ahora, cancellationToken,
+            t => t is TipoEfectoComprobante.EventoContable or TipoEfectoComprobante.EstadoPedido);
 
         // 10. F4-PR2: una NC por anticipo (relación 07 a la factura final). 86e3zg0vb: los que se aplican después solo quedan
         // apartados para esta factura (ya relacionada 07); su NC la emite «Aplicar anticipo».
@@ -474,11 +467,9 @@ public sealed class EmitirFacturaVentaHandler
         // (relación 01) — la factura va por el total y la caja cobra
         // total − NC acreditadas ([Decisión 13-K]). Solo si quedó Timbrada; si
         // el timbre falló, la emite el reintento (ReintentarTimbradoHandler).
-        var ncRanura = await NcRanuraEmisor.EmitirSiAplicaAsync(
-            _db, _sender, _fiscal, _cfdiRepo, _eventos,
-            factura, pedido, _user.UserId, ahora, _receptorFiscal, cancellationToken);
-        if (ncRanura is not null)
-            await _db.SaveChangesAsync(cancellationToken);
+        await efectos.EjecutarPendientesAsync(factura, ahora, cancellationToken,
+            t => t == TipoEfectoComprobante.NcRanura);
+        var ncRanura = efectos.UltimaNcRanura;
 
         return new EmitirFacturaVentaResponse(
             Id: factura.Id,

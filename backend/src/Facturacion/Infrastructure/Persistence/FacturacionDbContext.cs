@@ -118,6 +118,7 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Bitácora de intentos de timbrado — una fila por llamada al PAC ([Decisión 01-G] G4).</summary>
     public DbSet<BitacoraIntentoTimbrado> BitacorasIntentoTimbrado => Set<BitacoraIntentoTimbrado>();
     public DbSet<ContingenciaTimbrado> ContingenciasTimbrado => Set<ContingenciaTimbrado>();
+    public DbSet<EfectoComprobante> EfectosComprobante => Set<EfectoComprobante>();
 
     /// <summary>Control de idempotencia de la ingesta — fuente de verdad (F3-PR1).</summary>
     public DbSet<IngestaControl> IngestaControles => Set<IngestaControl>();
@@ -213,6 +214,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
         modelBuilder.ApplyConfiguration(new ContingenciaTimbradoConfiguration());
+        modelBuilder.ApplyConfiguration(new EfectoComprobanteConfiguration());
         modelBuilder.ApplyConfiguration(new IngestaControlConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableSnapshotConfiguration());
         modelBuilder.ApplyConfiguration(new ExcepcionImportacionConfiguration());

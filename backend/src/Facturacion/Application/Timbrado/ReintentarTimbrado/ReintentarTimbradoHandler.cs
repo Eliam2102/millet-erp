@@ -200,7 +200,16 @@ public sealed class ReintentarTimbradoHandler
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
             _fiscal, _cfdiRepo, ahora, ct, PersistirEnProcesoAsync);
 
-        await _efectos.FacturaVentaAsync(factura, ahora, ct);
+        // M-285: timbrada, sus efectos se registran y se aplican uno por uno (un fallo queda pendiente
+        // y se reintenta aparte, sin deshacer el timbrado). En proceso, solo se toma el pedido (G5).
+        if (factura.Estado == EstadoTimbrado.Timbrado)
+        {
+            await _efectos.RegistrarAsync(factura, await ClienteContableFacturacion.ResolverAsync(_db, factura, ct), ct);
+            await _db.SaveChangesAsync(ct);
+            await _efectos.EjecutarPendientesAsync(factura, ahora, ct);
+        }
+        else
+            await _efectos.FacturaVentaAsync(factura, ahora, ct);
 
         return nameof(FacturaVenta);
     }
