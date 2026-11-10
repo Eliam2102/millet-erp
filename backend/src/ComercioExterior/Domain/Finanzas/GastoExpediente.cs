@@ -88,7 +88,8 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CE_GASTO_YA_APLICADO", "No se puede editar un gasto aplicado a un anticipo.");
         if (fuente == "MXN" && d.Moneda != "MXN")
             throw new BusinessRuleException("CE_TIPO_CAMBIO_FUENTE_INVALIDA", "La fuente MXN solo aplica a gastos en pesos.");
-        if (fuente == "Banxico" && sugerido is > 0) tc = sugerido.Value; // Banxico nunca toma el TC enviado por el cliente
+        var delCatalogo = fuente is "Banxico" or "Catálogo Manual" or "Catálogo DOF";
+        if (delCatalogo && sugerido is > 0) tc = sugerido.Value; // la fuente del catálogo nunca toma el TC enviado por el cliente
         if (concepto.RequiereOrdenServicio && orden is null)
             throw new BusinessRuleException("CE_ORDEN_SERVICIO_REQUERIDA", "Seleccione una orden de servicio para este concepto.");
         if (orden is not null && (orden.Id == Guid.Empty || orden.Total <= 0 || orden.Asignado <= 0 || orden.Asignado > orden.Total ||
@@ -103,10 +104,11 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CE_GASTO_INVALIDO", "Revise proveedor, factura, moneda, fecha e importe positivo a centavos.");
         if (d.ImportesDirectos?.Any(x => x.Key == Guid.Empty || x.Value < 0 || decimal.Round(x.Value, 2) != x.Value) == true)
             throw new BusinessRuleException("CE_DIRECTO_INVALIDO", "Los importes directos son MXN a centavos y no negativos.");
-        var manual = fuente is not ("MXN" or "Banxico");
-        if (manual && (fuente is not ("Negociado" or "CFDI" or "Pedimento") || (nota?.Trim().Length ?? 0) is < 10 or > 500 || sugerido is not > 0 || usuario is null))
+        var manual = fuente != "MXN" && !delCatalogo;
+        if (manual && (fuente is not ("Negociado" or "CFDI" or "Pedimento") || (nota?.Trim().Length ?? 0) is < 10 or > 500 || sugerido is <= 0 || usuario is null))
             throw new BusinessRuleException("CE_TIPO_CAMBIO_NOTA_REQUERIDA", "Elija la fuente (Negociado, CFDI o Pedimento) y capture una nota de 10 caracteres o más.");
-        TipoCambioSugerido = d.Moneda == "MXN" ? null : sugerido ?? tc;
+        // Con fuente capturada el sugerido es sólo comparativo: sin fila del catálogo queda vacío (M-187).
+        TipoCambioSugerido = d.Moneda == "MXN" ? null : manual ? sugerido : sugerido ?? tc;
         DiferenciaTipoCambioPct = TipoCambioSugerido is decimal s ? decimal.Round((tc - s) / s * 100, 2, MidpointRounding.AwayFromZero) : null;
         NotaTipoCambio = manual ? nota!.Trim() : null; TipoCambioModificadoPor = manual ? usuario : null;
         ImpuestoPeca = d.ImpuestoPeca;

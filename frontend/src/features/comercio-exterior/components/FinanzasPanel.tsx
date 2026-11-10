@@ -124,7 +124,9 @@ function Gastos({
   const exigencias = useDimensionesDistribucion(id, !!previa && importacion).data;
   // M-450 (86e3zr7ft): sin el área o el equipo que exige la cuenta, la distribución no procede.
   const faltaDimensionDistribucion =
-    importacion && !!exigencias && faltaAreaEquipo(dimensiones, exigencias.exigeArea, exigencias.exigeEquipo);
+    importacion &&
+    !!exigencias &&
+    faltaAreaEquipo(dimensiones, exigencias.exigeArea, exigencias.exigeEquipo);
   const preview = useMutation({
     mutationFn: async () => ({
       resultado: (
@@ -268,6 +270,9 @@ function Gastos({
                 <TableCell className="text-right tabular-nums">{dinero(g.importe)}</TableCell>
                 <TableCell className="text-right tabular-nums">
                   {g.moneda === 'USD' ? g.tipoCambio.toFixed(4) : '—'}
+                  {g.moneda === 'USD' && g.fuenteTipoCambio !== 'Banxico' && (
+                    <span className="block text-xs text-ink-muted">{g.fuenteTipoCambio}</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{dinero(g.importeMxn)}</TableCell>
                 <TableCell className="text-right tabular-nums">
@@ -435,9 +440,9 @@ function Gastos({
                 ? 'El expediente cambió. Vuelve a calcular la vista previa.'
                 : faltaDimensionDistribucion
                   ? 'Captura el área y el equipo que exige la cuenta del gasto de importación.'
-                : accion.isPending
-                  ? 'Guardando distribución.'
-                  : undefined
+                  : accion.isPending
+                    ? 'Guardando distribución.'
+                    : undefined
             }
             onClick={() => {
               void accion
@@ -606,7 +611,9 @@ function GastoForm({
   );
   const [moneda, setMoneda] = useState(gasto?.moneda ?? 'MXN');
   const [contenedor, setContenedor] = useState(gasto?.contenedorId ?? '');
-  const [fuenteTc, setFuenteTc] = useState(gasto?.fuenteTipoCambio ?? 'Banxico');
+  const [fuenteTc, setFuenteTc] = useState(
+    !gasto || gasto.fuenteTipoCambio.startsWith('Catálogo') ? 'Banxico' : gasto.fuenteTipoCambio,
+  );
   const ordenes = useOrdenesServicio(data.expediente.id, proveedor, busquedaOrden);
   const requiereOrden = f.conceptos.find((c) => c.id === concepto)?.requiereOrdenServicio;
   const accion = useMutarFinanzas(data.expediente.id);
@@ -900,8 +907,9 @@ function GastoForm({
         )}
         <FormCampo span={12}>
           <p className="text-xs text-ink-muted">
-            Para USD se sugiere Banxico de la fecha de factura y puede cambiarse. Si la factura
-            existe en Cuentas por Pagar, se vincula automáticamente.
+            Para USD se sugiere Banxico de la fecha de factura; si esa fecha no tiene Banxico, se
+            usa el tipo de cambio Manual o DOF del catálogo de monedas y se indica su origen. Puede
+            cambiarse. Si la factura existe en Cuentas por Pagar, se vincula automáticamente.
           </p>
           {accion.isError && (
             <p role="alert" className="text-danger-fg">
@@ -1183,7 +1191,8 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                     ))}
                   {a.referenciaPago && (
                     <p className="text-xs text-ink-muted">
-                      Referencia bancaria: {a.referenciaPago} {a.fechaPago && <DateTimeDisplay value={a.fechaPago} />}
+                      Referencia bancaria: {a.referenciaPago}{' '}
+                      {a.fechaPago && <DateTimeDisplay value={a.fechaPago} />}
                     </p>
                   )}
                   {a.devolucionPendienteId && (
