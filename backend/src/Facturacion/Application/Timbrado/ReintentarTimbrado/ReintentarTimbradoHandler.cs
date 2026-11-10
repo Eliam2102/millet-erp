@@ -162,21 +162,10 @@ public sealed class ReintentarTimbradoHandler
     /// fallido "limpio") y el <c>TimbradoPendienteWorker</c> lo pasa a
     /// <c>PAC_TIMEOUT</c>, que exige confirmación para reintentar.
     /// </summary>
-    private async Task PersistirEnProcesoAsync(CancellationToken ct)
-    {
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            throw new ConflictException(
-                "REINTENTO_EN_CURSO",
-                "Otro reintento de timbrado de este comprobante ya está en curso. " +
-                "Espera unos segundos y recarga para ver el resultado; no lo vuelvas a intentar.",
-                ex);
-        }
-    }
+    private Task PersistirEnProcesoAsync(CancellationToken ct) =>
+        TimbradoDurable.GuardarAsync(_db, "REINTENTO_EN_CURSO",
+            "Otro reintento de timbrado de este comprobante ya está en curso. " +
+            "Espera unos segundos y recarga para ver el resultado; no lo vuelvas a intentar.", ct);
 
     // ───────────────────────── Despacho por tipo ─────────────────────────
     // Cada método carga las navegaciones del subtipo (la instancia ya está
