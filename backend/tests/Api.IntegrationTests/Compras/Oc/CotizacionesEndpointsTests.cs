@@ -42,7 +42,7 @@ public partial class OrdenesCompraEndpointsTests
         var usdId = (await ReadJsonAsync(usd)).GetProperty("id").GetGuid();
 
         using var contenido = new MultipartFormDataContent();
-        var archivo = new ByteArrayContent("%PDF-1.4\n%cotizacion\n"u8.ToArray());
+        var archivo = new ByteArrayContent(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba"));
         archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         contenido.Add(archivo, "archivo", "cotizacion.pdf");
         contenido.Add(new StringContent(TipoDocCotizacion.ToString()), "tipoDocumentoId");
@@ -197,7 +197,7 @@ public partial class OrdenesCompraEndpointsTests
     private static async Task SubirPdfCotizacionAsync(HttpClient client, Guid cotizacionId)
     {
         using var contenido = new MultipartFormDataContent();
-        var archivo = new ByteArrayContent("%PDF-1.4\n%cotizacion\n"u8.ToArray());
+        var archivo = new ByteArrayContent(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba"));
         archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         contenido.Add(archivo, "archivo", "cotizacion.pdf");
         contenido.Add(new StringContent(TipoDocCotizacion.ToString()), "tipoDocumentoId");
