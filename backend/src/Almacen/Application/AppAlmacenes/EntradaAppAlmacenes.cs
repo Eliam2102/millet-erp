@@ -21,7 +21,7 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 /// </summary>
 public sealed record EntradaApp(
     Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal Cantidad, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Lote = null);
+    string? Lote = null, LlaveAlmacenApp? Almacen = null);
 
 /// <summary>Puertos que usa la entrada de la app (lectura de la OC, conversión de unidades, periodo contable y outbox).</summary>
 public sealed record EntradaAppPuertos(
@@ -29,7 +29,8 @@ public sealed record EntradaAppPuertos(
 
 /// <summary>
 /// ENTRADA_ALMACEN de la app (M-159, contrato v8): la app ya acomodó las hojas en sus racks; el ERP sube existencia por
-/// sucursal + artículo A+W + medida, sin pedir rack, en el almacén general (ubicación ÚNICA) de la sucursal. No guarda: el
+/// sucursal + artículo A+W + medida, sin pedir rack, en la ubicación de la llave de cada grupo (sucursal + tipo + línea, M-446) o,
+/// si la sucursal aún no tiene llaves, en el almacén general (ubicación ÚNICA) de la sucursal. No guarda: el
 /// llamador confirma junto con el <c>MensajeApp</c>.
 /// <para>
 /// Si <c>compra</c> es una OC del ERP, la entrada ES la recepción de esa OC: cada partida se liga a su línea (artículo +
@@ -50,8 +51,19 @@ public static class EntradaAppAlmacenes
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
         string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct)
     {
-        // ponytail: un solo almacén general por sucursal (primero de materiales directos). El mapeo por tipo + línea
-        // (EXPORTACION/OBRAS/GENERAL/IMPORTACION TEMPORAL × HEGLA 1/HEGLA 2/BYSTRONIC) llega con el catálogo de 16 llaves.
+        // M-446: con la lista de almacenes de la sucursal, cada grupo entra a la ubicación de su llave (tipo + línea). Sin llaves
+        // (sucursal aún no habilitada o mensaje sin tipo), al almacén general de la sucursal (primero de materiales directos).
+        var (llaves, errorLlave) = await LlavesAlmacenApp.ResolverAsync(db, sucursalId, entradas.Select(e => e.Almacen).ToList(), ct);
+        if (errorLlave is not null) return ("ERROR", null, errorLlave);
+        if (llaves is not null)
+        {
+            var subs = llaves.Values.Select(v => (v.SubAlmacenId, v.AlmacenId)).Distinct().ToList();
+            if (subs.Count > 1)
+                return ("ERROR", null, "Los almacenes de la entrada están en sub-almacenes distintos del ERP; un movimiento es de un solo sub-almacén.");
+            return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
+                e => llaves[e.Almacen!].UbicacionId, subs[0].SubAlmacenId, subs[0].AlmacenId, ct);
+        }
+
         var general = await (from u in db.Ubicaciones
                              join s in db.SubAlmacenes on u.SubAlmacenId equals s.Id
                              join a in db.Almacenes on s.AlmacenId equals a.Id
@@ -62,7 +74,15 @@ public static class EntradaAppAlmacenes
                              select new { u.Id, u.SubAlmacenId, s.AlmacenId }).FirstOrDefaultAsync(ct);
         if (general is null)
             return ("ERROR", null, "La sucursal no tiene un almacén general activo donde registrar la entrada.");
+        return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
+            _ => general.Id, general.SubAlmacenId, general.AlmacenId, ct);
+    }
 
+    private static async Task<(string Estado, string? Folio, string? Error)> RegistrarEnAsync(
+        AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
+        string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, Func<EntradaApp, Guid> ubicacion,
+        Guid subAlmacenId, Guid almacenId, CancellationToken ct)
+    {
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         try
         {
@@ -77,20 +97,21 @@ public static class EntradaAppAlmacenes
 
             var ocId = string.IsNullOrWhiteSpace(compra) ? null : await puertos.Ocs.ObtenerIdPorFolioAsync(compra.Trim(), ct);
             if (ocId is Guid id)
-                return await RecibirContraOcAsync(db, puertos, empresaId, usuarioId, sucursalId, general.Id, general.SubAlmacenId,
-                    general.AlmacenId, id, fecha, motivo, entrada, entradas, ct);
+                return await RecibirContraOcAsync(db, puertos, empresaId, usuarioId, sucursalId, ubicacion, subAlmacenId,
+                    almacenId, id, fecha, motivo, entrada, entradas, ct);
 
             var lineas = new List<LineaRevisionMov>(entradas.Count);
             foreach (var e in entradas)
             {
+                var ubicacionId = ubicacion(e);
                 var costo = await db.SaldosInventario.AsNoTracking()
-                    .Where(s => s.UbicacionId == general.Id && s.ArticuloId == e.ArticuloId && s.ProductoAwVarianteId == e.ProductoAwVarianteId)
+                    .Where(s => s.UbicacionId == ubicacionId && s.ArticuloId == e.ArticuloId && s.ProductoAwVarianteId == e.ProductoAwVarianteId)
                     .Select(s => (decimal?)s.CostoPromedioMxn).FirstOrDefaultAsync(ct);
                 if (costo is not > 0m)
                     return ("ERROR", null,
-                        $"La compra {compra} no es una orden de compra del ERP y {Medida(e)} no tiene costo promedio en el almacén general; "
+                        $"La compra {compra} no es una orden de compra del ERP y {Medida(e)} no tiene costo promedio en ese almacén; "
                         + "no se registra a costo cero. Da la entrada contra la orden de compra del ERP.");
-                lineas.Add(new LineaRevisionMov(e.ArticuloId, e.UnidadMedida, e.Cantidad, costo.Value, general.Id,
+                lineas.Add(new LineaRevisionMov(e.ArticuloId, e.UnidadMedida, e.Cantidad, costo.Value, ubicacionId,
                     e.ProductoAwVarianteId, e.AnchoMm, e.AltoMm, e.Lote));
             }
             var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.EntradaCompra, fecha, motivo, lineas, ct);
@@ -104,7 +125,7 @@ public static class EntradaAppAlmacenes
 
     private static async Task<(string Estado, string? Folio, string? Error)> RecibirContraOcAsync(
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId,
-        Guid ubicacionId, Guid subAlmacenId, Guid almacenId, Guid ocId, DateOnly fecha, string motivo, string entrada,
+        Func<EntradaApp, Guid> ubicacion, Guid subAlmacenId, Guid almacenId, Guid ocId, DateOnly fecha, string motivo, string entrada,
         IReadOnlyList<EntradaApp> entradas, CancellationToken ct)
     {
         // D5: serializa con las recepciones de la pantalla de la misma OC (la transacción ya la abrió el guardado).
@@ -141,7 +162,7 @@ public static class EntradaAppAlmacenes
         var acumulado = porLinea.GroupBy(x => x.L.LineaId)
             .ToDictionary(g => g.Key, g => validada.RecibidoPorLinea[g.Key] + g.Sum(x => x.E.Cantidad / x.Factor));
         var lineas = porLinea.Select(x => new LineaRevisionMov(x.E.ArticuloId, x.E.UnidadMedida, x.E.Cantidad,
-            x.L.PrecioUnitarioMxn / x.Factor, ubicacionId, x.E.ProductoAwVarianteId, x.E.AnchoMm, x.E.AltoMm, x.E.Lote,
+            x.L.PrecioUnitarioMxn / x.Factor, ubicacion(x.E), x.E.ProductoAwVarianteId, x.E.AnchoMm, x.E.AltoMm, x.E.Lote,
             CentroCostoId: x.L.CentroCostoId, LineaOcId: x.L.LineaId)).ToList();
         var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.EntradaCompra, fecha, motivo, lineas, ct);
         var movimiento = db.Movimientos.Local.Single(m => m.Id == mov.Id);
@@ -151,7 +172,7 @@ public static class EntradaAppAlmacenes
             LineaRecepcionId: lm.Id, LineaOcId: x.L.LineaId, ArticuloId: x.E.ArticuloId, UnidadMedida: x.L.UnidadMedida,
             Cantidad: x.E.Cantidad / x.Factor, CostoUnitarioMxn: x.L.PrecioUnitarioMxn,
             MontoTotalMxn: Math.Round(x.E.Cantidad / x.Factor * x.L.PrecioUnitarioMxn, 2),
-            UbicacionId: ubicacionId, SubAlmacenId: subAlmacenId, CantidadRecibidaAcumulada: acumulado[x.L.LineaId],
+            UbicacionId: ubicacion(x.E), SubAlmacenId: subAlmacenId, CantidadRecibidaAcumulada: acumulado[x.L.LineaId],
             CentroCostoId: x.L.CentroCostoId)).ToList();
         await puertos.Eventos.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(
             EmpresaId: empresaId, OcurridoEn: DateTimeOffset.UtcNow, RecepcionId: mov.Id, FolioRecepcion: mov.Folio,

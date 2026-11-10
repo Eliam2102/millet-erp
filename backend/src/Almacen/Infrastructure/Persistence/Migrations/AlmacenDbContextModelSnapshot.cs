@@ -292,6 +292,79 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Catalogo.AlmacenApp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Linea")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("linea");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<string>("TipoAlmacen")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("tipo_almacen");
+
+                    b.Property<string>("UbicacionAw")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("ubicacion_aw");
+
+                    b.Property<Guid>("UbicacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ubicacion_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_almacenes_app");
+
+                    b.HasIndex("UbicacionId")
+                        .HasDatabaseName("ix_almacenes_app_ubicacion_id");
+
+                    b.HasIndex("SucursalId", "TipoAlmacen", "Linea")
+                        .IsUnique()
+                        .HasDatabaseName("ix_almacenes_app_sucursal_id_tipo_almacen_linea");
+
+                    b.ToTable("almacenes_app", "almacen");
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.Catalogo.AsignacionArticuloUbicacion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2521,7 +2594,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_movimientos_estado", "estado BETWEEN 0 AND 3");
 
-                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 13");
+                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 15");
                         });
                 });
 
@@ -3802,6 +3875,16 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasFilter("published_at IS NULL");
 
                     b.ToTable("integration_events_outbox", "almacen");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Catalogo.AlmacenApp", b =>
+                {
+                    b.HasOne("Millet.Almacen.Domain.Catalogo.Ubicacion", null)
+                        .WithMany()
+                        .HasForeignKey("UbicacionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_almacenes_app_ubicaciones_ubicacion_id");
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Catalogo.AsignacionArticuloUbicacion", b =>

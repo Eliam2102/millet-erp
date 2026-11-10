@@ -16,7 +16,10 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
     decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null);
+    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null, LlaveAlmacenApp? Almacen = null, string? Lote = null);
+
+/// <summary>Una partida de salida ya repartida contra un saldo concreto (ubicación, lote y costo de ese saldo).</summary>
+internal sealed record PartidaSalidaApp(SalidaApp Salida, Guid SubAlmacenId, LineaRevisionMov Linea);
 
 /// <summary>
 /// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correos de Jorge 30-oct y 5-nov):
@@ -47,20 +50,51 @@ public static class SalidaAppAlmacenes
         AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId,
         IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
     {
+        var (partidas, estado, error) = await RepartirAsync(db, salidas, ct);
+        if (partidas is null) return (estado, null, error);
+
+        // Un movimiento solo lleva líneas de un sub-almacén: uno por (tipo, motivo, sub-almacén) tocado.
+        var folios = new List<string>();
+        var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
+        foreach (var grupo in partidas.GroupBy(l => (l.Salida.Tipo, l.Salida.Motivo, l.SubAlmacenId)))
+        {
+            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
+                grupo.Select(l => l.Linea).ToList(), ct);
+            var s = grupo.First().Salida;
+            await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
+                events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), ct);
+            folios.Add(mov.Folio);
+        }
+        return (Recibido, string.Join(", ", folios), null);
+    }
+
+    /// <summary>
+    /// Reparte las salidas entre los saldos de la sucursal (o, con llave de la app, de la ubicación de esa llave; M-446), todo o
+    /// nada. No crea movimientos. Sin existencia → <see cref="EnRevision"/>; llave desconocida → ERROR. Con <c>Lote</c> toma
+    /// primero los saldos de ese lote. El costo de la partida es el del mensaje o, si no trae, el promedio del saldo.
+    /// </summary>
+    internal static async Task<(List<PartidaSalidaApp>? Partidas, string Estado, string? Error)> RepartirAsync(
+        AlmacenDbContext db, IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
+    {
         var sucursalId = salidas[0].SucursalId;
-        var porClave = salidas.GroupBy(x => (x.ArticuloId, x.ProductoAwVarianteId))
+        var (llaves, errorLlave) = await LlavesAlmacenApp.ResolverAsync(db, sucursalId, salidas.Select(x => x.Almacen).ToList(), ct);
+        if (errorLlave is not null) return (null, "ERROR", errorLlave);
+        Guid? Ubicacion(SalidaApp x) => llaves is null ? null : llaves[x.Almacen!].UbicacionId;
+
+        var porClave = salidas.GroupBy(x => (x.ArticuloId, x.ProductoAwVarianteId, Ubicacion: Ubicacion(x)))
             .OrderBy(g => g.Key.ArticuloId).ToList();
 
         // Fase 1: carga/bloquea saldos por clave y valida la suma; el pendiente por saldo se lleva localmente.
-        var restante = new Dictionary<(Guid, Guid?), List<(SaldoInventario Saldo, decimal Resta)>>();
+        var restante = new Dictionary<(Guid, Guid?, Guid?), List<(SaldoInventario Saldo, decimal Resta)>>();
         foreach (var grp in porClave)
         {
-            var (articuloId, varianteId) = grp.Key;
+            var (articuloId, varianteId, ubicacionId) = grp.Key;
             var saldosQ = from saldo in db.SaldosInventario
                           join sub in db.SubAlmacenes on saldo.SubAlmacenId equals sub.Id
                           join alm in db.Almacenes on sub.AlmacenId equals alm.Id
                           where alm.SucursalId == sucursalId && saldo.ArticuloId == articuloId
                                 && saldo.ProductoAwVarianteId == varianteId
+                                && (ubicacionId == null || saldo.UbicacionId == ubicacionId)
                                 && sub.Tipo != TipoSubAlmacen.MaterialEnRevision && sub.Tipo != TipoSubAlmacen.Transitorio
                                 && saldo.CantidadDisponible > 0
                           select saldo;
@@ -81,42 +115,34 @@ public static class SalidaAppAlmacenes
             {
                 var m = grp.First();
                 var medida = m.AnchoMm is null ? "" : $" {m.AnchoMm:0.####}x{m.AltoMm:0.####}";
-                return (EnRevision, null,
-                    $"Sin existencia suficiente (artículo A+W {m.ArticuloAw ?? m.ArticuloId.ToString()}{medida} mm): disponible {disponible:0.####} {m.UnidadMedida}, solicitada {pedida:0.####} {m.UnidadMedida}.");
+                var donde = ubicacionId is null ? "" : $" en el almacén {grp.First().Almacen}";
+                return (null, EnRevision,
+                    $"Sin existencia suficiente{donde} (artículo A+W {m.ArticuloAw ?? m.ArticuloId.ToString()}{medida} mm): disponible {disponible:0.####} {m.UnidadMedida}, solicitada {pedida:0.####} {m.UnidadMedida}.");
             }
-            restante[(articuloId, varianteId)] = saldos.Select(x => (x, x.CantidadDisponible)).ToList();
+            restante[(articuloId, varianteId, ubicacionId)] = saldos.Select(x => (x, x.CantidadDisponible)).ToList();
         }
 
         // Fase 2: reparte cada partida entre los saldos de su clave, descontando lo ya tomado por partidas previas.
-        var lineas = new List<(TipoMovimiento Tipo, string Motivo, Guid SubAlmacenId, string Causa, LineaRevisionMov Linea)>();
+        var partidas = new List<PartidaSalidaApp>();
         foreach (var s in salidas)
         {
-            var lista = restante[(s.ArticuloId, s.ProductoAwVarianteId)];
+            var lista = restante[(s.ArticuloId, s.ProductoAwVarianteId, Ubicacion(s))];
+            var lote = LineaMovimiento.NormalizarLote(s.Lote);
             var resta = s.Cantidad;
-            for (var i = 0; i < lista.Count && resta > 0; i++)
+            // Primero el lote del mensaje (si lo trae); el orden estable conserva «el saldo más grande primero» dentro de cada bloque.
+            foreach (var i in Enumerable.Range(0, lista.Count).OrderByDescending(i => lote is not null && lista[i].Saldo.Lote == lote))
             {
+                if (resta <= 0) break;
                 var (saldo, libre) = lista[i];
                 if (libre <= 0) continue;
                 var toma = Math.Min(resta, libre);
-                lineas.Add((s.Tipo, s.Motivo, saldo.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), new LineaRevisionMov(s.ArticuloId, s.UnidadMedida, toma,
+                partidas.Add(new PartidaSalidaApp(s, saldo.SubAlmacenId, new LineaRevisionMov(s.ArticuloId, s.UnidadMedida, toma,
                     s.CostoUnitarioMxn ?? saldo.CostoPromedioMxn, saldo.UbicacionId,
                     s.ProductoAwVarianteId, s.AnchoMm, s.AltoMm, saldo.Lote, s.CentroCostoId)));
                 lista[i] = (saldo, libre - toma);
                 resta -= toma;
             }
         }
-
-        // Un movimiento solo lleva líneas de un sub-almacén: uno por (tipo, motivo, sub-almacén) tocado.
-        var folios = new List<string>();
-        var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
-        foreach (var grupo in lineas.GroupBy(l => (l.Tipo, l.Motivo, l.SubAlmacenId)))
-        {
-            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
-                grupo.Select(l => l.Linea).ToList(), ct);
-            await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
-                events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, grupo.First().Causa, ct);
-            folios.Add(mov.Folio);
-        }
-        return (Recibido, string.Join(", ", folios), null);
+        return (partidas, Recibido, null);
     }
 }
