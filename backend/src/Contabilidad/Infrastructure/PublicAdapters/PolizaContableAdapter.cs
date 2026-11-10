@@ -79,7 +79,11 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
                     resultado.Add(new(previa.Id, previa.Folio!, previa.Estado, true));
                     continue;
                 }
-                var anulacion = await registro.AnularAsync(p, motivo, null, FechaContable.HoyLocal(clock.UtcNow), null, UsuarioMotor, clock.UtcNow, t);
+                // Fernando 10-nov (M-082): un mes cerrado no se reabre; si el periodo de la póliza ya no admite pólizas, la anulación
+                // va en el periodo de hoy como póliza independiente (mismo criterio que RevertirAsync).
+                var hoy = FechaContable.HoyLocal(clock.UtcNow);
+                var cerrado = await registro.RechazoPeriodoAsync(p.PeriodoAnio, p.PeriodoNumero, p.Origen, t, p.EmpresaId);
+                var anulacion = await registro.AnularAsync(p, motivo, cerrado == null ? null : (hoy.Year, hoy.Month), hoy, null, UsuarioMotor, clock.UtcNow, t);
                 resultado.Add(new(anulacion.Id, anulacion.Folio!, anulacion.Estado, false));
                 await NotificarAsync(anulacion, p.Id, [], t);
             }
