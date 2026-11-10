@@ -77,7 +77,7 @@ public sealed class AlmacenesAppProcesador(
                 // bandeja de excepciones (A4.3-a) con folio de revisión; la app lo corrige y reprocesa el mismo mensajeId.
                 if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorSalida, ct);
                 var g = await salidasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
-                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct);
+                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct, resuelta.Origen);
                 if (g.Estado == "ERROR") return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
                 if (!g.Duplicado)
                     // Sin existencia (5-nov): ya no se acepta en silencio. El mensaje quedó EN_REVISION con su folio de
@@ -108,7 +108,7 @@ public sealed class AlmacenesAppProcesador(
                     s.AnchoMm, s.AltoMm, s.Lote, s.Almacen, s.CostoUnitarioMxn)).ToList();
                 var g = await salidasGuardado.GuardarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
                     resuelta.EmpresaId, resuelta.UsuarioId, primera.SucursalId, primera.Motivo, null, null, entradas, ct,
-                    Millet.Almacen.Domain.Movimientos.TipoMovimiento.AjustePositivo);
+                    Millet.Almacen.Domain.Movimientos.TipoMovimiento.AjustePositivo, resuelta.Origen);
                 if (!g.Duplicado) return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
                 previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
             }

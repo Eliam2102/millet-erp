@@ -37,9 +37,9 @@ public sealed class SalidaAppAlmacenesGuardado
     /// </summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarAsync(
         string mensajeId, string tipo, string? referencia, string payload,
-        Guid empresaId, Guid usuarioId, IReadOnlyList<SalidaApp> salidas, CancellationToken ct) =>
+        Guid empresaId, Guid usuarioId, IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null) =>
         GuardarAsync(mensajeId, tipo, referencia, payload,
-            () => SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct), ct);
+            () => SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct, origen), ct);
 
     /// <summary>
     /// ENTRADA_ALMACEN (M-159) y ENTRADA_MANUAL (v9, <paramref name="tipoMovimiento"/> = AjustePositivo): mismo guardado atómico
@@ -49,10 +49,10 @@ public sealed class SalidaAppAlmacenesGuardado
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarEntradaAsync(
         string mensajeId, string tipo, string? referencia, string payload, Guid empresaId, Guid usuarioId, Guid sucursalId,
         string motivo, string? compra, string? entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct,
-        TipoMovimiento tipoMovimiento = TipoMovimiento.EntradaCompra) =>
+        TipoMovimiento tipoMovimiento = TipoMovimiento.EntradaCompra, OrigenApp? origen = null) =>
         GuardarAsync(mensajeId, tipo, referencia, payload,
             () => EntradaAppAlmacenes.RegistrarAsync(_db, _entrada, empresaId, usuarioId, sucursalId, motivo,
-                compra, entrada ?? mensajeId, entradas, ct, tipoMovimiento), ct);
+                compra, entrada ?? mensajeId, entradas, ct, tipoMovimiento, origen), ct);
 
     /// <summary>CAMBIO_ALMACEN (M-446): el par salida/entrada del traslado y el mensaje en una transacción; sin evento contable.</summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarTrasladoAsync(

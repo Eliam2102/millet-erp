@@ -56,7 +56,7 @@ public static class EntradaAppAlmacenes
     public static async Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
         string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, CancellationToken ct,
-        TipoMovimiento tipo = TipoMovimiento.EntradaCompra)
+        TipoMovimiento tipo = TipoMovimiento.EntradaCompra, OrigenApp? origen = null)
     {
         // M-446: con la lista de almacenes de la sucursal, cada grupo entra a la ubicación de su llave (tipo + línea). Sin llaves
         // (sucursal aún no habilitada o mensaje sin tipo), al almacén general de la sucursal (primero de materiales directos).
@@ -68,7 +68,7 @@ public static class EntradaAppAlmacenes
             if (subs.Count > 1)
                 return ("ERROR", null, "Los almacenes de la entrada están en sub-almacenes distintos del ERP; un movimiento es de un solo sub-almacén.");
             return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
-                e => llaves[e.Almacen!].UbicacionId, subs[0].SubAlmacenId, subs[0].AlmacenId, tipo, ct);
+                e => llaves[e.Almacen!].UbicacionId, subs[0].SubAlmacenId, subs[0].AlmacenId, tipo, origen, ct);
         }
 
         var general = await (from u in db.Ubicaciones
@@ -82,13 +82,13 @@ public static class EntradaAppAlmacenes
         if (general is null)
             return ("ERROR", null, "La sucursal no tiene un almacén general activo donde registrar la entrada.");
         return await RegistrarEnAsync(db, puertos, empresaId, usuarioId, sucursalId, motivo, compra, entrada, entradas,
-            _ => general.Id, general.SubAlmacenId, general.AlmacenId, tipo, ct);
+            _ => general.Id, general.SubAlmacenId, general.AlmacenId, tipo, origen, ct);
     }
 
     private static async Task<(string Estado, string? Folio, string? Error)> RegistrarEnAsync(
         AlmacenDbContext db, EntradaAppPuertos puertos, Guid empresaId, Guid usuarioId, Guid sucursalId, string motivo,
         string? compra, string entrada, IReadOnlyList<EntradaApp> entradas, Func<EntradaApp, Guid> ubicacion,
-        Guid subAlmacenId, Guid almacenId, TipoMovimiento tipo, CancellationToken ct)
+        Guid subAlmacenId, Guid almacenId, TipoMovimiento tipo, OrigenApp? origen, CancellationToken ct)
     {
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         try
@@ -107,11 +107,13 @@ public static class EntradaAppAlmacenes
                 return await RecibirContraOcAsync(db, puertos, empresaId, usuarioId, sucursalId, ubicacion, subAlmacenId,
                     almacenId, id, fecha, motivo, entrada, entradas, ct);
 
+            // v9: el regreso de préstamo y la devolución de venta entran al costo con que salieron, si el ERP tiene esa salida.
+            var original = await CostoOrigenApp.LeerAsync(db, origen, ct);
             var lineas = new List<LineaRevisionMov>(entradas.Count);
             foreach (var e in entradas)
             {
                 var ubicacionId = ubicacion(e);
-                var costo = await db.SaldosInventario.AsNoTracking()
+                var costo = CostoOrigenApp.Costo(original, e.ArticuloId, e.ProductoAwVarianteId, e.Lote) ?? await db.SaldosInventario.AsNoTracking()
                     .Where(s => s.UbicacionId == ubicacionId && s.ArticuloId == e.ArticuloId && s.ProductoAwVarianteId == e.ProductoAwVarianteId)
                     .Select(s => (decimal?)s.CostoPromedioMxn).FirstOrDefaultAsync(ct);
                 if (costo is not > 0m) costo = e.CostoRespaldoMxn;

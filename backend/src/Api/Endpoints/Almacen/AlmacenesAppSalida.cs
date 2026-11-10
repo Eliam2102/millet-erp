@@ -46,7 +46,7 @@ public static class AlmacenesAppSalida
     public const string Reclamacion = "RECLAMACION_PROVEEDOR";
 
     /// <summary>Salidas ya validadas y resueltas, listas para registrarse con empresa y usuario de servicio explícitos.</summary>
-    public sealed record Resuelta(Guid EmpresaId, Guid UsuarioId, IReadOnlyList<SalidaApp> Salidas);
+    public sealed record Resuelta(Guid EmpresaId, Guid UsuarioId, IReadOnlyList<SalidaApp> Salidas, OrigenApp? Origen = null);
 
     /// <summary>
     /// Valida y resuelve; no escribe. Devuelve la salida resuelta o el texto del ERROR.
@@ -165,6 +165,10 @@ public static class AlmacenesAppSalida
             : string.Concat(
                 Texto(datos, "motivo") is { Length: > 0 } mot ? $": {mot.Trim()}" : "",
                 Texto(datos, "motivoClave") is { Length: > 0 } clave ? $" [{clave.Trim()}]" : "");
+        // v9: la entrada o salida manual que nace sola (cancelación de entrada, devolución de venta, regreso de préstamo) dice su origen;
+        // la reclamación nace de su entrada. Con él se busca el costo del movimiento original.
+        var origen = Origen(datos, tipo);
+        if (origen is not null && tipo != Reclamacion) detalle += $" (origen {origen.Tipo} {origen.Referencia})";
         motivo += detalle;
         if (motivo.Length > 500) motivo = motivo[..500];
 
@@ -189,7 +193,21 @@ public static class AlmacenesAppSalida
                 // La reclamación carga a Ajuste (no a Consumo) mientras CxP no la cobre al proveedor (flujo 8.B).
                 Causa: tipo == Reclamacion ? "salida_manual" : null));
         }
-        return (new Resuelta(sp.EmpresaId, sp.Id, salidas), null);
+        return (new Resuelta(sp.EmpresaId, sp.Id, salidas, origen), null);
+    }
+
+    /// <summary>
+    /// <c>datos.origen</c> (objeto, v9): CANCELACION_ENTRADA → su <c>entrada</c>; DEVOLUCION_VENTA y REGRESO_PRESTAMO → su
+    /// <c>salidaOriginal</c>. La reclamación → su <c>entrada</c>. Un <c>origen</c> de texto (AJUSTE_SALIDA: «CORTE») no es esto.
+    /// </summary>
+    private static OrigenApp? Origen(JsonElement datos, string tipo)
+    {
+        if (tipo == Reclamacion)
+            return Texto(datos, "entrada")?.Trim() is { Length: > 0 } en ? new OrigenApp(Reclamacion, en) : null;
+        if (!datos.TryGetProperty("origen", out var o) || o.ValueKind != JsonValueKind.Object
+            || Texto(o, "tipo")?.Trim() is not { Length: > 0 } t) return null;
+        var referencia = t == "CANCELACION_ENTRADA" ? Texto(o, "entrada") : Texto(o, "salidaOriginal");
+        return referencia?.Trim() is { Length: > 0 } r ? new OrigenApp(t, r) : null;
     }
 
     /// <summary>

@@ -308,6 +308,91 @@ public class EntradaAppAlmacenesTests
         db.ChangeTracker.Entries<MovimientoInventario>().Should().BeEmpty();
     }
 
+    // ── origen (M-283, contrato v9): entra o sale al costo del movimiento original ─────────────────────
+
+    /// <summary>Registra un movimiento como lo haría el mensaje <paramref name="referencia"/> y deja su MensajeApp aplicado.</summary>
+    private static async Task AplicadoAsync(AlmacenDbContext db, string tipo, string referencia, string? folio)
+    {
+        await db.SaveChangesAsync();
+        db.MensajesApp.Add(new Domain.Idempotencia.MensajeApp(Guid.NewGuid().ToString(), tipo, referencia, "{}",
+            SalidaAppAlmacenes.Recibido, folio, null));
+        await db.SaveChangesAsync();
+    }
+
+    private static SalidaApp Prestamo(decimal m2, decimal? costo, string lote = "L-1") =>
+        new(TipoMovimiento.AjusteNegativo, Sucursal, Articulo, "M2", Variante, m2, costo, "App Almacenes SALIDA_MANUAL MV-80: Préstamo",
+            3302m, 6100m, Lote: lote);
+
+    [Fact]
+    public async Task Regreso_de_prestamo_entra_al_costo_con_que_salio_aunque_el_promedio_sea_otro()
+    {
+        var (db, unica, sub) = Db();
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 100m, 100m, Variante, "L-1"));
+        await db.SaveChangesAsync();
+        // El préstamo salió a 150 (p. ej. el promedio de ese día); hoy el promedio del saldo es 100.
+        var (_, folioSalida, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Captura(), EmpresaId, Usuario, [Prestamo(2 * 20.1422m, 150m)], default);
+        await AplicadoAsync(db, "SALIDA_MANUAL", "MV-80", folioSalida);
+
+        var (estado, _, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-r",
+            [Hojas(1, "L-1") with { CostoRespaldoMxn = 130m }], default, TipoMovimiento.AjustePositivo,
+            new OrigenApp("REGRESO_PRESTAMO", "MV-80"));
+        await db.SaveChangesAsync();
+
+        (estado, error).Should().Be((SalidaAppAlmacenes.Recibido, (string?)null));
+        (await db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Tipo == TipoMovimiento.AjustePositivo))
+            .Lineas.Single().CostoUnitarioMxn.Should().Be(150m);
+    }
+
+    [Fact]
+    public async Task Devolucion_de_venta_sin_la_salida_en_el_ERP_entra_al_promedio()
+    {
+        var (db, unica, sub) = Db();
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 100m, 100m, Variante, "L-1"));
+        await db.SaveChangesAsync();
+
+        await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-d",
+            [Hojas(1, "L-1") with { CostoRespaldoMxn = 130m }], default, TipoMovimiento.AjustePositivo,
+            new OrigenApp("DEVOLUCION_VENTA", "MV-0012345")); // la venta por albarán no pasa por la app
+        await db.SaveChangesAsync();
+
+        (await db.LineasMovimiento.SingleAsync()).CostoUnitarioMxn.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task Cancelacion_de_entrada_sale_al_costo_con_que_entro()
+    {
+        var (db, unica, sub) = Db();
+        // La entrada EN-5 entró a 150 (sin promedio previo: al costo del mensaje); el saldo de hoy está a 100.
+        var (_, folioEntrada, _) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-e",
+            [Hojas(3, "L-9") with { CostoRespaldoMxn = 150m }], default, TipoMovimiento.AjustePositivo);
+        await AplicadoAsync(db, "ENTRADA_ALMACEN", "EN-5", folioEntrada);
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 3 * 20.1422m, 100m, Variante, "L-9"));
+        await db.SaveChangesAsync();
+
+        var (estado, folio, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Captura(), EmpresaId, Usuario,
+            [Prestamo(3 * 20.1422m, null, "L-9")], default, new OrigenApp("CANCELACION_ENTRADA", "EN-5"));
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.Recibido);
+        (await db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Folio == folio)).Lineas.Single().CostoUnitarioMxn.Should().Be(150m);
+    }
+
+    [Fact]
+    public void El_costo_de_origen_prefiere_el_mismo_lote_y_pondera_por_cantidad()
+    {
+        List<CostoOrigenApp.LineaOrigen> lineas =
+        [
+            new(Articulo, Variante, "L-1", 2m, 150m),
+            new(Articulo, Variante, "L-2", 1m, 120m),
+            new(Articulo, Variante, "L-2", 3m, 100m),
+            new(Guid.NewGuid(), Variante, "L-1", 9m, 999m),
+        ];
+        CostoOrigenApp.Costo(lineas, Articulo, Variante, "L-1").Should().Be(150m);
+        CostoOrigenApp.Costo(lineas, Articulo, Variante, " L-2 ").Should().Be(105m);
+        CostoOrigenApp.Costo(lineas, Articulo, Variante, "L-X").Should().Be(120m); // sin ese lote: toda la medida, (300 + 120 + 300) / 6
+        CostoOrigenApp.Costo(lineas, Articulo, null, "L-1").Should().BeNull();
+    }
+
     private static EntradaAppPuertos Puertos(OcLectura? oc = null, Captura? eventos = null, bool periodoAbierto = true) =>
         new(new FakeOcs(oc), new FactorUno(), new FakePeriodo(periodoAbierto), eventos ?? new Captura());
 

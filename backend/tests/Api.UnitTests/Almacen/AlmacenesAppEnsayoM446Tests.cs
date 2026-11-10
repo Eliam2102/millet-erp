@@ -271,6 +271,44 @@ public sealed class AlmacenesAppEnsayoM446Tests
     }
 
     [Fact]
+    public async Task El_origen_v9_se_lee_del_regreso_de_prestamo_la_cancelacion_y_la_reclamacion()
+    {
+        async Task<AlmacenesAppSalida.Resuelta> Parsear(string tipo, JsonElement datos)
+        {
+            var (r, error) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, new Resolver(), new UsuarioServicio(), default);
+            Assert.Null(error);
+            return r!;
+        }
+        // Regreso de préstamo real (MV-0014381): entra al costo de la salida MV-0014380.
+        var regreso = DeTipo(AlmacenesAppSalida.EntradaManual).Single(m => m.GetProperty("referencia").GetString() == "MV-0014381");
+        var r1 = await Parsear(AlmacenesAppSalida.EntradaManual, regreso.GetProperty("datos"));
+        Assert.Equal(new OrigenApp("REGRESO_PRESTAMO", "MV-0014380"), r1.Origen);
+        Assert.Contains("(origen REGRESO_PRESTAMO MV-0014380)", r1.Salidas[0].Motivo);
+
+        // Cancelación de entrada (ejemplo del contrato v9): sale al costo de la entrada EN-000820.
+        var cancelacion = JsonDocument.Parse("""
+            {"movimiento":"MV-7","sucursal":"CONKAL","motivo":"Cancelación de entrada","motivoClave":"CANCELA_ENTRADA","moneda":"PESOSMX",
+             "origen":{"tipo":"CANCELACION_ENTRADA","entrada":"EN-000820","compra":"OC-5521","encargoAw":36008200,"motivo":"Se capturó dos veces"},
+             "almacenes":[{"almacenGeneral":{"tipo":"EXPORTACION","linea":"HEGLA 1"},
+               "grupos":[{"articuloAw":100006,"ancho":2600,"alto":3210,"lote":"L-1","piezas":1,"m2":8.346,"costoM2":130}]}]}
+            """).RootElement;
+        Assert.Equal(new OrigenApp("CANCELACION_ENTRADA", "EN-000820"), (await Parsear("SALIDA_MANUAL", cancelacion)).Origen);
+
+        // Devolución de venta: su salidaOriginal.
+        var devolucion = JsonDocument.Parse(cancelacion.GetRawText().Replace(
+            "\"origen\":{\"tipo\":\"CANCELACION_ENTRADA\",\"entrada\":\"EN-000820\"",
+            "\"origen\":{\"tipo\":\"DEVOLUCION_VENTA\",\"salidaOriginal\":\"MV-0012345\"")).RootElement;
+        Assert.Equal(new OrigenApp("DEVOLUCION_VENTA", "MV-0012345"), (await Parsear(AlmacenesAppSalida.EntradaManual, devolucion)).Origen);
+
+        // Reclamación: nace de su entrada. AJUSTE_SALIDA trae origen de texto («CORTE»): no es origen v9.
+        var rp = DeTipo(AlmacenesAppSalida.Reclamacion).Single();
+        Assert.Equal(new OrigenApp(AlmacenesAppSalida.Reclamacion, "EN-002036"), (await Parsear(AlmacenesAppSalida.Reclamacion, rp.GetProperty("datos"))).Origen);
+        Assert.Null((await Parsear("AJUSTE_SALIDA", DeTipo("AJUSTE_SALIDA").Single().GetProperty("datos"))).Origen);
+        // Documento SM- sin origen.
+        Assert.Null((await Parsear("SALIDA_MANUAL", DeTipo("SALIDA_MANUAL").First().GetProperty("datos"))).Origen);
+    }
+
+    [Fact]
     public void ENTRADA_MANUAL_y_RECLAMACION_en_ERROR_se_reevaluan_al_reenviarse()
     {
         Assert.Contains(AlmacenesAppSalida.EntradaManual, AlmacenesAppProcesador.TiposReevaluables);
