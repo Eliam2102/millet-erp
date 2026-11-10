@@ -296,6 +296,14 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
+          label: 'Tambores por línea',
+          description:
+            'Tambor o cubeta activo de silicón y Ködispace en cada línea de producción, con su historial de salidas.',
+          to: '/almacen/tambores-linea',
+          icon: PackageMinus,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
           label: 'Salida por rotura',
           description:
             'Material que se rompió en el almacén: se captura y otro usuario con facultad lo autoriza; sale a costo promedio.',

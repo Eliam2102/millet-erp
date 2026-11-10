@@ -164,7 +164,7 @@ describe('clasificarEntrega', () => {
 describe('CODIGOS_SALIDA', () => {
   it('cada código de callout tiene título y ayuda', () => {
     const codigos = Object.keys(CODIGOS_SALIDA);
-    expect(codigos).toHaveLength(9);
+    expect(codigos).toHaveLength(13);
     for (const c of codigos) {
       expect(AVISOS_SALIDA[c]?.titulo).toBeTruthy();
       expect(AVISOS_SALIDA[c]?.ayuda).toBeTruthy();

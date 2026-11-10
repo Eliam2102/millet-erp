@@ -102,6 +102,10 @@ public class AlmacenDbContext : BaseDbContext
     public DbSet<NormaConsumoComponente> NormasConsumoComponente => Set<NormaConsumoComponente>();
     public DbSet<ConsumoComponenteAw> ConsumosComponenteAw => Set<ConsumoComponenteAw>();
 
+    /// <summary>M-172: líneas de producción por sucursal y tambores/cubetas surtidos a cada una.</summary>
+    public DbSet<Domain.Tambores.LineaProduccion> LineasProduccion => Set<Domain.Tambores.LineaProduccion>();
+    public DbSet<Domain.Tambores.TamborEnLinea> TamboresLinea => Set<Domain.Tambores.TamborEnLinea>();
+
     /// <summary>PT5.10: descargas del taller por pedido interno Serie 9000 y cierres de día del almacenista.</summary>
     public DbSet<DescargaTallerAw> DescargasTallerAw => Set<DescargaTallerAw>();
     public DbSet<CierreTaller> CierresTaller => Set<CierreTaller>();
@@ -267,6 +271,29 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.PorcentajeMerma).HasPrecision(7, 4);
             b.Property(x => x.FactorM3PorM2).HasPrecision(14, 6);
             b.HasIndex(x => new { x.EmpresaId, x.ArticuloId }).IsUnique();
+        });
+        modelBuilder.Entity<Domain.Tambores.LineaProduccion>(b =>
+        {
+            b.ToTable("lineas_produccion");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Clave).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Nombre).HasMaxLength(100).IsRequired();
+            b.Property(x => x.Proceso).HasMaxLength(50).IsRequired();
+            b.HasIndex(x => new { x.SucursalId, x.Clave }).IsUnique();
+        });
+        modelBuilder.Entity<Domain.Tambores.TamborEnLinea>(b =>
+        {
+            b.ToTable("tambores_linea");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Folio).HasMaxLength(100).IsRequired();
+            b.Property(x => x.FolioReemplazo).HasMaxLength(100);
+            b.Property(x => x.KgPresentacion).HasPrecision(10, 3);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.HasOne<Domain.Tambores.LineaProduccion>().WithMany().HasForeignKey(x => x.LineaProduccionId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.LineaProduccionId, x.ArticuloId, x.Estado });
+            b.HasIndex(x => x.MovimientoId);
         });
         modelBuilder.Entity<ConsumoComponenteAw>(b =>
         {

@@ -61,6 +61,18 @@ public sealed class Articulo : BaseEntity, IAuditable
 
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
+    /// <summary>
+    /// M-172 (AC-030, Fernando Alejos 6-nov): silicón A/B y Ködispace se descuentan del inventario al SALIR del almacén
+    /// por tambor o cubeta a una línea de producción; la norma por m² no descuenta. Solo los artículos con esta marca
+    /// siguen la regla (no se fijan claves en código).
+    /// </summary>
+    public bool ConsumoPorTamborALinea { get; private set; }
+
+    /// <summary>
+    /// Kilos por presentación (tambor 200 kg, cubeta 19 kg). DATO PROVISIONAL de muestra mientras llega M-106.
+    /// </summary>
+    public decimal? KgPorPresentacion { get; private set; }
+
     private Articulo() { }
 
     public Articulo(
@@ -150,6 +162,17 @@ public sealed class Articulo : BaseEntity, IAuditable
     }
 
     public void LimpiarProductoAw() => ProductoAwId = null;
+
+    /// <summary>M-172: marca de consumo por tambor a línea y kilos por presentación (null = no tocar los kilos).</summary>
+    public void ConfigurarTamborALinea(bool? consumoPorTambor, decimal? kgPorPresentacion, bool limpiarKg = false)
+    {
+        if (kgPorPresentacion is <= 0)
+            throw new BusinessRuleException("ARTICULO_KG_PRESENTACION_INVALIDO",
+                "Los kilos por presentación deben ser mayores que cero.");
+        if (consumoPorTambor is bool marca) ConsumoPorTamborALinea = marca;
+        if (kgPorPresentacion is not null) KgPorPresentacion = kgPorPresentacion;
+        else if (limpiarKg) KgPorPresentacion = null;
+    }
 
     /// <summary>
     /// Deselecciona la categoría: FK y string legacy a <c>null</c> (cuando el

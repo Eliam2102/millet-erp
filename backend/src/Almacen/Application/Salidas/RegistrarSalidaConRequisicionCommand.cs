@@ -65,7 +65,9 @@ public sealed record RegistrarSalidaLineaInput(
     // F1-MP-01: medida de la hoja (vidrio crudo). Exigida si el artículo está ligado a A+W; rechazada si no.
     Guid? ProductoAwVarianteId = null,
     // F1-MP-01 S4b: lote de la existencia de la que sale. Obligatorio con medida si el rack tiene existencia con lote.
-    string? Lote = null);
+    string? Lote = null,
+    // M-172: línea de producción destino; obligatoria si el artículo se consume por tambor a línea.
+    Guid? LineaProduccionId = null);
 
 public sealed record RegistrarSalidaResponse(
     Guid SalidaId,
@@ -225,6 +227,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
         // F5 (86e3pc50v): la RQ y el almacén de la salida deben ser de la misma sucursal.
         Catalogo.SucursalDestinoGuard.Validar(rq?.SucursalId, sucursalId, "SALIDA_SUCURSAL_DISTINTA",
             "La requisición es de otra sucursal: entrega desde un almacén de la sucursal de la requisición.");
+        // M-172: silicón/Ködispace por tambor exigen línea destino y piezas enteras (antes de tocar el saldo).
+        var tambores = await Tambores.TamboresEnLinea.ValidarAsync(_db, _articulos, request.Lineas,
+            i => conversiones[i].CantidadBase, sucursalId, cancellationToken);
 
         // F7-PR3 (A18): si hay bloqueo activo de salidas para el sub DERIVADO,
         // rechazar — está en conteo anual.
@@ -374,6 +379,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
             "SALIDA_SIN_USUARIO", "Se requiere usuario autenticado.");
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
+        await Tambores.TamboresEnLinea.RegistrarAsync(_db, tambores, movimientoId, folio.Valor, DateTimeOffset.UtcNow, cancellationToken);
 
         // 6. P7: el apartado se consume antes del SaveChanges. El trigger PG
         //    decrementa la cantidad física al INSERT de la línea; no hay
