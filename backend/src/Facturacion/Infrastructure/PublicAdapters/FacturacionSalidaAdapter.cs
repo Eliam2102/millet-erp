@@ -1,10 +1,14 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Cobros;
 using Millet.Facturacion.Application.CartaPorte.EmitirCartaPorte;
 using Millet.Facturacion.Application.Pedidos.CancelarSalidaFacturable;
 using Millet.Facturacion.Application.Pedidos.RegistrarSalidaFacturable;
 using Millet.Facturacion.Application.Timbrado;
+using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ports;
+using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.ProductoTerminado.Application.Ports;
 using Millet.SharedKernel.Application;
@@ -16,7 +20,7 @@ namespace Millet.Facturacion.Infrastructure.PublicAdapters;
 /// PT5.5: la hoja de salida emitida por Producto Terminado es la salida real que Facturación factura (FAC-08), y su Carta Porte
 /// sale con la funcionalidad existente. Reemplaza la simulación: ya no se registran a mano ni se esperan del stub.
 /// </summary>
-public sealed class FacturacionSalidaAdapter(ISender sender, IEmpresaFiscalReadPort empresas, ICurrentEmpresaContext empresa) : IFacturacionSalidaPort
+public sealed class FacturacionSalidaAdapter(ISender sender, IEmpresaFiscalReadPort empresas, ICurrentEmpresaContext empresa, FacturacionDbContext db) : IFacturacionSalidaPort
 {
     // ponytail: clave SAT provisional del vidrio hasta tener una Carta Porte real de Logística (D15).
     private const string BienesTranspVidrio = "30171500";
@@ -51,4 +55,12 @@ public sealed class FacturacionSalidaAdapter(ISender sender, IEmpresaFiscalReadP
         [.. (await sender.Send(new RegistrarCobrosRutaPtCommand(sucursalId, [.. cobros.Select(c =>
                 new CobroRutaAlbaranPtInput(c.AlbaranFolio, c.Efectivo, c.Voucher, c.VoucherReferencia, c.TipoTarjeta, c.TarjetaUltimos4))]), ct))
             .Select(r => new CobroRutaRegistrado(r.AlbaranFolio, r.CobroId))];
+
+    public async Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
+        await (from f in db.FacturasVenta.AsNoTracking()
+               join p in db.PedidosFacturables.AsNoTracking() on f.PedidoFacturableId equals (Guid?)p.Id
+               where pedidoFacturableIds.Contains(p.Id) &&
+                     (f.Estado == EstadoTimbrado.Timbrado && f.FechaTimbrado != null || f.Estado == EstadoTimbrado.PendientePedimento)
+               select new FacturaPedidoSalida(p.Id, p.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
+                   f.Estado == EstadoTimbrado.PendientePedimento, f.FechaTimbrado)).ToListAsync(ct);
 }

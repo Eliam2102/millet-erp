@@ -23,8 +23,9 @@ public sealed record ListarLiquidacionesQuery(string? Estado, Guid? SucursalId, 
 /// <summary>
 /// Cierre del día (PT5.7): avisa a CxC de cada albarán a contra entrega de una hoja emitida hasta esa fecha (hora de Ciudad de México; hoy si no se indica)
 /// que sigue sin liquidar. Idempotente: un albarán avisado no se vuelve a avisar. Devuelve cuántos avisos nuevos salieron.
+/// <c>PorAlerta</c> (lo usa el worker, regla de salida 5): solo las hojas que ya cumplieron 12 horas hábiles sin liquidar en la zona de su sucursal.
 /// </summary>
-public sealed record CerrarDiaContraEntregaCommand(DateOnly? Hasta = null) : IRequest<int>;
+public sealed record CerrarDiaContraEntregaCommand(DateOnly? Hasta = null, bool PorAlerta = false) : IRequest<int>;
 
 /// <summary>M-177: <c>Esperado</c> = lo que la caja cobra de la factura del albarán (con IVA, neto de NC); sin factura, el total del pedido.
 /// <c>FacturaFolio</c> y <c>CobradoEnCaja</c> dicen sobre qué factura y si el cobro ya entró a caja.</summary>
@@ -35,6 +36,8 @@ public sealed record LiquidacionLineaDto(Guid AlbaranId, string AlbaranFolio, st
 public sealed record LiquidacionDto(Guid SalidaId, string Folio, string Destino, string Estado, DateTimeOffset? LiquidadaAt, IReadOnlyList<LiquidacionLineaDto> Albaranes,
     IReadOnlyList<ImprevistoInput> Imprevistos, decimal TotalEsperado, decimal TotalCobrado, decimal Diferencia);
 
-public sealed record LiquidacionResumenDto(Guid SalidaId, string Folio, Guid SucursalId, string Destino, DateTimeOffset EmitidaAt, int Pedidos, int ContraEntrega, string Estado, decimal Diferencia);
+/// <summary>Regla de salida 5: <c>Plazo</c> = EnPlazo, Alerta (12 horas hábiles sin liquidar) o Vencida (pasó <c>LimiteAt</c>); null si ya se cerró.</summary>
+public sealed record LiquidacionResumenDto(Guid SalidaId, string Folio, Guid SucursalId, string Destino, DateTimeOffset EmitidaAt, int Pedidos, int ContraEntrega, string Estado, decimal Diferencia,
+    DateTimeOffset? AlertaAt = null, DateTimeOffset? LimiteAt = null, string? Plazo = null);
 
 public sealed record LiquidacionesPagina(IReadOnlyList<LiquidacionResumenDto> Items, int Total);

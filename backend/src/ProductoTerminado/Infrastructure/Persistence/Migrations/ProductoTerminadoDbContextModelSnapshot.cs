@@ -1153,6 +1153,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AutorizacionParcialJson")
+                        .HasColumnType("text")
+                        .HasColumnName("autorizacion_parcial_json");
+
                     b.Property<string>("CartaPorteFolio")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
@@ -1165,6 +1169,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreadaAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("creada_at");
+
+                    b.Property<Guid?>("CreadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("creada_por_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1212,6 +1220,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("estado");
+
+                    b.Property<string>("ExcepcionFacturaJson")
+                        .HasColumnType("text")
+                        .HasColumnName("excepcion_factura_json");
 
                     b.Property<string>("Folio")
                         .IsRequired()

@@ -69,6 +69,7 @@ public sealed class PtCartaPorteSalidaTests : IClassFixture<PtCartaPorteSalidaTe
         Assert.Equal(HttpStatusCode.OK, creada.StatusCode);
         var id = (await Json(creada)).GetProperty("id").GetGuid();
 
+        await _d.AutorizarSalidaAsync(id, a);
         var emitida = await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null);
         Assert.Equal(HttpStatusCode.OK, emitida.StatusCode);
         var hoja = await Json(emitida);

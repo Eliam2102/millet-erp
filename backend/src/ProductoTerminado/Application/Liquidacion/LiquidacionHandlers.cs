@@ -4,7 +4,9 @@ using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application.Ports;
 using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Domain;
+using Microsoft.Extensions.Options;
 using Millet.ProductoTerminado.Infrastructure.Persistence;
+using Millet.ProductoTerminado.Infrastructure.Workers;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -57,6 +59,22 @@ internal static class LiquidacionMapeo
     public static IQueryable<SalidaPt> Salida(ProductoTerminadoDbContext db) => SalidaMapeo.Completa(db);
 
     public static IQueryable<LiquidacionRutaPt> Completa(ProductoTerminadoDbContext db) => db.Liquidaciones.Include(x => x.Albaranes).Include(x => x.Imprevistos);
+
+    /// <summary>Regla de salida 5: alerta (12 horas hábiles) y límite de liquidación de cada hoja, en la zona horaria de su sucursal.</summary>
+    public static async Task<Dictionary<Guid, (DateTimeOffset Alerta, DateTimeOffset Limite)>> PlazosAsync(IReadOnlyCollection<SalidaPt> salidas,
+        IPtCalendarioSucursalesPort calendario, CierreContraEntregaOptions opciones, CancellationToken ct)
+    {
+        if (salidas.Count == 0) return [];
+        var sucursales = await calendario.SucursalesAsync([.. salidas.Select(s => s.SucursalId).Distinct()], ct);
+        var festivos = await calendario.FestivosAsync(ct);
+        return salidas.ToDictionary(s => s.Id, s =>
+        {
+            var sucursal = sucursales.GetValueOrDefault(s.SucursalId);
+            var zona = TimeZoneInfo.FindSystemTimeZoneById(sucursal?.ZonaHoraria ?? Millet.Administracion.Domain.Sucursal.ZonaHorariaDefault);
+            return (ReglasSalidaPt.AlertaLiquidacion(s.EmitidaAt!.Value, zona, festivos),
+                ReglasSalidaPt.LimiteLiquidacion(s.EmitidaAt!.Value, zona, opciones.DiasLiquidacion(sucursal?.Clave), festivos));
+        });
+    }
 }
 
 public sealed class LiquidarRutaPtHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion, ICurrentEmpresaContext empresa, IClock clock)
@@ -134,7 +152,8 @@ public sealed class ObtenerLiquidacionHandler(ProductoTerminadoDbContext db, PtA
     }
 }
 
-public sealed class ListarLiquidacionesHandler(ProductoTerminadoDbContext db, PtAcceso acceso) : IRequestHandler<ListarLiquidacionesQuery, LiquidacionesPagina>
+public sealed class ListarLiquidacionesHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPtCalendarioSucursalesPort calendario, IOptions<CierreContraEntregaOptions> opciones, IClock clock)
+    : IRequestHandler<ListarLiquidacionesQuery, LiquidacionesPagina>
 {
     public async Task<LiquidacionesPagina> Handle(ListarLiquidacionesQuery q, CancellationToken cancellationToken)
     {
@@ -152,20 +171,27 @@ public sealed class ListarLiquidacionesHandler(ProductoTerminadoDbContext db, Pt
         var liqs = await LiquidacionMapeo.Completa(db).AsNoTracking().Where(x => ids.Contains(x.SalidaPtId)).ToDictionaryAsync(x => x.SalidaPtId, cancellationToken);
         var pedidoIds = salidas.SelectMany(x => x.Albaranes.Select(a => a.PedidoPtId)).Distinct().ToList();
         var condiciones = await db.PedidosPt.AsNoTracking().Where(p => pedidoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.CondicionPagoOrigen, cancellationToken);
+        var abiertas = salidas.Where(x => liqs.GetValueOrDefault(x.Id)?.Estado != EstadoLiquidacion.Cerrada).ToList();
+        var plazos = await LiquidacionMapeo.PlazosAsync(abiertas, calendario, opciones.Value, cancellationToken);
+        var ahora = clock.UtcNow;
 
         var filas = salidas.Select(x =>
         {
             var conPiezas = x.Albaranes.Where(a => a.Piezas.Count > 0).ToList();
             var liq = liqs.GetValueOrDefault(x.Id);
-            return new LiquidacionResumenDto(x.Id, x.Folio, x.SucursalId, x.Destino, x.EmitidaAt!.Value, conPiezas.Count,
+            var fila = new LiquidacionResumenDto(x.Id, x.Folio, x.SucursalId, x.Destino, x.EmitidaAt!.Value, conPiezas.Count,
                 conPiezas.Count(a => LiquidacionRutaPt.EsContraEntrega(condiciones.GetValueOrDefault(a.PedidoPtId))),
                 liq?.Estado.ToString() ?? "Pendiente", liq?.Albaranes.Sum(a => a.Diferencia) ?? 0m);
+            return plazos.TryGetValue(x.Id, out var p)
+                ? fila with { AlertaAt = p.Alerta, LimiteAt = p.Limite, Plazo = ReglasSalidaPt.EstadoPlazo(ahora, p.Alerta, p.Limite) }
+                : fila;
         }).Where(f => q.Estado is null || f.Estado == q.Estado).ToList();
         return new LiquidacionesPagina(filas.Skip((q.Page - 1) * q.PageSize).Take(q.PageSize).ToList(), filas.Count);
     }
 }
 
-public sealed class CerrarDiaContraEntregaHandler(ProductoTerminadoDbContext db, IPedidosPtReadPort pedidosPort, IIntegrationEventPublisher eventos, IClock clock)
+public sealed class CerrarDiaContraEntregaHandler(ProductoTerminadoDbContext db, IPedidosPtReadPort pedidosPort, IIntegrationEventPublisher eventos, IClock clock,
+    IPtCalendarioSucursalesPort calendario, IOptions<CierreContraEntregaOptions> opciones)
     : IRequestHandler<CerrarDiaContraEntregaCommand, int>
 {
     public async Task<int> Handle(CerrarDiaContraEntregaCommand c, CancellationToken cancellationToken)
@@ -181,6 +207,12 @@ public sealed class CerrarDiaContraEntregaHandler(ProductoTerminadoDbContext db,
         var avisados = (await db.AvisosContraEntrega.Where(x => albaranIds.Contains(x.AlbaranPtId)).Select(x => x.AlbaranPtId).ToListAsync(cancellationToken)).ToHashSet();
         var pedidoIds = salidas.SelectMany(x => x.Albaranes.Select(a => a.PedidoPtId)).Distinct().ToList();
         var pedidos = await db.PedidosPt.Where(p => pedidoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
+        // Regla 5: el worker solo avisa las hojas que cumplieron 12 horas hábiles sin liquidar (zona de su sucursal); el cierre manual avisa todo.
+        if (c.PorAlerta)
+        {
+            var plazos = await LiquidacionMapeo.PlazosAsync(salidas, calendario, opciones.Value, cancellationToken);
+            salidas = salidas.Where(s => ahora >= plazos[s.Id].Alerta).ToList();
+        }
 
         var nuevos = 0;
         foreach (var s in salidas)

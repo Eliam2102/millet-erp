@@ -18,6 +18,13 @@ import {
 } from '../api/liquidacion';
 
 // Texto además del color: el estado no depende solo de la vista.
+// Regla de salida 5 (Millet, 9-nov): sucursal hasta el siguiente día hábil 13:00, Conkal 2 días; alerta a las 12 horas hábiles.
+const plazoUi: Record<'EnPlazo' | 'Alerta' | 'Vencida', { texto: string; tono: 'info' | 'warning' | 'danger' }> = {
+  EnPlazo: { texto: 'En plazo', tono: 'info' },
+  Alerta: { texto: '12 h hábiles sin liquidar', tono: 'warning' },
+  Vencida: { texto: 'Vencida', tono: 'danger' },
+};
+
 const estadoUi: Record<EstadoLiquidacion, { texto: string; tono: 'info' | 'warning' | 'success' }> = {
   Pendiente: { texto: 'Sin liquidar', tono: 'info' },
   ConDiferencia: { texto: 'Con diferencia', tono: 'warning' },
@@ -241,6 +248,7 @@ export function LiquidacionRutaPage() {
               <TableHead>Pedidos</TableHead>
               <TableHead>Contra entrega</TableHead>
               <TableHead>Liquidación</TableHead>
+              <TableHead>Plazo para liquidar</TableHead>
               <TableHead>Diferencia</TableHead>
               <TableHead>Acciones</TableHead>
             </TableRow>
@@ -254,6 +262,14 @@ export function LiquidacionRutaPage() {
                 <TableCell className="tabular-nums">{h.pedidos}</TableCell>
                 <TableCell className="tabular-nums">{h.contraEntrega}</TableCell>
                 <TableCell><Badge variant={estadoUi[h.estado].tono}>{estadoUi[h.estado].texto}</Badge></TableCell>
+                <TableCell>
+                  {h.plazo && h.limiteAt ? (
+                    <span className="flex flex-col gap-1">
+                      <Badge variant={plazoUi[h.plazo].tono}>{plazoUi[h.plazo].texto}</Badge>
+                      <span className="text-xs text-ink-muted">Hasta <DateTimeDisplay value={h.limiteAt} variant="datetime" /></span>
+                    </span>
+                  ) : '—'}
+                </TableCell>
                 <TableCell>{h.estado === 'Pendiente' ? '—' : <MoneyDisplay amount={h.diferencia} currency="MXN" />}</TableCell>
                 <TableCell>
                   <Button variant="outline" size="sm" onClick={() => setAbierta(abierta === h.salidaId ? null : h.salidaId)}>

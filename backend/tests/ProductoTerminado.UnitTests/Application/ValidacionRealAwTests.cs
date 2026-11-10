@@ -71,6 +71,8 @@ public sealed class ValidacionRealAwTests
             Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(new Dictionary<string, FacturaAlbaranRuta>());
         public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
+        public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
     }
 
     private sealed record AwScanRow(string Auftnr, short Pos, int TeileNr, int Esnr, string Etikett, DateTime Zeit);
@@ -204,7 +206,7 @@ public sealed class ValidacionRealAwTests
         hoja1.Albaranes[0].NumeroPedido.Should().Be("10449822");
 
         // 5. Emitir Hoja de Salida (descuento de inventario, cambio a Embarcada y notificación a Facturación)
-        var emitirHandler = new EmitirHojaSalidaHandler(db, ptAcceso, pedidosPort, facturacion, events, empresaContext, reloj);
+        var emitirHandler = new EmisorAutorizado(db, pedidosPort, facturacion, new EmitirHojaSalidaHandler(db, ptAcceso, pedidosPort, facturacion, events, empresaContext, reloj), reloj);
         var hojaEmitida = await emitirHandler.Handle(new EmitirHojaSalidaCommand(hoja1.Id), CancellationToken.None);
         hojaEmitida.Estado.Should().Be("Emitida");
         hojaEmitida.YaEmitida.Should().BeFalse();

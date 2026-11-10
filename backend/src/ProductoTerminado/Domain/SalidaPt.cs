@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain;
 
@@ -31,6 +32,12 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     public DateTimeOffset? EmitidaAt { get; private set; }
     public Guid? CartaPorteId { get; private set; }
     public string? CartaPorteFolio { get; private set; }
+    /// <summary>Quien armó la hoja: no puede autorizar sus excepciones (separación de funciones).</summary>
+    public Guid? CreadaPorId { get; private set; }
+    /// <summary>Historial de autorizaciones para emitir sin factura timbrada (regla 1-2, Guadalupe Polanco 9-nov), igual que CE.</summary>
+    public string? ExcepcionFacturaJson { get; private set; }
+    /// <summary>Historial de autorizaciones de salida parcial (regla 4).</summary>
+    public string? AutorizacionParcialJson { get; private set; }
     public IReadOnlyCollection<AlbaranPt> Albaranes => _albaranes;
 
     private SalidaPt() { }
@@ -38,7 +45,7 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
 
     public static SalidaPt Crear(Guid empresa, Guid sucursalId, string destino, bool foranea, Guid? vehiculoId, Guid? operadorId, decimal? distanciaKm, decimal? pesoKg,
         string? origenCp, string? origenEstado, string? destinoCp, string? destinoEstado, DateTimeOffset ahora,
-        DateOnly? diaLocal = null)
+        DateOnly? diaLocal = null, Guid? creadaPorId = null)
     {
         if (foranea && (vehiculoId is null || operadorId is null || distanciaKm is not > 0 || pesoKg is not > 0 || string.IsNullOrWhiteSpace(origenCp) || string.IsNullOrWhiteSpace(origenEstado) || string.IsNullOrWhiteSpace(destinoCp) || string.IsNullOrWhiteSpace(destinoEstado)))
             throw new BusinessRuleException("PT_SALIDA_CARTA_PORTE_INCOMPLETA", "La salida foránea necesita vehículo, operador, distancia, peso, y código postal y estado de origen y destino para la Carta Porte.");
@@ -47,7 +54,7 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
         {
             EmpresaId = empresa, Folio = $"HS-{diaLocal ?? DateOnly.FromDateTime(ahora.UtcDateTime):yyyyMMdd}-{id.ToString("N")[^5..].ToUpperInvariant()}", SucursalId = sucursalId, Destino = destino.Trim(), Foranea = foranea,
             VehiculoId = vehiculoId, OperadorId = operadorId, DistanciaKm = distanciaKm, PesoKg = pesoKg, OrigenCodigoPostal = origenCp?.Trim(), OrigenEstado = origenEstado?.Trim().ToUpperInvariant(), DestinoCodigoPostal = destinoCp?.Trim(), DestinoEstado = destinoEstado?.Trim().ToUpperInvariant(),
-            Estado = EstadoSalida.Borrador, CreadaAt = ahora,
+            Estado = EstadoSalida.Borrador, CreadaAt = ahora, CreadaPorId = creadaPorId,
         };
     }
 
@@ -60,6 +67,25 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
 
     /// <summary>La Carta Porte se guarda en cuanto sale, antes de terminar la emisión: si lo demás falla, reintentar no emite otra.</summary>
     public void AsignarCartaPorte(Guid id, string folio) => (CartaPorteId, CartaPorteFolio) = (id, folio);
+
+    /// <summary>
+    /// Autoriza la excepción sin factura (<paramref name="parcial"/> = false) o la salida parcial, para el <see cref="AutorizacionSalidaPt.Alcance"/>
+    /// que la requiere hoy. Quien armó o cargó la hoja no autoriza (mismo criterio que CE_SALIDA_SEPARACION_FUNCIONES).
+    /// </summary>
+    public void Autorizar(bool parcial, AutorizacionSalidaPt autorizacion, IReadOnlyCollection<Guid> preparadores)
+    {
+        if (Estado != EstadoSalida.Borrador) throw new BusinessRuleException("PT_SALIDA_NO_AUTORIZABLE", "Solo se autoriza una hoja de salida que aún no se emite.");
+        if (autorizacion.Actor == Guid.Empty || preparadores.Contains(autorizacion.Actor))
+            throw new BusinessRuleException("PT_SALIDA_SEPARACION_FUNCIONES", "La autorización requiere a otra persona distinta de quien armó o cargó la hoja.");
+        var json = JsonSerializer.Serialize(Historial(parcial).Append(autorizacion with { Motivo = ReglasSalidaPt.MotivoValido(autorizacion.Motivo) }));
+        if (parcial) AutorizacionParcialJson = json;
+        else ExcepcionFacturaJson = json;
+    }
+
+    public AutorizacionSalidaPt? LeerAutorizacion(bool parcial) => Historial(parcial) is { Length: > 0 } h ? h[^1] : null;
+
+    private AutorizacionSalidaPt[] Historial(bool parcial) =>
+        (parcial ? AutorizacionParcialJson : ExcepcionFacturaJson) is { } json ? JsonSerializer.Deserialize<AutorizacionSalidaPt[]>(json)! : [];
 
     /// <summary>Devuelve false si ya estaba emitida (no hay nada que aplicar de nuevo).</summary>
     public bool Emitir(DateTimeOffset ahora)
@@ -147,3 +173,9 @@ public sealed class AlbaranPtPieza : BaseEntity, IAuditable, IPerteneceAEmpresa,
     internal AlbaranPtPieza(Guid empresa, Guid albaranId, Guid piezaId) : base(Guid.CreateVersion7())
         => (EmpresaId, AlbaranPtId, PiezaId) = (empresa, albaranId, piezaId);
 }
+
+/// <summary>
+/// Autorización de una hoja de salida (copia de AutorizacionDespacho de CE). <c>Alcance</c>: los pedidos que la requerían al autorizar, como
+/// «pedido:piezas cargadas»; si la carga cambia, deja de cubrirlos y hay que autorizar de nuevo.
+/// </summary>
+public sealed record AutorizacionSalidaPt(Guid Actor, DateTimeOffset Fecha, string Nivel, string Motivo, string? Suplencia, IReadOnlyList<string> Alcance);

@@ -46,6 +46,7 @@ public class PtHojaSalidaHttpTests
         var id = (await Json(creada)).GetProperty("id").GetGuid();
         Assert.Empty(await _d.SalidasFacturacionAsync(facturable));
 
+        await _d.AutorizarSalidaAsync(id, a);
         var emitida = await Json(await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null));
         Assert.Equal("Emitida", emitida.GetProperty("estado").GetString());
         Assert.False(emitida.GetProperty("yaEmitida").GetBoolean());
@@ -69,6 +70,7 @@ public class PtHojaSalidaHttpTests
         using var cliente = await _d.ClienteAsync(Operativo, a);
 
         var id = (await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas.Take(3))))).GetProperty("id").GetGuid();
+        await _d.AutorizarSalidaAsync(id, a);
         Assert.Equal(HttpStatusCode.OK, (await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null)).StatusCode);
         Assert.Equal([3m], await _d.SalidasFacturacionAsync(facturable));
 
@@ -79,8 +81,29 @@ public class PtHojaSalidaHttpTests
 
         // Las que quedaban salen en otra hoja del mismo pedido.
         var resto = (await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas.Skip(3))))).GetProperty("id").GetGuid();
+        await _d.AutorizarSalidaAsync(resto, a);
         Assert.Equal(HttpStatusCode.OK, (await cliente.PostAsync($"{Base}/hojas-salida/{resto}/emitir", null)).StatusCode);
         Assert.Equal([3m, 2m], await _d.SalidasFacturacionAsync(facturable));
+    }
+
+    [Fact]
+    public async Task Reglas_9nov_sin_factura_no_se_emite_y_quien_armo_la_hoja_no_se_autoriza_a_si_mismo()
+    {
+        var (a, numero, _, etiquetas) = await PrepararAsync(2);
+        using var cliente = await _d.ClienteAsync([.. Operativo, PermisosCanonicos.ProductoTerminadoSalidaAprobarAdministracion], a);
+        var id = (await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas)))).GetProperty("id").GetGuid();
+
+        var bloqueada = await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, bloqueada.StatusCode);
+        Assert.Contains("PT_SALIDA_SIN_FACTURA", await bloqueada.Content.ReadAsStringAsync());
+        var reglas = (await Json(await cliente.GetAsync($"{Base}/hojas-salida/{id}"))).GetProperty("reglas");
+        Assert.Equal($"{numero}:2", reglas.GetProperty("sinFactura")[0].GetString());
+
+        var propia = await cliente.PostAsJsonAsync($"{Base}/hojas-salida/{id}/autorizar", new { nivel = "administracion", motivo = "Cliente urgente, factura en proceso" });
+        Assert.Contains("PT_SALIDA_SEPARACION_FUNCIONES", await propia.Content.ReadAsStringAsync());
+
+        await _d.AutorizarSalidaAsync(id, a);
+        Assert.Equal(HttpStatusCode.OK, (await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null)).StatusCode);
     }
 
     [Fact]
@@ -94,6 +117,7 @@ public class PtHojaSalidaHttpTests
         Assert.Equal("Cancelada", cancelada.GetProperty("estado").GetString());
 
         var otra = (await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas)))).GetProperty("id").GetGuid();
+        await _d.AutorizarSalidaAsync(otra, a);
         await cliente.PostAsync($"{Base}/hojas-salida/{otra}/emitir", null);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await cliente.PostAsync($"{Base}/hojas-salida/{otra}/cancelar", null)).StatusCode);
     }
@@ -129,6 +153,7 @@ public class PtHojaSalidaHttpTests
         Assert.Equal(etiquetas[2], rota.GetProperty("albaranes")[0].GetProperty("rotas")[0].GetString());
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Pieza("cargar", etiquetas[2])).StatusCode);
 
+        await _d.AutorizarSalidaAsync(id, a);
         var emitida = await Json(await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null));
         Assert.Equal(2, emitida.GetProperty("albaranes")[0].GetProperty("total").GetInt32());
         Assert.Equal([2m], await _d.SalidasFacturacionAsync(facturable));
@@ -143,6 +168,7 @@ public class PtHojaSalidaHttpTests
         var (a, numero, _, etiquetas) = await PrepararAsync(3);
         using var cliente = await _d.ClienteAsync(Operativo, a);
         var id = (await Json(await cliente.PostAsJsonAsync($"{Base}/hojas-salida", Hoja(a, numero, etiquetas)))).GetProperty("id").GetGuid();
+        await _d.AutorizarSalidaAsync(id, a);
         var emitida = await Json(await cliente.PostAsync($"{Base}/hojas-salida/{id}/emitir", null));
         var albaran = emitida.GetProperty("albaranes")[0].GetProperty("id").GetGuid();
         var url = $"{Base}/hojas-salida/{id}/albaranes/{albaran}/entrega";
