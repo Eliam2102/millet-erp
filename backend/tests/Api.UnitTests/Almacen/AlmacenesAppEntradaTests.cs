@@ -118,4 +118,20 @@ public sealed class AlmacenesAppEntradaTests
         Assert.Null(r);
         Assert.Contains("no coincide con piezas", error);
     }
+
+    [Fact]
+    public async Task Lleva_compra_y_entrada_para_ligar_la_recepcion_a_la_OC()
+    {
+        var (r, _) = await AlmacenesAppEntrada.ManejarAsync(Datos(Vidrio), new Resolver(), new UsuarioServicio(), default);
+
+        Assert.Equal(("zz_arnes_RP1", "EN-002036"), (r!.Compra, r.Entrada));
+    }
+
+    [Fact]
+    public void Un_ENTRADA_ALMACEN_en_ERROR_se_reevalua_y_se_ve_en_la_bandeja_de_mensajes()
+    {
+        // Una sola lista para el reenvío y para GET /api/v1/almacen/mensajes-app/revision: no pueden divergir.
+        Assert.Contains(AlmacenesAppEntrada.Tipo, AlmacenesAppProcesador.TiposReevaluables);
+        Assert.Contains("AJUSTE_SALIDA", AlmacenesAppProcesador.TiposReevaluables);
+    }
 }
