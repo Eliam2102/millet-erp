@@ -120,6 +120,7 @@ public static class DependencyInjection
         services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.RegistroMovimientosPuente>();
         services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.LecturaCuentaPuente>();
         services.AddScoped<Millet.Contabilidad.Application.Reportes.LecturaReportesContables>();
+        services.AddScoped<Millet.Contabilidad.Application.ContabilidadElectronica.LecturaContabilidadElectronica>();
         services.AddScoped<Millet.Contabilidad.Application.PublicPorts.IPolizaAutomaticaObservador,
             Millet.Contabilidad.Application.CuentaPuente.ObservadorCuentaPuente>();
         return services;
