@@ -5115,6 +5115,76 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000010"),
+                            Accion = "aprobar-credito",
+                            Codigo = "comercio_exterior.embarques.aprobar-credito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar parcialidad por Crédito y Cobranza",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000011"),
+                            Accion = "aprobar-ventas",
+                            Codigo = "comercio_exterior.embarques.aprobar-ventas",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar parcialidad por suplencia de Ventas",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000012"),
+                            Accion = "aprobar-administracion",
+                            Codigo = "comercio_exterior.embarques.aprobar-administracion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar despacho sin factura por Administración",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000013"),
+                            Accion = "aprobar-planeacion",
+                            Codigo = "comercio_exterior.embarques.aprobar-planeacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar despacho sin factura por Planeación",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0007-0000-0000-000000000014"),
+                            Accion = "aprobar-contraloria",
+                            Codigo = "comercio_exterior.embarques.aprobar-contraloria",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar despacho sin factura por Contraloría",
+                            Modulo = "comercio_exterior",
+                            Recurso = "embarques",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0007-0000-0000-000000000001"),
                             Accion = "autorizar_salida",
                             Codigo = "comercio_exterior.embarques.autorizar_salida",

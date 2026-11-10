@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Millet.Facturacion.Application.EventListeners;
+using Millet.ComercioExterior.Application.PublicPorts;
+using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Integration;
 
@@ -121,6 +123,18 @@ public sealed class ComercioExteriorEventListenerWorker : BackgroundService, ILo
                 {
                     var payload = JsonSerializer.Deserialize<ContenedorEmbarcadoPayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
                     await mediator.Send(new RegistrarSalidasContenedorCommand(payload), cancellationToken);
+                    break;
+                }
+                case ContenedorEmbarcadoPayload.PreparadoEventType:
+                {
+                    var payload = JsonSerializer.Deserialize<ContenedorEmbarcadoPayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+                    var db = sp.GetRequiredService<FacturacionDbContext>();
+                    var preparacion = sp.GetRequiredService<IEmbarqueExportacionReadPort>();
+                    await PedidoEmbarqueLock.ExecuteAsync(db, payload.Pedidos.Select(p => p.PedidoFacturableId), async ct =>
+                    {
+                        if (await preparacion.PreparacionVigenteAsync(payload.EmpresaId, payload.ContenedorId, ct))
+                            await mediator.Send(new RegistrarSalidasContenedorCommand(payload), ct);
+                    }, cancellationToken);
                     break;
                 }
                 case ContenedorCanceladoPayload.EventType:

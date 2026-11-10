@@ -174,7 +174,15 @@ export interface Filtros {
   sucursalId?: string;
 }
 
+export interface AutorizacionDespacho {
+  nivel: string;
+  versionEmbarque: number;
+}
 export interface Contenedor {
+  preparadoParaFacturarEn?: string | null;
+  parcial?: AutorizacionDespacho | null;
+  excepcion?: AutorizacionDespacho | null;
+  facturasVigentes?: boolean;
   modalidad?: 1 | 2 | 3 | null;
   id: string;
   numero: string | null;
@@ -191,7 +199,7 @@ export interface Contenedor {
 }
 export type DatosContenedor = Omit<
   Contenedor,
-  'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion'
+  'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion' | 'preparadoParaFacturarEn' | 'parcial' | 'excepcion' | 'facturasVigentes'
 >;
 export interface PedimentoExportacion {
   aduana?: string | null;
@@ -286,6 +294,8 @@ export interface EmbarqueCe {
   fechaPedimento: string | null;
   incoterm: string | null;
   contenedores: { id: string; numero: string; blGuia: string; fechaEmbarqueReal: string }[] | null;
+  /** M-158: fracción y unidad aduana revisadas en Comercio Exterior, por posición; mandan en la factura. */
+  datosAduanales?: { posicion: number; fraccionArancelaria: string; unidadAduana: string }[] | null;
 }
 export interface DatosEmbarqueCe {
   aduana?: string | null;

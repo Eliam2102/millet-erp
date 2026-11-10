@@ -202,7 +202,7 @@ public sealed class EmitirFacturaVentaHandler
         if (command.Cce is { } cceSat)
             Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.ValidarDatosSatCce(
                 cceSat.ClaveDePedimento, cceSat.ReceptorDomicilioCalle,
-                cceSat.ReceptorDomicilioEstado, cceSat.ReceptorDomicilioCodigoPostal);
+                cceSat.ReceptorDomicilioEstado, cceSat.ReceptorDomicilioCodigoPostal, cceSat.ReceptorPaisResidencia);
         await TipoCambioFactura.ValidarAsync(
             _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
