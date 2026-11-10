@@ -60,6 +60,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AreaEquipoCaptura } from '@/features/contabilidad/components/dimensiones/AreaEquipoCaptura';
 import {
   areaEquipoIds,
+  faltaAreaEquipo,
   type AreaEquipoValor,
 } from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -203,6 +204,10 @@ export function BandejaConciliaciones() {
     modalAltaAsistida?.fecha,
   );
   const dimensionesAlta = dimensionesAltaQuery.data;
+  // M-450 (86e3zr7ft): sin el área o el equipo que exige la cuenta del concepto, la alta no procede.
+  const faltaDimensionAlta =
+    !!dimensionesAlta?.sucursalId &&
+    faltaAreaEquipo(altaDimensiones, dimensionesAlta.exigeArea, dimensionesAlta.exigeEquipo);
 
   // Formulario partida en tránsito
   const [transitoTipo, setTransitoTipo] = useState<PartidaTransitoTipo>(PartidaTransitoTipo.ChequeNoCobrado);
@@ -1392,7 +1397,8 @@ export function BandejaConciliaciones() {
               Cancelar
             </Button>
             <Button
-              disabled={altaAsistidaMutation.isPending || !altaConceptoId}
+              disabled={altaAsistidaMutation.isPending || !altaConceptoId || faltaDimensionAlta}
+              title={faltaDimensionAlta ? 'Captura el área y el equipo que exige la cuenta del concepto.' : undefined}
               onClick={handleAltaAsistidaSubmit}
             >
               Registrar movimiento y emparejar

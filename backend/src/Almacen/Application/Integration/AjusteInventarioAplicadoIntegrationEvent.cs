@@ -23,7 +23,8 @@ public sealed record AjusteInventarioAplicadoIntegrationEvent(
     Guid AprobadorId,
     IReadOnlyList<AjusteInventarioPayload> MovimientosGenerados,
     // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
-    // CentroCostoId/Motivo: el conteo no los captura hoy; se publican null.
+    // CentroCostoId: M-450 (86e3zr7ft), el área o el equipo que captura quien aplica el conteo (el equipo si se capturó);
+    // null si no se capturó. Motivo: el conteo no lo captura; se publica null.
     Guid? AlmacenId = null,
     Guid? SucursalId = null,
     Guid? CentroCostoId = null,
