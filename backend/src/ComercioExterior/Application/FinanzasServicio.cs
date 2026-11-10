@@ -235,18 +235,12 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                         throw new BusinessRuleException("CE_UUID_REQUERIDO", "La factura de Cuentas por Pagar debe tener UUID fiscal.");
                     await ValidacionesFinancieras.FacturaUnicaAsync(db, e.EmpresaId, factura.Id, id, cancellationToken);
                 }
-                var sugerido = g.Moneda == "MXN" ? 1 : await cambio.ObtenerBanxicoAsync(g.FechaFactura, cancellationToken);
-                var tc = sugerido; var fuenteTc = g.Moneda == "MXN" ? "MXN" : "Banxico";
-                if (g.Moneda != "MXN" && g.FuenteTipoCambio is not null)
-                {
-                    fuenteTc = g.FuenteTipoCambio;
-                    tc = fuenteTc == "Banxico" ? sugerido
-                        : fuenteTc == "CFDI" && factura?.TipoCambio is decimal delCfdi ? delCfdi
-                        : g.TipoCambioUsado ?? throw new BusinessRuleException("CE_TIPO_CAMBIO_REQUERIDO", "Capture el tipo de cambio usado.");
-                }
+                var resuelto = await TipoCambioGastoResolver.ResolverAsync(cambio, g.Moneda, g.FechaFactura, g.FuenteTipoCambio,
+                    g.TipoCambioUsado, factura?.TipoCambio, cancellationToken);
+                var (tc, fuenteTc, sugerido) = (resuelto.TipoCambio, resuelto.Fuente, resuelto.Sugerido);
                 var orden = await ordenes.ValidarAsync(e, g, concepto, tc, cancellationToken);
                 if (orden?.Moneda == "USD" && g.Moneda == "MXN")
-                    orden = orden with { TipoCambio = await cambio.ObtenerBanxicoAsync(g.FechaFactura, cancellationToken) };
+                    orden = orden with { TipoCambio = await TipoCambioGastoResolver.ObligatorioAsync(cambio, g.FechaFactura, cancellationToken) };
                 if (request.ElementoId is not null && !e.Gastos.Any(x => x.Id == id)) throw new EntityNotFoundException("CE_GASTO_NO_ENCONTRADO", "No existe el gasto.");
                 e.GuardarGasto(id, g with { FacturaProveedorId = factura?.Id }, concepto, tc, fuenteTc, orden, sugerido, g.NotaTipoCambio, servicio.Actor);
                 break;
