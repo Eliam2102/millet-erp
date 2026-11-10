@@ -90,6 +90,7 @@ const DEFAULT_MIME_WHITELIST: readonly string[] = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
   'application/msword', // doc
   'text/plain',
+  'text/csv', // K10.11: archivo origen de la póliza de nómina externa
 ];
 
 export interface AdjuntosManagerProps<
@@ -192,7 +193,7 @@ export function AdjuntosManager<
   puedeVerBajas = false,
   verBajas = false,
   onVerBajasChange,
-  ayudaFormatos = 'PDF, imágenes, Office',
+  ayudaFormatos = 'PDF, imágenes, Office, CSV',
   adjuntosLoading = false,
   adjuntosError = null,
 }: AdjuntosManagerProps<TItem, TTipo>) {

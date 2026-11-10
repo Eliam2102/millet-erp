@@ -215,6 +215,29 @@ public class AdjuntosPoliticaOptionsTests
         actXlsx.Should().NotThrow();
     }
 
+    [Theory]
+    [InlineData("text/csv")]
+    [InlineData("application/csv")]
+    [InlineData("application/vnd.ms-excel")] // así lo manda el navegador en Windows con Excel instalado
+    public void Csv_SePermite_SinFirmaExigida(string contentType)
+    {
+        // K10.11 (QA H1): el CSV de la nómina externa se adjunta a la póliza.
+        var act = () => new AdjuntosPoliticaOptions().ValidarInstancia(
+            nombreArchivo: "nomina-octubre.csv",
+            contentType: contentType,
+            longitud: 2048,
+            cabecera: "cuenta;cargo;abono"u8);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Csv_NoSePermite_EnLaPoliticaDeProveedor()
+    {
+        var act = () => PoliticaProveedor().ValidarInstancia("lista.csv", "text/csv", 100, "a,b"u8);
+        act.Should().Throw<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "ADJUNTO_FORMATO_NO_PERMITIDO");
+    }
+
     private static AdjuntosPoliticaOptions PoliticaProveedor() => new AdjuntosPoliticaOptions
     {
         PorTipoEntidad =
