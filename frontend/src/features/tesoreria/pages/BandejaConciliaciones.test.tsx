@@ -127,13 +127,15 @@ describe('<BandejaConciliaciones>', () => {
 
 it('elige un extracto con botón y muestra su nombre junto al contenido leído', async () => {
   mswServer.use(
-    http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([mockCuenta])),
+    http.get('*/api/v1/tesoreria/cuentas', () => HttpResponse.json([{ ...mockCuenta, perfilExtracto: 'santander' }])),
     http.get('*/api/v1/tesoreria/conceptos', () => HttpResponse.json([])),
     http.get('*/api/v1/tesoreria/conciliaciones', () => HttpResponse.json([mockConciliacion])),
     http.get('*/api/v1/tesoreria/conciliaciones/00000000-0000-0000-0000-000000000010', () => HttpResponse.json(mockConciliacion)),
   );
   render(<BandejaConciliaciones />, { wrapper: createQueryWrapper() });
-  fireEvent.click(await screen.findByRole('button', { name: 'Cargar extracto BBVA' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Cargar extracto' }));
+  // El formato sale del perfil de extracto de la cuenta.
+  expect(screen.getByRole('combobox')).toHaveTextContent('Santander (auxiliar CSV)');
   expect(screen.getByRole('button', { name: 'Elegir archivo' })).toBeInTheDocument();
   const archivo = new File(['contenido de prueba'], 'extracto.csv', { type: 'text/csv' });
   Object.defineProperty(archivo, 'text', { value: async () => 'contenido de prueba' });

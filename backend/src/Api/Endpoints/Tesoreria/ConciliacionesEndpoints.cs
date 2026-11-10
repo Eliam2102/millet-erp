@@ -77,7 +77,7 @@ public static class ConciliacionesEndpoints
         .WithName("ObtenerConciliacionDetalle")
         .Produces<ConciliacionDetalleResponse>(StatusCodes.Status200OK);
 
-        // 4. Cargar extracto bancario (BBVA por defecto)
+        // 4. Cargar extracto bancario (sin formato: perfil de extracto de la cuenta)
         conciliaciones.MapPost("/{id:guid}/extracto", async (
             Guid id,
             [FromBody] CargarExtractoRequest request,
@@ -87,7 +87,7 @@ public static class ConciliacionesEndpoints
             var command = new CargarExtractoCommand(
                 id,
                 request.ContenidoArchivo,
-                request.Formato ?? "BBVA",
+                request.Formato,
                 request.SaldoExtracto,
                 request.AutoEmparejar ?? true);
 
@@ -270,7 +270,7 @@ public static class ConciliacionesEndpoints
 
 public sealed record CargarExtractoRequest(
     string ContenidoArchivo,
-    string? Formato = "BBVA",
+    string? Formato = null,
     decimal? SaldoExtracto = null,
     bool? AutoEmparejar = true);
 
