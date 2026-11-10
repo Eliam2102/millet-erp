@@ -41,3 +41,37 @@ describe('valoresIniciales — B12: datos de aduana del artículo', () => {
     expect(l.pesoUnitarioKg).toBeNull();
   });
 });
+
+describe('valoresIniciales — M-158: datos aduanales de Comercio Exterior', () => {
+  const embarque = {
+    ligado: true, expedienteId: 'e-1', sucursalId: null, listoParaFacturar: true, codigoBloqueo: null, motivo: null,
+    folioExpediente: 'CE-1', numeroPedimento: 'P-1', clavePedimento: 'A1', fechaPedimento: '2026-11-01', incoterm: 'FOB',
+    contenedores: null,
+    datosAduanales: [
+      { posicion: 2, fraccionArancelaria: '7007199900', unidadAduana: '06' },
+      { posicion: 1, fraccionArancelaria: '7610100100', unidadAduana: '01' },
+    ],
+  };
+
+  it('con expediente ligado, la fracción y la unidad de CE mandan sobre las del artículo, por posición', () => {
+    const prefill: EmitirFacturaPrefill = {
+      embarqueCe: embarque,
+      lineas: [
+        { ...linea, fraccionArancelaria: '76101001', unidadAduana: '06' },
+        { ...linea, fraccionArancelaria: null, unidadAduana: null },
+      ],
+    };
+    const [l1, l2] = valoresIniciales(prefill, emisor).lineas;
+    expect(l1.fraccionArancelaria).toBe('7610100100');
+    expect(l1.unidadAduana).toBe('01');
+    expect(l2.fraccionArancelaria).toBe('7007199900');
+  });
+
+  it('sin expediente ligado se conserva lo del artículo (B12)', () => {
+    const prefill: EmitirFacturaPrefill = {
+      embarqueCe: { ...embarque, ligado: false },
+      lineas: [{ ...linea, fraccionArancelaria: '7610100100', unidadAduana: '06' }],
+    };
+    expect(valoresIniciales(prefill, emisor).lineas[0].fraccionArancelaria).toBe('7610100100');
+  });
+});
