@@ -621,6 +621,8 @@ public static class PermisosCanonicos
     public const string ContabilidadCierreConfigurar                    = "contabilidad.cierre.configurar";
     public const string ContabilidadCierreAutorizarExcepcion            = "contabilidad.cierre.autorizar-excepcion";
     public const string ContabilidadCierreAnual                         = "contabilidad.cierre.anual";
+    /// <summary>M-209 (CA4): recalcular el IVA de una factura de proveedor contra su XML y generar la póliza de ajuste.</summary>
+    public const string ContabilidadIvaCorregirDocumento                = "contabilidad.iva.corregir-documento";
     // F1-CON-04: -0005 pólizas (C1.3, K10.3, K10.9). `capturar` (Analista) y `autorizar` (Supervisor) separados: R23, prepara el
     // Analista y aprueba el Supervisor (además nadie autoriza su propia póliza). `anular` va aparte: crea la póliza en negativo.
     // Literales duplicados en Contabilidad.Application.Polizas.PolizaAdjuntoPropietario (Contabilidad no referencia Identidad).
@@ -1080,6 +1082,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0008-0000-0000-000000000001"), ContabilidadCierreConfigurar,           "Configurar el checklist de cierre: orden, pasos obligatorios, activos y pasos manuales"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000002"), ContabilidadCierreAutorizarExcepcion,   "Autorizar (o retirar) una excepción del checklist para cerrar un periodo con un paso pendiente"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000003"), ContabilidadCierreAnual,                "Generar las pólizas de cierre anual que cancelan las cuentas de resultados contra resultado del ejercicio"),
+        (Guid.Parse("0000000d-0009-0000-0000-000000000001"), ContabilidadIvaCorregirDocumento,       "Recalcular el IVA de una factura de proveedor contra su XML con motivo (genera la póliza de ajuste ligada al documento)"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
         (Guid.Parse("0000000e-0007-0000-0000-000000000010"), ComercioExteriorEmbarquesCredito, "Autorizar parcialidad por Crédito y Cobranza"),

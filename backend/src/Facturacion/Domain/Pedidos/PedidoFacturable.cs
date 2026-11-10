@@ -128,6 +128,14 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// </summary>
     public bool EsCredito { get; private set; }
 
+    /// <summary>
+    /// Fecha del pedido en el origen (fecha del documento de venta). Planta Pintura la manda en
+    /// <c>pinturas_pedido.fecha_pedido</c> (script 16 v3): una orden capturada un día y transmitida al
+    /// siguiente conserva su fecha. Null en A+W y Manual (su fecha es <c>CreatedAt</c>). El CFDI se fecha
+    /// al emitirse, como exige el SAT.
+    /// </summary>
+    public DateOnly? FechaPedido { get; private set; }
+
     private readonly List<PedidoFacturableLinea> _lineas = [];
     public IReadOnlyCollection<PedidoFacturableLinea> Lineas => _lineas.AsReadOnly();
 
@@ -282,7 +290,8 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         string? obraNombre,
         string? comentarios,
         long versionOrigen,
-        string? estadoOrigen) =>
+        string? estadoOrigen,
+        DateOnly? fechaPedido = null) =>
         new(
             id: Guid.CreateVersion7(),
             empresaId: empresaId,
@@ -300,7 +309,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
             capturadoPor: null,
             versionOrigen: versionOrigen,
             estadoOrigen: estadoOrigen,
-            estado: EstadoPedidoFacturable.Importado);
+            estado: EstadoPedidoFacturable.Importado) { FechaPedido = fechaPedido };
 
     /// <summary>
     /// Refresca la cabecera desde el origen (Modificación A+W). <b>La factura

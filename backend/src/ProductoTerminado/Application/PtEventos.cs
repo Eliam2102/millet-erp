@@ -20,7 +20,7 @@ public sealed record ContraEntregaNoLiquidadaEvent(Guid Empresa, DateTimeOffset 
     : IntegrationEvent("producto_terminado.contra-entrega.no-liquidada.v1", Empresa, Fecha);
 
 /// <summary>
-/// La primera hoja de salida emitida del pedido lo pasa a 71 (en ruta). Es el aviso que A+W consume (el acuse en A+W es de U1.5).
+/// La primera hoja de salida emitida del pedido lo pone en ruta. A+W lo recibe como estatus 72 (aw_retorno, script 14 v5): el 71 lo pone A+W con el albarán.
 /// </summary>
 public sealed record PedidoEnRutaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string HojaSalidaFolio, string AlbaranFolio, string? CartaPorteFolio)
     : IntegrationEvent("producto_terminado.pedido.en-ruta.v1", Empresa, Fecha);

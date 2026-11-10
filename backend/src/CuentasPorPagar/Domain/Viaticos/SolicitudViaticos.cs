@@ -355,8 +355,11 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
             throw new BusinessRuleException("VIA_COMPROBACION_VACIA",
                 "La comprobación debe tener al menos una línea.");
 
+        // O2 (M-449): lo comprobado se conoce desde la captura, para que el detalle y la lista lo muestren antes de liberar.
+        // La diferencia de liquidación sigue en null hasta liberar.
+        MontoComprobado = _lineas.Sum(l => l.Total);
         // M-449: una captura nueva recalcula el exceso y deja sin efecto una autorización previa (el monto pudo cambiar).
-        ExcesoComprobacion = Math.Max(0m, _lineas.Sum(l => l.Total) - LimiteComprobacion);
+        ExcesoComprobacion = Math.Max(0m, MontoComprobado.Value - LimiteComprobacion);
         ExcesoAutorizadoPor = null;
         ExcesoAutorizadoEn = null;
         Estado = EstadoSolicitudViaticos.ComprobacionCapturada;

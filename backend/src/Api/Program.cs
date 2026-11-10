@@ -502,6 +502,7 @@ builder.Services
     .AddOptions<Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions>()
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions.SectionName));
 builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmCargaInicialLector>(); // M-283, apagado por omisión
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.AlmMensajeWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
@@ -712,6 +713,9 @@ builder.Services.AddScoped<
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
 // U-4 (86e3yzemw): incidencias comunes del ERP (servicio, puerto para los módulos, nombres y evidencia).
 builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IncidenciasServicio>();
+builder.Services.AddScoped<Millet.Compartido.Application.Cargas.Lotes.LotesCargaServicio>();
+// M-166: tipo de carga contabilidad.saldos-iniciales (apertura contable) para el lote común.
+Millet.Api.Infrastructure.Adapters.CargasContabilidadRegistro.AddCargasContabilidad(builder.Services);
 builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
 builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IIncidenciaUsuariosReadPort, Millet.Api.Infrastructure.Adapters.IncidenciaUsuariosReadAdapter>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compartido.Application.Incidencias.IncidenciaAdjuntoPropietario>();
@@ -1125,6 +1129,8 @@ builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ICumplimientoIv
 // K10.8: contabilidad electrónica. RFC de la empresa (Compartido) y CFDI de las pólizas (CxP recibidos + Facturación emitidos).
 builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IEmpresaContabilidadReadPort, Millet.Compartido.Infrastructure.PublicAdapters.EmpresaContabilidadReadAdapter>();
 builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.IComprobanteFiscalContabilidadReadPort, Millet.Api.Infrastructure.Adapters.ComprobanteFiscalContabilidadReadAdapter>();
+// M-209 (CA4): traslados de IVA del XML del CFDI recibido para corregir el IVA del documento.
+builder.Services.AddScoped<Millet.Contabilidad.Application.Ports.ITrasladosIvaCfdiReadPort, Millet.Api.Infrastructure.Adapters.TrasladosIvaCfdiReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
@@ -1987,6 +1993,8 @@ Millet.Api.Endpoints.Catalogos.CatalogosSatFiscalApiEndpoints.MapCatalogosSatFis
 // === Datos Maestros — queries enriquecidas (F-Admin-PR4.5) ===
 Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.Cargas.CargasMaestrosEndpoints.MapCargasMaestrosEndpoints(app);
+// M-047 + M-167: lote común de cargas (los tipos los registra cada módulo como IProcesadorCarga).
+Millet.Api.Endpoints.Cargas.LotesCargaEndpoints.MapLotesCargaEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.F1AEndpoints.MapF1AEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.SincronizacionAwEndpoints.MapSincronizacionAwEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);

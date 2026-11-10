@@ -75,7 +75,7 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         var ct = cancellationToken;
         var (desde, hasta) = Mes(q.Anio, q.Mes);
         var movimientos = await db.ReclasificacionesIva.AsNoTracking()
-            .Where(r => r.Tipo == TipoMovimientoIva.Pago && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
+            .Where(r => (r.Tipo == TipoMovimientoIva.Pago || r.Tipo == TipoMovimientoIva.Ajuste) && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
             .ToListAsync(ct);
         var ids = movimientos.Select(r => r.SaldoIvaDocumentoId).Distinct().ToList();
         var saldos = await db.SaldosIvaDocumento.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id, ct);
@@ -158,7 +158,7 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
     {
         var (desde, hasta) = Mes(anio, mes);
         var movimientos = await db.ReclasificacionesIva.AsNoTracking()
-            .Where(r => r.Tipo == TipoMovimientoIva.Pago && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
+            .Where(r => (r.Tipo == TipoMovimientoIva.Pago || r.Tipo == TipoMovimientoIva.Ajuste) && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
             .Join(db.SaldosIvaDocumento.AsNoTracking().Where(s => s.Lado == LadoIva.Trasladado), r => r.SaldoIvaDocumentoId, s => s.Id, (r, s) => r)
             .ToListAsync(ct);
         return [.. movimientos.SelectMany(r => r.Retenciones)

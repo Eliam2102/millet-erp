@@ -74,6 +74,14 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
     public int? AnchoMm { get; private set; }
     public int? AltoMm { get; private set; }
 
+    /// <summary>M-283 (contrato v9): la RQ de la app conserva la <c>posicion</c> de la app; REQUISICION_REDUCIDA la usa.</summary>
+    internal void AsignarPosicionApp(int posicion)
+    {
+        if (posicion is <= 0 or > short.MaxValue)
+            throw new BusinessRuleException("RQ_LINEA_POSICION_INVALIDA", $"La posición {posicion} no es válida.");
+        Posicion = (short)posicion;
+    }
+
     internal void AsignarMedidaApp(int? piezas, int? anchoMm, int? altoMm)
     {
         if (piezas <= 0 || anchoMm <= 0 || altoMm <= 0)

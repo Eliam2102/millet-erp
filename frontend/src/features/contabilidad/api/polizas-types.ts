@@ -5,7 +5,8 @@
 import type { Auxiliar, CentroRef } from './dimensiones-types';
 
 export type EstadoPoliza = 'Borrador' | 'Autorizada' | 'Anulada';
-export type OrigenPoliza = 'Manual' | 'Automatica';
+/** M-166: «Apertura» es la póliza de saldos iniciales (una por empresa, nace autorizada). */
+export type OrigenPoliza = 'Manual' | 'Automatica' | 'Apertura';
 export type TipoPolizaSat = 'Ingreso' | 'Egreso' | 'Diario';
 
 /** K10.4: relación de una póliza derivada con su original (reversa automática de recurrente o reclasificación ligada). */

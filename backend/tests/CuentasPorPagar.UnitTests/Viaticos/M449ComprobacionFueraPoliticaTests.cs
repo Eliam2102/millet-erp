@@ -100,4 +100,27 @@ public sealed class M449ComprobacionFueraPoliticaTests
 
         (s.LimiteComprobacion, s.ComprobacionFueraDePolitica).Should().Be((5_000m, false));
     }
+
+    [Fact]
+    public void O2_al_capturar_el_monto_comprobado_ya_es_la_suma_y_la_diferencia_sigue_vacia()
+    {
+        var s = Anticipada();
+        Comprobar(s, 2_500m, 1_600m);
+
+        (s.Estado, s.MontoComprobado, s.DiferenciaLiquidacion)
+            .Should().Be((EstadoSolicitudViaticos.ComprobacionCapturada, 4_100m, (decimal?)null));
+    }
+
+    [Fact]
+    public void O2_volver_a_capturar_actualiza_el_monto_y_al_liberar_se_calcula_la_diferencia()
+    {
+        var s = Anticipada(tope: 5_000m);
+        Comprobar(s, 4_100m);
+        Comprobar(s, 4_300m);
+
+        s.MontoComprobado.Should().Be(4_300m);
+        s.LiberarComprobacion(Ahora);
+        (s.Estado, s.MontoComprobado, s.DiferenciaLiquidacion)
+            .Should().Be((EstadoSolicitudViaticos.Liquidada, 4_300m, 1_300m));
+    }
 }

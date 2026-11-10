@@ -1,6 +1,8 @@
 -- DEMO sintético · Pinturas: catálogos publicados por el ERP y pedidos del portal (dialecto Postgres del script
 -- docs/operacion/aw-integracion-scripts/16_create_pinturas.sql). Idempotente: repetir la carga es inocuo.
--- Sin roles ni GRANT en el demo; permisos reales (portal solo SELECT e INSERT, sin reenvío) en el script 16 v2.
+-- Sin roles ni GRANT en el demo; permisos reales (portal solo SELECT e INSERT, sin reenvío) en el script 16 v3.
+-- v3: el pedido es cabecera (pinturas_pedido, con fecha_pedido) + líneas (pinturas_pedido_linea). Una copia con la forma
+-- v2 (sin fecha_pedido) se reemplaza: es demo sintético.
 -- psql -f pinturas.sql
 BEGIN;
 CREATE TABLE IF NOT EXISTS dbo.pinturas_cliente (
@@ -34,17 +36,22 @@ CREATE TABLE IF NOT EXISTS dbo.pinturas_empleado (
     activo boolean NOT NULL DEFAULT true,
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'dbo' AND table_name = 'pinturas_pedido')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                     WHERE table_schema = 'dbo' AND table_name = 'pinturas_pedido' AND column_name = 'fecha_pedido') THEN
+    DROP TABLE dbo.pinturas_pedido;
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS dbo.pinturas_pedido (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     folio_orden varchar(50) NOT NULL UNIQUE,
+    fecha_pedido date NOT NULL,
     cliente_clave integer NOT NULL,
     cliente_nombre varchar(200) NOT NULL,
     obra_clave varchar(50),
     obra_nombre varchar(200),
     comentarios varchar(1000),
-    servicio_clave varchar(50) NOT NULL,
-    m2 numeric(18,6) NOT NULL CHECK (m2 > 0),
-    precio_m2 numeric(18,6) NOT NULL CHECK (precio_m2 >= 0),
     iva_porcentaje numeric(5,2) NOT NULL CHECK (iva_porcentaje >= 0),
     moneda char(3) NOT NULL DEFAULT 'MXN',
     creado_at timestamptz NOT NULL DEFAULT now(),
@@ -52,6 +59,15 @@ CREATE TABLE IF NOT EXISTS dbo.pinturas_pedido (
     erp_pedido_id uuid,
     erp_error varchar(500),
     erp_procesado_at timestamptz
+);
+CREATE TABLE IF NOT EXISTS dbo.pinturas_pedido_linea (
+    pedido_id bigint NOT NULL REFERENCES dbo.pinturas_pedido (id),
+    linea integer NOT NULL CHECK (linea > 0),
+    servicio_clave varchar(50) NOT NULL,
+    piezas integer CHECK (piezas > 0),
+    m2 numeric(18,6) NOT NULL CHECK (m2 > 0),
+    precio_m2 numeric(18,6) NOT NULL CHECK (precio_m2 >= 0),
+    PRIMARY KEY (pedido_id, linea)
 );
 CREATE INDEX IF NOT EXISTS ix_pinturas_pedido_pendiente ON dbo.pinturas_pedido (creado_at, id) WHERE erp_resultado IS NULL;
 
@@ -66,8 +82,14 @@ INSERT INTO dbo.pinturas_servicio (clave,nombre) VALUES
 ON CONFLICT (clave) DO NOTHING;
 INSERT INTO dbo.pinturas_obra (clave,nombre) VALUES ('DEMO-OBRA-1','DEMO · Torre ficticia') ON CONFLICT (clave) DO NOTHING;
 INSERT INTO dbo.pinturas_empleado (clave,nombre) VALUES ('DEMO-EMP-1','DEMO · Capturista de Pinturas') ON CONFLICT (clave) DO NOTHING;
--- Pedido pendiente (sin acuse del ERP).
-INSERT INTO dbo.pinturas_pedido (folio_orden,cliente_clave,cliente_nombre,obra_clave,obra_nombre,comentarios,servicio_clave,m2,precio_m2,iva_porcentaje)
-VALUES ('DEMO-PIN-OT-1',900001,'DEMO · Aluminios del Sureste SA de CV','DEMO-OBRA-1','DEMO · Torre ficticia','DEMO · Pedido pendiente','DEMO-PIN-S1',125.5,85.25,16)
+-- Pedido pendiente (sin acuse del ERP): capturado un día antes de transmitirse, con dos líneas.
+INSERT INTO dbo.pinturas_pedido (folio_orden,fecha_pedido,cliente_clave,cliente_nombre,obra_clave,obra_nombre,comentarios,iva_porcentaje)
+VALUES ('DEMO-PIN-OT-1',current_date - 1,900001,'DEMO · Aluminios del Sureste SA de CV','DEMO-OBRA-1','DEMO · Torre ficticia','DEMO · Pedido pendiente',16)
 ON CONFLICT (folio_orden) DO NOTHING;
+INSERT INTO dbo.pinturas_pedido_linea (pedido_id,linea,servicio_clave,piezas,m2,precio_m2)
+SELECT p.id, v.linea, v.servicio, v.piezas, v.m2, v.precio
+FROM dbo.pinturas_pedido p
+CROSS JOIN (VALUES (1,'DEMO-PIN-S1',12,80.5::numeric,85.25::numeric), (2,'DEMO-PIN-S2',6,45::numeric,92::numeric)) v(linea,servicio,piezas,m2,precio)
+WHERE p.folio_orden = 'DEMO-PIN-OT-1'
+ON CONFLICT (pedido_id, linea) DO NOTHING;
 COMMIT;

@@ -163,6 +163,7 @@ export function ReporteDiarioPage() {
                   <option value="">Todos</option>
                   <option value="Manual">Manual</option>
                   <option value="Automatica">Automática</option>
+                  <option value="Apertura">Apertura</option>
                 </select>
               </div>
               <Button type="button" onClick={() => ejecutar(0)} disabled={!!motivo} title={motivo}>

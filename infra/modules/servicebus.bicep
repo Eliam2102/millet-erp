@@ -1232,7 +1232,7 @@ resource ptAwSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rul
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'producto_terminado.pedido.estado-cambiado.v1\', \'producto_terminado.pedido.facturado-entregado.v1\')'
+      sqlExpression: 'user.EventType IN (\'producto_terminado.pedido.estado-cambiado.v1\', \'producto_terminado.pedido.en-ruta.v1\', \'producto_terminado.pedido.facturado-entregado.v1\')'
       compatibilityLevel: 20
     }
   }

@@ -6,4 +6,4 @@ namespace Millet.Compras.Domain;
 public sealed record LineaAppRequisicion(
     Guid ArticuloId, decimal Cantidad, string UnidadMedida, Money PrecioEstimado,
     int? Piezas, int? AnchoMm, int? AltoMm,
-    DateOnly? FechaRequerida = null, string? Obra = null);
+    DateOnly? FechaRequerida = null, string? Obra = null, int? Posicion = null);

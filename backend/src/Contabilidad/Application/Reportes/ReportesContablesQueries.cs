@@ -512,7 +512,7 @@ public sealed class DiarioHandler(ContabilidadDbContext db, LecturaReportesConta
         {
             ["Periodo"] = LecturaReportesContables.Periodo(anio, desde, hasta),
             ["Sucursal"] = request.SucursalId is { } s ? sucursales.GetValueOrDefault(s)?.Nombre ?? s.ToString() : "Todas",
-            ["Origen"] = request.Origen switch { OrigenPoliza.Manual => "Manual", OrigenPoliza.Automatica => "Automática", _ => "Todos" },
+            ["Origen"] = request.Origen switch { OrigenPoliza.Manual => "Manual", OrigenPoliza.Automatica => "Automática", OrigenPoliza.Apertura => "Apertura", _ => "Todos" },
         };
         return new DiarioResponse("Libro diario", clock.UtcNow, filtros, items,
             new TotalesDiarioResponse(total, sumas?.Partidas ?? 0, cargos, abonos, cargos == abonos), total, request.Offset, request.Limit,

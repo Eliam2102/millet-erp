@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS dbo.aw_retorno (
     motivo              text,
     intentos            integer     NOT NULL DEFAULT 0 CHECK (intentos >= 0),
     UNIQUE (numero_pedido, secuencia),
-    CHECK (tipo <> 1 OR COALESCE(estatus_destino, 0) IN (70, 115)),
+    CHECK (tipo <> 1 OR COALESCE(estatus_destino, 0) IN (70, 72, 115)),
     CHECK ((COALESCE(estatus_destino, 0) = 70 AND COALESCE(origen, 0) IN (1, 2)) OR (COALESCE(estatus_destino, 0) <> 70 AND origen IS NULL)),
     CHECK (origen IS DISTINCT FROM 2 OR usuario_libera IS NOT NULL),
     CHECK (tipo <> 2 OR saldo IS NOT NULL),

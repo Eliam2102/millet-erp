@@ -57,6 +57,7 @@ import { Route as AppComprasAyudaRouteImport } from './routes/_app/compras/ayuda
 import { Route as AppComprasConfiguracionRouteImport } from './routes/_app/compras/configuracion';
 import { Route as AppContabilidadDimensionesRouteImport } from './routes/_app/contabilidad/dimensiones';
 import { Route as AppContabilidadImportacionRouteImport } from './routes/_app/contabilidad/importacion';
+import { Route as AppContabilidadSaldosInicialesRouteImport } from './routes/_app/contabilidad/saldos-iniciales';
 import { Route as AppContabilidadMotorRouteImport } from './routes/_app/contabilidad/motor';
 import { Route as AppContabilidadMovimientosPruebaRouteImport } from './routes/_app/contabilidad/movimientos-prueba';
 import { Route as AppContabilidadPeriodosRouteImport } from './routes/_app/contabilidad/periodos';
@@ -515,6 +516,12 @@ const AppContabilidadImportacionRoute =
   AppContabilidadImportacionRouteImport.update({
     id: '/contabilidad/importacion',
     path: '/contabilidad/importacion',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadSaldosInicialesRoute =
+  AppContabilidadSaldosInicialesRouteImport.update({
+    id: '/contabilidad/saldos-iniciales',
+    path: '/contabilidad/saldos-iniciales',
     getParentRoute: () => AppRoute,
   } as any);
 const AppContabilidadMotorRoute = AppContabilidadMotorRouteImport.update({
@@ -1709,6 +1716,7 @@ export interface FileRoutesByFullPath {
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
+  '/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
@@ -1962,6 +1970,7 @@ export interface FileRoutesByTo {
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
+  '/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
@@ -2217,6 +2226,7 @@ export interface FileRoutesById {
   '/_app/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/_app/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/_app/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
+  '/_app/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/_app/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/_app/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
@@ -2472,6 +2482,7 @@ export interface FileRouteTypes {
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
     | '/contabilidad/importacion'
+    | '/contabilidad/saldos-iniciales'
     | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
@@ -2725,6 +2736,7 @@ export interface FileRouteTypes {
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
     | '/contabilidad/importacion'
+    | '/contabilidad/saldos-iniciales'
     | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
@@ -2979,6 +2991,7 @@ export interface FileRouteTypes {
     | '/_app/compras/configuracion'
     | '/_app/contabilidad/dimensiones'
     | '/_app/contabilidad/importacion'
+    | '/_app/contabilidad/saldos-iniciales'
     | '/_app/contabilidad/motor'
     | '/_app/contabilidad/movimientos-prueba'
     | '/_app/contabilidad/periodos'
@@ -3531,6 +3544,13 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/importacion';
       fullPath: '/contabilidad/importacion';
       preLoaderRoute: typeof AppContabilidadImportacionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/saldos-iniciales': {
+      id: '/_app/contabilidad/saldos-iniciales';
+      path: '/contabilidad/saldos-iniciales';
+      fullPath: '/contabilidad/saldos-iniciales';
+      preLoaderRoute: typeof AppContabilidadSaldosInicialesRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/motor': {
@@ -5023,6 +5043,7 @@ interface AppRouteChildren {
   AppComprasConfiguracionRoute: typeof AppComprasConfiguracionRoute;
   AppContabilidadDimensionesRoute: typeof AppContabilidadDimensionesRoute;
   AppContabilidadImportacionRoute: typeof AppContabilidadImportacionRoute;
+  AppContabilidadSaldosInicialesRoute: typeof AppContabilidadSaldosInicialesRoute;
   AppContabilidadMotorRoute: typeof AppContabilidadMotorRoute;
   AppContabilidadMovimientosPruebaRoute: typeof AppContabilidadMovimientosPruebaRoute;
   AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
@@ -5275,6 +5296,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasConfiguracionRoute: AppComprasConfiguracionRoute,
   AppContabilidadDimensionesRoute: AppContabilidadDimensionesRoute,
   AppContabilidadImportacionRoute: AppContabilidadImportacionRoute,
+  AppContabilidadSaldosInicialesRoute: AppContabilidadSaldosInicialesRoute,
   AppContabilidadMotorRoute: AppContabilidadMotorRoute,
   AppContabilidadMovimientosPruebaRoute: AppContabilidadMovimientosPruebaRoute,
   AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,

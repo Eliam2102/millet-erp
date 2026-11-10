@@ -127,6 +127,8 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
     // U-4 (86e3yzemw): incidencias comunes del ERP (documento, paso, responsable, evidencia y paso para retomar).
     public DbSet<Millet.SharedKernel.Domain.Incidencias.Incidencia> Incidencias => Set<Millet.SharedKernel.Domain.Incidencias.Incidencia>();
+    /// <summary>M-047: lote común de cargas.</summary>
+    public DbSet<Millet.SharedKernel.Domain.Cargas.LoteCarga> LotesCarga => Set<Millet.SharedKernel.Domain.Cargas.LoteCarga>();
     public DbSet<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento> IncidenciasHistorial => Set<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento>();
     /// <summary>I13.6: alertas del tablero de integraciones (abiertas y su recuperación).</summary>
     public DbSet<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion> AlertasIntegracion => Set<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion>();
@@ -257,6 +259,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureAdjunto(modelBuilder);
         IncidenciasModelo.Configure(modelBuilder);
         TableroIntegracionesModelo.Configure(modelBuilder);
+        LotesCargaModelo.Configure(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }
 

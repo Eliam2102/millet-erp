@@ -14,16 +14,21 @@ using Millet.Integraciones.Aw.Infrastructure.Pinturas;
 
 namespace Millet.Integraciones.Aw.UnitTests.Pinturas;
 
-/// <summary>I13.9 · lector de <c>dbo.pinturas_pedido</c>: mapeo al puerto, SQL del contrato 16 v2, candados y registro.</summary>
+/// <summary>I13.9 · lector de <c>dbo.pinturas_pedido</c> + <c>pinturas_pedido_linea</c>: mapeo al puerto, SQL del contrato 16 v3, candados y registro.</summary>
 public sealed class PinturasPedidosAdapterTests
 {
     private static readonly Guid Sucursal = Guid.NewGuid();
 
+    private static readonly DateOnly Fecha = new(2026, 11, 9);
+
+    private static FilaPinturasLinea Linea(int n = 1, string? servicioNombre = "Pintura blanco mate") => new(
+        Linea: n, ServicioClave: " SER95224 ", ServicioNombre: servicioNombre, Piezas: 12, M2: 125.5m, PrecioM2: 85.25m);
+
     private static FilaPinturasPedido Fila(
         string? obraOrigen = null, string? obraRef = null, string? servicioNombre = "Pintura blanco mate", decimal iva = 16m) => new(
-        FolioOrden: " OT-1 ", ClienteClave: 900123, ClienteNombre: " Aluminios SA ", ObraClave: "OB-7", ObraNombre: "Torre",
-        Comentarios: "  ", ServicioClave: " SER95224 ", ServicioNombre: servicioNombre, M2: 125.5m, PrecioM2: 85.25m,
-        IvaPorcentaje: iva, Moneda: "mxn", ObraOrigen: obraOrigen, ObraReferenciaAw: obraRef);
+        FolioOrden: " OT-1 ", FechaPedido: Fecha, ClienteClave: 900123, ClienteNombre: " Aluminios SA ", ObraClave: "OB-7",
+        ObraNombre: "Torre", Comentarios: "  ", IvaPorcentaje: iva, Moneda: "mxn", ObraOrigen: obraOrigen,
+        ObraReferenciaAw: obraRef, Lineas: [Linea(servicioNombre: servicioNombre)]);
 
     [Fact]
     public void Mapea_la_fila_al_pedido_de_Planta_Pintura()
@@ -31,6 +36,7 @@ public sealed class PinturasPedidosAdapterTests
         var p = PinturasPedidosAdapter.Mapear(Fila(), Sucursal, ComportamientoFiscal.MostradorInmediato);
 
         p.NumeroPedido.Should().Be("OT-1");
+        p.FechaPedido.Should().Be(Fecha, "fecha_pedido es la fecha del documento, no la de transmisión");
         p.SucursalId.Should().Be(Sucursal);
         p.ClienteRef.Should().Be("900123", "cliente_clave es int y se busca en Cliente.ReferenciaExterna");
         p.ClienteNombre.Should().Be("Aluminios SA");
@@ -51,7 +57,27 @@ public sealed class PinturasPedidosAdapterTests
         l.RequierePedimento.Should().BeFalse();
         l.ClaveProdServSat.Should().BeNull("las claves SAT las pone el maestro del ERP");
         l.TasaIva.Should().Be(0.16m, "iva_porcentaje llega en porcentaje");
-        p.PayloadCrudo.Should().Contain("\"FolioOrden\":\" OT-1 \"").And.Contain("\"ClienteClave\":900123");
+        p.PayloadCrudo.Should().Contain("\"FolioOrden\":\" OT-1 \"").And.Contain("\"ClienteClave\":900123")
+            .And.Contain("\"Piezas\":12", "las piezas viajan en el payload crudo");
+    }
+
+    [Fact]
+    public void Una_linea_de_venta_por_linea_de_la_orden_sin_promediar_y_en_orden_de_linea()
+    {
+        var f = Fila() with
+        {
+            Lineas =
+            [
+                new FilaPinturasLinea(2, "SER2", "Negro satinado", null, 45m, 92m),
+                new FilaPinturasLinea(1, "SER1", "Blanco mate", 12, 80.5m, 85.25m),
+            ],
+        };
+
+        var p = PinturasPedidosAdapter.Mapear(f, Sucursal, ComportamientoFiscal.MostradorInmediato);
+
+        p.Lineas.Select(l => (l.ProductoRef, l.Descripcion, l.Cantidad, l.Precio, l.TasaIva)).Should().Equal(
+            ("SER1", "Blanco mate", 80.5m, 85.25m, (decimal?)0.16m),
+            ("SER2", "Negro satinado", 45m, 92m, (decimal?)0.16m));
     }
 
     [Theory]
@@ -81,10 +107,14 @@ public sealed class PinturasPedidosAdapterTests
     public void Sql_de_pendientes_respeta_el_contrato_en_ambos_dialectos()
     {
         var sql = PinturasPedidosAdapter.SqlPendientes(postgres: false);
-        sql.Should().StartWith("SELECT TOP (@max) ").And.Contain("FROM dbo.pinturas_pedido p")
-            .And.Contain("WHERE p.erp_resultado IS NULL ORDER BY p.creado_at, p.id").And.NotContain("LIMIT");
+        sql.Should().Contain("FROM (SELECT TOP (@max) c.* FROM dbo.pinturas_pedido c ")
+            .And.Contain("WHERE c.erp_resultado IS NULL AND EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id) ")
+            .And.Contain("ORDER BY c.creado_at, c.id) p ")
+            .And.Contain("JOIN dbo.pinturas_pedido_linea l ON l.pedido_id = p.id ")
+            .And.Contain("p.fecha_pedido").And.Contain("l.piezas, l.m2, l.precio_m2")
+            .And.EndWith("ORDER BY p.creado_at, p.id, l.linea").And.NotContain("LIMIT");
         var pg = PinturasPedidosAdapter.SqlPendientes(postgres: true);
-        pg.Should().NotContain("TOP").And.EndWith("ORDER BY p.creado_at, p.id LIMIT @max");
+        pg.Should().NotContain("TOP").And.Contain("ORDER BY c.creado_at, c.id LIMIT @max) p ");
     }
 
     [Fact]

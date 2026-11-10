@@ -2464,6 +2464,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("motivo");
 
+                    b.Property<string>("MotivoClave")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("motivo_clave");
+
                     b.Property<string>("MotivoDuplicado")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")

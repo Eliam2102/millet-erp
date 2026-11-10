@@ -58,6 +58,8 @@ import {
   type PolizasSearch,
 } from '../lib/polizas';
 
+const ETIQUETA_ORIGEN: Record<string, string> = { Manual: 'Manual', Automatica: 'Automática', Apertura: 'Apertura' };
+
 const PERMISOS_ADJUNTOS = {
   ver: PermisosCanonicos.ContabilidadPolizasLeer,
   subir: PermisosCanonicos.ContabilidadPolizasCapturar,
@@ -473,7 +475,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           <Dato k="Tipo SAT">{p.tipoSat}</Dato>
           <Dato k="Fecha">{fechaCorta(p.fecha)}</Dato>
           <Dato k="Periodo">{etiquetaPeriodo(p.periodoAnio, p.periodoNumero)}</Dato>
-          <Dato k="Origen">{p.origen === 'Automatica' ? 'Automática' : 'Manual'}</Dato>
+          <Dato k="Origen">{ETIQUETA_ORIGEN[p.origen] ?? p.origen}</Dato>
           <Dato k="Capturó">{p.capturadaPor}</Dato>
           <Dato k="Autorizó">{p.autorizadaPor ?? '—'}</Dato>
           <div className="col-span-2 md:col-span-4">

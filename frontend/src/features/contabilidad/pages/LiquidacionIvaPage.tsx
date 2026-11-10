@@ -31,6 +31,7 @@ import {
   type ResumenLiquidacionIva,
 } from '../api/liquidacion-iva';
 import { monto } from '../lib/polizas';
+import { RecalcularIvaDocumento } from '../components/iva/RecalcularIvaDocumento';
 
 const LADO: Record<LadoIva, string> = {
   Acreditable: 'Acreditable (proveedor)',
@@ -66,6 +67,8 @@ export function LiquidacionIvaPage() {
   const [anio, mes] = aplicado.split('-').map(Number);
   const query = useLiquidacionIva(anio, mes);
   const data = query.data;
+  // M-209 (CA4): corregir el IVA de una factura de proveedor contra su XML.
+  const puedeCorregir = useAuthStore((s) => s.permisos.includes(PermisosCanonicos.ContabilidadIvaCorregirDocumento));
 
   const documentos = data?.documentos ?? [];
   const visibles = soloPendientes ? documentos.filter((d) => !d.completo) : documentos;
@@ -103,6 +106,8 @@ export function LiquidacionIvaPage() {
           <TarjetaResumen resumen={data.resumen} anio={data.anio} mes={data.mes} />
         </div>
       )}
+
+      {data && puedeCorregir && <RecalcularIvaDocumento documentos={data.documentos} />}
 
       <ReporteShell<DocumentoLiquidacionIva>
         reporte={reporte || undefined}
