@@ -3869,6 +3869,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0004-0000-0000-000000000005"),
+                            Accion = "autorizar-credito",
+                            Codigo = "facturacion.notas-credito.autorizar-credito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Firmar por Crédito y Cobranza las notas de crédito de A+W arriba del umbral de la segunda firma (35,000 MXN por omisión)",
+                            Modulo = "facturacion",
+                            Recurso = "notas-credito",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0004-0000-0000-000000000004"),
                             Accion = "autorizar",
                             Codigo = "facturacion.notas-credito.autorizar",

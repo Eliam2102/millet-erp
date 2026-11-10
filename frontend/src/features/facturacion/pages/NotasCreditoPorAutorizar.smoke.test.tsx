@@ -101,4 +101,26 @@ describe('Notas de crédito por autorizar', () => {
     await screen.findByText('NC-100');
     expect(screen.queryByRole('button', { name: 'Autorizar' })).not.toBeInTheDocument();
   });
+
+  it('M-087: arriba del umbral, el gerente firma y la nota espera la firma de Crédito y Cobranza', async () => {
+    const grande = { ...nc, total: 46400, requiereFirmaCredito: true, firmadaGerente: false, firmadaCredito: false };
+    mswServer.use(
+      http.get('*/api/v1/facturacion/notas-credito', () => HttpResponse.json({ items: [grande] })),
+      http.post('*/api/v1/facturacion/notas-credito/:id/autorizar', () =>
+        HttpResponse.json({
+          id: grande.id, estado: 'PorAutorizar', uuid: null, folio: grande.folio, total: grande.total,
+          requiereFirmaCredito: true, firmadaGerente: true, firmadaCredito: false, pendiente: 'CreditoYCobranza',
+        }),
+      ),
+    );
+    render(<NotasCreditoPorAutorizar />, { wrapper: createQueryWrapper() });
+    await screen.findByText('NC-100');
+    expect(screen.getByText('Crédito y Cobranza: pendiente')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Firmar por Crédito y Cobranza' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Firmar' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(/Falta la firma de Crédito y Cobranza/),
+    );
+  });
 });
