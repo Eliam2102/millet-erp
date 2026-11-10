@@ -42,6 +42,7 @@ Desde v9 la app valúa entrada y salida manual con el costo promedio del ERP (op
 - **Cuándo se publica:** cada vez que cambia el promedio en el ERP (compra recibida, CAMBIO_ALMACEN o entrada con costo); con existencia en cero se conserva la última fila. El costo sale del saldo del ERP por ubicación y medida y es el mismo para todos los lotes (E07 S7).
 - **Sin fila:** el ERP nunca tuvo ese artículo en ese almacén; se pregunta a TI si la entrada manual sigue con el costo de A+W.
 - **Pendiente de TI:** visto bueno de nombre y columnas, y crear la tabla con el script que les mandamos.
+- **Construido (M-447):** script `docs/operacion/aw-integracion-scripts/19_create_erp_costo_promedio.sql` (tabla, vista, permisos; guarda de base). Publicador `ErpCostoPromedioPublicador` + `ErpCostoPromedioWorker` (Integraciones.Aw): cada `IntervaloSegundos` calcula el promedio por llave (`CostoPromedioAppLector`, Almacén) y solo inserta la versión siguiente si cambió. Sección `Integraciones:CostoPromedio` (`Habilitado=false`, `Destino=Simulado`; `Sql` usa `ConnectionStrings:AlmacenesAppDb`). Solo artículos ligados a A+W con clave numérica.
 
 ## Área y equipo de la salida (H1, 6-nov)
 Contabilidad pidió que quien captura el movimiento elija el **área** y, si la cuenta es de gasto (600), el **equipo**. No hay valores por omisión ni exención. La ubicación no se captura: sale de la sucursal.

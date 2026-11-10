@@ -9,6 +9,7 @@ using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.AlmCompra;
 using Millet.Integraciones.Aw.Infrastructure.AlmMensaje;
+using Millet.Integraciones.Aw.Infrastructure.CostoPromedio;
 using Millet.Integraciones.Aw.Infrastructure.Repositories;
 
 namespace Millet.Integraciones.Aw.Infrastructure;
@@ -62,6 +63,8 @@ public static class DependencyInjection
         services.AddAlmCompraTransporte(configuration);
         // Acuerdo 5-nov con TI: Almacenes → ERP por la tabla alm_mensaje (sin POST). Simulado por omisión; lector apagado.
         services.AddAlmMensajeOrigen(configuration);
+        // M-447 (contrato v9): costo promedio del ERP hacia dbo.erp_costo_promedio de la app. Simulado por omisión; worker apagado.
+        services.AddErpCostoPromedio(configuration);
 
         // ───────── PR Soketi — Agent realtime publisher ─────────
         //
