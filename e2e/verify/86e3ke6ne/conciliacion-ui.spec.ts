@@ -40,7 +40,7 @@ async function abrirPeriodoEImportar(page: Page, ult4: string, texto: string, op
 }
 
 async function importar(page: Page, texto: string, opts: { saldo?: number } = {}) {
-  await page.getByRole('button', { name: 'Cargar Extracto BBVA' }).click();
+  await page.getByRole('button', { name: 'Cargar extracto', exact: true }).click();
   const dlg = page.getByRole('dialog');
   await dlg.getByRole('textbox').last().fill(texto);
   if (opts.saldo !== undefined) await dlg.locator('input[type=number]').fill(String(opts.saldo));
@@ -277,7 +277,7 @@ test('C4 / CA9.9 @evidence $50 difference cannot close; with difference 0 it clo
   expect(acta.status()).toBe(200);
   expect(acta.headers()['content-type']).toContain('application/pdf');
   // once closed, the toolbar to import / match is gone
-  await expect(page.getByRole('button', { name: 'Cargar Extracto BBVA' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cargar extracto', exact: true })).toHaveCount(0);
   expect(fmt(50)).toBe('50.00');
 });
 

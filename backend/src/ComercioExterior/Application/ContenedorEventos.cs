@@ -25,6 +25,21 @@ public sealed record ContenedorEmbarcadoEvent(Guid Empresa, DateTimeOffset Ocurr
     }
 }
 
+public sealed record ContenedorPreparadoEvent(Guid Empresa, DateTimeOffset OcurridoEn,
+    Guid ExpedienteId, string FolioExpediente, Guid ContenedorId, string NumeroContenedor, string BlGuia,
+    IReadOnlyList<PedidoContenedorEvento> Pedidos)
+    : IntegrationEvent(ContenedorPreparadoEvent.Tipo, Empresa, OcurridoEn)
+{
+    public const string Tipo = "comercio_exterior.contenedor.preparado.v1";
+
+    public static ContenedorPreparadoEvent Desde(Expediente e, Guid id, IReadOnlyCollection<PedidoEmbarcable> pedidos, DateTimeOffset ahora)
+    {
+        var contenedor = e.Contenedor(id);
+        return new(e.EmpresaId, ahora, e.Id, e.Folio, id, contenedor.Numero!, contenedor.BlGuia!,
+            PedidoContenedorEvento.De(e, id, pedidos));
+    }
+}
+
 /// <summary>
 /// FAC-08: un contenedor ya embarcado se canceló. Facturación descarta la salida del contenedor si
 /// no se ha facturado; si ya se facturó, la deja en la bandeja de excepciones para revisión.

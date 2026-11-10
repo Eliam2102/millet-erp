@@ -21,6 +21,7 @@ import {
   CreditCard,
   FileBadge,
   FileCheck2,
+  FileCode2,
   FileSpreadsheet,
   FileText,
   FlaskConical,
@@ -273,7 +274,7 @@ const moduloAlmacen: NavModulo = {
         {
           label: 'Mensajes de la app',
           description:
-            'Salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
+            'Entradas y salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
           to: '/almacen/mensajes-app',
           icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
@@ -291,6 +292,14 @@ const moduloAlmacen: NavModulo = {
           description:
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
           to: '/almacen/salidas',
+          icon: PackageMinus,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Tambores por línea',
+          description:
+            'Tambor o cubeta activo de silicón y Ködispace en cada línea de producción, con su historial de salidas.',
+          to: '/almacen/tambores-linea',
           icon: PackageMinus,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
@@ -1289,6 +1298,14 @@ const moduloContabilidad: NavModulo = {
             'IVA trasladado cobrado, IVA acreditable pagado y retenciones del mes, con el cuadre contra las cuentas, el cumplimiento de cada documento y el borrador de la póliza.',
           to: '/contabilidad/reportes/liquidacion-iva',
           icon: Receipt,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Contabilidad electrónica',
+          description:
+            'Catálogo con código agrupador, balanza del mes y pólizas en XML del SAT, validados contra el esquema oficial; lista antes las cuentas sin código agrupador.',
+          to: '/contabilidad/reportes/contabilidad-electronica',
+          icon: FileCode2,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
       ],

@@ -40,25 +40,33 @@ public sealed class SantanderExtractoParser : IExtractoParser
 
         char delimitador = DetectarDelimitador(lineasRaw);
         int indiceEncabezado = -1;
-        int colFecha = -1, colDesc = -1, colRef = -1, colCargoAbono = -1, colCargo = -1, colAbono = -1, colSaldo = -1;
+        int colFecha = -1, colDesc = -1, colRef = -1, colCargoAbono = -1, colImporte = -1, colCargo = -1, colAbono = -1, colSaldo = -1;
 
         for (int i = 0; i < Math.Min(15, lineasRaw.Count); i++)
         {
+            colFecha = colDesc = colRef = colCargoAbono = colImporte = colCargo = colAbono = colSaldo = -1;
             var partes = SplitCsv(lineasRaw[i], delimitador);
             for (int c = 0; c < partes.Length; c++)
             {
+                // La primera columna que coincide manda: el auxiliar Santander trae después
+                // «Concepto», «Clave de Rastreo» y «Descripcion Larga».
                 var h = Normalizar(partes[c]);
-                if (h.Contains("FECHA")) colFecha = c;
-                else if (h.Contains("DESCRIP") || h.Contains("CONCEPTO") || h.Contains("DETALLE") || h.Contains("MOTIVO") || h.Contains("MOVIMIENTO")) colDesc = c;
-                else if (h.Contains("REFER") || h.Contains("RASTREO") || h.Contains("AUTORIZ") || h.Contains("FOLIO") || h.Contains("CHEQUE") || h.Contains("OPERACION")) colRef = c;
+                if (h.Contains("FECHA")) { if (colFecha < 0) colFecha = c; }
+                else if (h.Contains("DESCRIP") || h.Contains("CONCEPTO") || h.Contains("DETALLE") || h.Contains("MOTIVO") || h.Contains("MOVIMIENTO")) { if (colDesc < 0) colDesc = c; }
+                else if (h.Contains("REFER") || h.Contains("RASTREO") || h.Contains("AUTORIZ") || h.Contains("FOLIO") || h.Contains("CHEQUE") || h.Contains("OPERACION")) { if (colRef < 0) colRef = c; }
                 else if (h.Contains("CARGO/ABONO") || h.Contains("CARGO / ABONO") || h.Contains("CARGO_ABONO")) colCargoAbono = c;
                 else if (h.Contains("CARGO") || h.Contains("RETIRO") || h.Contains("DEBITO") || h.Contains("EGRESO")) colCargo = c;
                 else if (h.Contains("ABONO") || h.Contains("DEPOSIT") || h.Contains("CREDITO") || h.Contains("INGRESO")) colAbono = c;
-                else if (h.Contains("IMPORTE") || h.Contains("MONTO") || h.Contains("VALOR"))
-                {
-                    if (colCargoAbono == -1 && colCargo == -1 && colAbono == -1) colCargoAbono = c;
-                }
+                else if (h.Contains("IMPORTE") || h.Contains("MONTO") || h.Contains("VALOR")) colImporte = c;
                 else if (h.Contains("SALDO")) colSaldo = c;
+            }
+
+            // Sin columna de signo, el importe trae su propio signo. Con ella (auxiliar Santander:
+            // «Cargo/Abono» = + o -), el signo y el importe vienen en columnas separadas.
+            if (colCargoAbono < 0 && colCargo < 0 && colAbono < 0)
+            {
+                colCargoAbono = colImporte;
+                colImporte = -1;
             }
 
             bool tieneFecha = colFecha >= 0;
@@ -71,21 +79,11 @@ public sealed class SantanderExtractoParser : IExtractoParser
             }
         }
 
-        // Si no se encontró fila de encabezado explícita, usar mapeo por defecto
         if (indiceEncabezado == -1)
-        {
-            colFecha = 0;
-            colDesc = 1;
-            colRef = 2;
-            colCargoAbono = 3;
-            colSaldo = 4;
-            indiceEncabezado = -1;
-        }
+            throw ExtractoParseo.FormatoNoReconocido(PerfilBanco, "no se encontró el encabezado con Fecha y Cargo/Abono o Importe.");
 
         var lineasParseadas = new List<LineaExtractoParseada>();
         int numLinea = 1;
-        decimal? saldoInicial = null;
-        decimal? saldoFinal = null;
 
         for (int i = indiceEncabezado + 1; i < lineasRaw.Count; i++)
         {
@@ -95,7 +93,7 @@ public sealed class SantanderExtractoParser : IExtractoParser
                 continue;
 
             if (!TryParseDate(partes.ElementAtOrDefault(colFecha), out var fecha))
-                continue;
+                throw ExtractoParseo.FormatoNoReconocido(PerfilBanco, $"el renglón {i + 1} no trae una fecha válida.");
 
             string descripcion = colDesc >= 0 && colDesc < partes.Length ? partes[colDesc].Trim() : string.Empty;
             string? referencia = colRef >= 0 && colRef < partes.Length ? partes[colRef].Trim() : null;
@@ -106,7 +104,14 @@ public sealed class SantanderExtractoParser : IExtractoParser
 
             if (colCargoAbono >= 0 && colCargoAbono < partes.Length)
             {
-                ParseSignedAmount(partes[colCargoAbono], out cargo, out abono);
+                string importe = partes[colCargoAbono];
+                if (colImporte >= 0)
+                {
+                    if (partes[colCargoAbono].Trim() is not ("+" or "-") || colImporte >= partes.Length)
+                        throw ExtractoParseo.FormatoNoReconocido(PerfilBanco, $"el renglón {i + 1} no trae signo (+/-) e importe.");
+                    importe = partes[colCargoAbono].Trim() + partes[colImporte];
+                }
+                ParseSignedAmount(importe, out cargo, out abono);
             }
             else
             {
@@ -122,13 +127,8 @@ public sealed class SantanderExtractoParser : IExtractoParser
 
             decimal? saldo = colSaldo >= 0 && colSaldo < partes.Length ? ParseDecimal(partes[colSaldo]) : null;
 
-            if (saldo.HasValue)
-            {
-                saldoInicial ??= saldo;
-                saldoFinal = saldo;
-            }
-
-            string hash = BbvaExtractoParser.ComputarLineaHash(fecha, descripcion, referencia, cargo, abono);
+            // El saldo distingue dos movimientos iguales del mismo día.
+            string hash = BbvaExtractoParser.ComputarLineaHash(fecha, descripcion, referencia, cargo, abono, saldo);
 
             lineasParseadas.Add(new LineaExtractoParseada(
                 numLinea++,
@@ -144,11 +144,7 @@ public sealed class SantanderExtractoParser : IExtractoParser
         if (lineasParseadas.Count == 0)
             throw new BusinessRuleException("EXTRACTO_SIN_MOVIMIENTOS", "No se encontraron movimientos válidos en el archivo.");
 
-        return new ResultadoParseExtracto(
-            lineasParseadas,
-            saldoInicial,
-            saldoFinal,
-            lineasParseadas.Count);
+        return ExtractoParseo.Resultado(lineasParseadas);
     }
 
     private static void ParseSignedAmount(string? texto, out decimal? cargo, out decimal? abono)
@@ -264,7 +260,7 @@ public sealed class SantanderExtractoParser : IExtractoParser
             }
             else if (c == delimitador && !dentroComillas)
             {
-                partes.Add(actual.ToString().Trim(' ', '"'));
+                partes.Add(actual.ToString().Trim(' ', '"', '\''));
                 actual.Clear();
             }
             else
@@ -272,7 +268,8 @@ public sealed class SantanderExtractoParser : IExtractoParser
                 actual.Append(c);
             }
         }
-        partes.Add(actual.ToString().Trim(' ', '"'));
+        // El auxiliar Santander antepone apóstrofo a cuenta, fecha y sucursal ('01102026').
+        partes.Add(actual.ToString().Trim(' ', '"', '\''));
         return partes.ToArray();
     }
 

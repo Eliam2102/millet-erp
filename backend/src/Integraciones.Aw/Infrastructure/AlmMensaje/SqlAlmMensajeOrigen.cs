@@ -8,32 +8,38 @@ using Millet.Integraciones.Aw.Infrastructure.Adapters;
 namespace Millet.Integraciones.Aw.Infrastructure.AlmMensaje;
 
 /// <summary>
-/// Origen SQL sobre <c>dbo.alm_mensaje</c> (base de la app de Almacenes). <b>Sin probar contra la base real:</b> la tabla no
-/// existe hasta que TI la cree (~13-nov) y los nombres de columna son SUPUESTOS tomados de su correo del 29-oct (la app
-/// escribe secuencia, mensaje_id único, tipo, versión, fecha, referencia y el sobre JSON; el ERP escribe solo estado
-/// RECIBIDO/DUPLICADO/ERROR, folio, error y fecha del acuse; ningún lado borra). Usuario del ERP: SELECT y UPDATE de las
-/// columnas <c>acuse_*</c>. Solo corre con <c>Integraciones:AlmMensaje:Origen=Sql</c> y <c>ConnectionStrings:AlmacenesAppDb</c>
-/// (TLS verificado); ajustar al DDL definitivo antes de encenderlo.
+/// Origen SQL sobre <c>dbo.alm_mensaje</c> (base de la app de Almacenes, <c>AlmacenRQ_MP</c>; pruebas <c>AlmacenRQ_MP_ENSAYO</c>),
+/// con el DDL del contrato v8 (8-nov): id, mensaje_id, intento, tipo, referencia, fecha, sucursal, tipo_almacen, linea,
+/// contenido, fecha_escrito y acuse_*. Usuario <c>millet_erp_integracion</c>: SELECT y UPDATE solo de acuse_estado/folio/texto/fecha;
+/// DENY DELETE. <b>Sin probar contra la base real.</b> Solo corre con <c>Integraciones:AlmMensaje:Origen=Sql</c> y
+/// <c>ConnectionStrings:AlmacenesAppDb</c> (TLS verificado).
+/// Reenvío (v8): renglón NUEVO con el mismo mensaje_id e intento+1; vale el de intento más alto. El orden de una referencia es el
+/// del primer renglón de cada mensaje, así un reenvío conserva su lugar; un ERROR frena a los siguientes de su referencia solo
+/// mientras el ÚLTIMO intento de ese mensaje siga en ERROR.
 /// </summary>
 public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMensajeOrigen
 {
     public const string ConnectionStringName = "AlmacenesAppDb";
+    private const int MaxTexto = 1000; // acuse_texto NVARCHAR(1000)
 
-    // Pendiente = sin acuse y sin un ERROR anterior en su referencia (la referencia espera a que alguien lo revise).
+    // ponytail: agrupa toda la tabla cada 10 s; si crece a millones de renglones, acotar por fecha_escrito o indexar (mensaje_id, intento).
     private const string SqlPendientes = """
-        SELECT TOP (@max) m.secuencia, m.mensaje_id, m.tipo, m.version, m.referencia, m.fecha, m.sobre
+        WITH u AS (SELECT mensaje_id, MAX(intento) AS ultimo, MIN(id) AS primero FROM dbo.alm_mensaje GROUP BY mensaje_id)
+        SELECT TOP (@max) m.id, m.mensaje_id, m.intento, m.tipo, m.referencia, m.fecha, m.contenido
           FROM dbo.alm_mensaje m
+          JOIN u ON u.mensaje_id = m.mensaje_id AND u.ultimo = m.intento
          WHERE m.acuse_estado IS NULL
            AND (m.referencia IS NULL OR NOT EXISTS (
                  SELECT 1 FROM dbo.alm_mensaje e
-                  WHERE e.referencia = m.referencia AND e.secuencia < m.secuencia AND e.acuse_estado = 'ERROR'))
-         ORDER BY m.secuencia
+                   JOIN u ue ON ue.mensaje_id = e.mensaje_id AND ue.ultimo = e.intento
+                  WHERE e.referencia = m.referencia AND ue.primero < u.primero AND e.acuse_estado = 'ERROR'))
+         ORDER BY u.primero
         """;
     // Solo si sigue sin acuse: dos lectores del mismo renglón no se pisan.
     private const string SqlAcuse = """
         UPDATE dbo.alm_mensaje
-           SET acuse_estado = @estado, acuse_folio = @folio, acuse_error = @error, acuse_fecha = SYSUTCDATETIME()
-         WHERE secuencia = @sec AND acuse_estado IS NULL
+           SET acuse_estado = @estado, acuse_folio = @folio, acuse_texto = @texto, acuse_fecha = SYSUTCDATETIME()
+         WHERE id = @id AND acuse_estado IS NULL
         """;
 
     public async Task<IReadOnlyList<AlmMensajeEntrante>> LeerPendientesAsync(int max, CancellationToken ct)
@@ -45,7 +51,7 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
         var r = new List<AlmMensajeEntrante>();
         await using var rd = await cmd.ExecuteReaderAsync(ct);
         while (await rd.ReadAsync(ct))
-            r.Add(new AlmMensajeEntrante(Convert.ToInt64(rd.GetValue(0)), rd.GetString(1), rd.GetString(2), Convert.ToInt32(rd.GetValue(3)),
+            r.Add(new AlmMensajeEntrante(Convert.ToInt64(rd.GetValue(0)), rd.GetString(1), Convert.ToInt32(rd.GetValue(2)), rd.GetString(3),
                 rd.IsDBNull(4) ? null : rd.GetString(4), Fecha(rd.GetValue(5)), rd.GetString(6)));
         return r;
     }
@@ -55,10 +61,10 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
         await using var cn = await AbrirAsync(ct);
         await using var cmd = cn.CreateCommand();
         cmd.CommandText = SqlAcuse;
-        P(cmd, "@sec", DbType.Int64, secuencia);
+        P(cmd, "@id", DbType.Int64, secuencia);
         P(cmd, "@estado", DbType.String, acuse.Estado);
         P(cmd, "@folio", DbType.String, (object?)acuse.Folio ?? DBNull.Value);
-        P(cmd, "@error", DbType.String, (object?)acuse.Error ?? DBNull.Value);
+        P(cmd, "@texto", DbType.String, acuse.Error is null ? DBNull.Value : acuse.Error.Length > MaxTexto ? acuse.Error[..MaxTexto] : acuse.Error);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 

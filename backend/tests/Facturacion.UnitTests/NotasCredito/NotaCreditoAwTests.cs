@@ -145,6 +145,21 @@ public sealed class NotaCreditoAwTests
         puente.Acuses.Should().ContainSingle(a => a.Resultado == ResultadoSolicitudAw.Aplicada);
     }
 
+    [Theory]
+    [InlineData(686.81, 686.86)] // nota 80024882 de MILMAIN: redondeo de 0.05
+    [InlineData(266.83, 265.97)] // nota 80024676: redondeo de 0.86
+    public async Task Nota_de_ranura_con_redondeo_menor_a_un_peso_no_se_duplica(double importeAw, double ranuraErp)
+    {
+        var (h, db, _, empresa, f) = await EscenarioAsync();
+        SembrarNcRanura(db, empresa, f, (decimal)ranuraErp);
+        await db.SaveChangesAsync();
+
+        var r = await h.Handle(new ProcesarNotaCreditoAwCommand(empresa, Sol(importe: (decimal)importeAw) with { EsRanura = true }), CancellationToken.None);
+
+        r.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        (await db.NotasCredito.CountAsync()).Should().Be(1);
+    }
+
     [Fact]
     public async Task Nota_de_ranura_sin_NC_de_ranura_en_el_ERP_se_crea_como_una_nota_mas()
     {

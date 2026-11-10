@@ -172,7 +172,7 @@ export const EmitirFacturaSchema = z.object({
   // rechazo del PAC (#8):
   //  - valorDolares > 0 siempre (nodo requerido; alimenta TotalUSD).
   //  - Bien tangible (unidad aduanera ≠ 99 y clave de unidad SAT ≠ E48, caso de
-  //    Millet): fracción arancelaria de 8-10 dígitos + trío unidad/cantidad/
+  //    Millet): fracción arancelaria de 10 dígitos (M-158) + trío unidad/cantidad/
   //    valor unitario completo (SAT CCE160/CCE165).
   //  - Servicio / sin unidad (unidad aduanera 99 o clave SAT E48): la fracción
   //    NO debe registrarse (SAT CCE159).
@@ -200,11 +200,12 @@ export const EmitirFacturaSchema = z.object({
           path: ['lineas', i, 'fraccionArancelaria'],
           message: 'Fracción arancelaria requerida en exportación',
         });
-      } else if (!/^\d{8,10}$/.test(fraccion)) {
+      } else if (!/^\d{10}$/.test(fraccion)) {
+        // M-158: CCE 2.0 = fracción de 8 + NICO de 2; mismo mensaje que el servidor.
         ctx.addIssue({
           code: 'custom',
           path: ['lineas', i, 'fraccionArancelaria'],
-          message: 'La fracción debe tener de 8 a 10 dígitos numéricos',
+          message: 'La fracción debe tener 10 dígitos (fracción arancelaria + NICO).',
         });
       }
       if (unidadAduana.length === 0) {

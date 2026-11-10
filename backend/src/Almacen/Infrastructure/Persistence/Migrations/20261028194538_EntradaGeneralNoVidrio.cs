@@ -34,7 +34,7 @@ ON CONFLICT (sub_almacen_id, clave) DO NOTHING;
             migrationBuilder.Sql(TriggerAnterior);
         }
 
-        private const string TriggerNoVidrioAUnica = """
+        internal const string TriggerNoVidrioAUnica = """
 CREATE OR REPLACE FUNCTION almacen.fn_movimientos_actualizar_saldo()
 RETURNS TRIGGER AS $$
 DECLARE

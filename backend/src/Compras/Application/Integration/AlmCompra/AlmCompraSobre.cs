@@ -4,12 +4,16 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Compras.Application.Integration.AlmCompra;
 
-/// <summary>Línea de COMPRA_RECIBIDA / COMPRA_MODIFICADA (contrato v6 §9). Los nulos no viajan.</summary>
+/// <summary>
+/// Línea de COMPRA_RECIBIDA / COMPRA_MODIFICADA (contrato v8 §2). Los nulos no viajan. La línea se identifica por
+/// <c>lineaErp</c> + <c>requisicion</c> + <c>posicion</c>; el ERP no manda <c>articuloAlmacenAw</c> (v8, punto 10 cerrado: la línea
+/// es artículo + medida en cualquier orientación; el campo es informativo si viene).
+/// </summary>
 public sealed record AlmCompraLinea(
     string LineaErp, string? Requisicion, int? Posicion, int ArticuloAw, int? ArticuloAlmacenAw,
     int? Ancho, int? Alto, int Piezas, string? Lote, string? Pedimento, string? Etiqueta,
     decimal? CostoM2, decimal? CostoPieza,
-    // Fórmula pendiente (Dirección/Jorge): hoy siempre null, así que no se escribe.
+    // Opcional e informativo (v8 punto 8): costo promedio por m², lo calcula Contabilidad (M-149). Sin valor no viaja.
     decimal? CostoMedioM2 = null);
 
 /// <summary>
@@ -17,7 +21,7 @@ public sealed record AlmCompraLinea(
 /// no viaja: es de Almacenes (TI, 5-nov).
 /// </summary>
 public sealed record AlmCompraDatos(
-    string Folio, int ProveedorClaveAw, string ProveedorNombre, string Moneda, decimal? TipoCambio,
+    string Folio, int ProveedorClaveAw, string ProveedorNombre, string MonedaAw, decimal? TipoCambio,
     DateOnly FechaCompra, IReadOnlyList<AlmCompraLinea> Lineas);
 
 /// <summary>Armado del sobre v1 y reglas puras de cantidad y costo.</summary>
@@ -27,6 +31,10 @@ public static class AlmCompraSobre
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
+
+    /// <summary>Moneda ISO del ERP → código de A+W: el mapeo configurado (<c>MapeoMonedaAw</c>) o, sin él, PESOSMX para MXN y el ISO tal cual.</summary>
+    public static string MonedaAw(string iso, string? mapeada) =>
+        !string.IsNullOrWhiteSpace(mapeada) ? mapeada : iso == "MXN" ? "PESOSMX" : iso;
 
     /// <summary>
     /// mensajeId determinista: OC + tipo + ordinal (≤ 64 caracteres, límite del contrato). Si el folio no cabe, usa el id de la OC.
@@ -45,14 +53,14 @@ public static class AlmCompraSobre
         }, Json);
 
     /// <summary>
-    /// COMPRA_CANCELADA.datos (TI, 5-nov): <c>folio</c> y <c>motivo</c> obligatorios; <c>fechaCancelacion</c> opcional (si falta,
-    /// Almacenes toma la fecha del mensaje), por eso no se manda.
+    /// COMPRA_CANCELADA.datos (v8): <c>folio</c> y <c>motivo</c> (≤ 900) obligatorios; <c>fechaCancelacion</c> (ISO 8601) opcional e
+    /// informativa: queda en la bitácora de Almacenes, que registra la cancelación con la hora en que la procesa.
     /// </summary>
-    public static object DatosCancelada(string folio, string? motivo)
+    public static object DatosCancelada(string folio, string? motivo, DateTimeOffset? fechaCancelacion = null)
     {
         if (string.IsNullOrWhiteSpace(motivo))
             throw new BusinessRuleException("ALM_COMPRA_CANCELACION_SIN_MOTIVO", "COMPRA_CANCELADA exige un motivo; Almacenes la rechaza sin él.");
-        return new { folio, motivo = motivo.Trim() };
+        return new { folio, motivo = motivo.Trim() is { Length: > 900 } m ? m[..900] : motivo.Trim(), fechaCancelacion };
     }
 
     /// <summary>
@@ -86,9 +94,8 @@ public static class AlmCompraSobre
     {
         folio = d.Folio,
         proveedor = new { claveAw = d.ProveedorClaveAw, nombre = d.ProveedorNombre },
-        moneda = d.Moneda,
-        // Obligatorio si la moneda no es MXN; en MXN no viaja.
-        tipoCambio = d.Moneda == "MXN" ? null : d.TipoCambio,
+        moneda = d.MonedaAw, // código de A+W (PESOSMX para pesos), no el ISO
+        tipoCambio = d.TipoCambio is > 0 ? d.TipoCambio : null, // opcional; si viene debe ser > 0
         fechaCompra = d.FechaCompra,
         lineas = d.Lineas,
     };

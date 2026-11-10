@@ -139,7 +139,7 @@ public sealed class CargasMaestrosEndpointsTests(WebApplicationFactory<Program> 
             {
                 using var form = new MultipartFormDataContent();
                 form.Add(new StringContent(doc.GetProperty("tipoDocumentoId").GetString()!), "tipoDocumentoId");
-                using var archivo = new ByteArrayContent(Encoding.UTF8.GetBytes("%PDF-1.4\nDocumento sintético"));
+                using var archivo = new ByteArrayContent(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Documento sintético de prueba"));
                 archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
                 form.Add(archivo, "archivo", "prueba.pdf");
                 form.Add(new StringContent(DateTime.UtcNow.AddMonths(1).ToString("yyyy-MM-dd")), "vigenteHasta");

@@ -85,7 +85,7 @@ public sealed class CrearConciliacionHandler(
 public sealed record CargarExtractoCommand(
     Guid ConciliacionId,
     string ContenidoArchivo,
-    string Formato = "BBVA",
+    string? Formato = null,
     decimal? SaldoExtracto = null,
     bool AutoEmparejar = true) : IRequest<ConciliacionResumenResponse>;
 
@@ -120,7 +120,8 @@ public sealed class CargarExtractoHandler(
         var cuenta = await db.CuentasBancarias.FirstOrDefaultAsync(c => c.Id == conciliacion.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CUENTA_NO_ENCONTRADA", "No se encontró la cuenta bancaria.");
 
-        var parser = parserFactory.ObtenerParser(command.Formato, command.ContenidoArchivo);
+        // Sin formato explícito manda el perfil de extracto de la cuenta (BBVA, SANTANDER, MIFEL).
+        var parser = parserFactory.ObtenerParser(command.Formato ?? cuenta.PerfilExtracto ?? "BBVA", command.ContenidoArchivo);
         var parseResult = parser.Parse(command.ContenidoArchivo);
 
         int numLineaActual = conciliacion.Lineas.Count > 0 ? conciliacion.Lineas.Max(l => l.NumeroLinea) + 1 : 1;

@@ -1344,6 +1344,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         articulo.Property(x => x.PrecioReferenciaMonto).HasPrecision(15, 4);
         articulo.Property(x => x.PrecioReferenciaMoneda).HasMaxLength(3);
         articulo.Property(x => x.Estatus).HasConversion<short>().IsRequired();
+        // M-172: consumo por tambor a línea (silicón, Ködispace) y kilos por presentación.
+        articulo.Property(x => x.KgPorPresentacion).HasPrecision(10, 3);
 
         articulo.HasIndex(x => x.Clave).IsUnique();
         articulo.HasIndex(x => x.Naturaleza);
