@@ -73,13 +73,16 @@ public static class PedidosDependencyInjection
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
             sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
 
-        // Publicador de catálogos hacia Planta Pintura (script 16 v2).
+        // Publicador de catálogos hacia Planta Pintura (script 16 v3).
         services.AddScoped<IPinturasCatalogosPublisher>(sp => new PinturasCatalogosAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(),
             postgres: false,
             sp.GetRequiredService<IOptions<PinturasCatalogosOptions>>(),
             sp.GetRequiredService<IClock>(),
             sp.GetRequiredService<ILogger<PinturasCatalogosAdapter>>()));
+
+        // Obras de A+W (KA_OBJEKT); pisa el NoOp de AddPinturasPedidos. Solo aquí: el origen Demo no tiene KA_OBJEKT.
+        services.AddScoped<IPinturasObrasSource, AwPinturasObrasSqlSource>();
 
         services.AddHostedService<PinturasCatalogosSyncWorker>();
 
