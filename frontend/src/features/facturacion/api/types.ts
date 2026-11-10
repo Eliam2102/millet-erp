@@ -1501,6 +1501,24 @@ export interface ReintentarTimbradoResponse {
   version: number;
 }
 
+/** M-284: un dato cotejado entre el comprobante del ERP y el XML timbrado. */
+export interface CampoCotejado {
+  campo: string;
+  erp: string;
+  xml: string;
+  coincide: boolean;
+}
+
+/** Respuesta de POST /comprobantes/{id}/adoptar-cfdi (M-284). */
+export interface AdoptarCfdiTimbradoResponse {
+  id: string;
+  folio: string;
+  estado: string;
+  uuid: string | null;
+  adoptado: boolean;
+  cotejo: CampoCotejado[];
+}
+
 /** Respuesta de POST /comprobantes/{id}/descartar ([Decisión 01-G] G3). */
 export interface DescartarComprobanteResponse {
   id: string;
