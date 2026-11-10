@@ -157,6 +157,7 @@ resource glassAgentSpnClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2024
 //   az keyvault secret set --vault-name <kv> --name aw-clientes-connection-string  --value '<conn-string>'
 //   az keyvault secret set --vault-name <kv> --name aw-productos-connection-string --value '<conn-string>'
 //   az keyvault secret set --vault-name <kv> --name aw-cambios-connection-string   --value '<conn-string>'
+//   az keyvault secret set --vault-name <kv> --name almacenes-app-connection-string --value '<conn-string>'   # AlmacenRQ_MP (alm_mensaje/alm_compra)
 //   az keyvault secret set --vault-name <kv> --name aw-sql-server-certificate --file ser-data-sql.pem
 // aw-sql-server-certificate = PEM PÚBLICO de SER-DATA (no es secreto sensible); al renovarlo en
 // SER-DATA, subir el nuevo PEM y reiniciar el App Service.

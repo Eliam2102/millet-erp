@@ -44,6 +44,14 @@ para SER-DATA debe respetar esa restricción:
    cargar el certificado público: `az keyvault secret set --vault-name <kv-millet-dev>
    --name aw-sql-server-certificate --file ser-data-sql.pem`.)
 
+   **Almacenes (contrato v8):** `alm_mensaje` y `alm_compra` viven en la base de la
+   app de Almacenes (`AlmacenRQ_MP`; pruebas `AlmacenRQ_MP_ENSAYO`), no en
+   MILLET_INTEGRACION. Secreto aparte, mismo formato TLS verificado y login
+   `millet_erp_integracion`: `az keyvault secret set --vault-name <kv> --name
+   almacenes-app-connection-string --value "Server=aw-sql-onprem,1433;Database=AlmacenRQ_MP_ENSAYO;User ID=millet_erp_integracion;Password=<pwd>;Encrypt=True;TrustServerCertificate=False;"`
+   (App Setting `ConnectionStrings__AlmacenesAppDb`). Los transportes Sql
+   siguen apagados/Simulado hasta decidir encenderlos.
+
 6. **Entregar la spec al equipo A+W** —
    [`aw-solicitud-pedido-customizing.md`](../integration/runbooks/aw-solicitud-pedido-customizing.md)
    con los gaps G1–G13 (§7). Su trabajo corre en paralelo; nuestro E2E no

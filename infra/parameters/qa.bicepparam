@@ -14,7 +14,7 @@
 // Secretos operator-managed en el KV qa (kv-millet-qa-mxc-01), ver
 // infra/modules/keyvault-secrets.bicep: aw-integracion-connection-string,
 // aw-clientes-connection-string, aw-productos-connection-string,
-// aw-cambios-connection-string, aw-sql-connection-string,
+// aw-cambios-connection-string, almacenes-app-connection-string, aw-sql-connection-string,
 // aw-sql-server-certificate (PEM público de SER-DATA).
 // Todas las connection strings: Server=aw-sql-onprem,1433;...;Encrypt=True;TrustServerCertificate=False
 //

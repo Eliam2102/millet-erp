@@ -249,6 +249,13 @@ var awIntegrationAppSettings = [
     value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-cambios-connection-string)'
   }
   {
+    // Base de la app de Almacenes (AlmacenRQ_MP; pruebas AlmacenRQ_MP_ENSAYO): tablas alm_mensaje y alm_compra
+    // (contrato v8). Login millet_erp_integracion, TLS verificado. Secreto operator-managed; sin crearlo, la ref
+    // queda sin resolver y los transportes Sql de Almacenes no deben encenderse (siguen en Simulado).
+    name: 'ConnectionStrings__AlmacenesAppDb'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=almacenes-app-connection-string)'
+  }
+  {
     // Cert público de SER-DATA (CN=SER-DATA, SAN aw-sql-onprem): la app lo fija en cada conexión con
     // ServerCertificate (ADR-0048, enmienda 29-oct). Renovar: nuevo PEM en KV + restart.
     name: 'IntegracionesAw__SqlTls__CertificadoServidorPem'

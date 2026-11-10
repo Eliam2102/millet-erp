@@ -16,6 +16,10 @@
                     los clientes de este RFC».
          productos: BA_PRODUKTE, BA_PRODUKTE_BEZ, BA_STUKL, BA_STUKL_BEARB,
                     BA_LAGMA, KA_WGR
+         notas de crédito (5-nov): BW_GUTSCH_KOPF/_HIST/_POS, KA_FIRMA_MITARB; también
+                    BW_AUFTR_STKL y LG_LAGERORTE (5-nov)
+         OTR (base OTR): OTR_ROUTES, OTR_CONTAINERS_ACTIONS, OTR_CONTAINER_POSITIONS
+         (KA_WAEHRUNGEN lo lee millet_erp_integracion, ya en 04_create_login.sql)
      - Si cambian esos orígenes, actualizar este script y la lista de arriba.
 
    ⚠️ La contraseña NO va en este script ni en el repo: se pasa por SQLCMD var
@@ -55,9 +59,33 @@ GRANT SELECT ON SYSADM.BA_STUKL        TO millet_erp_lector_aw;
 GRANT SELECT ON SYSADM.BA_STUKL_BEARB  TO millet_erp_lector_aw;
 GRANT SELECT ON SYSADM.BA_LAGMA        TO millet_erp_lector_aw;
 GRANT SELECT ON SYSADM.KA_WGR          TO millet_erp_lector_aw;
+/* Notas de crédito de A+W (AwNotasCreditoLectorAdapter, conexión AwClientesDb). Otorgado por TI el 5-nov-2026
+   por correo; se deja escrito. BW_GUTSCH_POS y los dos de abajo aún no los lee ningún adaptador del repo. */
+GRANT SELECT ON SYSADM.BW_GUTSCH_KOPF  TO millet_erp_lector_aw;
+GRANT SELECT ON SYSADM.BW_GUTSCH_HIST  TO millet_erp_lector_aw;
+GRANT SELECT ON SYSADM.BW_GUTSCH_POS   TO millet_erp_lector_aw;
+GRANT SELECT ON SYSADM.KA_FIRMA_MITARB TO millet_erp_lector_aw;
+/* Componentes del pedido y ubicaciones de almacén: otorgado por TI el 5-nov-2026 por correo; se deja escrito. */
+GRANT SELECT ON SYSADM.BW_AUFTR_STKL   TO millet_erp_lector_aw;
+GRANT SELECT ON SYSADM.LG_LAGERORTE    TO millet_erp_lector_aw;
+GO
+
+/* OTR (Exportacion/OtrTablasAdapter, conexión AwClientesDb): rutas y contenedores de la base OTR.
+   Otorgado por TI el 5-nov-2026 por correo; se deja escrito. El adaptador no llama a
+   CONSULTA_PEDIDOS_ESCAN_OTR_ALCIM, por eso no se da EXECUTE. */
+USE OTR;
+GO
+IF DATABASE_PRINCIPAL_ID('millet_erp_lector_aw') IS NULL
+    CREATE USER millet_erp_lector_aw FOR LOGIN millet_erp_lector_aw;
+GO
+GRANT SELECT ON SYSADM.OTR_ROUTES               TO millet_erp_lector_aw;
+GRANT SELECT ON SYSADM.OTR_CONTAINERS_ACTIONS   TO millet_erp_lector_aw;
+GRANT SELECT ON SYSADM.OTR_CONTAINER_POSITIONS  TO millet_erp_lector_aw;
 GO
 
 /* Rollback:
+   USE OTR;
+   DROP USER millet_erp_lector_aw;
    USE MILMAIN;
    DROP USER millet_erp_lector_aw;
    DROP LOGIN millet_erp_lector_aw;
