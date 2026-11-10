@@ -21,6 +21,7 @@ import {
   CreditCard,
   FileBadge,
   FileCheck2,
+  FileCode2,
   FileSpreadsheet,
   FileText,
   FlaskConical,
@@ -1289,6 +1290,14 @@ const moduloContabilidad: NavModulo = {
             'IVA trasladado cobrado, IVA acreditable pagado y retenciones del mes, con el cuadre contra las cuentas, el cumplimiento de cada documento y el borrador de la póliza.',
           to: '/contabilidad/reportes/liquidacion-iva',
           icon: Receipt,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Contabilidad electrónica',
+          description:
+            'Catálogo con código agrupador, balanza del mes y pólizas en XML del SAT, validados contra el esquema oficial; lista antes las cuentas sin código agrupador.',
+          to: '/contabilidad/reportes/contabilidad-electronica',
+          icon: FileCode2,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
       ],

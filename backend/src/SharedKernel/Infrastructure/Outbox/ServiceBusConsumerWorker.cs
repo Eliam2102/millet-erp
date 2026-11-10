@@ -74,6 +74,7 @@ public static class ServiceBusConsumerWorkerExtensions
     /// <summary>Registra <typeparamref name="T"/> (consumidor local) como worker de la suscripción dada. Solo en la rama con <c>ServiceBusClient</c>.</summary>
     public static IServiceCollection AddConsumidorServiceBus<T>(this IServiceCollection services, string subscription)
         where T : class, ILocalIntegrationEventConsumer
-        => services.AddHostedService(sp => new ServiceBusConsumerWorker(
+        // AddSingleton, no AddHostedService: este usa TryAddEnumerable y descarta los registros repetidos del mismo tipo (solo quedaría el primero).
+        => services.AddSingleton<IHostedService>(sp => new ServiceBusConsumerWorker(
             sp.GetRequiredService<ServiceBusClient>(), ActivatorUtilities.CreateInstance<T>(sp), subscription, sp.GetRequiredService<ILogger<T>>()));
 }

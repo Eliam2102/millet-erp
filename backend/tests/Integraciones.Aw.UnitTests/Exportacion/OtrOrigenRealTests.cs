@@ -36,10 +36,12 @@ public sealed class OtrLectorRealSqlTests
     public void La_direccion_cae_a_LOCATION_ADDRESS_cuando_el_texto_viene_vacio()
         => Assert.Contains("COALESCE(NULLIF(A.LOCATION_ADDRESS_TEXT, ''), NULLIF(A.LOCATION_ADDRESS, ''), '')", OtrTablasAdapter.CabeceraReal(new OtrOptions()));
     [Fact]
-    public void Los_estatus_son_opciones_y_la_cancelacion_no_se_inventa()
+    public void Los_estatus_son_opciones_y_890_cancela_por_omision()
     {
         var porOmision = OtrTablasAdapter.CabeceraReal(new OtrOptions());
-        Assert.Contains("ROUTE_STATUS IN (NULL)", porOmision);   // sin regla de cancelación: nada se cancela
+        Assert.Contains("ROUTE_STATUS IN (890) THEN 'Cancelacion'", porOmision);   // 890 = Cancelado (TI 5-nov)
+        Assert.Equal("890", new OtrOptions().EstatusRutaCancelada);
+        Assert.Contains("ROUTE_STATUS IN (NULL)", OtrTablasAdapter.CabeceraReal(new OtrOptions { EstatusRutaCancelada = "" }));   // vaciar la opción desactiva la cancelación
         Assert.Contains("ROUTE_STATUS NOT IN (50)", porOmision);
         var configurado = OtrTablasAdapter.CabeceraReal(new OtrOptions { EstatusRutaCancelada = "900, 950", EstatusRutaExcluidos = "50,1000" });
         Assert.Contains("ROUTE_STATUS IN (900,950) THEN 'Cancelacion'", configurado);

@@ -27,6 +27,7 @@ public static class DependencyInjection
     {
         services.AddScoped<Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort, RecepcionesImportacionReadAdapter>();
         services.AddScoped<Millet.Almacen.Application.PublicPorts.IRecepcionesCostoReadPort, RecepcionesCostoReadAdapter>();
+        services.AddScoped<Millet.Almacen.Application.PublicPorts.ICostoMedioReader, CostoMedioReader>();
         // PLATFORM-TODO(<AlmacenCrossModulePorts>): reemplazar cada
         // NoOp* por su adapter real cuando entre la fase correspondiente.
         services.AddScoped<IComprasOcReadPort, NoOpComprasOcReadPort>();
