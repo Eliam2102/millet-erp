@@ -523,6 +523,8 @@ export const PermisosCanonicos = {
   ContabilidadCierreConfigurar: 'contabilidad.cierre.configurar',
   ContabilidadCierreAutorizarExcepcion: 'contabilidad.cierre.autorizar-excepcion',
   ContabilidadCierreAnual: 'contabilidad.cierre.anual',
+  /** M-209 (CA4): recalcular el IVA de una factura de proveedor contra su XML (póliza de ajuste). */
+  ContabilidadIvaCorregirDocumento: 'contabilidad.iva.corregir-documento',
   // Pólizas (F1-CON-04): captura (analista), autorización (supervisor, distinto de quien capturó) y anulación con motivo.
   ContabilidadPolizasLeer: 'contabilidad.polizas.leer',
   ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',

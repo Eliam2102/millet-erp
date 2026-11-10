@@ -39,6 +39,20 @@ public static class ContabilidadIvaEndpoints
         .WithSummary("Borrador de la póliza de liquidación de IVA del mes con las cuentas de los roles (el contador la revisa y autoriza)")
         .Produces<PolizaResponse>(StatusCodes.Status201Created).ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-209 (CA4): recalcular el IVA de una factura de proveedor contra su XML. Sin «aplicar», solo la vista previa de la diferencia;
+        // con él, póliza de ajuste ligada al documento (la original no se anula) y saldo de IVA corregido.
+        var corregir = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadIvaCorregirDocumento;
+        g.MapPost("/documentos/{saldoId:guid}/recalcular", async (Guid saldoId, RecalcularIvaRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RecalcularIvaDocumentoCommand(saldoId, b.Motivo, b.Aplicar), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(corregir).WithName("RecalcularIvaDocumento")
+        .WithSummary("Recalcula el IVA de una factura de proveedor contra su XML; con aplicar=true genera la póliza de ajuste")
+        .Produces<RecalculoIvaResponse>().ProducesValidationProblem().ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         return app;
     }
 }
+
+/// <summary>M-209 (CA4): motivo (obligatorio al aplicar) y si se aplica o solo se previsualiza.</summary>
+public sealed record RecalcularIvaRequest(string? Motivo, bool Aplicar);
