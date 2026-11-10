@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -22,7 +23,13 @@ public sealed class DiotEndpointsTests : IClassFixture<DiotEndpointsTests.Servid
     public sealed class Servidor : WebApplicationFactory<Program>
     {
         public AdjuntosProveedorAmbiente Ambiente { get; }
-        public Servidor() => Ambiente = new AdjuntosProveedorAmbiente(this);
+        // La factura de prueba cae en un mes propio de años futuros: el periodo contable se da por abierto (mismo patrón que
+        // NoDeduciblesEndpointsTests); la DIOT solo lee facturas y pagos.
+        public Servidor() => Ambiente = new AdjuntosProveedorAmbiente(this, s =>
+        {
+            s.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
+            s.AddSingleton<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
+        });
         public override async ValueTask DisposeAsync()
         {
             await Ambiente.DisposeAsync();
@@ -114,4 +121,9 @@ public sealed class DiotEndpointsTests : IClassFixture<DiotEndpointsTests.Servid
         JsonValueKind.Array => e.EnumerateArray().SelectMany(Textos),
         _ => [],
     };
+
+    private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort
+    {
+        public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);
+    }
 }
