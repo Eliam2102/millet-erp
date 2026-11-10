@@ -9,7 +9,7 @@ using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
-namespace Millet.Api.Infrastructure.Cargas;
+namespace Millet.Api.Infrastructure.Adapters;
 
 /// <summary>
 /// M-166 ↔ M-047: tipo de carga <c>contabilidad.saldos-iniciales</c> del lote común. Convierte las filas mapeadas del lote en la

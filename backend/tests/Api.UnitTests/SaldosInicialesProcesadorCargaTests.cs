@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using Millet.Api.Infrastructure.Cargas;
+using Millet.Api.Infrastructure.Adapters;
 using Millet.Compartido.Application.Cargas.Lotes;
 using Millet.Identidad.Domain;
 

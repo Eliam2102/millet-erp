@@ -700,7 +700,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IncidenciasServicio>();
 builder.Services.AddScoped<Millet.Compartido.Application.Cargas.Lotes.LotesCargaServicio>();
 // M-166: tipo de carga contabilidad.saldos-iniciales (apertura contable) para el lote común.
-Millet.Api.Infrastructure.Cargas.CargasContabilidadRegistro.AddCargasContabilidad(builder.Services);
+Millet.Api.Infrastructure.Adapters.CargasContabilidadRegistro.AddCargasContabilidad(builder.Services);
 builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
 builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IIncidenciaUsuariosReadPort, Millet.Api.Infrastructure.Adapters.IncidenciaUsuariosReadAdapter>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compartido.Application.Incidencias.IncidenciaAdjuntoPropietario>();

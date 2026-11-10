@@ -93,7 +93,7 @@ Además, cada partida pasa por las mismas reglas que cualquier póliza (dimensio
 - La conciliación de la apertura contra CxC, CxP y Tesorería (M-301 y M-302).
 
 ## 8. Adaptador con el lote común (tipo `contabilidad.saldos-iniciales`)
-`Api/Infrastructure/Cargas/SaldosInicialesProcesadorCarga.cs` implementa `IProcesadorCarga` (M-047):
+`Api/Infrastructure/Adapters/SaldosInicialesProcesadorCarga.cs` implementa `IProcesadorCarga` (M-047):
 
 | Elemento | Valor |
 |---|---|
