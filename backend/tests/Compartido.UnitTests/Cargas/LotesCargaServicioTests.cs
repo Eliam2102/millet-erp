@@ -1,9 +1,9 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compartido.Application.Cargas.Lotes;
-using Millet.SharedKernel.Application.Cargas;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compartido.UnitTests.Adjuntos;
+using Millet.DatosMaestros.Application.Cargas;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain.Cargas;
 
@@ -21,7 +21,7 @@ public sealed class LotesCargaServicioTests
     {
         public string Tipo => LotesCargaServicioTests.Tipo;
         public string Nombre => "Balanza de prueba";
-        public IReadOnlyList<ColumnaLoteCarga> Columnas { get; } =
+        public IReadOnlyList<ColumnaCarga> Columnas { get; } =
             [new("cuenta", "Cuenta contable", "Cta"), new("cargo", "Cargo"), new("abono", "Abono")];
         public IReadOnlyList<string> ColumnasObligatorias { get; } = ["cuenta", "cargo", "abono"];
         public bool RequiereFechaCorte => true;
