@@ -133,6 +133,7 @@ import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/
 import { Route as AppContabilidadReportesAuxiliarRouteImport } from './routes/_app/contabilidad/reportes.auxiliar';
 import { Route as AppContabilidadReportesBalanzaRouteImport } from './routes/_app/contabilidad/reportes.balanza';
 import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './routes/_app/contabilidad/reportes.cuenta-puente';
+import { Route as AppContabilidadReportesContabilidadElectronicaRouteImport } from './routes/_app/contabilidad/reportes.contabilidad-electronica';
 import { Route as AppContabilidadReportesDiferenciasCambiariasRouteImport } from './routes/_app/contabilidad/reportes.diferencias-cambiarias';
 import { Route as AppContabilidadReportesConciliacionAuxiliaresRouteImport } from './routes/_app/contabilidad/reportes.conciliacion-auxiliares';
 import { Route as AppContabilidadReportesLiquidacionIvaRouteImport } from './routes/_app/contabilidad/reportes.liquidacion-iva';
@@ -927,6 +928,12 @@ const AppContabilidadReportesCuentaPuenteRoute =
     path: '/contabilidad/reportes/cuenta-puente',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadReportesContabilidadElectronicaRoute =
+  AppContabilidadReportesContabilidadElectronicaRouteImport.update({
+    id: '/contabilidad/reportes/contabilidad-electronica',
+    path: '/contabilidad/reportes/contabilidad-electronica',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadReportesDiferenciasCambiariasRoute =
   AppContabilidadReportesDiferenciasCambiariasRouteImport.update({
     id: '/contabilidad/reportes/diferencias-cambiarias',
@@ -1705,6 +1712,7 @@ export interface FileRoutesByFullPath {
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
   '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
@@ -1949,6 +1957,7 @@ export interface FileRoutesByTo {
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
   '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
@@ -2195,6 +2204,7 @@ export interface FileRoutesById {
   '/_app/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/_app/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
   '/_app/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
+  '/_app/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
   '/_app/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/_app/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   '/_app/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
@@ -2441,6 +2451,7 @@ export interface FileRouteTypes {
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/contabilidad-electronica'
     | '/contabilidad/reportes/diferencias-cambiarias'
     | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/contabilidad/reportes/liquidacion-iva'
@@ -2685,6 +2696,7 @@ export interface FileRouteTypes {
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
     | '/contabilidad/reportes/cuenta-puente'
+    | '/contabilidad/reportes/contabilidad-electronica'
     | '/contabilidad/reportes/diferencias-cambiarias'
     | '/contabilidad/reportes/conciliacion-auxiliares'
     | '/contabilidad/reportes/liquidacion-iva'
@@ -2930,6 +2942,7 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/reportes/auxiliar'
     | '/_app/contabilidad/reportes/balanza'
     | '/_app/contabilidad/reportes/cuenta-puente'
+    | '/_app/contabilidad/reportes/contabilidad-electronica'
     | '/_app/contabilidad/reportes/diferencias-cambiarias'
     | '/_app/contabilidad/reportes/conciliacion-auxiliares'
     | '/_app/contabilidad/reportes/liquidacion-iva'
@@ -3951,6 +3964,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadReportesCuentaPuenteRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/reportes/contabilidad-electronica': {
+      id: '/_app/contabilidad/reportes/contabilidad-electronica';
+      path: '/contabilidad/reportes/contabilidad-electronica';
+      fullPath: '/contabilidad/reportes/contabilidad-electronica';
+      preLoaderRoute: typeof AppContabilidadReportesContabilidadElectronicaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/contabilidad/reportes/diferencias-cambiarias': {
       id: '/_app/contabilidad/reportes/diferencias-cambiarias';
       path: '/contabilidad/reportes/diferencias-cambiarias';
@@ -4902,6 +4922,7 @@ interface AppRouteChildren {
   AppContabilidadReportesAuxiliarRoute: typeof AppContabilidadReportesAuxiliarRoute;
   AppContabilidadReportesBalanzaRoute: typeof AppContabilidadReportesBalanzaRoute;
   AppContabilidadReportesCuentaPuenteRoute: typeof AppContabilidadReportesCuentaPuenteRoute;
+  AppContabilidadReportesContabilidadElectronicaRoute: typeof AppContabilidadReportesContabilidadElectronicaRoute;
   AppContabilidadReportesDiferenciasCambiariasRoute: typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   AppContabilidadReportesConciliacionAuxiliaresRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
   AppContabilidadReportesLiquidacionIvaRoute: typeof AppContabilidadReportesLiquidacionIvaRoute;
@@ -5152,6 +5173,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppContabilidadReportesBalanzaRoute,
   AppContabilidadReportesCuentaPuenteRoute:
     AppContabilidadReportesCuentaPuenteRoute,
+  AppContabilidadReportesContabilidadElectronicaRoute:
+    AppContabilidadReportesContabilidadElectronicaRoute,
   AppContabilidadReportesDiferenciasCambiariasRoute:
     AppContabilidadReportesDiferenciasCambiariasRoute,
   AppContabilidadReportesConciliacionAuxiliaresRoute:
