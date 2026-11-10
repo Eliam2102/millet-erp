@@ -6,8 +6,8 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.ProductoTerminado.Application.Salidas;
 
-/// <summary>Un albarán de A+W para una posición: folio, fecha y piezas que salieron con él.</summary>
-public sealed record AlbaranAwPiezas(int Folio, DateOnly Fecha, int Piezas);
+/// <summary>Un albarán de A+W para una posición: pedido de A+W que lo lleva, folio, fecha y piezas que salieron con él.</summary>
+public sealed record AlbaranAwPiezas(string PedidoAlbaran, int Folio, DateOnly Fecha, int Piezas);
 
 /// <summary>
 /// Todos los albaranes de A+W de una posición del pedido (lote de PT = pedido-posición). Lo manda el lector de
@@ -17,10 +17,13 @@ public sealed record AplicarAlbaranesAwCommand(Guid EmpresaId, string NumeroPedi
 
 /// <summary>
 /// Descuenta del PT las piezas que salieron con albaranes de A+W (decisión 10-nov: el albarán vive en A+W).
-/// Idempotente por pedido + posición + albarán (movimiento <c>aw-albaran:{folio}</c>). No duplica lo que ya salió por la
+/// Idempotente por pedido + posición + albarán (movimiento <c>aw-albaran:{pedidoAlbaran}:{folio}</c>). No duplica lo que ya salió por la
 /// hoja de salida del ERP: solo descuenta lo que A+W reporta por encima de las piezas que ya no están en PT
 /// (cargadas, embarcadas, entregadas o en revisión). Si aún no hay piezas en PT, descuenta lo que haya y el resto en
 /// la siguiente lectura. No cambia el estatus del pedido (71/72 los lleva la hoja de salida).
+/// Concurrencia con la hoja de salida del ERP: solo toma piezas EnPT y el token <c>Version</c> de la pieza (ADR-0012)
+/// rechaza el guardado si otra transacción la cargó entre la lectura y el guardado; entonces no aplica nada y la
+/// posición se reintenta en el siguiente ciclo con el estado nuevo.
 /// </summary>
 public sealed class AplicarAlbaranesAwHandler(ProductoTerminadoDbContext db, IClock clock) : IRequestHandler<AplicarAlbaranesAwCommand, int>
 {
@@ -34,7 +37,7 @@ public sealed class AplicarAlbaranesAwHandler(ProductoTerminadoDbContext db, ICl
         if (piezas.Count == 0) return 0;
 
         var ids = piezas.Select(p => p.Id).ToList();
-        var referencias = c.Albaranes.Select(a => MovimientoPieza.ReferenciaAlbaranAw(a.Folio)).ToList();
+        var referencias = c.Albaranes.Select(a => MovimientoPieza.ReferenciaAlbaranAw(a.PedidoAlbaran, a.Folio)).ToList();
         var aplicadas = (await db.Movimientos
                 .Where(m => ids.Contains(m.PiezaId) && m.Tipo == TipoMovimientoPieza.Salida && referencias.Contains(m.Referencia))
                 .Select(m => m.Referencia).ToListAsync(cancellationToken))
@@ -45,17 +48,24 @@ public sealed class AplicarAlbaranesAwHandler(ProductoTerminadoDbContext db, ICl
         var enPt = new Queue<PiezaPt>(piezas.Where(p => p.Estado == EstadoPieza.EnPT));
         var ahora = clock.UtcNow;
         var descontadas = 0;
-        foreach (var a in c.Albaranes.OrderBy(a => a.Fecha).ThenBy(a => a.Folio))
+        foreach (var a in c.Albaranes.OrderBy(a => a.Fecha).ThenBy(a => a.Folio).ThenBy(a => a.PedidoAlbaran, StringComparer.Ordinal))
         {
-            var falta = a.Piezas - aplicadas.GetValueOrDefault(MovimientoPieza.ReferenciaAlbaranAw(a.Folio));
+            var falta = a.Piezas - aplicadas.GetValueOrDefault(MovimientoPieza.ReferenciaAlbaranAw(a.PedidoAlbaran, a.Folio));
             for (; falta > 0 && porSalir > 0 && enPt.TryDequeue(out var pz); falta--, porSalir--, descontadas++)
             {
                 pz.Cargar();
                 pz.Embarcar();
-                db.Movimientos.Add(MovimientoPieza.SalidaAlbaranAw(pz, EstadoPieza.EnPT, a.Folio, ahora));
+                db.Movimientos.Add(MovimientoPieza.SalidaAlbaranAw(pz, EstadoPieza.EnPT, a.PedidoAlbaran, a.Folio, ahora));
             }
         }
-        if (descontadas > 0) await db.SaveChangesAsync(cancellationToken);
+        if (descontadas == 0) return 0;
+        try { await db.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Una hoja de salida del ERP movió alguna pieza a la vez: no se aplica nada y se reintenta en el siguiente ciclo.
+            db.ChangeTracker.Clear();
+            return 0;
+        }
         return descontadas;
     }
 }

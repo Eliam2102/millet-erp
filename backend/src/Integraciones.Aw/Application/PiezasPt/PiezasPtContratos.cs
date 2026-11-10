@@ -15,8 +15,11 @@ public interface IPiezasPtOrigenReader
         IReadOnlyList<(int Desde, int Hasta)> estaciones, int max, CancellationToken ct);
 }
 
-/// <summary>Una fila de <c>vw_erp_albaran_pos</c>: albarán de A+W de una posición, ya referida al pedido donde se produjeron las piezas.</summary>
-public sealed record AlbaranPosicionOrigen(string NumeroPedido, int Posicion, int Folio, DateOnly Fecha, decimal Piezas);
+/// <summary>
+/// Una fila de <c>vw_erp_albaran_pos</c>: albarán de A+W de una posición, ya referida al pedido donde se produjeron las
+/// piezas. <c>PedidoAlbaran</c> es el pedido de A+W que lleva el albarán (el mismo o el hijo de expedición parcial).
+/// </summary>
+public sealed record AlbaranPosicionOrigen(string NumeroPedido, int Posicion, int Folio, DateOnly Fecha, decimal Piezas, string PedidoAlbaran);
 
 /// <summary>Lector de albaranes de A+W del origen activo (Demo o Real). Solo SELECT; nunca escribe en A+W.</summary>
 public interface IAlbaranesAwOrigenReader

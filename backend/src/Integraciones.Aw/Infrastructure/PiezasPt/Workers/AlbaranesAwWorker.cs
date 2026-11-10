@@ -62,8 +62,17 @@ public sealed class AlbaranesAwWorker(IServiceScopeFactory scopes, IOptions<Piez
         var o = options.Value; var empresa = o.EmpresaId!.Value;
         var reader = sp.GetRequiredService<IAlbaranesAwOrigenReader>();
         var desde = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-o.AlbaranAwVentanaDias));
+        IReadOnlyList<AlbaranPosicionOrigen> filas;
+        try { filas = await reader.LeerAsync(desde, ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception)
+        {
+            // Una falla de lectura (red, vista, permisos) se reintenta en el siguiente intervalo; sin datos de conexión en el log.
+            logger.LogWarning("No se pudo leer vw_erp_albaran_pos; se reintentará en el siguiente intervalo.");
+            return 0;
+        }
         var descontadas = 0;
-        foreach (var orden in Agrupar(empresa, await reader.LeerAsync(desde, ct)))
+        foreach (var orden in Agrupar(empresa, filas, logger))
         {
             try
             {
@@ -78,14 +87,26 @@ public sealed class AlbaranesAwWorker(IServiceScopeFactory scopes, IOptions<Piez
         return descontadas;
     }
 
-    /// <summary>Una orden por pedido + posición con todos sus albaranes. Piezas no enteras se truncan (las posiciones de servicio no tienen piezas en PT).</summary>
-    internal static IEnumerable<AplicarAlbaranesAwCommand> Agrupar(Guid empresa, IEnumerable<AlbaranPosicionOrigen> filas) =>
+    /// <summary>
+    /// Una orden por pedido + posición con todos sus albaranes (pedido que lleva el albarán + folio). Piezas no enteras se
+    /// truncan con aviso (las posiciones de servicio no tienen piezas en PT).
+    /// </summary>
+    internal static IEnumerable<AplicarAlbaranesAwCommand> Agrupar(Guid empresa, IEnumerable<AlbaranPosicionOrigen> filas, ILogger? logger = null) =>
         filas.Where(f => !string.IsNullOrWhiteSpace(f.NumeroPedido))
             .GroupBy(f => (Pedido: f.NumeroPedido.Trim(), f.Posicion))
             .Select(g => new AplicarAlbaranesAwCommand(empresa, g.Key.Pedido, g.Key.Posicion,
-                g.GroupBy(f => f.Folio)
-                    .Select(a => new AlbaranAwPiezas(a.Key, a.Min(f => f.Fecha), (int)decimal.Truncate(a.Sum(f => Math.Max(0, f.Piezas)))))
+                g.GroupBy(f => (PedidoAlbaran: f.PedidoAlbaran.Trim(), f.Folio))
+                    .Select(a => new AlbaranAwPiezas(a.Key.PedidoAlbaran, a.Key.Folio, a.Min(f => f.Fecha), Piezas(g.Key.Pedido, g.Key.Posicion, a.Key.Folio, a.Sum(f => Math.Max(0, f.Piezas)), logger)))
                     .ToList()));
+
+    private static int Piezas(string pedido, int posicion, int folio, decimal piezas, ILogger? logger)
+    {
+        var enteras = (int)decimal.Truncate(piezas);
+        if (enteras != piezas)
+            logger?.LogWarning("Albarán {Folio} de A+W, pedido {Pedido} posición {Posicion}: {Piezas} piezas no enteras; se descuentan {Enteras}.",
+                folio, pedido, posicion, piezas, enteras);
+        return enteras;
+    }
 
     private static Contexto EntrarContexto(IServiceProvider sp) => new(
         sp.GetRequiredService<ICurrentEmpresaContext>().Bypass(),
