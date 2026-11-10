@@ -69,6 +69,62 @@ public sealed class PlantaPinturaTests
     }
 
     [Fact]
+    public async Task Script16v3_una_linea_de_venta_por_linea_y_fecha_del_pedido()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var fecha = new DateOnly(2026, 11, 9);
+        var p = Pedido() with
+        {
+            FechaPedido = fecha,
+            Lineas =
+            [
+                new LineaPedidoPlantaPintura("PRD-1", "Blanco mate", null, null, 80.5m, 85.25m, 0m, false, 0.16m),
+                new LineaPedidoPlantaPintura("PRD-2", "Negro satinado", null, null, 45m, 92m, 0m, false, 0.16m),
+            ],
+        };
+
+        var resp = await Handler(db, Cliente(), Producto())
+            .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, p), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        var pedido = await db.PedidosFacturables.Include(x => x.Lineas).SingleAsync();
+        pedido.FechaPedido.Should().Be(fecha);
+        pedido.Lineas.Select(l => (l.Cantidad, l.Precio)).Should().BeEquivalentTo(new[] { (80.5m, 85.25m), (45m, 92m) });
+        pedido.Total.Should().Be(6862.63m + 4140m, "80.5 × 85.25 y 45 × 92, sin promediar");
+    }
+
+    [Fact]
+    public async Task Orden_sin_lineas_se_rechaza()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        var resp = await Handler(db, Cliente(), Producto())
+            .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, Pedido() with { Lineas = [] }), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Detalle.Should().Contain("pinturas_pedido_linea");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Una_linea_mala_rechaza_la_orden_completa()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var buena = Pedido().Lineas[0];
+        var p = Pedido() with { Lineas = [buena, buena with { ProductoRef = "PRD-9", Precio = -1m }] };
+
+        var resp = await Handler(db, Cliente(), Producto())
+            .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, p), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Detalle.Should().Contain("precio_m2=-1").And.Contain("PRD-9");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task Importar_sin_cliente_genera_excepcion_sin_autoprovision()
     {
         var empresaId = Guid.NewGuid();

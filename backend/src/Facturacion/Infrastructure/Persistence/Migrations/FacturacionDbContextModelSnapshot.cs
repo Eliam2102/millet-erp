@@ -3595,6 +3595,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("estado_origen");
 
+                    b.Property<DateOnly?>("FechaPedido")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_pedido");
+
                     b.Property<string>("MetodoPagoOrigen")
                         .HasMaxLength(5)
                         .HasColumnType("character varying(5)")

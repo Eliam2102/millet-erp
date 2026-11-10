@@ -65,7 +65,7 @@ public static class PedidosDependencyInjection
         services.AddScoped<IAwArticulosReader, AwArticulosSqlReader>();
         services.AddScoped<IMasterProvisioningPort, AwMasterProvisioningAdapter>();
 
-        // I13.9: pedidos de Planta Pintura en dbo.pinturas_pedido de la misma base (script 16 v2). Pisa
+        // I13.9: pedidos de Planta Pintura en dbo.pinturas_pedido de la misma base (script 16 v3). Pisa
         // StubPlantaPinturaPedidosReader (cierra <PlantaPinturaOrigenes> en la lectura y el acuse).
         AddPinturasPedidos(services, configuration);
         services.AddScoped<IPlantaPinturaPedidosReader>(sp => new PinturasPedidosAdapter(
