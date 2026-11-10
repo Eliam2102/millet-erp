@@ -132,7 +132,7 @@ public sealed class ContenedoresTests
 
         Assert.Equal("CE_DATOS_ADUANALES_SIN_REVISAR", e.BloqueoFacturacion(pedido, contenedorId: c).Codigo);
         var partida = e.Partidas.Single(p => p.ContenedorId == c);
-        e.GuardarDatosAduanales(partida.Id, "70071999", "06", Actor, fecha, true);
+        e.GuardarDatosAduanales(partida.Id, "7007199900", "06", Actor, fecha, true);
         Assert.Equal("CE_SALIDA_SIN_AUTORIZAR", e.BloqueoFacturacion(pedido, contenedorId: c).Codigo);
         e.AutorizarSalida(autoriza, fecha, null, true);
 
