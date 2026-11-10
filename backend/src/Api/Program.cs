@@ -1001,6 +1001,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ITipoCambioContabilidadReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioContabilidadReadAdapter>();
+// M-207 (86e3zr7nf): tolerancia del TC del CFDI contra el catálogo (parámetro global).
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.IToleranciaTipoCambioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ToleranciaTipoCambioReadAdapter>();
 
 // IUsuarioReadPort de Almacén → adapter hospedado en Identidad (ADR-0042).
 // Reemplaza el NoOpUsuarioReadPort que registró AddAlmacenModule(). El adapter

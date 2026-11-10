@@ -5073,6 +5073,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000d-0007-0000-0000-000000000004"),
+                            Accion = "autorizar-sustituto",
+                            Codigo = "contabilidad.tipo-cambio.autorizar-sustituto",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar el tipo de cambio sustituto de un CFDI rechazado por el motor (otra persona que quien lo capturó)",
+                            Modulo = "contabilidad",
+                            Recurso = "tipo-cambio",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000d-0008-0000-0000-000000000001"),
                             Accion = "configurar",
                             Codigo = "contabilidad.cierre.configurar",

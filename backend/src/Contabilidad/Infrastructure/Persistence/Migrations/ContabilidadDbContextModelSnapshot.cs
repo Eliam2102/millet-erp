@@ -1871,6 +1871,42 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("resuelto_por");
 
+                    b.Property<short?>("TcAccion")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tc_accion");
+
+                    b.Property<DateTimeOffset?>("TcAutorizadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("tc_autorizado_en");
+
+                    b.Property<string>("TcAutorizadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tc_autorizado_por");
+
+                    b.Property<DateTimeOffset?>("TcCapturadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("tc_capturado_en");
+
+                    b.Property<string>("TcCapturadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("tc_capturado_por");
+
+                    b.Property<Guid?>("TcCapturadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tc_capturado_por_id");
+
+                    b.Property<string>("TcMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("tc_motivo");
+
+                    b.Property<decimal?>("TcValor")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tc_valor");
+
                     b.Property<string>("TipoEvento")
                         .IsRequired()
                         .HasMaxLength(200)

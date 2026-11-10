@@ -632,6 +632,8 @@ public static class PermisosCanonicos
     public const string ContabilidadMotorLeer                           = "contabilidad.motor.leer";
     public const string ContabilidadRolesCuentaAdministrar              = "contabilidad.roles-cuenta.administrar";
     public const string ContabilidadRechazosGestionar                   = "contabilidad.rechazos.gestionar";
+    // M-207: autorizar el tipo de cambio sustituto (o aceptar el del documento) de un rechazo; otra persona que quien lo capturó.
+    public const string ContabilidadTipoCambioAutorizarSustituto        = "contabilidad.tipo-cambio.autorizar-sustituto";
 
     public const string ActivosFijosDepreciacionCorrer = "activos_fijos.depreciacion.correr";
     public const string ActivosFijosDepreciacionAnular = "activos_fijos.depreciacion.anular";
@@ -1064,6 +1066,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0007-0000-0000-000000000001"), ContabilidadMotorLeer,                  "Consultar los roles de cuenta, las plantillas contables y la bandeja de rechazos del motor de pólizas"),
         (Guid.Parse("0000000d-0007-0000-0000-000000000002"), ContabilidadRolesCuentaAdministrar,     "Dar de alta roles de cuenta y cambiar la cuenta de un rol (queda en bitácora; solo afecta pólizas nuevas)"),
         (Guid.Parse("0000000d-0007-0000-0000-000000000003"), ContabilidadRechazosGestionar,          "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000004"), ContabilidadTipoCambioAutorizarSustituto, "Autorizar el tipo de cambio sustituto de un CFDI rechazado por el motor (otra persona que quien lo capturó)"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000001"), ContabilidadCierreConfigurar,           "Configurar el checklist de cierre: orden, pasos obligatorios, activos y pasos manuales"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000002"), ContabilidadCierreAutorizarExcepcion,   "Autorizar (o retirar) una excepción del checklist para cerrar un periodo con un paso pendiente"),
         (Guid.Parse("0000000d-0008-0000-0000-000000000003"), ContabilidadCierreAnual,                "Generar las pólizas de cierre anual que cancelan las cuentas de resultados contra resultado del ejercicio"),

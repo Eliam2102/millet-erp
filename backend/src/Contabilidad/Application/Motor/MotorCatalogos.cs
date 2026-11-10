@@ -126,7 +126,10 @@ public sealed class ListarPlantillasContablesHandler(ContabilidadDbContext db) :
 
 public sealed record RechazoContableResponse(Guid Id, string TipoEvento, Guid EventoId, CausaRechazoContable Causa, string? Detalle, string Mensaje,
     int Intentos, EstadoRechazoContable Estado, DateTimeOffset CreadoEn, DateTimeOffset UltimoIntentoEn, Guid? PolizaId, string? ResueltoPor,
-    DateTimeOffset? ResueltoEn, string? MotivoDescarte, string Payload, int Version);
+    DateTimeOffset? ResueltoEn, string? MotivoDescarte, string Payload, int Version,
+    // M-207: tipo de cambio sustituto.
+    AccionTipoCambioRechazo? TcAccion = null, decimal? TcValor = null, string? TcMotivo = null, string? TcCapturadoPor = null,
+    DateTimeOffset? TcCapturadoEn = null, string? TcAutorizadoPor = null, DateTimeOffset? TcAutorizadoEn = null, bool TcPorAutorizar = false);
 
 public sealed record ListarRechazosContablesQuery(EstadoRechazoContable? Estado) : IRequest<IReadOnlyList<RechazoContableResponse>>;
 
@@ -136,10 +139,19 @@ public sealed record ReprocesarRechazoCommand(Guid Id) : IRequest<ResultadoMotor
 /// <summary>C1.4-h: exige motivo (y el permiso, en el endpoint).</summary>
 public sealed record DescartarRechazoCommand(Guid Id, string Motivo) : IRequest<RechazoContableResponse>;
 
+/// <summary>M-207: captura el TC sustituto (o aceptar el del documento) de un rechazo de tipo de cambio. Queda «Por autorizar».</summary>
+public sealed record CapturarTipoCambioRechazoCommand(Guid Id, AccionTipoCambioRechazo Accion, decimal? Valor, string Motivo)
+    : IRequest<RechazoContableResponse>;
+
+/// <summary>M-207: otra persona (con <c>contabilidad.tipo-cambio.autorizar-sustituto</c>) autoriza y se reprocesa con ese TC.</summary>
+public sealed record AutorizarTipoCambioRechazoCommand(Guid Id) : IRequest<ResultadoMotor>;
+
 public sealed class RechazosHandlers(ContabilidadDbContext db, IMediator mediator, ICurrentUserContext usuario, IClock clock) :
     IRequestHandler<ListarRechazosContablesQuery, IReadOnlyList<RechazoContableResponse>>,
     IRequestHandler<ReprocesarRechazoCommand, ResultadoMotor>,
-    IRequestHandler<DescartarRechazoCommand, RechazoContableResponse>
+    IRequestHandler<DescartarRechazoCommand, RechazoContableResponse>,
+    IRequestHandler<CapturarTipoCambioRechazoCommand, RechazoContableResponse>,
+    IRequestHandler<AutorizarTipoCambioRechazoCommand, ResultadoMotor>
 {
     public async Task<IReadOnlyList<RechazoContableResponse>> Handle(ListarRechazosContablesQuery r, CancellationToken cancellationToken)
     {
@@ -170,6 +182,29 @@ public sealed class RechazosHandlers(ContabilidadDbContext db, IMediator mediato
         return Response(rechazo);
     }
 
+    public async Task<RechazoContableResponse> Handle(CapturarTipoCambioRechazoCommand r, CancellationToken cancellationToken)
+    {
+        var ct = cancellationToken;
+        var rechazo = await db.RechazosContables.FirstOrDefaultAsync(x => x.Id == r.Id, ct)
+            ?? throw new EntityNotFoundException("CONTAB_RECHAZO_NO_ENCONTRADO", $"No existe el rechazo '{r.Id}'.");
+        rechazo.CapturarTipoCambio(r.Accion, r.Valor, r.Motivo, usuario.UserId, usuario.UserName ?? usuario.Email ?? "system", clock.UtcNow);
+        await db.SaveChangesAsync(ct);
+        return Response(rechazo);
+    }
+
+    /// <summary>M-207: autoriza (CA5: otra persona) y reprocesa en el acto con el TC autorizado (CA4).</summary>
+    public async Task<ResultadoMotor> Handle(AutorizarTipoCambioRechazoCommand r, CancellationToken cancellationToken)
+    {
+        var ct = cancellationToken;
+        var rechazo = await db.RechazosContables.FirstOrDefaultAsync(x => x.Id == r.Id, ct)
+            ?? throw new EntityNotFoundException("CONTAB_RECHAZO_NO_ENCONTRADO", $"No existe el rechazo '{r.Id}'.");
+        rechazo.AutorizarTipoCambio(usuario.UserId, usuario.UserName ?? usuario.Email ?? "system", clock.UtcNow);
+        await db.SaveChangesAsync(ct);
+        db.ChangeTracker.Clear();
+        return await Handle(new ReprocesarRechazoCommand(r.Id), ct);
+    }
+
     private static RechazoContableResponse Response(RechazoContable x) => new(x.Id, x.TipoEvento, x.EventoId, x.Causa, x.Detalle, x.Mensaje,
-        x.Intentos, x.Estado, x.CreadoEn, x.UltimoIntentoEn, x.PolizaId, x.ResueltoPor, x.ResueltoEn, x.MotivoDescarte, x.Payload, x.Version);
+        x.Intentos, x.Estado, x.CreadoEn, x.UltimoIntentoEn, x.PolizaId, x.ResueltoPor, x.ResueltoEn, x.MotivoDescarte, x.Payload, x.Version,
+        x.TcAccion, x.TcValor, x.TcMotivo, x.TcCapturadoPor, x.TcCapturadoEn, x.TcAutorizadoPor, x.TcAutorizadoEn, x.TcPorAutorizar);
 }
