@@ -125,7 +125,7 @@ public sealed class SalidasTests
         salida.Referencia.Should().Be(dto.Albaranes.Single().Folio);
         salida.Lineas.Should().Equal([(1, 3m)]);
         (await e.T.Db.PedidosPt.SingleAsync()).EnRutaAt.Should().NotBeNull();
-        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle().Which.NumeroPedido.Should().Be("P1");
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty("sin factura el albarán aún se puede cancelar: el 72 no viaja (TI, 10-nov)");
     }
 
     [Fact]
@@ -139,7 +139,59 @@ public sealed class SalidasTests
         segunda.YaEmitida.Should().BeTrue();
         (await e.T.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimientoPieza.Salida)).Should().Be(2);
         e.Facturacion.Salidas.Should().HaveCount(1);
-        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().HaveCount(1);
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty();
+    }
+
+    // ---- Estatus 72: solo cuando el albarán ya no se puede cancelar (TI, 10-nov: en A+W el 72 no se revierte) ----
+
+    [Fact]
+    public async Task El_72_viaja_al_emitir_solo_si_el_pedido_ya_tiene_factura_y_una_sola_vez()
+    {
+        using var e = await Preparar();
+        (await e.T.Db.PedidosPt.SingleAsync()).MarcarFacturado(Ahora);
+        await e.T.Db.SaveChangesAsync();
+        var hoja = await e.Crear().Handle(Hoja(["P1-E1"]), default);
+        await e.Emitir().Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
+        var otra = await e.Crear().Handle(Hoja(["P1-E2"]), default);
+        await e.Emitir().Handle(new EmitirHojaSalidaCommand(otra.Id), default);
+
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle().Which.NumeroPedido.Should().Be("P1");
+        (await e.T.Db.PedidosPt.SingleAsync()).Estado72At.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task El_72_viaja_con_la_primera_entrega_en_ruta_y_antes_del_115()
+    {
+        var (e, hoja) = await Emitida(3, 3);
+        using var _ = e;
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty();
+        await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id), default);
+        await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default);
+
+        var orden = e.T.Eventos.Eventos.Where(x => x is PedidoEnRutaEvent or PedidoFacturadoEntregadoEvent).Select(x => x.GetType().Name).ToList();
+        orden.Should().Equal(nameof(PedidoEnRutaEvent), nameof(PedidoFacturadoEntregadoEvent));
+    }
+
+    [Fact]
+    public async Task El_72_viaja_al_timbrar_la_factura_de_una_hoja_ya_emitida_y_no_se_repite_con_la_entrega()
+    {
+        var (e, hoja) = await Emitida(3, 3);
+        using var _ = e;
+        await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default);
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle();
+        await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id), default);
+
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle("el 72 se manda una sola vez por pedido");
+        var orden = e.T.Eventos.Eventos.Where(x => x is PedidoEnRutaEvent or PedidoFacturadoEntregadoEvent).Select(x => x.GetType().Name).ToList();
+        orden.Should().Equal(nameof(PedidoEnRutaEvent), nameof(PedidoFacturadoEntregadoEvent));
+    }
+
+    [Fact]
+    public async Task Factura_sin_hoja_emitida_no_manda_72()
+    {
+        using var e = await Preparar();
+        await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default);
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty("sin hoja de salida emitida no hay 72");
     }
 
     [Fact]

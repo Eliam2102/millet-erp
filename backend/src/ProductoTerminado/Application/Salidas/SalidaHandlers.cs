@@ -239,7 +239,9 @@ public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcc
                 db.Movimientos.Add(MovimientoPieza.Paso(pz, TipoMovimientoPieza.Salida, EstadoPieza.Cargada, a.Id, ahora, acceso.Actor.ToString()));
             }
             var pedido = pedidos[a.PedidoPtId];
-            if (pedido.MarcarEnRuta(ahora))
+            pedido.MarcarEnRuta(ahora);
+            // El 72 no se revierte en A+W: al emitir solo viaja si el pedido ya tiene factura timbrada (el albarán ya no se puede cancelar).
+            if (pedido.FacturadoAt is not null && pedido.Confirmar72(ahora))
                 await eventos.PublishAsync(new PedidoEnRutaEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, s.Folio, a.Folio, s.CartaPorteFolio), cancellationToken);
         }
         s.Emitir(ahora);

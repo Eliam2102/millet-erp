@@ -65,7 +65,7 @@ public sealed class LiquidacionTests
         public EntornoPt T { get; } = t;
         public PtAcceso Acceso { get; } = new(new Usuario(), new Permisos(), new Sucursales());
         public FacturacionFalsa Facturacion { get; } = new();
-        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora), T.Eventos);
         public CerrarDiaContraEntregaHandler CerrarDia(DateTimeOffset? ahora = null) => new(T.Db, T.Pedidos, T.Eventos, new RelojFijo(ahora ?? Ahora), new CalendarioFalso(),
             Microsoft.Extensions.Options.Options.Create(new Millet.ProductoTerminado.Infrastructure.Workers.CierreContraEntregaOptions()));
         public void Dispose() => T.Dispose();

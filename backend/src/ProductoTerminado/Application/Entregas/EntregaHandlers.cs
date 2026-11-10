@@ -74,6 +74,8 @@ public sealed class ConfirmarEntregaHandler(ProductoTerminadoDbContext db, PtAcc
         db.Entregas.Add(entrega);
 
         var pedido = await db.PedidosPt.Include(p => p.Posiciones).FirstAsync(p => p.Id == albaran.PedidoPtId, cancellationToken);
+        if (pedido.Confirmar72(ahora))
+            await eventos.PublishAsync(new PedidoEnRutaEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, hoja.Folio, albaran.Folio, hoja.CartaPorteFolio), cancellationToken);
         var entregadasAntes = await db.Piezas.CountAsync(p => p.PedidoPtId == pedido.Id && p.Estado == EstadoPieza.Entregada, cancellationToken);
         var completo = pedido.Posiciones.Sum(p => p.PiezasEsperadas) is var esperadas && esperadas > 0 && entregadasAntes + entrega.Entregadas >= esperadas;
         var porPosicion = piezas.Where(p => !rechazadas.Contains(p.Etiqueta)).GroupBy(p => p.Posicion).OrderBy(g => g.Key).Select(g => new PosicionEntregada(g.Key, g.Count())).ToList();
@@ -114,9 +116,11 @@ public sealed class AplicarFacturaPedidoHandler(ProductoTerminadoDbContext db, I
         if (pedido is null) return false;
         var ahora = clock.UtcNow;
         var cambio = pedido.MarcarFacturado(ahora);
+        var con72 = pedido.Confirmar72(ahora);
+        if (con72) await eventos.PublishAsync(new PedidoEnRutaEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido, string.Empty, string.Empty, null), cancellationToken);
         var cerro = pedido.Cerrar115(ahora);
         if (cerro) await eventos.PublishAsync(new PedidoFacturadoEntregadoEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido, "115"), cancellationToken);
-        if (cambio || cerro) await db.SaveChangesAsync(cancellationToken);
+        if (cambio || con72 || cerro) await db.SaveChangesAsync(cancellationToken);
         return cerro;
     }
 }
