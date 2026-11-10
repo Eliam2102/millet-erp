@@ -1169,6 +1169,45 @@ builder.Services.AddOptions<OutboxPublisherOptions>(nameof(Millet.ProductoTermin
     .Bind(builder.Configuration.GetSection("ProductoTerminado:Outbox"));
 builder.Services.AddHostedService<OutboxPublisherWorker<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>>();
 
+// === I13.6 · Tablero de integraciones: cada módulo aporta sus fuentes; Compartido las junta y alerta ===
+// El outbox de Integraciones.Fiscal no tiene publisher registrado: no se muestra hasta que lo tenga.
+builder.Services.AddFuenteTableroOutbox<ComprasDbContext>("Compras");
+builder.Services.AddFuenteTableroOutbox<CompartidoDbContext>("Datos maestros");
+builder.Services.AddFuenteTableroOutbox<Millet.Integraciones.Aw.Infrastructure.Persistence.IntegracionesAwDbContext>("Integración A+W");
+builder.Services.AddFuenteTableroOutbox<AlmacenDbContext>("Almacén");
+builder.Services.AddFuenteTableroOutbox<CuentasPorPagarDbContext>("Cuentas por pagar");
+builder.Services.AddFuenteTableroOutbox<FacturacionDbContext>("Facturación");
+builder.Services.AddFuenteTableroOutbox<CuentasPorCobrarDbContext>("Cuentas por cobrar");
+builder.Services.AddFuenteTableroOutbox<TesoreriaDbContext>("Tesorería");
+builder.Services.AddFuenteTableroOutbox<ComercioExteriorDbContext>("Comercio exterior");
+builder.Services.AddFuenteTableroOutbox<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>("Producto terminado");
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Compras.Infrastructure.PublicAdapters.AlmCompraFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.CorreoCfdiFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.AwWriteBackFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.TimbradoPacFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Facturacion.Infrastructure.PublicAdapters.CancelacionSatFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Integraciones.Fiscal.Infrastructure.Tablero.DescargaSatFuenteTablero>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.BuzonCfdiFuenteTablero>();
+// PLATFORM-TODO(<TableroIntegracionesAw>): el retorno a A+W (aw_retorno, U1.5) y los pedidos de Planta Pintura viven en
+// la base de integración de A+W y sus fallas técnicas solo quedan en el log; se agregan como fuentes con la conexión real.
+// Banxico no guarda sus corridas (solo el tipo de cambio que obtiene); hace falta una bitácora para mostrarlo.
+// Sin Service Bus (local sin Azure ni emulador) la cola de errores se muestra «Sin lectura» en lugar de desaparecer.
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion>(sp =>
+    new ServiceBusDeadLetterFuenteTablero(
+        string.IsNullOrWhiteSpace(outboxConnString) ? null : sp.GetRequiredService<Azure.Messaging.ServiceBus.ServiceBusClient>(),
+        SuscripcionServiceBus.DelErp, sp.GetRequiredService<ILogger<ServiceBusDeadLetterFuenteTablero>>()));
+builder.Services.AddOptions<Millet.Compartido.Application.TableroIntegraciones.TableroIntegracionesOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compartido.Application.TableroIntegraciones.TableroIntegracionesOptions.SectionName));
+builder.Services.AddScoped<Millet.Compartido.Application.TableroIntegraciones.TableroIntegracionesServicio>();
+builder.Services.AddHostedService<Millet.Compartido.Infrastructure.Workers.AlertasIntegracionWorker>();
+
 // === Módulo Contabilidad (F1-CON-01): catálogo contable ===
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
 builder.Services.AddContabilidadModule(builder.Configuration);
@@ -2080,6 +2119,7 @@ Millet.Api.Endpoints.Facturacion.CajasEndpoints.MapFacturacionCajasEndpoints(app
 Millet.Api.Endpoints.Facturacion.CobrosEndpoints.MapFacturacionCobrosEndpoints(app);
 Millet.Api.Endpoints.Facturacion.TerminalTarjetaEndpoints.MapFacturacionTerminalTarjetaEndpoints(app);
 Millet.Api.Endpoints.Facturacion.ConciliacionSatEndpoints.MapFacturacionConciliacionSatEndpoints(app);
+Millet.Api.Endpoints.Integraciones.TableroIntegracionesEndpoints.MapTableroIntegracionesEndpoints(app);
 
 // === Cuentas por Cobrar — Líneas de crédito (CXC-PR1) ===
 Millet.Api.Endpoints.CuentasPorCobrar.LineasCreditoEndpoints.MapLineasCreditoEndpoints(app);

@@ -92,6 +92,24 @@ public class OutboxPublisherWorkerTests : IClassFixture<StubsWebApplicationFacto
     }
 
     [Fact]
+    public async Task PollOnce_TrasUnaFalla_EsperaAntesDelSiguienteIntento()
+    {
+        // I13.6 · espera creciente: el evento que falló no se vuelve a intentar en el poll siguiente.
+        var sender = new ThrowingSender("bus caído");
+        var entry = await SeedOutboxEntryAsync();
+
+        await using var factory = WithSender(sender);
+        var worker = ResolveWorker(factory);
+
+        await worker.PollOnceAsync(CancellationToken.None);
+        Assert.True(worker.ProximoIntento.ContainsKey(entry.Id));
+        await worker.PollOnceAsync(CancellationToken.None);
+
+        var actual = await ReloadEntryAsync(factory, entry.Id);
+        Assert.Equal(1, actual!.Attempts);
+    }
+
+    [Fact]
     public async Task PollOnce_FilaConAttemptsExcedeMaxAttempts_NoSeReintenta()
     {
         // MaxAttempts default = 10. Forzamos attempts=11 antes del poll.

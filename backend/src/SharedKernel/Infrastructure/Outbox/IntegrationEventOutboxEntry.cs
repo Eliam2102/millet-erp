@@ -90,4 +90,16 @@ public sealed class IntegrationEventOutboxEntry : BaseEntity
         Attempts += 1;
         LastError = error;
     }
+
+    /// <summary>
+    /// Reintento manual desde el tablero de integraciones (I13.6): una fila que
+    /// agotó sus intentos vuelve a la cola del worker con el contador en cero. El
+    /// último error se conserva hasta que se publique. No hace nada si ya se publicó.
+    /// </summary>
+    public bool ReiniciarIntentos()
+    {
+        if (PublishedAt is not null) return false;
+        Attempts = 0;
+        return true;
+    }
 }

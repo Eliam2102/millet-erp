@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -42,6 +43,13 @@ public sealed class OutboxPublisherWorker<TDbContext> : BackgroundService
     private readonly ILogger<OutboxPublisherWorker<TDbContext>> _logger;
 
     private string? _qualifiedTableName;
+
+    /// <summary>
+    /// I13.6 · espera creciente: hora a partir de la cual cada evento que falló puede volver a
+    /// intentarse. Vive en memoria de esta instancia (sin columna nueva en los 11 esquemas): si
+    /// la app se reinicia, el siguiente intento es inmediato y la espera vuelve a crecer.
+    /// </summary>
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _proximoIntento = new();
 
     /// <summary>
     /// Construye el worker resolviendo las options por nombre del tipo
@@ -118,6 +126,9 @@ public sealed class OutboxPublisherWorker<TDbContext> : BackgroundService
         }
     }
 
+    /// <summary>Eventos que esperan su siguiente intento (para pruebas).</summary>
+    internal IReadOnlyDictionary<Guid, DateTimeOffset> ProximoIntento => _proximoIntento;
+
     /// <summary>
     /// Procesa un tick del worker. Expuesto como <c>internal</c> para
     /// que tests integration puedan ejecutar un solo tick sin esperar
@@ -133,6 +144,10 @@ public sealed class OutboxPublisherWorker<TDbContext> : BackgroundService
         var clock = sp.GetRequiredService<IClock>();
 
         var qualifiedTable = ResolveQualifiedTableName(db);
+        var ahora = clock.UtcNow;
+        foreach (var vencido in _proximoIntento.Where(p => p.Value <= ahora).Select(p => p.Key).ToList())
+            _proximoIntento.TryRemove(vencido, out _);
+        var enEspera = _proximoIntento.Keys.ToArray();
 
         await using var tx = await db.Database.BeginTransactionAsync(stoppingToken);
 
@@ -142,14 +157,14 @@ public sealed class OutboxPublisherWorker<TDbContext> : BackgroundService
         // OrderBy occurred_at: FIFO — eventos antiguos primero.
         var sql = $$"""
             SELECT * FROM {{qualifiedTable}}
-            WHERE published_at IS NULL AND attempts <= {0}
+            WHERE published_at IS NULL AND attempts <= {0} AND NOT (id = ANY({2}))
             ORDER BY occurred_at
             LIMIT {1}
             FOR UPDATE SKIP LOCKED
             """;
 
         var entries = await db.Set<IntegrationEventOutboxEntry>()
-            .FromSqlRaw(sql, _options.MaxAttempts, _options.BatchSize)
+            .FromSqlRaw(sql, _options.MaxAttempts, _options.BatchSize, enEspera)
             .ToListAsync(stoppingToken);
 
         if (entries.Count == 0)
@@ -166,6 +181,7 @@ public sealed class OutboxPublisherWorker<TDbContext> : BackgroundService
             {
                 await sender.SendAsync(entry, _options.ServiceBusTopicName, stoppingToken);
                 entry.MarcarPublicado(clock.UtcNow);
+                _proximoIntento.TryRemove(entry.Id, out _);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -174,6 +190,9 @@ public sealed class OutboxPublisherWorker<TDbContext> : BackgroundService
             catch (Exception ex)
             {
                 entry.RegistrarFalla(ex.Message);
+                var espera = EsperaReintento.Calcular(entry.Attempts,
+                    TimeSpan.FromSeconds(_options.BackoffBaseSeconds), TimeSpan.FromSeconds(_options.BackoffMaxSeconds));
+                if (espera > TimeSpan.Zero) _proximoIntento[entry.Id] = ahora + espera;
 
                 if (entry.Attempts > _options.MaxAttempts)
                 {
@@ -184,8 +203,8 @@ public sealed class OutboxPublisherWorker<TDbContext> : BackgroundService
                 else
                 {
                     _logger.LogWarning(ex,
-                        "Falla publicando evento {EventType} id={Id}. Attempts={Attempts}/{MaxAttempts}. Reintento en próximo poll.",
-                        entry.EventType, entry.Id, entry.Attempts, _options.MaxAttempts);
+                        "Falla publicando evento {EventType} id={Id}. Attempts={Attempts}/{MaxAttempts}. Siguiente intento en {Espera}.",
+                        entry.EventType, entry.Id, entry.Attempts, _options.MaxAttempts, espera);
                 }
             }
         }

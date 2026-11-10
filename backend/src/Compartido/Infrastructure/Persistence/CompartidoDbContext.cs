@@ -130,6 +130,8 @@ public sealed class CompartidoDbContext : BaseDbContext
     /// <summary>M-047: lote común de cargas.</summary>
     public DbSet<Millet.SharedKernel.Domain.Cargas.LoteCarga> LotesCarga => Set<Millet.SharedKernel.Domain.Cargas.LoteCarga>();
     public DbSet<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento> IncidenciasHistorial => Set<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento>();
+    /// <summary>I13.6: alertas del tablero de integraciones (abiertas y su recuperación).</summary>
+    public DbSet<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion> AlertasIntegracion => Set<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -256,6 +258,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ComercioExteriorTiposDocumento.Configure(modelBuilder);
         ConfigureAdjunto(modelBuilder);
         IncidenciasModelo.Configure(modelBuilder);
+        TableroIntegracionesModelo.Configure(modelBuilder);
         LotesCargaModelo.Configure(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }
