@@ -115,6 +115,10 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
             _logger.LogWarning(
                 "[FiscalApiTimbradoAdapter] Timbre rechazado {Serie}-{Folio}: {Codigo} {Mensaje}",
                 emision.Serie, emision.Folio, codigo, mensaje);
+            // M19: sin saldo en el proveedor de timbrado no es un error de los datos fiscales; se
+            // informa en español con un código propio (contingencia del PAC para Sistemas).
+            if (MensajeSinSaldo(mensaje) is { } sinSaldo)
+                return Fallido(CodigoSinSaldo, sinSaldo);
             return Fallido(codigo, mensaje);
         }
 
@@ -780,6 +784,30 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 "Captura el CSD renovado en Integraciones Fiscal → Configuración del PAC y reintenta el timbrado.");
         return null;
     }
+
+    /// <summary>M19: el proveedor de timbrado no tiene saldo (timbres) para emitir.</summary>
+    public const string CodigoSinSaldo = "PAC_SIN_SALDO";
+
+    /// <summary>
+    /// M19: si el rechazo del PAC es por saldo insuficiente (p. ej. «Sorry, it's not me, it's you. — Saldo
+    /// insuficiente. Disponible: 0, Requerido: 1»), devuelve el mensaje en español para el usuario; si no, null.
+    /// </summary>
+    internal static string? MensajeSinSaldo(string? mensajePac)
+    {
+        if (string.IsNullOrWhiteSpace(mensajePac) || !SinSaldoRegex().IsMatch(mensajePac)) return null;
+        var cifras = SaldoCifrasRegex().Match(mensajePac);
+        var detalle = cifras.Success
+            ? $" (disponible: {cifras.Groups["disp"].Value}, requerido: {cifras.Groups["req"].Value})"
+            : string.Empty;
+        return $"El proveedor de timbrado no tiene saldo para timbrar{detalle}. No es un error de los datos " +
+               "fiscales: avisa a Sistemas para que recargue los timbres y después reintenta el timbrado.";
+    }
+
+    [GeneratedRegex(@"saldo\s+insuficiente|sin\s+saldo|insufficient\s+(balance|funds|credits?)|not\s+enough\s+(balance|credits?)", RegexOptions.IgnoreCase)]
+    private static partial Regex SinSaldoRegex();
+
+    [GeneratedRegex(@"disponible:\s*(?<disp>\d+(?:[.,]\d+)?)\s*,\s*requerido:\s*(?<req>\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase)]
+    private static partial Regex SaldoCifrasRegex();
 
     private static TimbradoResultado Fallido(string codigo, string? mensaje) => new(
         TimbradoEstado.Fallido, null, null, null, null, null, null, null, codigo, mensaje);
