@@ -34,7 +34,11 @@ public sealed record ActualizarArticuloCommand(
     bool LimpiarPrecioReferencia,
     // E07 D5: familia A+W del vidrio crudo. Null = no tocar; LimpiarProductoAw = desligar.
     Guid? ProductoAwId = null,
-    bool LimpiarProductoAw = false) : IRequest;
+    bool LimpiarProductoAw = false,
+    // M-172: null = no tocar; LimpiarKgPorPresentacion = quitar los kilos.
+    bool? ConsumoPorTamborALinea = null,
+    decimal? KgPorPresentacion = null,
+    bool LimpiarKgPorPresentacion = false) : IRequest;
 
 public sealed class ActualizarArticuloValidator : AbstractValidator<ActualizarArticuloCommand>
 {
@@ -52,6 +56,8 @@ public sealed class ActualizarArticuloValidator : AbstractValidator<ActualizarAr
             .When(c => c.PrecioReferenciaMoneda is not null);
         RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue)
             .WithName("Producto A+W").WithMessage("Elige un producto A+W válido.");
+        RuleFor(c => c.KgPorPresentacion).GreaterThan(0).When(c => c.KgPorPresentacion.HasValue)
+            .WithName("Kilos por presentación").WithMessage("Los kilos por presentación deben ser mayores que cero.");
     }
 }
 
@@ -164,6 +170,8 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
             await ValidarSinLineaOcAbiertaAsync(articulo.Id, "quitar", cancellationToken);
             articulo.LimpiarProductoAw();
         }
+
+        articulo.ConfigurarTamborALinea(request.ConsumoPorTamborALinea, request.KgPorPresentacion, request.LimpiarKgPorPresentacion);
 
         articulo.ActualizarDatos(
             nombre: request.Nombre,

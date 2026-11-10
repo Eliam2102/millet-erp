@@ -37,4 +37,6 @@ public sealed record ArticuloDetalle(
     decimal? PrecioReferenciaMonto,
     string? PrecioReferenciaMoneda,
     EstatusCatalogo Estatus,
-    Guid? ProductoAwId = null);
+    Guid? ProductoAwId = null,
+    bool ConsumoPorTamborALinea = false,
+    decimal? KgPorPresentacion = null);
