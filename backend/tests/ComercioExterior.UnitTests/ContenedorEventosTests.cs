@@ -26,7 +26,7 @@ public sealed class ContenedorEventosTests
     private static void Embarcar(Expediente e, Guid contenedor)
     {
         foreach (var partida in e.Partidas.Where(x => x.ContenedorId == contenedor && x.Estado != EstadoPartida.Liberada && x.FraccionArancelaria == null).ToArray())
-            e.GuardarDatosAduanales(partida.Id, "70071999", "06", Actor, Ahora, true);
+            e.GuardarDatosAduanales(partida.Id, "7007199900", "06", Actor, Ahora, true);
         if (!e.SalidaAutorizada) e.AutorizarSalida(Guid.NewGuid(), Ahora, null, true);
         e.RegistrarEmbarque(contenedor, Hoy, Hoy);
     }

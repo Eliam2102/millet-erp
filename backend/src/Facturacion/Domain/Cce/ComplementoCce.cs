@@ -128,10 +128,10 @@ public sealed class ComplementoCce
             // Bien tangible: fracción + trío aduanero completos.
             if (string.IsNullOrWhiteSpace(fraccionArancelaria))
                 throw new BusinessRuleException("CCE_FRACCION_INVALIDA", "La fracción arancelaria es obligatoria.");
-            if (!EsFraccionArancelariaValida(fraccionArancelaria))
+            if (!Millet.SharedKernel.Domain.FraccionArancelariaExportacion.EsValida(fraccionArancelaria))
                 throw new BusinessRuleException(
-                    "CCE_FRACCION_FORMATO",
-                    "La fracción arancelaria debe tener de 8 a 10 dígitos numéricos (c_FraccionArancelaria).");
+                    Millet.SharedKernel.Domain.FraccionArancelariaExportacion.Codigo,
+                    Millet.SharedKernel.Domain.FraccionArancelariaExportacion.Mensaje);
             if (string.IsNullOrWhiteSpace(unidadAduana))
                 throw new BusinessRuleException("CCE_UNIDAD_ADUANA_INVALIDA", "La unidad aduanera es obligatoria (c_UnidadAduana).");
             if (cantidadAduana <= 0)
@@ -150,10 +150,4 @@ public sealed class ComplementoCce
         return linea;
     }
 
-    /// <summary>Fracción arancelaria válida = 8 a 10 dígitos numéricos (<c>c_FraccionArancelaria</c>).</summary>
-    private static bool EsFraccionArancelariaValida(string fraccion) =>
-        FraccionArancelariaRegex.IsMatch(fraccion.Trim());
-
-    private static readonly Regex FraccionArancelariaRegex =
-        new(@"^\d{8,10}$", RegexOptions.Compiled);
 }
