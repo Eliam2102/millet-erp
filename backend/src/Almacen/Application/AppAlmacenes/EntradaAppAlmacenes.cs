@@ -15,9 +15,13 @@ using Millet.SharedKernel.Application.UnidadesMedida;
 
 namespace Millet.Almacen.Application.AppAlmacenes;
 
-/// <summary>Partida de ENTRADA_ALMACEN ya resuelta a ids del ERP (cantidad en la unidad del saldo: m² en vidrio).</summary>
+/// <summary>
+/// Partida de ENTRADA_ALMACEN ya resuelta a ids del ERP (cantidad en la unidad del saldo: m² en vidrio). Una por grupo de la
+/// app: <c>Lote</c> es el <c>grupos[].lote</c>, parte de la llave del saldo (dos lotes en una línea = dos filas de saldo).
+/// </summary>
 public sealed record EntradaApp(
-    Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal Cantidad, decimal? AnchoMm = null, decimal? AltoMm = null);
+    Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal Cantidad, decimal? AnchoMm = null, decimal? AltoMm = null,
+    string? Lote = null);
 
 /// <summary>Puertos que usa la entrada de la app (lectura de la OC, conversión de unidades, periodo contable y outbox).</summary>
 public sealed record EntradaAppPuertos(
@@ -62,6 +66,12 @@ public static class EntradaAppAlmacenes
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         try
         {
+            // Eliam E3 (ficha MP-05): mismo criterio que la recepción de la pantalla (RecepcionVariante.ExigirLote): el lote es
+            // obligatorio en la hoja de A+W (con medida) y opcional en el resto.
+            foreach (var e in entradas)
+                if (e.ProductoAwVarianteId is not null && LineaMovimiento.NormalizarLote(e.Lote) is null)
+                    throw new BusinessRuleException("LOTE_REQUERIDO", $"Falta el lote de {Medida(e)}: es obligatorio en el vidrio de A+W.");
+
             // Mismo candado que la recepción de la pantalla (PERIODO_CERRADO / PERIODO_CONTABLE_NO_ADMITE).
             await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, fecha, puertos.Periodo, ct);
 
@@ -81,7 +91,7 @@ public static class EntradaAppAlmacenes
                         $"La compra {compra} no es una orden de compra del ERP y {Medida(e)} no tiene costo promedio en el almacén general; "
                         + "no se registra a costo cero. Da la entrada contra la orden de compra del ERP.");
                 lineas.Add(new LineaRevisionMov(e.ArticuloId, e.UnidadMedida, e.Cantidad, costo.Value, general.Id,
-                    e.ProductoAwVarianteId, e.AnchoMm, e.AltoMm));
+                    e.ProductoAwVarianteId, e.AnchoMm, e.AltoMm, e.Lote));
             }
             var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.EntradaCompra, fecha, motivo, lineas, ct);
             return (SalidaAppAlmacenes.Recibido, mov.Folio, null);
@@ -131,7 +141,7 @@ public static class EntradaAppAlmacenes
         var acumulado = porLinea.GroupBy(x => x.L.LineaId)
             .ToDictionary(g => g.Key, g => validada.RecibidoPorLinea[g.Key] + g.Sum(x => x.E.Cantidad / x.Factor));
         var lineas = porLinea.Select(x => new LineaRevisionMov(x.E.ArticuloId, x.E.UnidadMedida, x.E.Cantidad,
-            x.L.PrecioUnitarioMxn / x.Factor, ubicacionId, x.E.ProductoAwVarianteId, x.E.AnchoMm, x.E.AltoMm,
+            x.L.PrecioUnitarioMxn / x.Factor, ubicacionId, x.E.ProductoAwVarianteId, x.E.AnchoMm, x.E.AltoMm, x.E.Lote,
             CentroCostoId: x.L.CentroCostoId, LineaOcId: x.L.LineaId)).ToList();
         var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.EntradaCompra, fecha, motivo, lineas, ct);
         var movimiento = db.Movimientos.Local.Single(m => m.Id == mov.Id);
