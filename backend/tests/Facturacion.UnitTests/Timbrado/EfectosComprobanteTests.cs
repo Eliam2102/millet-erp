@@ -52,11 +52,11 @@ public sealed class EfectosComprobanteTests
         return f;
     }
 
-    private EfectosPostTimbrado Efectos(FacturacionDbContext db, IIntegrationEventPublisher eventos) =>
+    private static EfectosPostTimbrado Efectos(FacturacionDbContext db, IIntegrationEventPublisher eventos) =>
         new(db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), eventos, ReceptorFiscalTestFactory.Crear(db), null);
 
-    private ReintentarEfectosComprobanteHandler Reintento(FacturacionDbContext db, IIntegrationEventPublisher eventos) =>
+    private static ReintentarEfectosComprobanteHandler Reintento(FacturacionDbContext db, IIntegrationEventPublisher eventos) =>
         new(db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), eventos, ReceptorFiscalTestFactory.Crear(db), new FakeClock(Ahora));
 

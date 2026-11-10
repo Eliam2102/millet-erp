@@ -2648,6 +2648,93 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("contingencia_timbrado", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Comprobantes.EfectoComprobante", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AplicadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("aplicado_at");
+
+                    b.Property<Guid?>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<Guid>("ComprobanteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comprobante_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<int>("Intentos")
+                        .HasColumnType("integer")
+                        .HasColumnName("intentos");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("ultimo_error");
+
+                    b.Property<string>("UltimoErrorCodigo")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("ultimo_error_codigo");
+
+                    b.Property<DateTimeOffset?>("UltimoIntentoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultimo_intento_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_efecto_comprobante");
+
+                    b.HasIndex("Estado")
+                        .HasDatabaseName("ix_efecto_comprobante_pendiente")
+                        .HasFilter("estado = 1");
+
+                    b.HasIndex("ComprobanteId", "Tipo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_efecto_comprobante_comprobante_tipo");
+
+                    b.ToTable("efecto_comprobante", "facturacion");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Comprobantes.RelacionCfdi", b =>
                 {
                     b.Property<Guid>("Id")
