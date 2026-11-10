@@ -2114,6 +2114,10 @@ export interface ProformaPedidoResponse {
   contenido: ProformaCfdi;
   /** Datos fiscales incompletos detectados al generar (no bloquean). */
   avisos: string[];
+  /** M-145: último día de vigencia (AAAA-MM-DD, días naturales); null en proformas anteriores. */
+  vigenteHasta?: string | null;
+  /** M-145: ya pasó su vigencia. */
+  vencida?: boolean;
 }
 
 export interface DiferenciaProforma {

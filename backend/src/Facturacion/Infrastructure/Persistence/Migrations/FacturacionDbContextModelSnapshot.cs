@@ -4056,6 +4056,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("version");
 
+                    b.Property<DateOnly?>("VigenteHasta")
+                        .HasColumnType("date")
+                        .HasColumnName("vigente_hasta");
+
                     b.HasKey("Id")
                         .HasName("pk_proformas_pedido");
 

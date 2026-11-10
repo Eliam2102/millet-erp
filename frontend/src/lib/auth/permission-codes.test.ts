@@ -265,6 +265,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_cobrar.lineas-credito.gestionar',
   'cuentas_por_cobrar.liberacion.decidir',
   'cuentas_por_cobrar.liberacion.override',
+  'cuentas_por_cobrar.liberacion.override-direccion',
   'cuentas_por_cobrar.cobranza.registrar',
   'cuentas_por_cobrar.cartera.leer',
   'cuentas_por_cobrar.aplicacion-pago.proponer',
