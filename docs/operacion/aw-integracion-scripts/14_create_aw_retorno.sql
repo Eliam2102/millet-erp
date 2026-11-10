@@ -1,5 +1,5 @@
 /* =============================================================================
-   14_create_aw_retorno.sql — Tabla de retorno ERP → A+W (aw_retorno), v4
+   14_create_aw_retorno.sql — Tabla de retorno ERP → A+W (aw_retorno), v5
    Ejecutar en: MILLET_INTEGRACION_DEV primero; MILLET_INTEGRACION al arranque
    (cambiar USE). Idempotente. PROPUESTA: no se ejecuta sin visto bueno de TI.
 
@@ -34,9 +34,15 @@
    es una fila nueva del grupo con el importe acumulado de los cobros que quedan (0 solo si no queda ninguno). El 70
    solo viaja como liberación manual (origen 2 + usuario_libera). La fila de saldo (tipo 2) es cifra de control.
 
-   Estatus que devuelve el ERP: 70 (liberado) y 115 (facturado y entregado).
-   El 71 no: lo pone A+W al emitir la hoja de salida, y el 72 el programa de
-   salidas (TI, 26-oct, pregunta 1).
+   v5 (respuesta de TI del 9-nov, punto «Estatus 71, 72 y 115»): el albarán lo sigue emitiendo A+W, así que
+   el 71 lo sigue poniendo A+W. Con el Portal de Salidas retirado el 72 lo manda el ERP: una fila de estatus
+   por pedido, la primera vez que el ERP emite la hoja de salida donde va el pedido. Por eso CK_awr_estatus
+   admite 72; el 72 no lleva origen ni usuario (igual que el 115). Bloque «v5» de abajo para una tabla ya creada.
+   El 115 sigue igual y el ERP lo manda siempre después del 72, porque la factura y la entrega llegan
+   después de la hoja de salida (la secuencia por pedido conserva ese orden).
+
+   Estatus que devuelve el ERP: 70 (liberación manual), 72 (hoja de salida emitida) y 115 (facturado y entregado).
+   El 71 no: lo pone A+W con el albarán.
    ========================================================================== */
 
 USE MILLET_INTEGRACION_DEV;  -- producción: MILLET_INTEGRACION
@@ -54,7 +60,7 @@ BEGIN
         version_pedido      bigint            NOT NULL,  -- (a)
 
         -- tipo 1
-        estatus_destino     smallint          NULL,      -- 70 | 115
+        estatus_destino     smallint          NULL,      -- 70 | 72 | 115
         origen              tinyint           NULL,      -- (b) 1 Automatico (saldo $0) | 2 Manual CxC; solo con 70
         usuario_libera      nvarchar(100)     NULL,      -- (b) obligatorio si origen = 2
 
@@ -87,7 +93,7 @@ BEGIN
         CONSTRAINT CK_awr_tipo              CHECK (tipo IN (1, 2, 3, 4)),
         CONSTRAINT CK_awr_resultado         CHECK (resultado IS NULL OR resultado IN (1, 2, 3)),
         CONSTRAINT CK_awr_intentos          CHECK (intentos >= 0),
-        CONSTRAINT CK_awr_estatus           CHECK (tipo <> 1 OR ISNULL(estatus_destino, 0) IN (70, 115)),
+        CONSTRAINT CK_awr_estatus           CHECK (tipo <> 1 OR ISNULL(estatus_destino, 0) IN (70, 72, 115)),
         CONSTRAINT CK_awr_origen            CHECK (
             (ISNULL(estatus_destino, 0) = 70 AND ISNULL(origen, 0) IN (1, 2)) OR (ISNULL(estatus_destino, 0) <> 70 AND origen IS NULL)),
         CONSTRAINT CK_awr_usuario_libera    CHECK (origen <> 2 OR usuario_libera IS NOT NULL),
@@ -138,6 +144,20 @@ GO
    y un pago con moneda PESOSMX fallaría al insertarse):
    SELECT COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
    WHERE TABLE_NAME = 'aw_retorno' AND COLUMN_NAME IN ('forma_pago', 'moneda'); */
+
+/* v5: el estatus 72 (hoja de salida emitida por el ERP) en una tabla ya creada. Idempotente. */
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_awr_estatus'
+           AND parent_object_id = OBJECT_ID('dbo.aw_retorno') AND definition NOT LIKE '%72%')
+BEGIN
+    ALTER TABLE dbo.aw_retorno DROP CONSTRAINT CK_awr_estatus;
+    ALTER TABLE dbo.aw_retorno ADD CONSTRAINT CK_awr_estatus
+        CHECK (tipo <> 1 OR ISNULL(estatus_destino, 0) IN (70, 72, 115));
+END
+GO
+
+/* Comprobación v5 (debe devolver una fila con 72 en la definición):
+   SELECT definition FROM sys.check_constraints
+   WHERE name = 'CK_awr_estatus' AND parent_object_id = OBJECT_ID('dbo.aw_retorno'); */
 
 /* Barrido de la tarea de TI: pendientes y rechazadas con menos de 3 intentos,
    en orden estricto por pedido y secuencia (d). */

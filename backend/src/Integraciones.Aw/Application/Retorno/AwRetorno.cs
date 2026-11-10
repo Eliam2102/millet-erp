@@ -63,7 +63,7 @@ public interface IAwRetornoPort
         bool exigirDocumento, CancellationToken ct);
 
     /// <summary>
-    /// Fila Estatus (tipo 1): 70 (origen 2 = manual de Crédito y Cobranza, con <paramref name="usuarioLibera"/>) o 115.
+    /// Fila Estatus (tipo 1): 70 (origen 2 = manual de Crédito y Cobranza, con <paramref name="usuarioLibera"/>), 72 (hoja de salida emitida) o 115.
     /// Idempotente como el documento: no inserta (devuelve null) si ya hay una fila de ese estatus que no esté desfasada
     /// o que tenga una versión igual o mayor. Devuelve la secuencia asignada.
     /// </summary>
@@ -95,7 +95,7 @@ public sealed record CancelacionRetornoPayload(
 /// </summary>
 public sealed record PagoRetornoPayload(Guid? ComprobanteId = null, Guid? ReciboPagoId = null);
 
-/// <summary>Pedido que PT pasó a 115 (facturado y entregado) o que Crédito y Cobranza liberó a mano.</summary>
+/// <summary>Pedido que PT pasó a 72 (hoja de salida emitida) o a 115 (facturado y entregado), o que Crédito y Cobranza liberó a mano.</summary>
 public sealed record EstatusRetornoPayload(string NumeroPedido, string Estado, string? Motivo = null, string? LiberadoPor = null);
 
 public sealed record AwRetornoConciliacion(int Reemplazadas, int Esperando, int Detenidas);
@@ -143,6 +143,13 @@ public sealed class AwRetornoDocumentoService(
     /// </summary>
     public async Task<int?> RegistrarFacturadoEntregadoAsync(string numeroPedido, CancellationToken ct) =>
         await RegistrarEstatusAsync(numeroPedido, 115, null, null, ct);
+
+    /// <summary>
+    /// 9-nov (respuesta de TI, script 14 v5): con el Portal de Salidas retirado el 72 lo manda el ERP la primera vez que emite la
+    /// hoja de salida del pedido (el 71 lo sigue poniendo A+W con el albarán). Misma regla de versión y de idempotencia que el 115.
+    /// </summary>
+    public async Task<int?> RegistrarHojaSalidaEmitidaAsync(string numeroPedido, CancellationToken ct) =>
+        await RegistrarEstatusAsync(numeroPedido, 72, null, null, ct);
 
     /// <summary>
     /// 86e3jvv6z (5-nov): solo la liberación MANUAL de Crédito y Cobranza viaja como 70 (origen manual + usuario que liberó);
