@@ -45,7 +45,6 @@ public sealed class SubirAdjuntoValidator : AbstractValidator<SubirAdjuntoComman
 /// </summary>
 public sealed class SubirAdjuntoHandler : IRequestHandler<SubirAdjuntoCommand, AdjuntoResponse>
 {
-    private const int BytesCabecera = 16;
 
     private readonly AdjuntoAcceso _acceso;
     private readonly CompartidoDbContext _db;
@@ -93,20 +92,10 @@ public sealed class SubirAdjuntoHandler : IRequestHandler<SubirAdjuntoCommand, A
 
         var contenido = request.Contenido;
         var nombre = Path.GetFileName(request.NombreArchivo.Trim());
-        if (contenido.Length == 0)
-        {
-            throw new BusinessRuleException("ADJUNTO_ARCHIVO_VACIO", "El archivo está vacío.");
-        }
+        await _politica.Value.ParaEntidad(propietario.TipoEntidad)
+            .ValidarContenidoAsync(nombre, request.ContentType, contenido, cancellationToken);
 
-        // Política: tamaño, extensión, MIME y firma. Solo se lee la cabecera.
-        var cabecera = new byte[BytesCabecera];
-        contenido.Position = 0;
-        var leidos = await contenido.ReadAtLeastAsync(cabecera, cabecera.Length, throwOnEndOfStream: false, cancellationToken);
-        contenido.Position = 0;
-        _politica.Value.ParaEntidad(propietario.TipoEntidad)
-            .ValidarInstancia(nombre, request.ContentType, contenido.Length, cabecera.AsSpan(0, leidos));
-
-        // PLATFORM-TODO(<AntivirusAdjuntos>): escanear el contenido antes de SubirAsync; hoy solo formato/firma/tamaño. Ver ADR-0058.
+        // PLATFORM-TODO(<AntivirusAdjuntos>): escanear antes de guardar. Ver ADR-0058.
         var hoy = AdjuntoSoporte.Hoy(_clock);
         var vigenteHasta = request.VigenteHasta;
         if (vigenteHasta is { } v && v < hoy)
