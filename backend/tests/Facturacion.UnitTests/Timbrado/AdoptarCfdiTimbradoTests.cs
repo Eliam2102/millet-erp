@@ -43,23 +43,18 @@ public sealed class AdoptarCfdiTimbradoTests
         return f;
     }
 
+    /// <summary>XML timbrado y sellado de verdad (certificados ficticios); <paramref name="sello"/> pone otro SelloCFD en el timbre.</summary>
     private static string Xml(string folio = "15230", string total = "11600.00", string rfcEmisor = "MIL010101AAA",
-        string tipo = "I", bool conTimbre = true, string uuid = Uuid, string sello = "SELLOCFD") => $"""
-        <?xml version="1.0" encoding="utf-8"?>
-        <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital"
-            Version="4.0" Serie="MERA" Folio="{folio}" Total="{total}" SubTotal="10000.00" Moneda="MXN" TipoDeComprobante="{tipo}" Sello="{sello}">
-          <cfdi:Emisor Rfc="{rfcEmisor}" Nombre="MILLET" RegimenFiscal="601" />
-          <cfdi:Receptor Rfc="AAA010101AAA" Nombre="CLIENTE" UsoCFDI="G03" />
-          <cfdi:Complemento>
-            {(conTimbre ? $"""<tfd:TimbreFiscalDigital Version="1.1" UUID="{uuid}" FechaTimbrado="2026-11-11T14:59:00" RfcProvCertif="SPR190613I52" SelloCFD="SELLOCFD" NoCertificadoSAT="00001000000505211329" SelloSAT="SELLOSAT" />""" : "")}
-          </cfdi:Complemento>
-        </cfdi:Comprobante>
-        """;
+        string tipo = "I", bool conTimbre = true, string uuid = Uuid, string? sello = null) =>
+        CfdiFirmadoDePrueba.Xml(folio: folio, total: total, rfcEmisor: rfcEmisor, tipo: tipo, uuid: uuid,
+            conTimbre: conTimbre, selloCfdTimbre: sello);
 
-    private AdoptarCfdiTimbradoHandler Handler(FacturacionDbContext db, ICfdiTimbradoPort? fiscal = null) =>
+    private AdoptarCfdiTimbradoHandler Handler(FacturacionDbContext db, ICfdiTimbradoPort? fiscal = null,
+        ICertificadoSatProvider? certificadosSat = null) =>
         new(db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), fiscal ?? new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), _eventos, ReceptorFiscalTestFactory.Crear(db),
-            new FakeUserContext(Guid.NewGuid(), "Facturación prueba"), new FakeClock(Ahora));
+            new FakeUserContext(Guid.NewGuid(), "Facturación prueba"), new FakeClock(Ahora),
+            certificadosSat: certificadosSat ?? new CfdiFirmadoDePrueba.CertificadosSat());
 
     [Fact]
     public async Task Folio_distinto_se_rechaza_con_el_folio_del_XML_y_nada_cambia()
@@ -190,7 +185,7 @@ public sealed class AdoptarCfdiTimbradoTests
         using var db = Db();
         var f = await FacturaSinRespuestaAsync(db);
 
-        var act = () => Handler(db).Handle(new AdoptarCfdiTimbradoCommand(f.Id, Xml(sello: "SELLODEOTROCFDI")), default);
+        var act = () => Handler(db).Handle(new AdoptarCfdiTimbradoCommand(f.Id, Xml(sello: "U0VMTE9ERU9UUk9DRkRJ")), default);
 
         (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message
             .Should().Contain("El Timbre Fiscal Digital del XML no corresponde al sello del comprobante");
@@ -211,8 +206,9 @@ public sealed class AdoptarCfdiTimbradoTests
 
         (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Contain(mensaje);
         sat.Consulta.Should().NotBeNull();
-        (sat.Consulta!.Uuid, sat.Consulta.RfcEmisor, sat.Consulta.RfcReceptor, sat.Consulta.Total, sat.Consulta.Sello8)
-            .Should().Be((Uuid, "MIL010101AAA", "AAA010101AAA", 11600m, "SELLOCFD"[^8..]));
+        (sat.Consulta!.Uuid, sat.Consulta.RfcEmisor, sat.Consulta.RfcReceptor, sat.Consulta.Total)
+            .Should().Be((Uuid, "MIL010101AAA", "AAA010101AAA", 11600m));
+        sat.Consulta.Sello8.Should().HaveLength(8);
         _eventos.Publicados.Should().BeEmpty();
     }
 
@@ -229,5 +225,70 @@ public sealed class AdoptarCfdiTimbradoTests
                 ? throw new InvalidOperationException("servicio del SAT sin respuesta (simulado)")
                 : Task.FromResult(new EstatusCfdiResultado(false, "No Encontrado", null, null));
         }
+    }
+
+    [Fact]
+    public async Task ReQA_O1_XML_con_el_folio_editado_despues_de_timbrar_se_rechaza_por_el_sello_del_emisor()
+    {
+        // El caso de la re-QA: el CFDI se timbró con otro folio y se editó para que coincida con el comprobante.
+        using var db = Db();
+        var f = await FacturaSinRespuestaAsync(db);
+        var editado = Xml(folio: "18").Replace("Folio=\"18\"", "Folio=\"15230\"");
+
+        var act = () => Handler(db).Handle(new AdoptarCfdiTimbradoCommand(f.Id, editado), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+            .Should().Contain("El sello del emisor no corresponde al contenido del XML; el archivo fue modificado.");
+        db.ChangeTracker.Clear();
+        (await db.FacturasVenta.SingleAsync()).Estado.Should().Be(EstadoTimbrado.TimbradoFallido);
+    }
+
+    [Fact]
+    public async Task ReQA_O1_concepto_editado_se_rechaza_y_el_cotejo_lo_muestra()
+    {
+        using var db = Db();
+        var f = await FacturaSinRespuestaAsync(db);
+        var editado = Xml().Replace("Descripcion=\"Vidrio\"", "Descripcion=\"Vidrio templado\"");
+
+        var r = await Handler(db).Handle(new AdoptarCfdiTimbradoCommand(f.Id, editado, SoloRevisar: true), default);
+
+        r.Cotejo.Single(c => c.Campo == "Sello del emisor").Coincide.Should().BeFalse();
+        r.Cotejo.Where(c => c.Campo != "Sello del emisor").Should().OnlyContain(c => c.Coincide);
+    }
+
+    [Fact]
+    public async Task ReQA_O1_timbre_alterado_se_rechaza_por_el_sello_del_SAT()
+    {
+        using var db = Db();
+        var f = await FacturaSinRespuestaAsync(db);
+        var alterado = Xml().Replace("FechaTimbrado=\"2026-11-11T14:59:00\"", "FechaTimbrado=\"2026-11-11T15:59:00\"");
+
+        var act = () => Handler(db).Handle(new AdoptarCfdiTimbradoCommand(f.Id, alterado), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+            .Should().Contain("El sello del SAT no corresponde al Timbre Fiscal Digital");
+    }
+
+    [Fact]
+    public async Task ReQA_O1_sin_certificado_del_SAT_fuera_de_pruebas_no_se_adopta()
+    {
+        using var db = Db();
+        var f = await FacturaSinRespuestaAsync(db);
+
+        var act = () => Handler(db, certificadosSat: new CfdiFirmadoDePrueba.CertificadosSat(disponible: false))
+            .Handle(new AdoptarCfdiTimbradoCommand(f.Id, Xml()), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+            .Should().Contain("No se pudo obtener el certificado del SAT");
+    }
+
+    [Fact]
+    public void ReQA_O1_el_verificador_acepta_el_XML_valido_y_rechaza_el_editado()
+    {
+        var valido = Xml();
+
+        VerificadorSelloCfdi.VerificarSelloEmisor(valido).Valido.Should().BeTrue();
+        VerificadorSelloCfdi.VerificarSelloEmisor(valido.Replace("Total=\"11600.00\"", "Total=\"11700.00\"")).Valido.Should().BeFalse();
+        VerificadorSelloCfdi.CadenaOriginal(valido).Should().StartWith("||4.0|MERA|15230|2026-11-11T14:58:00|03|" + CfdiFirmadoDePrueba.NoCertificadoEmisor + "|");
     }
 }

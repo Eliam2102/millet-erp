@@ -106,6 +106,9 @@ public class AlmacenDbContext : BaseDbContext
     public DbSet<Domain.Tambores.LineaProduccion> LineasProduccion => Set<Domain.Tambores.LineaProduccion>();
     public DbSet<Domain.Tambores.TamborEnLinea> TamboresLinea => Set<Domain.Tambores.TamborEnLinea>();
 
+    /// <summary>M-446: llaves sucursal + tipo + línea de la app de Almacenes → ubicación del ERP.</summary>
+    public DbSet<AlmacenApp> AlmacenesApp => Set<AlmacenApp>();
+
     /// <summary>PT5.10: descargas del taller por pedido interno Serie 9000 y cierres de día del almacenista.</summary>
     public DbSet<DescargaTallerAw> DescargasTallerAw => Set<DescargaTallerAw>();
     public DbSet<CierreTaller> CierresTaller => Set<CierreTaller>();
@@ -281,6 +284,17 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.Nombre).HasMaxLength(100).IsRequired();
             b.Property(x => x.Proceso).HasMaxLength(50).IsRequired();
             b.HasIndex(x => new { x.SucursalId, x.Clave }).IsUnique();
+        });
+        modelBuilder.Entity<AlmacenApp>(b =>
+        {
+            b.ToTable("almacenes_app");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.TipoAlmacen).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Linea).HasMaxLength(20).IsRequired();
+            b.Property(x => x.UbicacionAw).HasMaxLength(60);
+            b.HasOne<Ubicacion>().WithMany().HasForeignKey(x => x.UbicacionId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.SucursalId, x.TipoAlmacen, x.Linea }).IsUnique();
         });
         modelBuilder.Entity<Domain.Tambores.TamborEnLinea>(b =>
         {

@@ -20,7 +20,6 @@ namespace Millet.Api.Endpoints.Almacen;
 public static class AlmacenesAppMensajesEndpoint
 {
     private const int MaxBytes = 1_000_000;
-    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos];
 
     private sealed record FilaBandeja(string MensajeId, string Tipo, string Estado, string? Referencia, string? Error, DateTimeOffset RecibidoAt, string Payload, string? Folio = null);
 
@@ -79,7 +78,7 @@ public static class AlmacenesAppMensajesEndpoint
         {
             var mensajes = await db.MensajesApp.AsNoTracking()
                 .Where(m => m.Estado == Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision
-                    || (m.Estado == "ERROR" && TiposSalida.Contains(m.Tipo)))
+                    || (m.Estado == "ERROR" && AlmacenesAppProcesador.TiposReevaluables.Contains(m.Tipo)))
                 .OrderByDescending(m => m.RecibidoAt)
                 .Select(m => new FilaBandeja(m.MensajeId, m.Tipo, m.Estado, m.Referencia, m.Error, m.RecibidoAt, m.Payload, m.Folio))
                 .Take(500).ToListAsync(ct);

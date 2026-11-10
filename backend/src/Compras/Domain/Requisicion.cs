@@ -244,6 +244,23 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     }
 
     /// <summary>
+    /// M-446 (REQUISICION_REDUCIDA de la app de Almacenes): quita de lo que falta comprar las piezas de cada posición de la RQ
+    /// (cancelación de una entrada con otra vigente, o cierre con faltante). Solo en RQ de la app, Autorizada o EnSurtido. Valida
+    /// todas las posiciones antes de cambiar nada.
+    /// </summary>
+    public void QuitarDeCompraApp(IReadOnlyList<(int Posicion, decimal Piezas)> lineas, string motivo)
+    {
+        if (Origen != OrigenRequisicion.AlmacenesApp)
+            throw new BusinessRuleException("RQ_APP_SOLO_ORIGEN_APP", "Solo una RQ de la app de Almacenes se reduce por aviso de la app.");
+        if (Estado != EstadoRequisicion.Autorizada && Estado != EstadoRequisicion.EnSurtido)
+            throw new BusinessRuleException("RQ_APP_REDUCIR_ESTADO", $"Solo se reduce una RQ Autorizada o EnSurtido (actual: {Estado}).");
+        var porLinea = lineas.Select(l => (Linea: _lineas.FirstOrDefault(x => x.Posicion == l.Posicion)
+            ?? throw new BusinessRuleException("RQ_APP_POSICION_INEXISTENTE", $"La RQ '{Folio.Valor}' no tiene la posición {l.Posicion}."),
+            l.Piezas)).ToList();
+        foreach (var (linea, piezas) in porLinea) linea.QuitarDeCompra(piezas, motivo);
+    }
+
+    /// <summary>
     /// Proveedor fijo de la RQ de la app: la OC que la surte debe ser del
     /// <see cref="ProveedorSugeridoId"/>. No-op en RQ de otro origen o si la OC aún
     /// tiene el proveedor TBD (se valida al completarlo).

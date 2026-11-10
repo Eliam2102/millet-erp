@@ -211,6 +211,8 @@ export interface UbicacionListItem {
   subAlmacenNombre: string;
   almacenClave: string;
   almacenNombre: string;
+  /** Sucursal del almacén padre (N1). */
+  sucursalId: string;
 }
 
 /** Cuerpo de <c>POST /api/v1/almacen/ubicaciones</c> — mirror de

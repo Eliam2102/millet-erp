@@ -23,8 +23,11 @@ public sealed class AlmacenesAppProcesador(
     MermaProcesoAppGuardado mermasGuardado, IDimensionesSalidaInventarioPort dimensiones,
     IOptions<AlmMensajeOptions> opciones) : IProcesadorMensajeApp
 {
-    // Tipos que, rechazados (ERROR/EN_REVISION), se reevalúan al llegar el reenvío del mismo mensajeId.
-    private static readonly string[] TiposSalida = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos, AlmacenesAppEntrada.Tipo];
+    /// <summary>
+    /// Tipos que, rechazados (ERROR/EN_REVISION), se reevalúan al llegar el reenvío del mismo mensajeId. La bandeja de
+    /// «Mensajes de la app» lista sus ERROR con esta misma lista: un ERROR que frena la referencia siempre se ve.
+    /// </summary>
+    public static readonly string[] TiposReevaluables = [.. AlmacenesAppSalida.Tipos.Keys, .. AlmacenesAppMerma.Tipos, AlmacenesAppEntrada.Tipo, AlmacenesAppCambio.Tipo];
 
     /// <summary>Forma del sobre (tipo, version, datos, mensajeId ≤ 64); null = válido.</summary>
     public static string? ErrorDeSobre(JsonElement root)
@@ -54,7 +57,7 @@ public sealed class AlmacenesAppProcesador(
         // A4.3-a: una salida rechazada (ERROR) o sin existencia (EN_REVISION, también acusada ERROR) quedó en la bandeja sin
         // mover saldo; cuando la app reprocesa el mismo mensajeId (ya corregido el dato o llegada la existencia) se evalúa
         // otra vez y sale de la bandeja.
-        if (previo is { Estado: "ERROR" or SalidaAppAlmacenes.EnRevision } && TiposSalida.Contains(previo.Tipo))
+        if (previo is { Estado: "ERROR" or SalidaAppAlmacenes.EnRevision } && TiposReevaluables.Contains(previo.Tipo))
         {
             await db.MensajesApp.Where(m => m.MensajeId == mensajeId && (m.Estado == "ERROR" || m.Estado == SalidaAppAlmacenes.EnRevision))
                 .ExecuteDeleteAsync(ct);
@@ -85,12 +88,24 @@ public sealed class AlmacenesAppProcesador(
             }
             else if (tipo == AlmacenesAppEntrada.Tipo)
             {
-                // M-159: sube existencia en el almacén general de la sucursal; movimiento y MensajeApp se confirman juntos.
+                // M-159: sube existencia en el almacén general de la sucursal (contra una OC del ERP es su recepción); movimiento y MensajeApp se confirman juntos.
                 var (resuelta, errorEntrada) = await AlmacenesAppEntrada.ManejarAsync(datos, salidaResolver, usuarioServicio, ct);
                 if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorEntrada, ct);
                 var g = await salidasGuardado.GuardarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
-                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.SucursalId, resuelta.Motivo, resuelta.Entradas, ct);
+                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.SucursalId, resuelta.Motivo, resuelta.Compra, resuelta.Entrada,
+                    resuelta.Entradas, ct);
                 if (!g.Duplicado) return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
+                previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+            }
+            else if (tipo == AlmacenesAppCambio.Tipo)
+            {
+                // M-446: traslado entre almacenes de la sucursal (salida + entrada ligadas, sin póliza); sin existencia = ERROR REV.
+                var (resuelto, errorCambio) = await AlmacenesAppCambio.ManejarAsync(datos, salidaResolver, usuarioServicio, ct);
+                if (resuelto is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorCambio, ct);
+                var g = await salidasGuardado.GuardarTrasladoAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                    resuelto.EmpresaId, resuelto.UsuarioId, resuelto.Origen, resuelto.Destino, ct);
+                if (!g.Duplicado)
+                    return new AcuseApp(mensajeId, g.Estado == SalidaAppAlmacenes.EnRevision ? "ERROR" : g.Estado, g.Folio, g.Error);
                 previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
             }
             else if (AlmacenesAppMerma.Tipos.Contains(tipo))
@@ -109,9 +124,12 @@ public sealed class AlmacenesAppProcesador(
                 (estado, folio, error) = tipo switch
                 {
                     "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
+                    AlmacenesAppRequisicionEnviada.Cancelada or AlmacenesAppRequisicionEnviada.Reducida =>
+                        await AlmacenesAppRequisicionEnviada.ManejarAvisoAsync(tipo, datos, rqApp, ct),
                     _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
                 };
-                if (tipo == "REQUISICION_ENVIADA" && estado == "ERROR")
+                // Un ERROR de requisición no se guarda: el reenvío (mismo mensajeId) se vuelve a evaluar.
+                if (tipo.StartsWith("REQUISICION_", StringComparison.Ordinal) && estado == "ERROR")
                     return new AcuseApp(mensajeId, estado, folio, error);
                 db.MensajesApp.Add(new MensajeApp(mensajeId, tipo,
                     referencia?.Length > 100 ? referencia[..100] : referencia, root.GetRawText(), estado, folio, error));

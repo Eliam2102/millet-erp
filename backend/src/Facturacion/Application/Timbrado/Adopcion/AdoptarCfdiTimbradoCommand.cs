@@ -49,7 +49,8 @@ public sealed class AdoptarCfdiTimbradoHandler(
     ICurrentUserContext user,
     IClock clock,
     IProductosReadPort? productos = null,
-    IConfiguracionPacResolver? configuracionPac = null)
+    IConfiguracionPacResolver? configuracionPac = null,
+    ICertificadoSatProvider? certificadosSat = null)
     : IRequestHandler<AdoptarCfdiTimbradoCommand, AdoptarCfdiTimbradoResponse>
 {
     /// <summary>Fallos en los que el PAC pudo haber timbrado (los mismos que exigen confirmar el reintento).</summary>
@@ -65,7 +66,7 @@ public sealed class AdoptarCfdiTimbradoHandler(
         ExigirAdoptable(comprobante);
 
         var xml = LectorCfdiTimbrado.Leer(command.Xml);
-        var cotejo = await CotejarAsync(comprobante, xml, ct);
+        var cotejo = await CotejarAsync(comprobante, xml, command.Xml, ct);
         if (command.SoloRevisar)
             return Respuesta(comprobante, adoptado: false, cotejo);
 
@@ -138,11 +139,13 @@ public sealed class AdoptarCfdiTimbradoHandler(
                 "Un rechazo del PAC no generó CFDI: corrige y reintenta.");
     }
 
-    private async Task<IReadOnlyList<CampoCotejado>> CotejarAsync(Comprobante c, CfdiTimbradoLeido xml, CancellationToken ct)
+    private async Task<IReadOnlyList<CampoCotejado>> CotejarAsync(Comprobante c, CfdiTimbradoLeido xml, string xmlTexto, CancellationToken ct)
     {
         // Con el PAC en modo sandbox, el adaptador timbra con identidades de prueba: también se aceptan.
         var config = configuracionPac is null ? null
             : await configuracionPac.ResolverAsync(c.EmpresaId, ProveedorPac.FiscalApi, ct);
+        // Identidades de prueba activas = ambiente de pruebas del PAC (sandbox).
+        var enPruebas = config?.EmisorSandbox is not null || config?.ReceptorSandbox is not null;
         var emisor = c.SnapshotEmisor().Rfc;
         var tipo = c.Tipo switch
         {
@@ -155,7 +158,11 @@ public sealed class AdoptarCfdiTimbradoHandler(
         var campos = new List<CampoCotejado>
         {
             Campo("Serie", CfdiEmisionBuilder.SerieDe(c), xml.Serie ?? "—"),
-            Campo("Folio", CfdiEmisionBuilder.FolioDe(c), xml.Folio ?? "—"),
+            // QA O3: el PAC de pruebas reescribe el folio; con las identidades de prueba activas no se exige
+            // (el sello del emisor, verificado abajo, sigue detectando cualquier edición del XML).
+            enPruebas && !Igual(CfdiEmisionBuilder.FolioDe(c), xml.Folio)
+                ? new("Folio", CfdiEmisionBuilder.FolioDe(c), $"{xml.Folio ?? "—"} (el PAC de pruebas reescribe el folio)", true)
+                : Campo("Folio", CfdiEmisionBuilder.FolioDe(c), xml.Folio ?? "—"),
             Campo("Tipo de comprobante", tipo, xml.TipoDeComprobante),
             new("RFC emisor", emisor, xml.RfcEmisor,
                 Igual(emisor, xml.RfcEmisor) || Igual(config?.EmisorSandbox?.Rfc, xml.RfcEmisor)),
@@ -173,10 +180,21 @@ public sealed class AdoptarCfdiTimbradoHandler(
 
         // QA O1: el CFDI existe y está vigente ante el SAT (UUID, RFC emisor y receptor, total y sello).
         campos.Add(await EstatusSatAsync(c, xml, ct));
+
+        // QA O1 (re-QA): verificación criptográfica. El sello del emisor sobre la cadena original del XML
+        // recibido (detecta folio, serie, conceptos o importes editados) y el sello del SAT sobre el timbre.
+        var emisorSello = VerificadorSelloCfdi.VerificarSelloEmisor(xmlTexto);
+        campos.Add(new(CampoSelloEmisor, "Válido", emisorSello.Detalle, emisorSello.Valido));
+        var satSello = await VerificadorSelloCfdi.VerificarSelloSatAsync(xmlTexto, certificadosSat, ct);
+        campos.Add(!satSello.Verificable && enPruebas
+            ? new(CampoSelloSat, "Válido", "No verificable en pruebas (el certificado del SAT de pruebas no está publicado)", true)
+            : new(CampoSelloSat, "Válido", satSello.Detalle, satSello.Valido));
         return campos;
     }
 
     private const string CampoTimbre = "Timbre fiscal";
+    private const string CampoSelloEmisor = "Sello del emisor";
+    private const string CampoSelloSat = "Sello del SAT";
     private const string CampoSat = "Estatus en el SAT";
 
     private async Task<CampoCotejado> EstatusSatAsync(Comprobante c, CfdiTimbradoLeido xml, CancellationToken ct)
@@ -204,6 +222,10 @@ public sealed class AdoptarCfdiTimbradoHandler(
 
     private static string Mensaje(CampoCotejado c)
     {
+        if (c.Campo == CampoSelloEmisor)
+            return c.Xml.EndsWith('.') ? c.Xml : c.Xml + ".";
+        if (c.Campo == CampoSelloSat)
+            return c.Xml.EndsWith('.') ? c.Xml : c.Xml + ".";
         if (c.Campo == CampoTimbre)
             return "El Timbre Fiscal Digital del XML no corresponde al sello del comprobante; el archivo pudo modificarse.";
         if (c.Campo == CampoSat)

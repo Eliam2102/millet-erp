@@ -130,6 +130,7 @@ import { Route as AppContabilidadCatalogoIndexRouteImport } from './routes/_app/
 import { Route as AppContabilidadCatalogoIdRouteImport } from './routes/_app/contabilidad/catalogo.$id';
 import { Route as AppContabilidadPolizasIndexRouteImport } from './routes/_app/contabilidad/polizas.index';
 import { Route as AppContabilidadPolizasIdRouteImport } from './routes/_app/contabilidad/polizas.$id';
+import { Route as AppContabilidadPolizasImportarNominaRouteImport } from './routes/_app/contabilidad/polizas.importar-nomina';
 import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/contabilidad/polizas.saldos';
 import { Route as AppContabilidadReportesAuxiliarRouteImport } from './routes/_app/contabilidad/reportes.auxiliar';
 import { Route as AppContabilidadReportesBalanzaRouteImport } from './routes/_app/contabilidad/reportes.balanza';
@@ -908,6 +909,12 @@ const AppContabilidadPolizasIdRoute =
   AppContabilidadPolizasIdRouteImport.update({
     id: '/contabilidad/polizas/$id',
     path: '/contabilidad/polizas/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasImportarNominaRoute =
+  AppContabilidadPolizasImportarNominaRouteImport.update({
+    id: '/contabilidad/polizas/importar-nomina',
+    path: '/contabilidad/polizas/importar-nomina',
     getParentRoute: () => AppRoute,
   } as any);
 const AppContabilidadPolizasSaldosRoute =
@@ -1715,6 +1722,7 @@ export interface FileRoutesByFullPath {
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/contabilidad/polizas/importar-nomina': typeof AppContabilidadPolizasImportarNominaRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
@@ -1961,6 +1969,7 @@ export interface FileRoutesByTo {
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/contabilidad/polizas/importar-nomina': typeof AppContabilidadPolizasImportarNominaRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
@@ -2209,6 +2218,7 @@ export interface FileRoutesById {
   '/_app/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/_app/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/_app/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/_app/contabilidad/polizas/importar-nomina': typeof AppContabilidadPolizasImportarNominaRoute;
   '/_app/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/_app/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
   '/_app/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
@@ -2457,6 +2467,7 @@ export interface FileRouteTypes {
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
     | '/contabilidad/polizas/$id'
+    | '/contabilidad/polizas/importar-nomina'
     | '/contabilidad/polizas/saldos'
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
@@ -2703,6 +2714,7 @@ export interface FileRouteTypes {
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
     | '/contabilidad/polizas/$id'
+    | '/contabilidad/polizas/importar-nomina'
     | '/contabilidad/polizas/saldos'
     | '/contabilidad/reportes/auxiliar'
     | '/contabilidad/reportes/balanza'
@@ -2950,6 +2962,7 @@ export interface FileRouteTypes {
     | '/_app/compras/requisiciones/$id'
     | '/_app/contabilidad/catalogo/$id'
     | '/_app/contabilidad/polizas/$id'
+    | '/_app/contabilidad/polizas/importar-nomina'
     | '/_app/contabilidad/polizas/saldos'
     | '/_app/contabilidad/reportes/auxiliar'
     | '/_app/contabilidad/reportes/balanza'
@@ -3955,6 +3968,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadPolizasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/polizas/importar-nomina': {
+      id: '/_app/contabilidad/polizas/importar-nomina';
+      path: '/contabilidad/polizas/importar-nomina';
+      fullPath: '/contabilidad/polizas/importar-nomina';
+      preLoaderRoute: typeof AppContabilidadPolizasImportarNominaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/contabilidad/polizas/saldos': {
       id: '/_app/contabilidad/polizas/saldos';
       path: '/contabilidad/polizas/saldos';
@@ -4938,6 +4958,7 @@ interface AppRouteChildren {
   AppComprasRequisicionesIdRoute: typeof AppComprasRequisicionesIdRoute;
   AppContabilidadCatalogoIdRoute: typeof AppContabilidadCatalogoIdRoute;
   AppContabilidadPolizasIdRoute: typeof AppContabilidadPolizasIdRoute;
+  AppContabilidadPolizasImportarNominaRoute: typeof AppContabilidadPolizasImportarNominaRoute;
   AppContabilidadPolizasSaldosRoute: typeof AppContabilidadPolizasSaldosRoute;
   AppContabilidadReportesAuxiliarRoute: typeof AppContabilidadReportesAuxiliarRoute;
   AppContabilidadReportesBalanzaRoute: typeof AppContabilidadReportesBalanzaRoute;
@@ -5187,6 +5208,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasRequisicionesIdRoute: AppComprasRequisicionesIdRoute,
   AppContabilidadCatalogoIdRoute: AppContabilidadCatalogoIdRoute,
   AppContabilidadPolizasIdRoute: AppContabilidadPolizasIdRoute,
+  AppContabilidadPolizasImportarNominaRoute:
+    AppContabilidadPolizasImportarNominaRoute,
   AppContabilidadPolizasSaldosRoute: AppContabilidadPolizasSaldosRoute,
   AppContabilidadReportesAuxiliarRoute:
     AppContabilidadReportesAuxiliarRoute,
