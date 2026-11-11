@@ -727,6 +727,10 @@ builder.Services
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+// M-373: requisito condicional configurable por tipo de documento (Comercio exterior lo edita por este puerto).
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.ITipoDocumentoCondicionalPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TipoDocumentoCondicionalAdapter>();
 // Guarda de desligado A+W: Datos Maestros pregunta a Compras si hay línea de OC abierta con medida.
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
