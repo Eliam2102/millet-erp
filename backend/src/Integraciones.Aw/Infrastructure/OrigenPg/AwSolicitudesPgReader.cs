@@ -101,13 +101,31 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
         Guid? sucursalId = cabecera.NumeroSucursal is null
             ? null
             : await _sucursales.ResolverAsync(cabecera.NumeroSucursal, cancellationToken);
+        // M-243: los departamentos que no son sucursal (REPOSICIONES, REEMPLAZOS, RETRABAJO, MUESTRAS) toman la
+        // sucursal del pedido origen (AH_HAUPT_AUFTR → pedido_sustituido_numero). Sin pedido origen o si tampoco
+        // resuelve, el pedido espera en la bandeja como antes. El usuario creador no viene en la vista.
+        string? sucursalOrigen = null;
+        if (sucursalId is null && cabecera.PedidoSustituidoNumero is long pedidoOrigen)
+        {
+            var padre = pedidoOrigen.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            sucursalOrigen = (await PgPlumbing.EjecutarAsync(_connectionFactory, _options, _logger, "LeerCabeceraPedidoOrigen", c => LeerCabeceraAsync(c, padre, cancellationToken), cancellationToken))?.NumeroSucursal;
+            if (sucursalOrigen is not null)
+                sucursalId = await _sucursales.ResolverAsync(sucursalOrigen, cancellationToken);
+            if (sucursalId is not null)
+                _logger.LogInformation(
+                    "[AwSolicitudesPgReader] pedido {Pedido}: departamento '{Valor}' sin sucursal; toma '{Origen}' del pedido origen {PedidoOrigen}",
+                    numeroPedido, cabecera.NumeroSucursal, sucursalOrigen, padre);
+        }
         if (sucursalId is null)
         {
             _logger.LogWarning(
                 "[AwSolicitudesPgReader] pedido {Pedido}: numero_sucursal '{Valor}' sin sucursal activa con esa clave_aw en el catálogo → pospuesta",
                 numeroPedido, cabecera.NumeroSucursal);
             return LecturaPedidoAw.EsperaConfig(MotivoExcepcion.SucursalSinClaveAw,
-                $"numero_sucursal '{cabecera.NumeroSucursal}' sin sucursal activa con esa clave_aw en el catálogo");
+                $"numero_sucursal '{cabecera.NumeroSucursal}' sin sucursal activa con esa clave_aw en el catálogo"
+                + (cabecera.PedidoSustituidoNumero is long po
+                    ? $"; el pedido origen {po} tampoco la resuelve ('{sucursalOrigen ?? "sin departamento"}')"
+                    : "; sin pedido origen para tomarla — asigna la clave_aw o corrige el pedido en A+W"));
         }
 
         // El canal se resuelve igual: canal_ventas trae el GRUPPE crudo de

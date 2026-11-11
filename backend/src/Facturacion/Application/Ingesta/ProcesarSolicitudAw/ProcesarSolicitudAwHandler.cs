@@ -152,7 +152,7 @@ public sealed class ProcesarSolicitudAwHandler
             return await PosponerORechazarAsync(empresaId, sol, control,
                 lectura.Motivo, lectura.Detalle ?? "no se pudieron leer los datos del pedido",
                 lectura.EsperaConfiguracion, hash: string.Empty,
-                marcarControlExcepcion: true, pedidoId: null, estadoFacturacion: null, ahora, ct);
+                marcarControlExcepcion: true, pedidoId: null, estadoFacturacion: null, ahora, ct, lectura.Diferencia);
 
         // Origen A+W: si el cliente no está en el master, se auto-provisiona
         // desde la vista de A+W (§3.bis.6). Falla de provisión = corregible
@@ -233,7 +233,7 @@ public sealed class ProcesarSolicitudAwHandler
             return await PosponerORechazarAsync(empresaId, sol, control,
                 lectura.Motivo, lectura.Detalle ?? "datos del pedido no disponibles",
                 lectura.EsperaConfiguracion, hash: control?.HashContenido ?? string.Empty,
-                marcarControlExcepcion: false, pedidoId: pedido.Id, estadoFacturacion: "SinFacturar", ahora, ct);
+                marcarControlExcepcion: false, pedidoId: pedido.Id, estadoFacturacion: "SinFacturar", ahora, ct, lectura.Diferencia);
 
         var (cliente, _) = await ResolverClienteAsync(datos.ClienteRef, ct);
         var clienteId = cliente?.ClienteId ?? pedido.ClienteId;
@@ -309,7 +309,7 @@ public sealed class ProcesarSolicitudAwHandler
         Guid empresaId, SolicitudAw sol, IngestaControl? control,
         MotivoExcepcion motivo, string detalle, bool esperaConfiguracion, string hash,
         bool marcarControlExcepcion, Guid? pedidoId, string? estadoFacturacion,
-        DateTimeOffset ahora, CancellationToken ct)
+        DateTimeOffset ahora, CancellationToken ct, DiferenciaCampoIngesta? diferencia = null)
     {
         var excepcion = await ObtenerOAbrirExcepcionAsync(empresaId, sol.NumeroPedido, motivo, detalle, ct);
         // Entidad recién agregada: CreatedAt lo estampa el interceptor al
@@ -318,14 +318,14 @@ public sealed class ProcesarSolicitudAwHandler
 
         if (esperaConfiguracion && ahora < primeraVez.AddDays(_opciones.PospuestaMaxDias))
         {
-            excepcion.Actualizar(motivo, detalle);
+            excepcion.Actualizar(motivo, detalle, diferencia);
             return (ResultadoSolicitudAw.Pospuesta, pedidoId,
                 $"{detalle} — en espera de corrección en catálogos", estadoFacturacion);
         }
 
         if (esperaConfiguracion)
             detalle = $"{detalle} — sin corregir tras {_opciones.PospuestaMaxDias} días, escalado a rechazo";
-        excepcion.Actualizar(motivo, detalle);
+        excepcion.Actualizar(motivo, detalle, diferencia);
         if (marcarControlExcepcion)
             UpsertControl(control, empresaId, sol, hash, EstadoIngesta.Excepcion, pedidoId, ahora);
         // Dato defectuoso del origen: la misma versión queda aplicada/idempotente; A+W debe reenviar con versión nueva.
