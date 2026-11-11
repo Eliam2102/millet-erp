@@ -33,7 +33,10 @@ public class SalidaAppAlmacenesTests
         db.Ubicaciones.Add(new Ubicacion(ubiA, subA, "ÚNICA", "Única", esDefault: true));
         db.Ubicaciones.Add(new Ubicacion(ubiB, subB, "ÚNICA", "Única", esDefault: true));
         db.Ubicaciones.Add(new Ubicacion(ubiRev, subRev, "ÚNICA", "Única", esDefault: true));
-        db.SaldosInventario.Add(new SaldoInventario(ubiA, subA, Articulo, 10, 100m, Variante));
+        var saldoA = new SaldoInventario(ubiA, subA, Articulo, 10, 100m, Variante);
+        db.SaldosInventario.Add(saldoA);
+        // Guid v7 no ordena creaciones dentro del mismo milisegundo; fijamos la antigüedad del escenario.
+        db.Entry(saldoA).Property(s => s.Id).CurrentValue = Guid.Parse("019b76da-a800-7000-8000-000000000001");
         db.SaldosInventario.Add(new SaldoInventario(ubiRev, subRev, Articulo, 50, 100m, Variante)); // MAT-REV no cuenta
         db.SaveChanges();
         return (db, subA, ubiA, subB, ubiB);
@@ -103,11 +106,17 @@ public class SalidaAppAlmacenesTests
             .And.NotContain(l => l.Lote == "L-NUEVO");
     }
 
-    [Fact]
-    public async Task Reparte_entre_sub_almacenes_con_un_movimiento_por_cada_uno()
+    [Theory]
+    [InlineData(false, 10, 2)]
+    [InlineData(true, 8, 4)]
+    public async Task Reparte_entre_sub_almacenes_con_un_movimiento_por_cada_uno(bool bMasAntiguo, int cantidadA, int cantidadB)
     {
-        var (db, _, _, subB, ubiB) = Db();
-        db.SaldosInventario.Add(new SaldoInventario(ubiB, subB, Articulo, 4, 120m, Variante));
+        var (db, _, ubiA, subB, ubiB) = Db();
+        var saldoB = new SaldoInventario(ubiB, subB, Articulo, 4, 120m, Variante);
+        db.SaldosInventario.Add(saldoB);
+        db.Entry(saldoB).Property(s => s.Id).CurrentValue = Guid.Parse(bMasAntiguo
+            ? "019b76da-a700-7000-8000-000000000001"
+            : "019b76da-a900-7000-8000-000000000001");
         await db.SaveChangesAsync();
 
         var (estado, folio, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(12), default);
@@ -117,8 +126,8 @@ public class SalidaAppAlmacenesTests
         folio!.Split(", ").Should().HaveCount(2);
         var lineas = await db.LineasMovimiento.ToListAsync();
         lineas.Sum(l => l.Cantidad).Should().Be(12);
-        lineas.Should().Contain(l => l.Cantidad == 10 && l.CostoUnitarioMxn == 100m)
-            .And.Contain(l => l.Cantidad == 2 && l.CostoUnitarioMxn == 120m);
+        lineas.Should().Contain(l => l.UbicacionId == ubiA && l.Cantidad == cantidadA && l.CostoUnitarioMxn == 100m)
+            .And.Contain(l => l.UbicacionId == ubiB && l.Cantidad == cantidadB && l.CostoUnitarioMxn == 120m);
     }
 
     [Fact]
