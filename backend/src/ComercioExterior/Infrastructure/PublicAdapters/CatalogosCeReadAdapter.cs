@@ -19,6 +19,14 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
         throw new BusinessRuleException("CE_REFERENCIA_INVALIDA", "Tipo de referencia desconocido.");
     }
 
+    /// <summary>M-169: tipo de persona del maestro de proveedores (derivado del RFC al darlo de alta: 13 caracteres = física).</summary>
+    public async Task<IReadOnlySet<Guid>> ProveedoresPersonaFisicaAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var lista = ids.Distinct().ToList();
+        return (await db.Proveedores.AsNoTracking().Where(x => lista.Contains(x.Id) && x.TipoPersona == Millet.Catalogos.Domain.TipoPersonaProveedor.Fisica)
+            .Select(x => x.Id).ToListAsync(ct)).ToHashSet();
+    }
+
     public const string Entidad = "expediente_ce";
     public async Task<Guid> IncotermDdpAsync(CancellationToken ct) => await db.Incoterms.Where(i => i.Codigo == "DDP").Select(i => (Guid?)i.Id).SingleOrDefaultAsync(ct)
         ?? throw new BusinessRuleException("CE_INCOTERM_REQUERIDO", "No está configurado el Incoterm DDP.");
