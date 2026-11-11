@@ -13,7 +13,7 @@ public class RequisicionAlmacenesAppTests
         Guid.CreateVersion7(), Guid.CreateVersion7(), Millet.Compras.Domain.Folio.Parse("MID2026-000001"), 2026,
         Guid.CreateVersion7(), Guid.CreateVersion7(), null, Guid.CreateVersion7(), Guid.CreateVersion7(),
         DateTimeOffset.UtcNow, folioExterno, ProveedorApp,
-        [new LineaAppRequisicion(Guid.CreateVersion7(), 10m, "M2", Money.Of(1m, "MXN"), 5, 2440, 3660)]);
+        [new LineaAppRequisicion(Guid.CreateVersion7(), 10m, "PZA", Money.Of(1m, "MXN"), 5, 2440, 3660)]);
 
     [Fact]
     public void CrearDesdeAlmacenesApp_NaceAutorizadaConProveedorYMedida()
@@ -25,6 +25,14 @@ public class RequisicionAlmacenesAppTests
         var l = Assert.Single(rq.Lineas);
         Assert.Equal((5, 2440, 3660), (l.Piezas, l.AnchoMm, l.AltoMm));
     }
+
+    [Theory]
+    [InlineData(10, 1200, 2600, "M2", 31.2)]   // la app pide hojas: 10 × 3.12 m²
+    [InlineData(10, 2440, 3660, "m2", 89.304)]
+    [InlineData(10, null, null, "PZA", 10)]     // material por cantidad
+    [InlineData(10, 1200, 2600, "PZA", 10)]     // con medida pero unidad por pieza
+    public void CantidadDePiezasApp_HojasEnM2YPiezasEnLoDemas(int piezas, int? ancho, int? alto, string unidad, double esperado) =>
+        Assert.Equal((decimal)esperado, LineaRequisicion.CantidadDePiezasApp(piezas, ancho, alto, unidad));
 
     [Fact]
     public void CrearDesdeAlmacenesApp_LlevaElEquipoDeAlmacenEnSusLineas()
@@ -121,12 +129,13 @@ public class RequisicionAlmacenesAppTests
             Guid.CreateVersion7(), Guid.CreateVersion7(), Millet.Compras.Domain.Folio.Parse("MID2026-000003"), 2026,
             Guid.CreateVersion7(), Guid.CreateVersion7(), null, Guid.CreateVersion7(), Guid.CreateVersion7(),
             DateTimeOffset.UtcNow, "RQ-7", ProveedorApp,
-            [new LineaAppRequisicion(Guid.CreateVersion7(), 10m, "M2", Money.Of(1m, "MXN"), 10, 2440, 3660, Posicion: 3),
+            [new LineaAppRequisicion(Guid.CreateVersion7(), 89.304m, "M2", Money.Of(1m, "MXN"), 10, 2440, 3660, Posicion: 3),
              new LineaAppRequisicion(Guid.CreateVersion7(), 4m, "PZA", Money.Of(1m, "MXN"), 4, null, null, Posicion: 1)]);
         Assert.Equal(new short[] { 3, 1 }, rq.Lineas.Select(l => l.Posicion));
         rq.RegistrarCubrimiento(rq.Lineas.Select(l => new CubrimientoLinea(l.Id, 0, l.Cantidad)).ToList(), DateTimeOffset.UtcNow);
         rq.QuitarDeCompraApp([(3, 4m)], "App Almacenes: entrada cancelada");
-        Assert.Equal(6m, rq.Lineas.Single(l => l.Posicion == 3).CantidadDeCompra);
+        // Vidrio en M2: 4 hojas de 2440 × 3660 son 4 × 8.9304 = 35.7216 m².
+        Assert.Equal(53.5824m, rq.Lineas.Single(l => l.Posicion == 3).CantidadDeCompra);
         Assert.Equal(4m, rq.Lineas.Single(l => l.Posicion == 1).CantidadDeCompra);
     }
 

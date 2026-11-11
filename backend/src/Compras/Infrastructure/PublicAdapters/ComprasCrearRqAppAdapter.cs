@@ -163,7 +163,9 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
                 s.Lineas.Select(l =>
                 {
                     var a = porClave[l.ArticuloAw][0];
-                    return new LineaAppRequisicion(a.Id, l.Piezas, a.UnidadMedidaDefault,
+                    // Las piezas de la app son hojas: en vidrio (M2) la cantidad es piezas × m² de la hoja.
+                    return new LineaAppRequisicion(a.Id,
+                        LineaRequisicion.CantidadDePiezasApp(l.Piezas, l.AnchoMm, l.AltoMm, a.UnidadMedidaDefault), a.UnidadMedidaDefault,
                         Money.Of(a.PrecioReferenciaMonto ?? 0m, a.PrecioReferenciaMoneda ?? "MXN"),
                         l.Piezas, l.AnchoMm, l.AltoMm, s.FechaRequerida,
                         l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra, l.Posicion, s.CentroCostoId);
