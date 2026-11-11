@@ -25,6 +25,9 @@ public enum TipoAjusteCobroContable
 
     /// <summary>Rol <c>DIFERENCIAS_EN_COBRO</c>.</summary>
     DiferenciaMenor = 2,
+
+    /// <summary>M-326: rol <c>REDONDEO</c> (faltante de hasta $0.99 sin documentar).</summary>
+    Redondeo = 3,
 }
 
 /// <summary>

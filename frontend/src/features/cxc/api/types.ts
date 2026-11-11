@@ -463,6 +463,8 @@ export type EstadoPropuestaAplicacion =
 export const TipoAjusteCobro = {
   ComisionBancaria: 1,
   DiferenciaMenor: 2,
+  /** M-326: lo asigna el sistema a un faltante de hasta $0.99; no se elige a mano. */
+  Redondeo: 3,
 } as const satisfies Record<string, number>;
 export type TipoAjusteCobro = (typeof TipoAjusteCobro)[keyof typeof TipoAjusteCobro];
 

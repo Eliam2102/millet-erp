@@ -116,7 +116,7 @@ export function NuevaPropuestaAplicacion({
     [seleccion],
   );
   const tolerancia = tolerancias.data?.[moneda] ?? 0;
-  const { diferencia, faltaTolerancia, esAjusteNoFiscal, excedeTolerancia } = diferenciaDeposito(
+  const { diferencia, faltaTolerancia, esAjusteNoFiscal, excedeTolerancia, esRedondeo } = diferenciaDeposito(
     montoDeposito || 0,
     sumaAplicada,
     tolerancias.isSuccess ? tolerancia : null,
@@ -380,6 +380,12 @@ export function NuevaPropuestaAplicacion({
             <p className="text-xs text-danger-fg">
               La diferencia excede la tolerancia no fiscal ({formatoMonto(tolerancia, moneda)}).
               Corrige los importes o gestiona la diferencia con el cliente.
+            </p>
+          )}
+          {esRedondeo && (
+            <p className="text-xs text-ink-muted" role="note">
+              El depósito es {formatoMonto(-diferencia, moneda)} menor que lo aplicado. Es un redondeo de hasta $0.99: se
+              registra en la cuenta REDONDEO, sin motivo ni autorización, y la propuesta pasa directo a Tesorería.
             </p>
           )}
           {esAjusteNoFiscal && (

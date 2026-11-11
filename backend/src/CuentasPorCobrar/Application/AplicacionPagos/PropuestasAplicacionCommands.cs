@@ -368,7 +368,7 @@ public sealed class CrearPropuestaAplicacionHandler
             lineas: lineas,
             toleranciaNoFiscal: tolerancia, propuestoPor: usuarioId,
             movimientoBancarioId: deposito?.MovimientoBancarioId,
-            tipoAjuste: command.TipoAjuste, motivoAjuste: command.MotivoAjuste);
+            tipoAjuste: command.TipoAjuste, motivoAjuste: command.MotivoAjuste, ahora: _clock.UtcNow);
 
         _db.PropuestasAplicacionPago.Add(propuesta);
 

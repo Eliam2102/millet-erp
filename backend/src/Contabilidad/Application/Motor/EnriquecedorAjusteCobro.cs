@@ -13,6 +13,7 @@ public sealed class EnriquecedorAjusteCobro(IAjusteCobroContablePort? ajustes = 
     public const string CampoAjuste = "Ajuste";
     public const string CampoComision = "AjusteComision";
     public const string CampoDiferencia = "AjusteDiferencia";
+    public const string CampoRedondeo = "AjusteRedondeo";
 
     public async Task<EventoContable> EnriquecerAsync(EventoContable evento, CancellationToken ct)
     {
@@ -29,7 +30,12 @@ public sealed class EnriquecedorAjusteCobro(IAjusteCobroContablePort? ajustes = 
 
         var importes = new Dictionary<string, decimal?>(evento.Importes)
         {
-            [autorizado.Tipo == TipoAjusteCobroContable.ComisionBancaria ? CampoComision : CampoDiferencia] = ajuste,
+            [autorizado.Tipo switch
+            {
+                TipoAjusteCobroContable.ComisionBancaria => CampoComision,
+                TipoAjusteCobroContable.Redondeo => CampoRedondeo, // M-326
+                _ => CampoDiferencia,
+            }] = ajuste,
         };
         return evento with { Importes = importes };
     }
