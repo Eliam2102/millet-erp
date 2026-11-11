@@ -11,7 +11,8 @@ namespace Millet.Almacen.Infrastructure.Workers;
 /// <c>CargaInicialHabilitada</c> también aplica <c>alm_carga_inicial</c> (M-283).
 /// </summary>
 public sealed class AlmMensajeWorker(
-    AlmMensajeLector lector, AlmCargaInicialLector carga, IOptions<AlmMensajeOptions> options, ILogger<AlmMensajeWorker> logger)
+    AlmMensajeLector lector, AlmCargaInicialLector carga, AlmMensajeAlarma alarma, IOptions<AlmMensajeOptions> options,
+    ILogger<AlmMensajeWorker> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -29,6 +30,8 @@ public sealed class AlmMensajeWorker(
                 {
                     var tick = await lector.ProcesarAsync(stoppingToken);
                     if (tick != default) logger.LogInformation("[AlmMensajeWorker] {Tick}", tick);
+                    // M-283: mensajes sin acuse más de N minutos → aviso al jefe de Almacén.
+                    await alarma.EvaluarAsync(stoppingToken);
                 }
                 // M-283: carga inicial de existencias (alm_carga_inicial), apagada por omisión.
                 if (options.Value.CargaInicialHabilitada)
