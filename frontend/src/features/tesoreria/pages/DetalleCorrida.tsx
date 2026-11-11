@@ -155,7 +155,7 @@ export function DetalleCorrida({ id }: { id: string }) {
   }
 
   return (
-    <div className="space-y-5 text-sm text-ink">
+    <div className="@container min-w-0 space-y-5 text-sm text-ink">
       <PageHeader
         titulo={c.nombre}
         estado={<Badge variant={ui.tono}>{ui.texto}</Badge>}
@@ -236,7 +236,7 @@ export function DetalleCorrida({ id }: { id: string }) {
         )}
       </div>
 
-      <section className="grid gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat md:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
         <Dato etiqueta="Bruto"><MoneyDisplay amount={c.bruto} currency={c.moneda} /></Dato>
         <Dato etiqueta="Retenciones"><MoneyDisplay amount={c.retenciones} currency={c.moneda} /></Dato>
         <Dato etiqueta="Neto a transferir"><MoneyDisplay amount={c.total} currency={c.moneda} strong /></Dato>
@@ -388,9 +388,9 @@ export function DetalleCorrida({ id }: { id: string }) {
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1">
+    <div className="min-w-0 space-y-1">
       <p className="text-xs text-ink-muted">{etiqueta}</p>
-      <div className="text-sm">{children}</div>
+      <div className="text-sm [overflow-wrap:anywhere]">{children}</div>
     </div>
   );
 }

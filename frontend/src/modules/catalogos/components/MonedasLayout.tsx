@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { Coins, Plus } from 'lucide-react';
@@ -29,40 +30,44 @@ export function MonedasLayout({ idActivo, detalle }: MonedasLayoutProps) {
   const items = useMemo(() => monedasQuery.data ?? [], [monedasQuery.data]);
 
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de monedas"
-        data-print="hidden"
-      >
-        <PageHeader
-          titulo={<>Monedas</>}
-          acciones={
-            <>
-              {canCrear && (
-                <Button size="sm" onClick={() => nuevaMoneda.abrir()}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Nueva
-                </Button>
-              )}
-            </>
-          }
-        />
-
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          <RenderLista
-            query={monedasQuery}
-            items={items}
-            idActivo={idActivo}
-            canCrear={canCrear}
-            onAbrirNueva={() => nuevaMoneda.abrir()}
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista={'monedas'}
+      lista={
+        <aside
+          className={cn(
+            'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+            idActivo != null ? 'hidden md:flex' : 'flex',
+          )}
+          aria-label="Lista de monedas"
+          data-print="hidden"
+        >
+          <PageHeader
+            titulo={<>Monedas</>}
+            acciones={
+              <>
+                {canCrear && (
+                  <Button size="sm" onClick={() => nuevaMoneda.abrir()}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Nueva
+                  </Button>
+                )}
+              </>
+            }
           />
-        </div>
-      </aside>
 
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            <RenderLista
+              query={monedasQuery}
+              items={items}
+              idActivo={idActivo}
+              canCrear={canCrear}
+              onAbrirNueva={() => nuevaMoneda.abrir()}
+            />
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
           'min-w-0 flex-1 md:overflow-y-auto',
@@ -72,7 +77,7 @@ export function MonedasLayout({ idActivo, detalle }: MonedasLayoutProps) {
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

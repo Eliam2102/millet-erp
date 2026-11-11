@@ -70,7 +70,7 @@ export function DetallePedido() {
   const comprobantes = usePedidoComprobantes(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
@@ -217,7 +217,7 @@ function Contenido({
 
   if (modoEmision) {
     return (
-      <div className="space-y-5">
+      <div className="@container min-w-0 space-y-5">
         <div className="flex flex-wrap items-center gap-3">
           <PageHeader
             mono
@@ -312,7 +312,7 @@ function Contenido({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {emitida && <AvisoCobrarEnCaja comprobanteId={emitida.id} folio={emitida.folio} />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -408,7 +408,7 @@ function Contenido({
         </section>
       )}
 
-      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
         {/* FAC-ING-PR3: el backend ya devuelve el nombre del catálogo. */}
         <Dato label="Canal de venta">{p.canalVenta}</Dato>
         <Dato label="Comportamiento fiscal">
@@ -639,9 +639,9 @@ function redondear2(v: number): number {
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dd className="text-sm [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }
