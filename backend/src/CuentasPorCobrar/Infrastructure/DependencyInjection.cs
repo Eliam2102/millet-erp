@@ -62,6 +62,8 @@ public static class DependencyInjection
             .AddOptions<Workers.ConciliacionCarteraOptions>()
             .Bind(configuration.GetSection(Workers.ConciliacionCarteraOptions.SectionName));
         services.AddHostedService<Workers.ConciliacionCarteraWorker>();
+        // M-236: incidencia común por diferencia de la conciliación (apertura en el contexto de la empresa de la corrida).
+        services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Conciliacion.IAperturaIncidenciasConciliacionPort, Adapters.AperturaIncidenciasConciliacionAdapter>();
 
         // C7.8: correo del estado de cuenta por el transporte único de correo
         // (Correo:Proveedor, 86e3txv0n); NoOp deja el envío en Registrado.
