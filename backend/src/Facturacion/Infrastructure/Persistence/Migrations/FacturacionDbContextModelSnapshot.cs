@@ -4107,6 +4107,15 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("fecha");
 
+                    b.Property<DateTimeOffset?>("InvalidadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invalidada_en");
+
+                    b.Property<string>("InvalidadaMotivo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("invalidada_motivo");
+
                     b.Property<string>("Medio")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -4957,6 +4966,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("proforma");
+
+                    b.Property<Guid?>("ProformaPedidoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proforma_pedido_id");
 
                     b.Property<string>("ReferenciaCliente")
                         .HasMaxLength(60)
