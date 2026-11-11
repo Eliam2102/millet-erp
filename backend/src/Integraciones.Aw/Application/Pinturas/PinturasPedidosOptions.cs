@@ -21,6 +21,13 @@ public sealed class PinturasPedidosOptions
     /// <summary>Comportamiento fiscal del pedido (la tabla no lo trae). Supuesto a validar: venta de mostrador.</summary>
     public ComportamientoFiscal ComportamientoFiscal { get; set; } = ComportamientoFiscal.MostradorInmediato;
 
+    /// <summary>
+    /// Minutos que una cabecera pendiente puede estar sin líneas antes de acusarla con error (<c>erp_resultado = 2</c>,
+    /// «Orden sin renglones: …»). El folio es único y el portal no edita ni borra: sin acuse quedaría invisible (Jorge
+    /// Toache, 10-nov). 0 o menos = no se acusa.
+    /// </summary>
+    public int MinutosCabeceraSinLineas { get; set; } = 10;
+
     /// <summary>Timeout por consulta (segundos).</summary>
     public int SqlQueryTimeoutSeconds { get; set; } = 5;
 }

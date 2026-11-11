@@ -455,6 +455,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             AwOrigenParametro.Clave, "Real", TipoParametro.Texto,
             "Origen activo de A+W: Real o Demo. Cambiar desde la sincronización de Datos maestros.",
             new DateTimeOffset(2026, 10, 9, 0, 0, 0, TimeSpan.Zero), "integraciones.aw"));
+        parametro.HasData(SeedParametro(AvisoTipoCambioAwParametro.Id.ToString(),
+            AvisoTipoCambioAwParametro.Clave, AvisoTipoCambioAwParametro.ValorInicial, TipoParametro.Texto,
+            "Correos que reciben el aviso cuando el tipo de cambio hacia A+W se publica tarde o falla después de la hora límite; TI corre su tarea a mano ese día. Separe con coma; vacío apaga el correo.",
+            new DateTimeOffset(2026, 11, 10, 0, 0, 0, TimeSpan.Zero), "integraciones.aw"));
 
         var umbralesTime = new DateTimeOffset(2026, 10, 8, 0, 0, 0, TimeSpan.Zero);
         parametro.HasData(

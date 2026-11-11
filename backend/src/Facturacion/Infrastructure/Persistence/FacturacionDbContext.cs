@@ -112,6 +112,7 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Proformas versionadas de pedidos facturables, sin valor fiscal (U1.8a).</summary>
     public DbSet<ProformaPedido> ProformasPedido => Set<ProformaPedido>();
+    public DbSet<ProformaConformidad> ProformasConformidad => Set<ProformaConformidad>();
 
     /// <summary>Bitácora de envíos de CFDI al correo del cliente (F2-PR2).</summary>
     public DbSet<BitacoraEnvioCorreo> BitacorasEnvioCorreo => Set<BitacoraEnvioCorreo>();
@@ -213,6 +214,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new SalidaFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new SalidaFacturableLineaConfiguration());
         modelBuilder.ApplyConfiguration(new ProformaPedidoConfiguration());
+        modelBuilder.ApplyConfiguration(new ProformaConformidadConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
         modelBuilder.ApplyConfiguration(new ContingenciaTimbradoConfiguration());

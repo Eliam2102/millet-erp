@@ -139,6 +139,7 @@ hay que fijar antes de modelar. Candidatos a definir:
 | _Pendiente_ — Driver/cliente de lectura A+W (SQL Server) | — | _por definir_ | Adapter Infrastructure con queries parametrizadas; sin EF, sin tracking; timeouts cortos. |
 | _Pendiente_ — Esquema Postgres `integraciones_aw` + `IntegracionesAwDbContext` | — | n/a (se crea desde inicio) | Agregar a `MigrationsHealthCheckOptions.ContextTypes` y al bucle de migraciones en `deploy-app-dev.yml`. |
 | _Pendiente_ — Outbox para eventos de integración del módulo | — | `NoOpIntegrationEventBusSender` si la cs de Service Bus está vacía | Reutilizar `OutboxSaveChangesInterceptor` + `OutboxPublisherWorker<IntegracionesAwDbContext>`. |
+| `<CostoPromedioAlmacenes>` — `dbo.erp_costo_promedio` en la base de la app de Almacenes (M-447) | 86e3zr7au | `SimuladoCostoPromedioTransporte` (en memoria) | TI corre el script 19 en `AlmacenRQ_MP_ENSAYO`/`AlmacenRQ_MP` y da SELECT + INSERT a `millet_erp_integracion`; `Integraciones:CostoPromedio:Transporte=Sql` y `Habilitado=true`. |
 
 A completar conforme se confirme cada pieza con el overview y las
 sesiones con el cliente.
