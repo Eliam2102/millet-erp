@@ -109,7 +109,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_alerta_cartera_atencion_consistente", "(atendida = TRUE AND atendida_por IS NOT NULL AND atendida_en IS NOT NULL) OR (atendida = FALSE AND atendida_por IS NULL AND atendida_en IS NULL)");
 
-                            t.HasCheckConstraint("ck_alerta_cartera_tipo", "tipo IN (1, 2, 3, 4)");
+                            t.HasCheckConstraint("ck_alerta_cartera_tipo", "tipo IN (1, 2, 3, 4, 5)");
                         });
                 });
 

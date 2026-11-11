@@ -217,6 +217,151 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.ToTable("integration_events_outbox", "tesoreria");
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Cheques.ChequeRecibido", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BancoEmisor")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("banco_emisor");
+
+                    b.Property<Guid>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<DateTimeOffset?>("ConfirmadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmado_en");
+
+                    b.Property<Guid?>("ConfirmadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("confirmado_por");
+
+                    b.Property<Guid?>("ContramovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contramovimiento_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("CuentaBancariaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_bancaria_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<Guid?>("ExtractoLineaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("extracto_linea_id");
+
+                    b.Property<DateOnly>("FechaRecepcion")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_recepcion");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<string>("Librador")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("librador");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
+                    b.Property<string>("MotivoRebote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivo_rebote");
+
+                    b.Property<Guid?>("MovimientoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_id");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("numero");
+
+                    b.Property<DateTimeOffset?>("RebotadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rebotado_en");
+
+                    b.Property<Guid?>("RebotadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rebotado_por");
+
+                    b.Property<DateTimeOffset>("RegistradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrado_en");
+
+                    b.Property<Guid>("RegistradoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("registrado_por");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cheques_recibidos");
+
+                    b.HasIndex("MovimientoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cheques_recibidos_movimiento")
+                        .HasFilter("movimiento_id IS NOT NULL");
+
+                    b.HasIndex("EmpresaId", "Estado")
+                        .HasDatabaseName("ix_cheques_recibidos_estado");
+
+                    b.HasIndex("EmpresaId", "BancoEmisor", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cheques_recibidos_vigente")
+                        .HasFilter("estado <> 3");
+
+                    b.ToTable("cheques_recibidos", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_cheques_recibidos_estado", "estado IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("ck_cheques_recibidos_importe", "importe > 0");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.BitacoraConciliacion", b =>
                 {
                     b.Property<Guid>("Id")

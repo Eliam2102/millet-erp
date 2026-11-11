@@ -87,6 +87,9 @@ public sealed class TesoreriaDbContext : BaseDbContext
     public DbSet<ExtractoLineaMatch> ExtractoLineaMatches => Set<ExtractoLineaMatch>();
     public DbSet<BitacoraConciliacion> BitacorasConciliacion => Set<BitacoraConciliacion>();
 
+    /// <summary>M-372: cheques de cliente recibidos (en firme pendiente → disponible / rebotado).</summary>
+    public DbSet<Millet.Tesoreria.Domain.Cheques.ChequeRecibido> ChequesRecibidos => Set<Millet.Tesoreria.Domain.Cheques.ChequeRecibido>();
+
     /// <summary>Marcas de idempotencia para integration events consumidos (PR-3/PR-7).</summary>
     public DbSet<EventoProcesado> EventosProcesados => Set<EventoProcesado>();
 
@@ -133,6 +136,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new ExtractoLineaConfiguration());
         modelBuilder.ApplyConfiguration(new ExtractoLineaMatchConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraConciliacionConfiguration());
+        modelBuilder.ApplyConfiguration(new ChequeRecibidoConfiguration());
         modelBuilder.Entity<ReppPagoProveedor>(b =>
         {
             b.ToTable("repp_pagos_proveedor"); b.HasKey(x => x.Id); b.Property(x => x.Id).ValueGeneratedNever();

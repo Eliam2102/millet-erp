@@ -703,6 +703,14 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          label: 'Cheques recibidos',
+          description:
+            'Cheques de clientes en firme pendiente: confirmar contra el estado de cuenta o registrar el rebote.',
+          to: '/tesoreria/cheques',
+          icon: Banknote,
+          permission: PermisosCanonicos.TesoreriaMovimientosVer,
+        },
+        {
           label: 'Diferencias de corte',
           description:
             'Faltantes y sobrantes del efectivo de cada corte de caja: autorizar o rechazar (deudores funcionarios y empleados).',

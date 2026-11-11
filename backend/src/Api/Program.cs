@@ -2199,6 +2199,7 @@ Millet.Api.Endpoints.Tesoreria.ReportesEndpoints.MapTesoreriaReportesEndpoints(a
 
 // === Tesorería — Conciliación bancaria, emparejamiento multinivel, alta y acta (T9.2, 86e3ke6ne) ===
 Millet.Api.Endpoints.Tesoreria.ConciliacionesEndpoints.MapTesoreriaConciliacionesEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.ChequesEndpoints.MapTesoreriaChequesEndpoints(app);
 
 // === SignalR hubs (CollaborationHub Sprint 1, ADR-0001 + ADR-0012 Capa 2) ===
 // /hubs/compras: canal de colaboración del módulo. Auth requerida — el

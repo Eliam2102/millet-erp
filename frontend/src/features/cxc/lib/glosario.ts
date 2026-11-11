@@ -96,6 +96,7 @@ export const ETIQUETA_TIPO_ALERTA: Record<TipoAlertaCartera, string> = {
   [TipoAlertaCartera.ExcesoCredito]: 'Exceso de crédito',
   [TipoAlertaCartera.AutoBloqueoVencimiento]: 'Auto-bloqueo por vencimiento',
   [TipoAlertaCartera.ContraEntregaNoLiquidada]: 'Contra entrega sin liquidar',
+  [TipoAlertaCartera.ChequeRebotado]: 'Cheque rebotado',
 };
 
 /** Formato de moneda sin conversión: cada monto con su divisa (§5). */
