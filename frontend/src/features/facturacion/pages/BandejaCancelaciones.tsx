@@ -20,7 +20,9 @@ import {
 import {
   useBandejaCancelaciones,
   useDecidirCancelacion,
+  useModificarCancelacion,
 } from '@/features/facturacion/api/useFacturas';
+import { ReglasFirmaCancelacionSheet } from '@/features/facturacion/components/ReglasFirmaCancelacionSheet';
 import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -58,6 +60,7 @@ export function BandejaCancelaciones() {
   const pendientes = estado === 'PendienteAutorizacion';
   const items = query.data ?? [];
   const usuarioId = useAuthStore((s) => s.user?.id);
+  const [reglasAbiertas, setReglasAbiertas] = useState(false);
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink">
@@ -66,9 +69,19 @@ export function BandejaCancelaciones() {
         descripcion={
           <>
             Ingresos solicita la cancelación; solo se envía al SAT cuando el Contador General la
-            autoriza.
+            autoriza. Arriba del umbral configurado se pide una segunda firma de otra persona.
           </>
         }
+        acciones={
+          <Button variant="outline" size="sm" onClick={() => setReglasAbiertas(true)}>
+            Firmas por monto
+          </Button>
+        }
+      />
+      <ReglasFirmaCancelacionSheet
+        abierto={reglasAbiertas}
+        onOpenChange={setReglasAbiertas}
+        puedeEditar={puedeAutorizar}
       />
       <ListadoModulo
         tabs={
@@ -118,6 +131,9 @@ export function BandejaCancelaciones() {
                     c={c}
                     puedeDecidir={pendientes && puedeAutorizar}
                     propia={pendientes && c.solicitadaPorId != null && c.solicitadaPorId === usuarioId}
+                    yaFirmo={
+                      pendientes && c.primeraFirmaPorId != null && c.primeraFirmaPorId === usuarioId
+                    }
                     mostrarEstado={!estado}
                   />
                 ))}
@@ -134,12 +150,15 @@ function FilaCancelacion({
   c,
   puedeDecidir,
   propia,
+  yaFirmo = false,
   mostrarEstado = false,
 }: {
   c: CancelacionBandejaItem;
   puedeDecidir: boolean;
   /** La solicitó quien ve la bandeja: la decide otra persona (O2). */
   propia: boolean;
+  /** M-235: quien ve la bandeja dio la primera firma; la segunda la da otra persona. */
+  yaFirmo?: boolean;
   /** Pestaña «Todos» (B3): cada fila dice en qué estado va su solicitud. */
   mostrarEstado?: boolean;
 }) {
@@ -147,6 +166,10 @@ function FilaCancelacion({
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const motivoSat = MOTIVOS_CANCELACION.find((m) => m.value === c.motivoSat)?.label ?? c.motivoSat;
+  const firmasRequeridas = c.firmasRequeridas ?? 1;
+  const firmasDadas = c.firmasDadas ?? 0;
+  const esPrimeraDeDos = firmasRequeridas === 2 && firmasDadas === 0;
+  const pendiente = c.estadoSolicitud === 'PendienteAutorizacion';
 
   function enviar(accion: 'autorizar' | 'rechazar') {
     if (accion === 'rechazar' && motivo.trim() === '') {
@@ -158,10 +181,18 @@ function FilaCancelacion({
         id: c.comprobanteId,
         accion,
         motivo: motivo.trim(),
+        huella: c.huella,
         idempotencyKey: crypto.randomUUID(),
       },
       {
         onSuccess: (res) => {
+          // M-235: la primera de dos firmas no envía al SAT.
+          if (accion === 'autorizar' && res.estadoSolicitud === 'PendienteAutorizacion') {
+            toast.success(
+              `Primera firma de la cancelación de ${c.folio} registrada. Falta la segunda firma de otra persona.`,
+            );
+            return;
+          }
           // M18: el SAT puede rechazar la cancelación aunque la API responda 200.
           if (accion === 'autorizar' && res.estadoSolicitud === 'Rechazada') {
             toast.error(
@@ -203,6 +234,15 @@ function FilaCancelacion({
         {c.uuidSustituto && (
           <p className="font-mono text-xs text-ink-muted">Sustituye: {c.uuidSustituto}</p>
         )}
+        {firmasRequeridas === 2 && (
+          <p className="text-xs text-ink-muted">
+            Firmas: {firmasDadas} de 2
+            {pendiente && c.primeraFirmaPor ? ` · primera de ${c.primeraFirmaPor}` : ''}
+          </p>
+        )}
+        {pendiente && c.firmaAnuladaMotivo && (
+          <p className="text-xs text-danger-fg">Firma anulada: {c.firmaAnuladaMotivo}</p>
+        )}
       </TableCell>
       <TableCell>
         <p>{c.solicitadaPor ?? '—'}</p>
@@ -210,7 +250,11 @@ function FilaCancelacion({
       </TableCell>
       <TableCell>
         {propia ? (
-          <p className="text-xs text-ink-muted">La solicitaste tú; la autoriza otra persona.</p>
+          <ModificarSolicitud c={c} />
+        ) : yaFirmo ? (
+          <p className="text-xs text-ink-muted">
+            Diste la primera firma; la segunda la da otra persona.
+          </p>
         ) : puedeDecidir ? (
           rechazando ? (
             <div className="flex min-w-64 flex-col gap-2">
@@ -243,7 +287,13 @@ function FilaCancelacion({
           ) : (
             <div className="flex gap-2">
               <Button size="sm" onClick={() => enviar('autorizar')} disabled={decidir.isPending}>
-                {decidir.isPending ? 'Enviando…' : 'Autorizar'}
+                {decidir.isPending
+                  ? 'Enviando…'
+                  : esPrimeraDeDos
+                    ? 'Dar primera firma'
+                    : firmasRequeridas === 2
+                      ? 'Dar segunda firma'
+                      : 'Autorizar'}
               </Button>
               <Button
                 size="sm"
@@ -271,6 +321,89 @@ function FilaCancelacion({
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+/**
+ * M-235: quien solicitó corrige motivo o sustituto mientras sigue pendiente. Si ya
+ * había una firma, se anula y se pide otra vez.
+ */
+function ModificarSolicitud({ c }: { c: CancelacionBandejaItem }) {
+  const modificar = useModificarCancelacion();
+  const [editando, setEditando] = useState(false);
+  const [motivoSat, setMotivoSat] = useState(c.motivoSat);
+  const [sustituto, setSustituto] = useState(c.uuidSustituto ?? '');
+  const requiereSustituto =
+    MOTIVOS_CANCELACION.find((m) => m.value === motivoSat)?.requiereSustituto ?? false;
+
+  if (!editando)
+    return (
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-ink-muted">La solicitaste tú; la autoriza otra persona.</p>
+        <Button size="sm" variant="outline" className="self-start" onClick={() => setEditando(true)}>
+          Modificar
+        </Button>
+      </div>
+    );
+
+  function guardar() {
+    if (requiereSustituto && sustituto.trim() === '') {
+      toast.error('El motivo 01 exige el UUID del CFDI sustituto.');
+      return;
+    }
+    modificar.mutate(
+      {
+        id: c.comprobanteId,
+        motivoSat,
+        uuidSustituto: requiereSustituto ? sustituto.trim() : null,
+        idempotencyKey: crypto.randomUUID(),
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            (c.firmasDadas ?? 0) > 0
+              ? `Solicitud de ${c.folio} modificada. La firma anterior se anuló: hay que autorizarla de nuevo.`
+              : `Solicitud de ${c.folio} modificada.`,
+          );
+          setEditando(false);
+        },
+        onError: (error) => mostrarError(error, 'No se pudo modificar la solicitud.'),
+      },
+    );
+  }
+
+  return (
+    <div className="flex min-w-64 flex-col gap-2">
+      <select
+        aria-label={`Motivo SAT de ${c.folio}`}
+        className="block h-9 w-full rounded-md border border-line-control bg-surface-card px-3"
+        value={motivoSat}
+        onChange={(e) => setMotivoSat(e.target.value)}
+      >
+        {MOTIVOS_CANCELACION.map((m) => (
+          <option key={m.value} value={m.value}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+      {requiereSustituto && (
+        <Input
+          aria-label={`UUID sustituto de ${c.folio}`}
+          placeholder="UUID del CFDI sustituto"
+          value={sustituto}
+          maxLength={36}
+          onChange={(e) => setSustituto(e.target.value)}
+        />
+      )}
+      <div className="flex gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setEditando(false)} disabled={modificar.isPending}>
+          Volver
+        </Button>
+        <Button size="sm" onClick={guardar} disabled={modificar.isPending}>
+          {modificar.isPending ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </div>
+    </div>
   );
 }
 
