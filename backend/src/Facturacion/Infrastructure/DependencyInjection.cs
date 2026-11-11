@@ -146,6 +146,8 @@ public static class DependencyInjection
         // --- F9: catálogo de Activos Fijos — stub hasta el módulo Activos Fijos ---
         // PLATFORM-TODO(<ActivosFijos>)
         services.AddScoped<IActivosFijosReadPort, NoOpActivosFijosReadPort>();
+        // M-354: dirección de entrega del pedido A+W (AL_/AH_) para el destino de la Carta Porte.
+        services.AddScoped<IDireccionEntregaPedidoReadPort, NoOpDireccionEntregaPedidoReadPort>(); // PLATFORM-TODO(<DireccionEntregaPedidoAw>)
 
         // --- F10-PR2: ingesta Planta Pintura. I13.9: con AwIntegracionDb lo pisa PinturasPedidosAdapter
         // (Integraciones.Aw, lectura + acuse); este stub queda como fallback dev sin conexión.
