@@ -23,25 +23,13 @@ import {
   useRegistrarDocumentoTercero,
   useTramosPedido,
 } from '@/features/facturacion/api/useTramos';
+import { MODALIDADES_TRAMO, textoEstadoTramo } from '@/features/facturacion/lib/tramos-traslado';
 import { useNuevaCartaPorte } from '@/features/facturacion/components/nueva-carta-porte-context';
 import { mensajeErrorAccion } from '@/lib/api/error';
 import { Link } from '@tanstack/react-router';
 import { Plus, Route as RouteIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-
-export const MODALIDADES_TRAMO: { value: ModalidadTramo; label: string }[] = [
-  { value: 'VehiculoPropio', label: 'Vehículo propio (Millet emite Carta Porte)' },
-  { value: 'TransportistaTercero', label: 'Transportista tercero (documento del tercero)' },
-];
-
-/** Texto del estado del tramo según su modalidad. */
-export function textoEstadoTramo(t: Pick<TramoTraslado, 'estado' | 'cartaPorteFolio'>): string {
-  if (t.estado === 'PorEmitir') return 'Carta Porte por emitir';
-  if (t.estado === 'SinDocumentoTercero') return 'Falta el documento del tercero';
-  if (t.estado === 'DocumentoTercero') return 'Documento del tercero registrado';
-  return `Carta Porte ${t.cartaPorteFolio ?? ''} · ${t.estado.replace('CartaPorte', '')}`.trim();
-}
 
 /**
  * M-354 · Tramos del traslado del pedido, cada uno con su modalidad. El tramo de vehículo propio emite Carta Porte de Millet;
