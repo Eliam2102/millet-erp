@@ -132,9 +132,13 @@ public static class AlmacenesAppSalida
         if (!TryClave(datos, "equipo", out var equipo)) return (null, "datos.equipo debe ser texto o numérico.");
         // Jorge (TI), 11-nov: la rotura y la salida manual no son de ninguna mesa; son del área de Almacén. El centro sale de la
         // configuración por sucursal, almacén y motivo (CentroAlmacen), solo si el mensaje no trae área ni equipo.
+        var deConfiguracion = false;
         if (area is null && equipo is null && tipo is "ROTURA" or "SALIDA_MANUAL"
             && CentroAlmacen(centrosAlmacen, sucursal, Llave(almacenes[0])?.Tipo, Texto(datos, "motivoClave")) is { } cfg)
+        {
             (area, equipo) = cfg;
+            deConfiguracion = true;
+        }
         Guid? centro = null;
         var tipoMov = tipo switch
         {
@@ -149,9 +153,11 @@ public static class AlmacenesAppSalida
             var causa = SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(tipoMov);
             var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(sp.EmpresaId, resuelto.SucursalId, causa,
                 DateOnly.FromDateTime(DateTime.UtcNow), area, equipo), ct);
-            if (d.Error is not null) return (null, d.Error);
+            // El centro por omisión es configuración del ERP, no dato de la app: si no resuelve (catálogo o ubicación de la sucursal
+            // sin cargar), la salida sigue sin centro como antes y su póliza va a Rechazos; no se frena el mensaje.
+            if (d.Error is not null && !deConfiguracion) return (null, d.Error);
             if (d.Faltante is not null && exigirAreaEquipo) return (null, d.Faltante);
-            centro = d.CentroCostoId;
+            centro = d.Error is null ? d.CentroCostoId : null;
         }
 
         var motivo = $"App Almacenes {tipo} {Texto(datos, "movimiento")}".TrimEnd();

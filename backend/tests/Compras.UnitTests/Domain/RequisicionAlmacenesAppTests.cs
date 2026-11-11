@@ -27,6 +27,19 @@ public class RequisicionAlmacenesAppTests
     }
 
     [Fact]
+    public void CrearDesdeAlmacenesApp_LlevaElEquipoDeAlmacenEnSusLineas()
+    {
+        // Jorge (TI), 11-nov: lo que pide la app es del área de Almacén; la OC exige centro de costo en cada línea.
+        var equipo = Guid.CreateVersion7();
+        var rq = Requisicion.CrearDesdeAlmacenesApp(
+            Guid.CreateVersion7(), Guid.CreateVersion7(), Millet.Compras.Domain.Folio.Parse("MID2026-000002"), 2026,
+            Guid.CreateVersion7(), Guid.CreateVersion7(), null, Guid.CreateVersion7(), Guid.CreateVersion7(),
+            DateTimeOffset.UtcNow, "APP-2", ProveedorApp,
+            [new LineaAppRequisicion(Guid.CreateVersion7(), 10m, "M2", Money.Of(1m, "MXN"), 5, 2440, 3660, CentroCostoId: equipo)]);
+        Assert.Equal(equipo, Assert.Single(rq.Lineas).CentroCostoId);
+    }
+
+    [Fact]
     public void ExigirProveedorFijo_ProveedorDistinto_Lanza()
     {
         var ex = Assert.Throws<BusinessRuleException>(() => RqApp().ExigirProveedorFijo(Guid.CreateVersion7()));

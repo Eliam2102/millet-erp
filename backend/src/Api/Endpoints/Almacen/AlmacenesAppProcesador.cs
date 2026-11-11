@@ -21,7 +21,8 @@ public sealed class AlmacenesAppProcesador(
     AlmacenDbContext db, IComprasCrearRqAppPort rqApp, IAppSalidaResolverPort salidaResolver,
     IUsuarioServicioReadPort usuarioServicio, SalidaAppAlmacenesGuardado salidasGuardado,
     MermaProcesoAppGuardado mermasGuardado, IDimensionesSalidaInventarioPort dimensiones,
-    IOptions<AlmMensajeOptions> opciones) : IProcesadorMensajeApp
+    IOptions<AlmMensajeOptions> opciones,
+    Millet.Contabilidad.Application.Ports.ICentroCostoContabilidadPort? centros = null) : IProcesadorMensajeApp
 {
     /// <summary>
     /// Tipos que, rechazados (ERROR/EN_REVISION), se reevalúan al llegar el reenvío del mismo mensajeId. La bandeja de
@@ -157,7 +158,8 @@ public sealed class AlmacenesAppProcesador(
                 // Punto de enchufe de handlers: un case por tipo.
                 (estado, folio, error) = tipo switch
                 {
-                    "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
+                    "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct,
+                        await EquipoAlmacenAsync(Str(datos, "sucursal"), ct)),
                     AlmacenesAppRequisicionEnviada.Cancelada or AlmacenesAppRequisicionEnviada.Reducida =>
                         await AlmacenesAppRequisicionEnviada.ManejarAvisoAsync(tipo, datos, rqApp, ct),
                     _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
@@ -182,6 +184,20 @@ public sealed class AlmacenesAppProcesador(
 
         // Mismo folio (y error, si lo hubo) que la primera vez; nada nuevo se crea.
         return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
+    }
+
+    /// <summary>
+    /// Jorge (TI), 11-nov: lo que pide la app es del área de Almacén. La RQ de la app lleva en sus líneas el equipo (Dim3) configurado
+    /// para la sucursal (<see cref="AlmMensajeOptions.CentroAlmacen"/>), que la OC exige. Sin configuración o sin equipo vigente: null
+    /// (la RQ nace como antes y Compras elige el centro al armar la OC).
+    /// </summary>
+    private async Task<Guid?> EquipoAlmacenAsync(string? sucursal, CancellationToken ct)
+    {
+        if (centros is null || string.IsNullOrWhiteSpace(sucursal)
+            || AlmacenesAppSalida.CentroAlmacen(opciones.Value.CentroAlmacen, sucursal, null, null) is not { Equipo: { } equipo })
+            return null;
+        var nodos = await centros.BuscarAsync(Millet.Contabilidad.Domain.DimensionContable.Dim3, equipo, null, false, 50, ct);
+        return nodos.FirstOrDefault(n => n.ActivoEnCadena && string.Equals(n.Clave.Trim(), equipo, StringComparison.OrdinalIgnoreCase))?.Id;
     }
 
     /// <summary>ERROR de datos: queda en la bandeja con folio de revisión y no mueve saldo.</summary>

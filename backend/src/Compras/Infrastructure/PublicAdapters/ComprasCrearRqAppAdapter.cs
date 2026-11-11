@@ -166,7 +166,7 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
                     return new LineaAppRequisicion(a.Id, l.Piezas, a.UnidadMedidaDefault,
                         Money.Of(a.PrecioReferenciaMonto ?? 0m, a.PrecioReferenciaMoneda ?? "MXN"),
                         l.Piezas, l.AnchoMm, l.AltoMm, s.FechaRequerida,
-                        l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra, l.Posicion);
+                        l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra, l.Posicion, s.CentroCostoId);
                 }).ToList(),
                 s.Comentario is { Length: > 500 } ? s.Comentario[..500] : s.Comentario);
             rq.RegistrarCubrimiento(

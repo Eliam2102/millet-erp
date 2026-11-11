@@ -30,6 +30,19 @@ public sealed class CentroAlmacenAppTests
     }
 
     [Fact]
+    public async Task Si_el_centro_configurado_no_resuelve_la_salida_sigue_sin_centro_y_no_se_frena()
+    {
+        // Sin la ubicación de la sucursal (contabilidad.ubicaciones_sucursal) el área no resuelve: antes de esta regla la salida
+        // pasaba sin centro y su póliza iba a Rechazos; la configuración del ERP no debe convertir eso en ERROR para la app.
+        var dims = new Dimensiones { Error = "El área 23AL00 no existe, está dada de baja o no es de la sucursal del movimiento." };
+        var (r, error) = await AlmacenesAppSalida.ManejarAsync("SALIDA_MANUAL", SalidaManual, new Resolver(), new UsuarioServicio(), default,
+            dims, centrosAlmacen: new Dictionary<string, string> { ["CONKAL"] = "23AL00/ALGRA01" });
+
+        Assert.Null(error);
+        Assert.All(r!.Salidas, s => Assert.Null(s.CentroCostoId));
+    }
+
+    [Fact]
     public void La_llave_mas_especifica_gana_y_sin_coincidencia_no_hay_centro()
     {
         var mapa = new Dictionary<string, string>
@@ -47,11 +60,14 @@ public sealed class CentroAlmacenAppTests
     {
         public static readonly Guid Centro = Guid.NewGuid();
         public SolicitudDimensionesSalida? Ultima { get; private set; }
+        public string? Error { get; init; }
 
         public Task<DimensionesSalidaResultado> ResolverAsync(SolicitudDimensionesSalida solicitud, CancellationToken ct)
         {
             Ultima = solicitud;
-            return Task.FromResult(new DimensionesSalidaResultado(null, null, Centro, true, false, "504.25.02.00"));
+            return Task.FromResult(Error is null
+                ? new DimensionesSalidaResultado(null, null, Centro, true, false, "504.25.02.00")
+                : new DimensionesSalidaResultado(Error, null, null, false, false, null));
         }
     }
 
