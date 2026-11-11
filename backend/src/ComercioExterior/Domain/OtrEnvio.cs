@@ -71,6 +71,17 @@ public sealed class OtrEnvio : BaseEntity, IAuditable, IPerteneceAEmpresa
         if (contenido.Cancelado) Estado = EstadoOtrEnvio.Cancelado;
         return true;
     }
+    public void RevalidarSucursal(Guid sucursal)
+    {
+        if (Estado != EstadoOtrEnvio.PorVincular || ExpedienteId is not null || ContenedorId is not null
+            || SucursalId != Guid.Empty || ClienteId == Guid.Empty || MotivoVinculacion != "CE_OTR_SUCURSAL_DESCONOCIDA")
+            throw new BusinessRuleException("CE_OTR_REVALIDACION_NO_APLICABLE", "Sólo puede revalidar un envío pendiente, sin sucursal y sin expediente.");
+        if (sucursal == Guid.Empty)
+            throw new BusinessRuleException("CE_OTR_SUCURSAL_DESCONOCIDA", "La clave A+W aún no tiene equivalencia con una sucursal activa.");
+        // La equivalencia local no altera el contenido ni el hash de la versión recibida de A+W.
+        SucursalId = sucursal;
+        MotivoVinculacion = null;
+    }
     public void ExigirIdentidad()
     {
         if (MotivoVinculacion is not null) throw new BusinessRuleException(MotivoVinculacion, "Configure la equivalencia A+W del cliente o sucursal antes de vincular.");

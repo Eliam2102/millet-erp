@@ -220,3 +220,16 @@ responsables de recuperación y firma I13.4: **Por confirmar con Millet y Jorge*
 - `compartido.sucursales.clave_aw` admite varias claves separadas por coma (la primera es la principal, el resto alias, máx. 40 caracteres en total). Se edita donde ya se edita `ClaveAw` (crear/actualizar sucursal). Una clave no puede repetirse entre sucursales. Respuesta de TI (30-oct): Conkal = `CONKAL,PERIFERICO,OBRAS`; Circuito = `CIRCUITO`; Chichí Suárez = `COTTOLENGO`; Cancún = `CANCUN`.
 - `REPOSICIONES`, `REEMPLAZOS`, `REPOSICIÓN CON COSTO`, `RETRABAJO`, `MUESTRAS` **no son sucursales**: no se configuran como alias y el envío queda `PorVincular` con `CE_OTR_SUCURSAL_DESCONOCIDA`. Pendiente de decisión de administración: heredar la sucursal del pedido original.
 - La dirección de entrega sale de `LOCATION_ADDRESS_TEXT` y, si viene vacía, de `LOCATION_ADDRESS`. Antes solo se usaba la primera y, al venir vacía, el envío se rechazaba con `CE_OTR_DATOS_INVALIDOS`.
+
+
+### Revalidar una equivalencia de sucursal en un envío ya leído
+
+La consulta de la bandeja sin expediente devuelve los tres estados OTR; conserva el aislamiento por empresa y sucursal. Las pestañas filtran esos estados en el cliente. Con `expedienteId`, sólo devuelve los envíos de ese expediente y exige acceso a su sucursal.
+
+`POST /api/v1/comercio-exterior/otr/{id}/revalidar-sucursal` vuelve a resolver la clave A+W guardada contra el catálogo de sucursales activas. Usa el permiso de gestión OTR, el alcance corporativo de gestión para el registro sin sucursal, `Idempotency-Key` y `If-Match` con la **versión ERP**, no la marca de tiempo A+W. También comprueba el acceso de gestión a la sucursal resuelta.
+
+Sólo se aplica a un envío `PorVincular`, con cliente reconocido, sucursal vacía y sin expediente ni contenedor. No recibe una sucursal elegida por el solicitante. Sin equivalencia activa se rechaza y conserva el bloqueo. Los vinculados, cancelados o ya resueltos no se reasignan.
+
+La revalidación actualiza la sucursal local y reevalúa el motivo de las partidas vigentes. Conserva la versión fuente, el contenido y su hash, los IDs/cantidades de las partidas, los conflictos y el control de lectura. El cambio local incrementa la versión ERP y queda en la auditoría existente. No crea un expediente, no vincula ni confirma partidas y no escribe en A+W.
+
+Es una acción explícita: abrir la bandeja, reiniciar el worker o desplegar el código no revalida automáticamente el histórico. Antes de recuperar un lote en QA, obtener una vista previa de sólo lectura con IDs, versiones ERP, clave A+W y equivalencia propuesta, autorizar su aplicación y volver a comprobar las versiones; no borrar controles ni inventar una nueva versión de origen.

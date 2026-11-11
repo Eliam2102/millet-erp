@@ -18,13 +18,16 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
-import { useOtrEnvios, type OtrEnvio } from '../api/otr';
+import { errorUsuario } from '@/lib/error-usuario';
+import { useOtrEnvios, useOtrAccion, type OtrEnvio } from '../api/otr';
 import { motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
 import { VincularOtrSheet } from '../components/OtrPanel';
 const columnas =
-  'grid grid-cols-[120px_minmax(240px,1.6fr)_112px_136px_260px_148px] items-center [&>td]:min-w-0 [&>th]:min-w-0';
+  'grid grid-cols-[120px_minmax(240px,1.6fr)_112px_136px_260px_172px] items-center [&>td]:min-w-0 [&>th]:min-w-0';
 export function OtrBandejaPage() {
   const q = useOtrEnvios();
+  const revalidar = useOtrAccion();
+  const gestionarTodas = useHasPermission(P.ComercioExteriorDocumentosGestionarTodasSucursales);
   const [seleccion, setSeleccion] = useState<OtrEnvio>();
   const [texto, setTexto] = useState('');
   const [pagina, setPagina] = useState(0);
@@ -56,6 +59,11 @@ export function OtrBandejaPage() {
         <Info aria-hidden="true" className="size-4 shrink-0" />
         A+W OTR organiza transporte. No crea requisiciones, órdenes de compra ni proveedores.
       </p>
+      {revalidar.isError && (
+        <p role="alert" className="shrink-0 text-danger-fg">
+          {errorUsuario(revalidar.error, 'No se pudo revalidar la sucursal.')}
+        </p>
+      )}
       {q.isError ? (
         <ErrorState
           title="No se pudieron cargar los envíos OTR"
@@ -111,7 +119,7 @@ export function OtrBandejaPage() {
               {filas.length > 0 && (
                 <Table
                   aria-label="Envíos OTR"
-                  className="grid h-full min-w-[1016px] grid-rows-[auto_1fr] text-sm"
+                  className="grid h-full min-w-[1040px] grid-rows-[auto_1fr] text-sm"
                 >
                   <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
                     <TableRow className={`${columnas} h-9`}>
@@ -171,7 +179,28 @@ export function OtrBandejaPage() {
                           )}
                         </TableCell>
                         <TableCell className="px-3">
-                          {gestionar && e.estado === 1 ? (
+                          {gestionar &&
+                          gestionarTodas &&
+                          e.estado === 1 &&
+                          e.motivoVinculacion === 'CE_OTR_SUCURSAL_DESCONOCIDA' ? (
+                            <Button
+                              variant="outline"
+                              disabled={revalidar.isPending}
+                              title={
+                                revalidar.isPending
+                                  ? 'Revalidando sucursal.'
+                                  : 'Buscar la equivalencia vigente de la sucursal A+W.'
+                              }
+                              aria-describedby={`motivo-${e.id}`}
+                              onClick={() => {
+                                void revalidar
+                                  .mutateAsync({ envio: e, ruta: 'revalidar-sucursal' })
+                                  .catch(() => {});
+                              }}
+                            >
+                              Revalidar sucursal
+                            </Button>
+                          ) : gestionar && e.estado === 1 ? (
                             <Button
                               variant="outline"
                               disabled={!!e.motivoVinculacion}

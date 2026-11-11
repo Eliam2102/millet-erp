@@ -197,3 +197,23 @@ it('la búsqueda actualiza los conteos y reinicia la paginación', () => {
   expect(screen.getByRole('cell', { name: 'BUSCA-11' })).toBeInTheDocument();
   expect(screen.getByText('1–1 de 1')).toBeInTheDocument();
 });
+
+
+it('ofrece revalidar sucursal sólo con gestión corporativa y envía la versión del registro', () => {
+  state.data = [{ ...envio, estado: 1, expedienteId: null, motivoVinculacion: 'CE_OTR_SUCURSAL_DESCONOCIDA' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Revalidar sucursal' }));
+  expect(state.mutar).toHaveBeenCalledWith({ envio: state.data[0], ruta: 'revalidar-sucursal' });
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('consulta Cancelados sin mostrar acciones de revalidación o vinculación', () => {
+  state.data = [{ ...envio, estado: 3, motivoVinculacion: 'CE_OTR_SUCURSAL_DESCONOCIDA' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Cancelados\s*1/ }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('cell', { name: 'DEMO-OTR-1' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Revalidar sucursal' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
