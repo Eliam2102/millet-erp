@@ -92,6 +92,8 @@ public static class DependencyInjection
         services.AddScoped<RegistroPolizas>();
         services.AddScoped<LecturaPolizas>();
         services.AddScoped<IPolizaContablePort, PolizaContableAdapter>();
+        // M-240: póliza contraria de la reversa de un ajuste de cobro (CxC la pide al revertir).
+        services.AddScoped<IReversaAjusteCobroContablePort, Millet.Contabilidad.Application.Motor.ReversaAjusteCobroContableServicio>();
         services.AddScoped<IPolizaContableReadPort, PolizaContableAdapter>();
         services.AddScoped<IReversaPolizaContablePort, PolizaContableAdapter>();
         // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.

@@ -43,7 +43,7 @@ public sealed class AdjuntoAcceso
                 "ADJUNTO_TIPO_ENTIDAD_DESCONOCIDO",
                 $"El tipo de entidad '{tipoEntidad}' no admite adjuntos.");
 
-    public ValueTask<bool> TienePermisoAsync(string permiso, CancellationToken ct) => _permisos.TieneAsync(permiso, ct);
+    public async ValueTask<bool> TienePermisoAsync(string permiso, CancellationToken ct) => await TieneAlgunoAsync(permiso, ct);
 
     /// <summary>Solo la capa de permiso de rol (para operaciones sin padre, p. ej. listar tipos).</summary>
     public async Task<IAdjuntoPropietario> AutorizarPermisoAsync(
@@ -51,7 +51,7 @@ public sealed class AdjuntoAcceso
     {
         var propietario = ObtenerPropietario(tipoEntidad);
         var permiso = PermisoDe(propietario, operacion);
-        if (!await _permisos.TieneAsync(permiso, ct))
+        if (!await TieneAlgunoAsync(permiso, ct))
         {
             await AuditarAsync("denegacion", propietario.TipoEntidad, null, null,
                 $"Acceso denegado a adjuntos ({operacion}): falta el permiso {permiso}", ct: ct);
@@ -120,6 +120,14 @@ public sealed class AdjuntoAcceso
             cambios: "{}",
             metadatos: JsonSerializer.Serialize(new { tipoEntidad }),
             cancellationToken: ct);
+
+    /// <summary>M-240: <c>a|b</c> pasa con cualquiera de los permisos (mismo formato que las políticas de los endpoints).</summary>
+    private async Task<bool> TieneAlgunoAsync(string permiso, CancellationToken ct)
+    {
+        foreach (var p in permiso.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (await _permisos.TieneAsync(p, ct)) return true;
+        return false;
+    }
 
     private static string PermisoDe(IAdjuntoPropietario p, AdjuntoOperacion op) => op switch
     {

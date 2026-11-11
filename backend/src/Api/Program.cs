@@ -706,6 +706,9 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoProp
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
+// M-240: soporte (estado de cuenta o aviso del banco) del ajuste de un cobro corto en CxC.
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorCobrar.Application.AplicacionPagos.PropuestaAplicacionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Adjuntos.ISoporteAjusteCobroReadPort, Millet.Api.Infrastructure.Adapters.SoporteAjusteCobroReadAdapter>();
 // F6.9: evidencia del historial de CSD (renovación, sustitución, revocación).
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Infrastructure.Adapters.CertificadoCsdAdjuntoPropietario>();
 builder.Services.AddScoped<

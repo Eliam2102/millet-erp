@@ -506,6 +506,13 @@ export interface PropuestaAplicacionResponse {
   ajusteAutorizadoEn?: string | null;
   /** CXC-06: el ajuste espera autorización; Tesorería aún no ve la propuesta. */
   ajustePorAutorizar?: boolean;
+  /** M-240: reversa del ajuste autorizado (regresa el faltante a la factura y genera la póliza contraria). */
+  ajusteRevertidoPor?: string | null;
+  ajusteRevertidoEn?: string | null;
+  motivoReversaAjuste?: string | null;
+  polizaReversaAjusteId?: string | null;
+  /** El REP de la propuesta ya se timbró (el cobro está aplicado en cartera). */
+  reppTimbrado?: boolean;
 }
 
 /** Línea del payload de creación (mirror de <c>PropuestaFacturaLinea</c>). */

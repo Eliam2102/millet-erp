@@ -64,6 +64,18 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
     public Guid? AjusteAutorizadoPor { get; private set; }
     public DateTimeOffset? AjusteAutorizadoEn { get; private set; }
 
+    /// <summary>
+    /// M-240: reversa de un ajuste ya autorizado y contabilizado. Regresa el faltante a la(s) factura(s) y genera la póliza contraria
+    /// (ligada a la del cobro). Quién, cuándo, por qué y qué póliza la registró.
+    /// </summary>
+    public Guid? AjusteRevertidoPor { get; private set; }
+    public DateTimeOffset? AjusteRevertidoEn { get; private set; }
+    public string? MotivoReversaAjuste { get; private set; }
+    public Guid? PolizaReversaAjusteId { get; private set; }
+
+    /// <summary>M-240: el ajuste ya se revirtió.</summary>
+    public bool AjusteRevertido => AjusteRevertidoEn is not null;
+
     /// <summary>CXC-06: REP timbrado de la propuesta (correlaciona el movimiento de cartera con la póliza del cobro).</summary>
     public Guid? ReciboPagoId { get; private set; }
 
@@ -185,7 +197,8 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
     /// <summary>
     /// CXC-06: autoriza el ajuste documentado. Separación de funciones: quien propuso no autoriza su propio ajuste.
     /// </summary>
-    public void AutorizarAjuste(Guid usuarioId, DateTimeOffset ahora)
+    /// <param name="tieneSoporte">M-240: hay al menos un adjunto vigente (estado de cuenta o aviso del banco); obligatorio para la comisión.</param>
+    public void AutorizarAjuste(Guid usuarioId, DateTimeOffset ahora, bool tieneSoporte = false)
     {
         AsegurarPropuesta();
         if (AjusteNoFiscal >= 0)
@@ -197,8 +210,45 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         if (PropuestoPor == usuarioId)
             throw new BusinessRuleException("PAP_AJUSTE_MISMO_USUARIO",
                 "Quien propone el cobro no puede autorizar su propio ajuste. Solicita la autorización a otra persona.");
+        if (TipoAjuste == TipoAjusteCobro.ComisionBancaria && !tieneSoporte)
+            throw new BusinessRuleException("PAP_AJUSTE_SIN_SOPORTE",
+                "La comisión bancaria necesita su soporte: adjunta el estado de cuenta o el aviso del banco antes de autorizarla.");
         AjusteAutorizadoPor = usuarioId;
         AjusteAutorizadoEn = ahora;
+    }
+
+    /// <summary>
+    /// M-240: revierte un ajuste autorizado de un cobro ya confirmado y con REP timbrado (es decir, ya aplicado en cartera y
+    /// contabilizado). Motivo obligatorio; quien propuso el cobro no revierte su propio ajuste (misma separación que al autorizar).
+    /// La cartera y la póliza contraria las hace el caso de uso; aquí solo se valida y se registra.
+    /// </summary>
+    public void RevertirAjuste(Guid usuarioId, string motivo, DateTimeOffset ahora)
+    {
+        if (AjusteNoFiscal >= 0 || AjusteAutorizadoEn is null)
+            throw new BusinessRuleException("PAP_SIN_AJUSTE_AUTORIZADO", "La propuesta no tiene un ajuste autorizado que revertir.");
+        if (AjusteRevertidoEn is not null)
+            throw new BusinessRuleException("PAP_AJUSTE_YA_REVERTIDO", "El ajuste ya fue revertido.");
+        if (Estado != EstadoPropuestaAplicacion.Confirmada || !ReppTimbrado || ReciboPagoId is null)
+            throw new BusinessRuleException("PAP_AJUSTE_NO_APLICADO",
+                "Solo se revierte el ajuste de un cobro confirmado por Tesorería y con su REP timbrado. Si aún no se confirma, rechaza la propuesta.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("PAP_MOTIVO_REVERSA_VACIO", "El motivo de la reversa es obligatorio.");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("PAP_AUTORIZADOR_NO_IDENTIFICADO", "No se identificó a quien revierte.");
+        if (PropuestoPor == usuarioId)
+            throw new BusinessRuleException("PAP_REVERSA_MISMO_USUARIO",
+                "Quien propuso el cobro no puede revertir su ajuste. Solicita la reversa a otra persona.");
+        AjusteRevertidoPor = usuarioId;
+        AjusteRevertidoEn = ahora;
+        MotivoReversaAjuste = motivo.Trim();
+    }
+
+    /// <summary>M-240: póliza contraria registrada por Contabilidad para la reversa.</summary>
+    public void RegistrarPolizaReversaAjuste(Guid polizaId)
+    {
+        if (AjusteRevertidoEn is null)
+            throw new BusinessRuleException("PAP_AJUSTE_NO_REVERTIDO", "El ajuste no está revertido.");
+        PolizaReversaAjusteId = polizaId;
     }
 
     public void MarcarReppTimbrado(Guid? reciboPagoId = null)

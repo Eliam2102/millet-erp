@@ -41,6 +41,12 @@ public sealed class PropuestaAplicacionPagoConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.AjusteAutorizadoEn);
         builder.Property(e => e.ReciboPagoId);
         builder.Ignore(e => e.AjustePorAutorizar);
+        // M-240: reversa del ajuste ya autorizado y contabilizado.
+        builder.Property(e => e.AjusteRevertidoPor);
+        builder.Property(e => e.AjusteRevertidoEn);
+        builder.Property(e => e.MotivoReversaAjuste).HasMaxLength(400);
+        builder.Property(e => e.PolizaReversaAjusteId);
+        builder.Ignore(e => e.AjusteRevertido);
         builder.HasIndex(e => e.ReciboPagoId).HasDatabaseName("ix_propuesta_aplicacion_recibo_pago");
 
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();

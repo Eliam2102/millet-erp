@@ -68,7 +68,13 @@ public sealed record PropuestaAplicacionResponse(
     string? MotivoAjuste = null,
     Guid? AjusteAutorizadoPor = null,
     DateTimeOffset? AjusteAutorizadoEn = null,
-    bool AjustePorAutorizar = false);
+    bool AjustePorAutorizar = false,
+    // M-240 (aditivo): reversa del ajuste autorizado.
+    Guid? AjusteRevertidoPor = null,
+    DateTimeOffset? AjusteRevertidoEn = null,
+    string? MotivoReversaAjuste = null,
+    Guid? PolizaReversaAjusteId = null,
+    bool ReppTimbrado = false);
 
 internal static class PropuestaAplicacionMapper
 {
@@ -91,7 +97,8 @@ internal static class PropuestaAplicacionMapper
                 f.ImporteAplicado, f.NumParcialidad,
                 saldosInsolutos != null && saldosInsolutos.TryGetValue(f.FacturaCarteraId, out var saldo) ? saldo : null)).ToList(),
             p.Version, p.PropuestoPor, p.SaldoAFavorPorIdentificar, p.MovimientoBancarioId,
-            p.TipoAjuste, p.MotivoAjuste, p.AjusteAutorizadoPor, p.AjusteAutorizadoEn, p.AjustePorAutorizar);
+            p.TipoAjuste, p.MotivoAjuste, p.AjusteAutorizadoPor, p.AjusteAutorizadoEn, p.AjustePorAutorizar,
+            p.AjusteRevertidoPor, p.AjusteRevertidoEn, p.MotivoReversaAjuste, p.PolizaReversaAjusteId, p.ReppTimbrado);
 
     /// <summary>
     /// Envía la propuesta a Tesorería (<c>propuesta-aplicacion.creada.v1</c>). CXC-06: una propuesta con ajuste solo sale cuando el
