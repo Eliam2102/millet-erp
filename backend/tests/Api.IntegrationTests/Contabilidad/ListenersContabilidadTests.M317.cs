@@ -31,7 +31,7 @@ public sealed partial class ListenersContabilidadTests
         return r.Id;
     }
 
-    private async Task<HttpResponseMessage> AnularRevaluacionAsync(Escenario e, string motivo) =>
+    private static async Task<HttpResponseMessage> AnularRevaluacionAsync(Escenario e, string motivo) =>
         await Send(e.Admin, HttpMethod.Post, RevaluacionUrl + "/anular", new { Anio = Hoy().Year, Mes = Hoy().Month, Motivo = motivo });
 
     [Fact]
