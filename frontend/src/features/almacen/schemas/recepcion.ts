@@ -1,15 +1,25 @@
 import { z } from 'zod';
 import { FraccionArancelariaSchema } from '@/features/compras/ordenes/schemas/comercio-exterior';
 
-export const ImportacionRecepcionSchema = z.object({
-  numeroPedimento: z.string().refine((v) => /^[0-9]{15}$/.test(v.replaceAll(' ', '')), 'Captura el pedimento de 15 dígitos.'),
-  numeroBl: z.string().trim().min(1, 'Captura el BL o guía aérea.').max(50),
-  numeroContenedor: z.string().trim().min(1, 'Captura el número de contenedor.').max(40),
-  aduana: z.string().min(1, 'Selecciona la aduana.'),
-  clavePedimento: z.string().min(1, 'Selecciona la clave de pedimento.'),
-});
+export const ImportacionRecepcionSchema = z
+  .object({
+    numeroPedimento: z
+      .string()
+      .refine(
+        (v) => /^[0-9]{15}$/.test(v.replaceAll(' ', '')),
+        'Captura el pedimento de 15 dígitos.',
+      ),
+    numeroBl: z.string().trim().min(1, 'Captura el BL o guía aérea.').max(50),
+    numeroContenedor: z.string().trim().max(40),
+    modalidad: z.number().optional(),
+    aduana: z.string().min(1, 'Selecciona la aduana.'),
+    clavePedimento: z.string().min(1, 'Selecciona la clave de pedimento.'),
+  })
+  .refine((v) => v.modalidad === 3 || v.modalidad === 4 || !!v.numeroContenedor, {
+    message: 'Captura el número de contenedor.',
+    path: ['numeroContenedor'],
+  });
 export type ImportacionRecepcionValues = z.infer<typeof ImportacionRecepcionSchema>;
-
 
 /**
  * Regex laxo de UUID (8-4-4-4-12 hex) — los seeds del backend usan
@@ -74,7 +84,10 @@ export const FilaRecepcionSchema = z
     // F1-MP-01 S4 (E3): lote del proveedor. Obligatorio con medida (artículo ligado a A+W; el servidor revalida con LOTE_REQUERIDO).
     lote: z.string().max(50, 'Máximo 50 caracteres').nullish(),
     // G-10: parte rechazada en el acto (no entra al inventario; el pendiente sigue en la OC). Dañado y rechazado exigen evidencia.
-    cantidadRechazada: z.number().nonnegative('La cantidad rechazada no puede ser negativa').optional(),
+    cantidadRechazada: z
+      .number()
+      .nonnegative('La cantidad rechazada no puede ser negativa')
+      .optional(),
     motivoRechazo: z.string().max(500, 'Máximo 500 caracteres').nullish(),
     evidenciaBlobRef: z.string().max(500).nullish(),
     evidenciaNombre: z.string().nullish(),
@@ -85,7 +98,11 @@ export const FilaRecepcionSchema = z
     // Partida rechazada por completo: no entra nada, así que no pide lote ni rack.
     const soloRechazo = v.cantidad === 0 && rechazada > 0;
     if (rechazada > 0 && !v.motivoRechazo?.trim()) {
-      ctx.addIssue({ code: 'custom', path: ['motivoRechazo'], message: 'Indica el motivo del rechazo.' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['motivoRechazo'],
+        message: 'Indica el motivo del rechazo.',
+      });
     }
     if ((v.cantidadDanada > 0 || rechazada > 0) && !v.evidenciaBlobRef) {
       ctx.addIssue({
@@ -102,15 +119,16 @@ export const FilaRecepcionSchema = z
     // Solo se valida aquí lo rechazado en el acto, que el servidor no compara contra lo pendiente.
     if (v.medida) {
       const hojasMax = Math.floor(v.pendiente / v.medida.areaHojaM2 + 1e-6);
-      const mensaje = !Number.isInteger(v.cantidad) || (v.cantidad <= 0 && !soloRechazo)
-        ? 'Con medida, captura la cantidad en hojas enteras.'
-        : !Number.isInteger(v.cantidadDanada) || v.cantidadDanada > v.cantidad
-          ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
-          : !Number.isInteger(rechazada)
-            ? 'Las hojas rechazadas son enteras.'
-            : v.cantidad <= hojasMax && v.cantidad + rechazada > hojasMax
-              ? `Excede lo pendiente de la orden de compra (${hojasMax} hojas). Almacén recibe exacto.`
-              : null;
+      const mensaje =
+        !Number.isInteger(v.cantidad) || (v.cantidad <= 0 && !soloRechazo)
+          ? 'Con medida, captura la cantidad en hojas enteras.'
+          : !Number.isInteger(v.cantidadDanada) || v.cantidadDanada > v.cantidad
+            ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
+            : !Number.isInteger(rechazada)
+              ? 'Las hojas rechazadas son enteras.'
+              : v.cantidad <= hojasMax && v.cantidad + rechazada > hojasMax
+                ? `Excede lo pendiente de la orden de compra (${hojasMax} hojas). Almacén recibe exacto.`
+                : null;
       if (mensaje) {
         ctx.addIssue({ code: 'custom', path: ['cantidad'], message: mensaje });
         return;

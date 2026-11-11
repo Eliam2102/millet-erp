@@ -62,6 +62,7 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
 
     /// <summary>Overrides de crédito consumibles — calco AutorizacionAperturaCaja (§3.1, CXC-PR4).</summary>
     public DbSet<AutorizacionCredito> AutorizacionesCredito => Set<AutorizacionCredito>();
+    public DbSet<ReglaFirmaExcepcionCredito> ReglasFirmaExcepcionCredito => Set<ReglaFirmaExcepcionCredito>();
 
     /// <summary>Gestiones de cobranza — historial auditable append-only (§3.1, CXC-PR5).</summary>
     public DbSet<SeguimientoCobranza> SeguimientosCobranza => Set<SeguimientoCobranza>();
@@ -100,6 +101,7 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new DecisionLiberacionConfiguration());
         modelBuilder.ApplyConfiguration(new ReglaLiberacionSerieConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionCreditoConfiguration());
+        modelBuilder.ApplyConfiguration(new ReglaFirmaExcepcionCreditoConfiguration());
         modelBuilder.ApplyConfiguration(new SeguimientoCobranzaConfiguration());
         modelBuilder.ApplyConfiguration(new PropuestaAplicacionPagoConfiguration());
         modelBuilder.ApplyConfiguration(new PropuestaAplicacionFacturaConfiguration());

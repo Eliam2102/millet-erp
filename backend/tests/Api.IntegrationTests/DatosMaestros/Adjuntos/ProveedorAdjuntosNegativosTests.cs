@@ -111,8 +111,12 @@ public class ProveedorAdjuntosNegativosTests
         var binario = await SubirAsync(admin, prov, TipoContrato, CabeceraExe, "datos.xml", "application/xml");
         await AssertRechazoAsync(amb, prov, binario, HttpStatusCode.UnprocessableEntity, "ADJUNTO_FORMATO_NO_PERMITIDO");
 
+        var sinNamespace = await SubirAsync(
+            admin, prov, TipoContrato, "<?xml version=\"1.0\"?><cfdi:Comprobante/>"u8.ToArray(), "sin-namespace.xml", "application/xml");
+        await AssertRechazoAsync(amb, prov, sinNamespace, HttpStatusCode.UnprocessableEntity, "ADJUNTO_FORMATO_NO_PERMITIDO");
+
         var valido = await SubirAsync(
-            admin, prov, TipoContrato, "<?xml version=\"1.0\"?><cfdi:Comprobante/>"u8.ToArray(), "cfdi.xml", "application/xml");
+            admin, prov, TipoContrato, "<?xml version=\"1.0\"?><cfdi:Comprobante xmlns:cfdi=\"http://www.sat.gob.mx/cfd/4\"/>"u8.ToArray(), "cfdi.xml", "application/xml");
         Assert.Equal(HttpStatusCode.Created, valido.StatusCode);
     }
 

@@ -96,7 +96,7 @@ public sealed class PrubObservacionesEndpointsTests(PrubObservacionesEndpointsTe
         {
             var listado = await client.GetAsync("/api/v1/cuentas-por-cobrar/autorizaciones/beneficiarios");
             Assert.Equal(permitido ? 1 : 0, (await Json(listado)).GetArrayLength());
-            var res = await client.PostAsJsonAsync("/api/v1/cuentas-por-cobrar/autorizaciones", new { beneficiarioUsuarioId = port.Id, motivo = "Pago en tránsito", clienteOPedidoRef = referencia, vigenciaHoras = 24 });
+            var res = await client.PostAsJsonAsync("/api/v1/cuentas-por-cobrar/autorizaciones", new { beneficiarioUsuarioId = port.Id, motivo = "Pago en tránsito", clienteOPedidoRef = referencia, condicion = 1, montoAutorizado = 1000m, moneda = "MXN", vigenciaHoras = 24 });
             Assert.Equal(permitido ? HttpStatusCode.Created : HttpStatusCode.UnprocessableEntity, res.StatusCode);
             if (!permitido) Assert.Equal("AC_BENEFICIARIO_SIN_PERMISO", await Code(res));
         }

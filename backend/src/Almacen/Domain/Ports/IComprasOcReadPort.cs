@@ -36,7 +36,10 @@ public sealed record OcLectura(
     string Estado,
     IReadOnlyList<OcLineaLectura> Lineas,
     Guid? SucursalDestinoId = null, bool EsImportacion = false,
-    string? NumeroPedimento = null, string? NumeroBl = null, string? NumeroContenedor = null);
+    string? NumeroPedimento = null, string? NumeroBl = null, string? NumeroContenedor = null,
+    IReadOnlyList<UnidadTransporteImportacionLectura>? Transportes = null);
+
+public sealed record UnidadTransporteImportacionLectura(string? Numero, string? BlGuia, int? Modalidad);
 
 public sealed record OcLineaLectura(
     Guid LineaId,

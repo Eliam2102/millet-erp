@@ -13,10 +13,12 @@ namespace Millet.Compras.Infrastructure.PublicAdapters;
 public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcionesReadPort
 {
     private readonly ComprasDbContext _db;
+    private readonly Millet.Compras.Application.PublicPorts.ITransporteImportacionCeReadPort? _transporte;
 
-    public ComprasOcReadAdapter(ComprasDbContext db)
+    public ComprasOcReadAdapter(ComprasDbContext db, Millet.Compras.Application.PublicPorts.ITransporteImportacionCeReadPort? transporte = null)
     {
         _db = db;
+        _transporte = transporte;
     }
 
     public async Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken cancellationToken)
@@ -45,6 +47,7 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
                 ProductoAwVarianteId: l.ProductoAwVarianteId, AnchoMm: l.AnchoMm, AltoMm: l.AltoMm))
             .ToList();
 
+        var transporte = _transporte is null ? null : await _transporte.ObtenerAsync(oc.Id, cancellationToken);
         return new OcLectura(
             Id: oc.Id,
             Folio: oc.Folio.Valor,
@@ -53,7 +56,8 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
             Estado: oc.Estado.ToString(),
             Lineas: lineas,
             SucursalDestinoId: oc.SucursalDestinoId, EsImportacion: oc.EsImportacion,
-            NumeroPedimento: oc.InfoImportNumeroPedimento, NumeroBl: oc.InfoImportNumeroBl, NumeroContenedor: oc.InfoImportNumeroContenedor);
+            NumeroPedimento: oc.InfoImportNumeroPedimento, NumeroBl: oc.InfoImportNumeroBl, NumeroContenedor: oc.InfoImportNumeroContenedor,
+            Transportes: transporte?.Contenedores.Select(c => new UnidadTransporteImportacionLectura(c.Numero, c.BlGuia, c.Modalidad)).ToArray());
     }
 
     public async Task<IReadOnlyCollection<Guid>> ObtenerIdsPorProveedorAsync(

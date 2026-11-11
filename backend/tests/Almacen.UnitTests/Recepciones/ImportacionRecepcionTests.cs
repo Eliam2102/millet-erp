@@ -71,4 +71,22 @@ public class ImportacionRecepcionTests
     [Fact]
     public void Compra_nacional_no_exige_datos_aduanales() =>
         Assert.Null(ImportacionRecepcionGuard.Crear(Oc() with { EsImportacion = false }, null, Partidas()));
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void P25_Guia_autorizada_por_CE_admite_recepcion_sin_contenedor(int modalidad)
+    {
+        var oc = Oc() with { Transportes = [new(null, "GUIA-MUESTRA", modalidad)] };
+        var datos = ImportacionRecepcionGuard.Crear(oc, new("261612346000001", "GUIA-MUESTRA", null, "16", "AF"), Partidas())!;
+        Assert.Null(datos.NumeroContenedor);
+        Assert.Equal("GUIA-MUESTRA", datos.NumeroBl);
+    }
+
+    [Fact]
+    public void P25_No_exime_contenedor_con_una_guia_ajena_o_transporte_maritimo()
+    {
+        foreach (var transporte in new[] { new UnidadTransporteImportacionLectura(null, "OTRA-GUIA", 3), new(null, "GUIA-MUESTRA", 1) })
+            Assert.Throws<BusinessRuleException>(() => ImportacionRecepcionGuard.Crear(Oc() with { Transportes = [transporte] }, new("261612346000001", "GUIA-MUESTRA", null, "16", "AF"), Partidas()));
+    }
 }

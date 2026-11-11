@@ -73,9 +73,9 @@ public sealed class ContenedorExpediente : BaseEntity, IAuditable, IPerteneceAEm
         var json = parcial ? AutorizacionParcialJson : ExcepcionSinFacturaJson;
         return json is null ? [] : System.Text.Json.JsonSerializer.Deserialize<AutorizacionDespacho[]>(json)!;
     }
-    private void ExigirReferencias()
+    private void ExigirReferencias(bool permitirGuia = false)
     {
-        if (string.IsNullOrWhiteSpace(Numero) || string.IsNullOrWhiteSpace(BlGuia))
+        if (((!permitirGuia || Modalidad is not (ModalidadTransporte.Aereo or ModalidadTransporte.Paqueteria)) && string.IsNullOrWhiteSpace(Numero)) || string.IsNullOrWhiteSpace(BlGuia))
             throw new BusinessRuleException("CE_EMBARQUE_DATOS_REQUERIDOS", "Capture número de contenedor y BL o guía.");
     }
     internal void Editar(DatosContenedor datos)
@@ -86,7 +86,7 @@ public sealed class ContenedorExpediente : BaseEntity, IAuditable, IPerteneceAEm
         if (new[] { datos.Numero, datos.Sello, datos.Booking, datos.BlGuia, datos.Ruta }.Any(x => x?.Length > 200)
             || datos.PesoKg is < 0 or >= 1_000_000_000_000m || (datos.PesoKg is decimal peso && decimal.Round(peso, 6) != peso) || datos.Bultos < 0)
             throw new BusinessRuleException("CE_CONTENEDOR_DATOS_INVALIDOS", "Referencias: máximo 200 caracteres; peso y bultos no negativos, peso con máximo seis decimales.");
-        if (FechaEmbarqueReal is not null && (string.IsNullOrWhiteSpace(datos.Numero) || string.IsNullOrWhiteSpace(datos.BlGuia)))
+        if (FechaEmbarqueReal is not null && ((datos.Modalidad is not (ModalidadTransporte.Aereo or ModalidadTransporte.Paqueteria) && string.IsNullOrWhiteSpace(datos.Numero)) || string.IsNullOrWhiteSpace(datos.BlGuia)))
             throw new BusinessRuleException("CE_EMBARQUE_DATOS_REQUERIDOS", "Un embarque real debe conservar número de contenedor y BL o guía.");
         Modalidad = datos.Modalidad;
         Numero = Limpiar(datos.Numero); Sello = Limpiar(datos.Sello); Booking = Limpiar(datos.Booking);
@@ -94,10 +94,10 @@ public sealed class ContenedorExpediente : BaseEntity, IAuditable, IPerteneceAEm
         FechaCargaPrevista = datos.FechaCargaPrevista; PesoKg = datos.PesoKg; Bultos = datos.Bultos;
     }
     private static string? Limpiar(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
-    internal void Embarcar(DateOnly fecha, DateOnly hoy)
+    internal void Embarcar(DateOnly fecha, DateOnly hoy, bool permitirGuia = false)
     {
         ExigirActivo();
-        ExigirReferencias();
+        ExigirReferencias(permitirGuia);
         if (fecha > hoy || FechaEmbarqueReal is not null)
             throw new BusinessRuleException("CE_FECHA_EMBARQUE_INVALIDA", "La fecha real no puede ser futura ni reemplazar un embarque registrado.");
         FechaEmbarqueReal = fecha;

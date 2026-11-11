@@ -31,11 +31,13 @@ export const NuevaAutorizacionSchema = z.object({
     .string()
     .min(1, 'Indica el folio del pedido')
     .max(80, 'Máximo 80 caracteres'),
-  vigenciaHoras: z
-    .number()
-    .int('Horas enteras')
-    .min(1, 'Mínimo 1 hora')
-    .max(24, 'Máximo 24 horas'),
+  /** M-239: condición excepcional (1 cobertura parcial, 2 serie que no libera, 3 bloqueo por vencimiento). */
+  condicion: z.number().int().min(1, 'Elige la condición').max(3, 'Elige la condición'),
+  /** M-239: monto que cubre la excepción; limita lo que se libera. */
+  montoAutorizado: z.number({ message: 'Indica el monto' }).positive('El monto debe ser mayor a cero'),
+  moneda: z.string().length(3, 'Moneda de 3 letras'),
+  /** M-239: el máximo sale de configuración; el servidor lo valida. */
+  vigenciaHoras: z.number().int('Horas enteras').min(1, 'Mínimo 1 hora'),
 });
 
 export type NuevaAutorizacionValues = z.infer<typeof NuevaAutorizacionSchema>;

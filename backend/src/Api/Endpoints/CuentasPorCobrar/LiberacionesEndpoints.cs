@@ -241,6 +241,41 @@ public static class LiberacionesEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-239: vigencia y firmas por monto; el diálogo de solicitud las usa para proponer la vigencia.
+        autorizaciones.MapGet("/configuracion", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ConfiguracionExcepcionCreditoQuery(), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverride)
+            .WithName("ConfiguracionExcepcionCredito")
+            .Produces<ConfiguracionExcepcionCreditoResponse>(StatusCodes.Status200OK);
+
+        autorizaciones.MapPut("/reglas-firma", async (
+            GuardarReglasFirmaExcepcionCreditoCommand body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(body, ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion)
+            .WithName("GuardarReglasFirmaExcepcionCredito")
+            .Produces<ConfiguracionExcepcionCreditoResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-239: segunda firma (Dirección) de una excepción pendiente por su monto.
+        autorizaciones.MapPost("/{id:guid}/firmar", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+
+            return Results.Ok(await mediator.Send(new FirmarAutorizacionCreditoCommand(id, v), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion)
+        .WithName("FirmarAutorizacionCredito")
+        .Produces<AutorizacionCreditoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         autorizaciones.MapPost("/{id:guid}/cancelar", async (
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,

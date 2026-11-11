@@ -727,6 +727,11 @@ builder.Services.AddScoped<Millet.Compartido.Application.Cargas.Lotes.LotesCarga
 // M-166: tipo de carga contabilidad.saldos-iniciales (apertura contable) para el lote común.
 Millet.Api.Infrastructure.Adapters.CargasContabilidadRegistro.AddCargasContabilidad(builder.Services);
 builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
+// M-236: responsable por omisión de las incidencias de la conciliación programada de cartera.
+builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Conciliacion.IResponsableConciliacionReadPort, Millet.Api.Infrastructure.Adapters.ResponsableConciliacionCarteraAdapter>();
+// M-236: historial de cierres manuales (mismo adaptador; no obliga a otros módulos a implementarlo).
+builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasHistorialPort>(sp =>
+    (Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter)sp.GetRequiredService<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort>());
 builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IIncidenciaUsuariosReadPort, Millet.Api.Infrastructure.Adapters.IncidenciaUsuariosReadAdapter>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compartido.Application.Incidencias.IncidenciaAdjuntoPropietario>();
 builder.Services

@@ -18,7 +18,7 @@ public sealed class RecibirRecepcionCeHandler(ComercioExteriorDbContext db, ICal
         if (d.EmpresaId == Guid.Empty || d.OrdenCompraId == Guid.Empty || d.FechaMovimiento == default || request.EventoId == Guid.Empty || d.Lineas is null)
             throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La recepción no contiene empresa, orden de compra, fecha o partidas válidas.");
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        var expedientes = await db.Expedientes.FromSqlInterpolated($"SELECT * FROM comercio_exterior.expedientes WHERE empresa_id = {d.EmpresaId} AND oc_id = {d.OrdenCompraId} AND estado <> 'Cancelado' ORDER BY id FOR UPDATE")
+        var expedientes = await db.Expedientes.FromSqlInterpolated($"SELECT * FROM comercio_exterior.expedientes WHERE empresa_id = {d.EmpresaId} AND {d.OrdenCompraId} = ANY(ordenes_compra_ids) AND estado <> 'Cancelado' ORDER BY id FOR UPDATE")
             .Include(x => x.PartidasImportacion).Include(x => x.Contenedores).Include(x => x.Hitos).Include(x => x.Incidencias).ThenInclude(i => i.Historial).Include(x => x.AvisosIncidencias)
             .AsSplitQuery().ToListAsync(cancellationToken);
         var dias = await db.Set<ConfiguracionCe>().Where(c => c.EmpresaId == d.EmpresaId).Select(c => (int?)c.DiasHabilesIncidenciaRecepcion).SingleOrDefaultAsync(cancellationToken) ?? 2;
