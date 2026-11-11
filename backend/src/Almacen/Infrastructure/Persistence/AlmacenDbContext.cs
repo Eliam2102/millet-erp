@@ -98,6 +98,9 @@ public class AlmacenDbContext : BaseDbContext
     /// <summary>ALM-APP-2: mensajes recibidos de la app de Almacenes (idempotencia por mensajeId).</summary>
     public DbSet<MensajeApp> MensajesApp => Set<MensajeApp>();
 
+    /// <summary>M-335: bitácora del origen de captura (ERP o app) de cada evento de materia prima.</summary>
+    public DbSet<Millet.Almacen.Domain.AppAlmacenes.OrigenCapturaMp> OrigenesCapturaMp => Set<Millet.Almacen.Domain.AppAlmacenes.OrigenCapturaMp>();
+
     /// <summary>A4.8: normas de consumo por artículo componente y consumos por composición leídos de A+W.</summary>
     public DbSet<NormaConsumoComponente> NormasConsumoComponente => Set<NormaConsumoComponente>();
     public DbSet<ConsumoComponenteAw> ConsumosComponenteAw => Set<ConsumoComponenteAw>();
@@ -209,6 +212,7 @@ public class AlmacenDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new FolioSecuenciaMovimientoConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
         modelBuilder.ApplyConfiguration(new MensajeAppConfiguration());
+        modelBuilder.ApplyConfiguration(new OrigenCapturaMpConfiguration());
         modelBuilder.ApplyConfiguration(new DevolucionAProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new LineaDevolucionProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new EvidenciaDevolucionProveedorConfiguration());

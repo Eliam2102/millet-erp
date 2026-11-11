@@ -67,6 +67,12 @@ public sealed class AlmacenesAppProcesador(
         if (previo is null)
         {
             var referencia = Str(root, "referencia");
+            // M-335: si el ERP sigue capturando este evento de materia prima, el mensaje de la app se rechaza con motivo claro.
+            // La requisición no se guarda (como sus demás ERROR): el reenvío se vuelve a evaluar.
+            if (await Millet.Almacen.Application.AppAlmacenes.OrigenCapturaMpReglas.RechazoDeMensajeAsync(db, tipo, ct) is { } rechazo)
+                return tipo.StartsWith("REQUISICION_", StringComparison.Ordinal)
+                    ? new AcuseApp(mensajeId, "ERROR", null, rechazo)
+                    : await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, rechazo, ct);
             string estado; string? folio, error;
             if (AlmacenesAppSalida.Tipos.ContainsKey(tipo))
             {
