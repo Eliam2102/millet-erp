@@ -127,6 +127,9 @@ public static class EntradaAppAlmacenes
                     e.ProductoAwVarianteId, e.AnchoMm, e.AltoMm, e.Lote));
             }
             var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, tipo, fecha, motivo, lineas, ct, motivoClave);
+            // Póliza por motivo (Fernando Alejos, 10-nov): solo la entrada manual; el evento filtra las claves sin póliza.
+            if (tipo == TipoMovimiento.AjustePositivo)
+                await EntradaInventarioRegistradaIntegrationEvent.PublicarAsync(puertos.Eventos, db, empresaId, mov.Id, subAlmacenId, ct);
             return (SalidaAppAlmacenes.Recibido, mov.Folio, null);
         }
         catch (BusinessRuleException ex)
