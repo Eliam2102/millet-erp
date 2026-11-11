@@ -31,7 +31,16 @@ public interface IAlmMensajeOrigen
 
     /// <summary>Escribe el acuse en el renglón; repetirlo sobre un renglón ya acusado no cambia nada.</summary>
     Task EscribirAcuseAsync(long secuencia, AcuseApp acuse, CancellationToken ct);
+
+    /// <summary>
+    /// M-283: mensajes (último intento de cada uno) que la app escribió hace más de <paramref name="segundos"/> y siguen sin acuse.
+    /// La antigüedad se mide con el reloj de la base de la app (sus fechas son hora local, no UTC).
+    /// </summary>
+    Task<AlmMensajeSinAcuse> ContarSinAcuseAntiguosAsync(int segundos, CancellationToken ct);
 }
+
+/// <summary>Cuántos mensajes llevan más del plazo sin acuse y cuánto lleva el más viejo (0 si no hay).</summary>
+public readonly record struct AlmMensajeSinAcuse(int Cantidad, int MasAntiguoSegundos);
 
 /// <summary>Aplica un sobre ya parseado (mismo manejador que el endpoint HTTP) y devuelve su acuse. Implementado en Api.</summary>
 public interface IProcesadorMensajeApp
@@ -65,6 +74,12 @@ public sealed class AlmMensajeOptions
     /// Apagado por omisión; se enciende cuando TI avise el número de carga. Usa el mismo <see cref="Origen"/> y cadena.
     /// </summary>
     public bool CargaInicialHabilitada { get; init; }
+
+    /// <summary>M-283 (acuerdo 5-nov con TI): minutos sin acuse para avisar al jefe de Almacén. 0 apaga la alarma.</summary>
+    public int AlarmaSinAcuseMinutos { get; init; } = 5;
+
+    /// <summary>Cada cuántos minutos se repite el aviso mientras siga habiendo mensajes sin acuse (no cada ciclo de 10 s).</summary>
+    public int AlarmaReavisoMinutos { get; init; } = 60;
 }
 
 public readonly record struct AlmMensajeTick(int Procesados, int Errores, int Frenados, int Fallas);

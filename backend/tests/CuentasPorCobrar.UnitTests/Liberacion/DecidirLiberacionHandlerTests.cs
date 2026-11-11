@@ -461,7 +461,8 @@ public sealed class DecidirLiberacionHandlerTests
         await using var db = CrearDbContext();
         var handler = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoHandler(
             db, new FakeEmpresaContext(EmpresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(), new Beneficiarios(permitido));
-        var command = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoCommand(Guid.NewGuid(), "Pago en tránsito", "FIX-PRUB", 24);
+        var command = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoCommand(
+            Guid.NewGuid(), "Pago en tránsito", "FIX-PRUB", CondicionExcepcionCredito.CoberturaParcial, 1_000m, "MXN", 24);
         if (permitido)
         {
             var res = await handler.Handle(command, default);

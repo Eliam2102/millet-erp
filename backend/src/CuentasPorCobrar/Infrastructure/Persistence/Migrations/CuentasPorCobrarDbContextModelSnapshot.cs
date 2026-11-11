@@ -1176,6 +1176,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("cliente_o_pedido_ref");
 
+                    b.Property<short?>("Condicion")
+                        .HasColumnType("smallint")
+                        .HasColumnName("condicion");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1204,11 +1208,38 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_autorizacion");
 
+                    b.Property<short>("FirmasRequeridas")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1)
+                        .HasColumnName("firmas_requeridas");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasDefaultValue("MXN")
+                        .HasColumnName("moneda");
+
+                    b.Property<decimal?>("MontoAutorizado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("monto_autorizado");
+
                     b.Property<string>("Motivo")
                         .IsRequired()
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("motivo");
+
+                    b.Property<DateTimeOffset?>("SegundaFirmaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("segunda_firma_en");
+
+                    b.Property<Guid?>("SegundaFirmaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("segunda_firma_por_id");
 
                     b.Property<Guid>("SupervisorUsuarioId")
                         .HasColumnType("uuid")
@@ -1239,7 +1270,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
 
                     b.ToTable("autorizacion_credito", "cuentas_por_cobrar", t =>
                         {
-                            t.HasCheckConstraint("ck_autorizacion_credito_estado", "estado IN (1, 2, 3)");
+                            t.HasCheckConstraint("ck_autorizacion_credito_estado", "estado IN (1, 2, 3, 4)");
 
                             t.HasCheckConstraint("ck_autorizacion_credito_no_autoconsumo", "supervisor_usuario_id != beneficiario_usuario_id");
 
@@ -1374,6 +1405,65 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_decision_liberacion_regla", "regla_aplicada IN (1, 2, 3, 4)");
 
                             t.HasCheckConstraint("ck_decision_liberacion_resultado", "resultado IN (1, 2, 3, 4)");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorCobrar.Domain.Liberacion.ReglaFirmaExcepcionCredito", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("FirmasRequeridas")
+                        .HasColumnType("smallint")
+                        .HasColumnName("firmas_requeridas");
+
+                    b.Property<decimal>("UmbralMxn")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("umbral_mxn");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_regla_firma_excepcion_credito");
+
+                    b.HasIndex("EmpresaId", "UmbralMxn")
+                        .IsUnique()
+                        .HasDatabaseName("ux_regla_firma_excepcion_credito");
+
+                    b.ToTable("regla_firma_excepcion_credito", "cuentas_por_cobrar", t =>
+                        {
+                            t.HasCheckConstraint("ck_regla_firma_excepcion_credito_firmas", "firmas_requeridas IN (1, 2)");
+
+                            t.HasCheckConstraint("ck_regla_firma_excepcion_credito_umbral", "umbral_mxn >= 0");
                         });
                 });
 

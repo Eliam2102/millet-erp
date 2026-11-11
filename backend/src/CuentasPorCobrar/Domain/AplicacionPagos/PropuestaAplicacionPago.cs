@@ -19,6 +19,12 @@ public enum TipoAjusteCobro : short
 {
     ComisionBancaria = 1,
     DiferenciaMenor = 2,
+
+    /// <summary>
+    /// M-326: redondeo de hasta <see cref="PropuestaAplicacionPago.ToleranciaRedondeo"/> en el cobro, sin documentar ni autorizar.
+    /// Lo asigna el sistema (no se elige a mano): rol <c>REDONDEO</c>.
+    /// </summary>
+    Redondeo = 3,
 }
 
 /// <summary>
@@ -38,6 +44,12 @@ public enum TipoAjusteCobro : short
 /// </summary>
 public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
+    /// <summary>
+    /// M-326: un faltante de hasta este importe (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo ni autorización.
+    /// Supuesto a validar con Contabilidad. Un faltante que se documenta con tipo y motivo (comisión, diferencia menor, M-086) no es redondeo.
+    /// </summary>
+    public const decimal ToleranciaRedondeo = 0.99m;
+
     public Guid EmpresaId { get; set; }
 
     public Guid? PropuestoPor { get; private set; }
@@ -101,7 +113,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         string remittanceRef,
         IReadOnlyList<(string FacturaUuid, Guid FacturaCarteraId, decimal ImporteAplicado, int? NumParcialidad)> lineas,
         decimal toleranciaNoFiscal, Guid? propuestoPor = null, Guid? movimientoBancarioId = null,
-        TipoAjusteCobro? tipoAjuste = null, string? motivoAjuste = null)
+        TipoAjusteCobro? tipoAjuste = null, string? motivoAjuste = null, DateTimeOffset? ahora = null)
     {
         if (clienteId == Guid.Empty)
             throw new BusinessRuleException("PAP_CLIENTE_VACIO", "El cliente es obligatorio.");
@@ -123,16 +135,21 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         var suma = lineas.Sum(l => l.ImporteAplicado);
         var ajuste = montoDeposito - suma;
 
-        if (ajuste < 0 && Math.Abs(ajuste) >= toleranciaNoFiscal)
+        // M-326: el faltante de hasta $0.99 sin tipo documentado es redondeo; elegirlo a mano no se permite (lo asigna el sistema).
+        if (tipoAjuste == TipoAjusteCobro.Redondeo)
+            throw new BusinessRuleException("PAP_AJUSTE_TIPO_INVALIDO", "El redondeo lo asigna el sistema a los faltantes de hasta $0.99; no se elige como tipo de ajuste.");
+        var esRedondeo = ajuste < 0 && Math.Abs(ajuste) <= ToleranciaRedondeo && tipoAjuste is null;
+
+        if (!esRedondeo && ajuste < 0 && Math.Abs(ajuste) >= toleranciaNoFiscal)
             throw new BusinessRuleException("PAP_TOLERANCIA_EXCEDIDA",
                 $"La diferencia ({ajuste}) excede la tolerancia no fiscal ({toleranciaNoFiscal} {moneda}).");
 
         // CXC-06: un faltante dentro de la tolerancia no se absorbe solo; se documenta (tipo = cuenta, y motivo) y se autoriza.
         var conAjuste = ajuste < 0;
-        if (conAjuste && tipoAjuste is null)
+        if (conAjuste && !esRedondeo && tipoAjuste is null)
             throw new BusinessRuleException("PAP_AJUSTE_SIN_TIPO",
                 $"El depósito es {Math.Abs(ajuste):N2} {moneda} menor que lo aplicado: indica si es comisión bancaria o diferencia menor.");
-        if (conAjuste && string.IsNullOrWhiteSpace(motivoAjuste))
+        if (conAjuste && !esRedondeo && string.IsNullOrWhiteSpace(motivoAjuste))
             throw new BusinessRuleException("PAP_AJUSTE_SIN_MOTIVO",
                 "El motivo del ajuste es obligatorio: queda documentado en la póliza del cobro.");
         if (tipoAjuste is { } t && !Enum.IsDefined(t))
@@ -153,8 +170,10 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             // C7.4: depósito sin identificar que CxC identificó (Tesorería lo
             // preselecciona); al confirmar, Tesorería informa el movimiento real.
             MovimientoBancarioId = movimientoBancarioId,
-            TipoAjuste = conAjuste ? tipoAjuste : null,
-            MotivoAjuste = conAjuste ? motivoAjuste!.Trim() : null,
+            TipoAjuste = esRedondeo ? TipoAjusteCobro.Redondeo : conAjuste ? tipoAjuste : null,
+            MotivoAjuste = esRedondeo ? $"Redondeo de hasta ${ToleranciaRedondeo:0.00}" : conAjuste ? motivoAjuste!.Trim() : null,
+            // M-326: el redondeo no espera autorización (queda autorizado por el sistema, sin persona).
+            AjusteAutorizadoEn = esRedondeo ? ahora ?? DateTimeOffset.UtcNow : null,
             Estado = EstadoPropuestaAplicacion.Propuesta,
         };
 

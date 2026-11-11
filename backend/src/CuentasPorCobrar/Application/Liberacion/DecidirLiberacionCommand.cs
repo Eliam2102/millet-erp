@@ -194,6 +194,9 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         ReglaAplicadaLiberacion regla;
         decimal? porcentaje = null;
         var aplicaTopeExceso = false;
+        // M-239: condición excepcional real del pedido y monto que cubre la excepción (limita lo que se libera).
+        CondicionExcepcionCredito condicionReal = CondicionExcepcionCredito.SerieNuncaLibera;
+        var montoExcepcion = command.MontoPedido;
         string? motivo = null;
 
         // R2 (Crédito y Cobranza, 9-nov): la serie que siempre libera NO libera a un cliente bloqueado por vencimiento (C7.5):
@@ -204,6 +207,7 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
 
         if (bloqueadoPorVencimiento)
         {
+            condicionReal = CondicionExcepcionCredito.BloqueoPorVencimiento;
             (resultado, regla) = command.OverrideId is not null
                 ? (ResultadoLiberacion.LiberadoConOverride, ReglaAplicadaLiberacion.Override)
                 : (ResultadoLiberacion.Retenido, ReglaAplicadaLiberacion.Credito);
@@ -242,6 +246,8 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
                 regla = ReglaAplicadaLiberacion.Override;
                 // M-085: la excepción de crédito (cobertura 50–99 %) tiene tope de exceso para Crédito y Cobranza.
                 aplicaTopeExceso = true;
+                condicionReal = CondicionExcepcionCredito.CoberturaParcial;
+                montoExcepcion = ExcesoCredito.Calcular(snapshot.Disponible, command.MontoPedido);
             }
             else
             {
@@ -294,6 +300,10 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
                 .FirstOrDefaultAsync(a => a.Id == command.OverrideId, cancellationToken)
                 ?? throw new EntityNotFoundException("AC_NO_ENCONTRADA",
                     $"No se encontró la autorización '{command.OverrideId}'.");
+            // M-239: la condición debe ser la que se pidió y el monto autorizado limita lo que se libera.
+            autorizacion.ExigirFirmaCompleta();
+            autorizacion.ExigirCondicion(condicionReal);
+            autorizacion.ExigirMonto(montoExcepcion, command.Moneda);
             // M-085: una excepción de Crédito y Cobranza cubre hasta el tope de exceso; arriba de eso debe ser de Dirección.
             // Supuesto a validar: el tope aplica a la excepción de crédito; la de serie que nunca libera no lo lleva.
             if (aplicaTopeExceso)

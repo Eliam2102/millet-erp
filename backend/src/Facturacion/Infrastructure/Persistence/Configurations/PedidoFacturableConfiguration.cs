@@ -68,6 +68,9 @@ public sealed class PedidoFacturableConfiguration : IEntityTypeConfiguration<Ped
 
         // Script 16 v3: fecha de la orden de Planta Pintura (null en A+W y Manual).
         builder.Property(e => e.FechaPedido);
+        // Script 16 v4: claves de empleado (capturista y vendedor) de la orden de Planta Pintura.
+        builder.Property(e => e.EmpleadoCapturaClave).HasMaxLength(50);
+        builder.Property(e => e.VendedorClave).HasMaxLength(50);
 
         builder.HasMany(e => e.Lineas)
             .WithOne()
