@@ -33,7 +33,8 @@ export function DocumentoAdjuntosSection({
   subirComoResponsable = false,
 }: {
   base: string;
-  tipo: 'requisicion' | 'factura_proveedor' | 'poliza' | 'linea_revision' | 'oc_respuesta_proveedor' | 'certificado_csd' | 'incidencia';
+  tipo: 'requisicion' | 'factura_proveedor' | 'poliza' | 'linea_revision' | 'oc_respuesta_proveedor' | 'certificado_csd' | 'incidencia'
+    | 'propuesta_aplicacion_cxc';
   /** Prefijo de la convención `{permiso}.adjuntos-ver|subir|baja`. Se ignora si llegan `permisos`. */
   permiso?: string;
   permisos?: PermisosAdjuntos;
@@ -51,7 +52,11 @@ export function DocumentoAdjuntosSection({
     subir: `${permiso}.adjuntos-subir`,
     baja: `${permiso}.adjuntos-baja`,
   };
-  const canVer = useHasPermission(codigos.ver);
+  // M-240: `a|b` = basta cualquiera de los dos (mismo formato que las políticas del backend).
+  const [verA, verB] = codigos.ver.split('|');
+  const canVerA = useHasPermission(verA);
+  const canVerB = useHasPermission(verB ?? verA);
+  const canVer = canVerA || canVerB;
   const canSubir = (useHasPermission(codigos.subir) || subirComoResponsable) && !soloLectura;
   const tienePermisoBaja = useHasPermission(codigos.baja ?? '');
   const canBaja = codigos.baja !== undefined && tienePermisoBaja && !soloLectura;
