@@ -171,7 +171,8 @@ public sealed class RevisionContabilidadElectronicaHandler(LecturaContabilidadEl
             {
                 var delMes = await lectura.PolizasAsync(request.Anio, request.Mes, ct);
                 GeneradorContabilidadElectronica.Polizas(rfc ?? "XAXX010101000", request.Anio, request.Mes, TipoSolicitudPolizas.AF, null, null,
-                    delMes, await lectura.ComprobantesAsync(delMes, ct), avisos);
+                    delMes, await lectura.ComprobantesAsync(delMes, ct), avisos,
+                    GeneradorContabilidadElectronica.EquivalenciasOmitidas(cuentas));
             }
         }
         else
@@ -218,7 +219,8 @@ public sealed class GenerarContabilidadElectronicaHandler(LecturaContabilidadEle
                 if (polizas.Count == 0)
                     throw new BusinessRuleException("CONTAB_CE_SIN_POLIZAS", "El periodo no tiene pólizas autorizadas.");
                 xml = GeneradorContabilidadElectronica.Polizas(rfc!, request.Anio, request.Mes, request.Solicitud!.Value, request.NumOrden,
-                    request.NumTramite, polizas, await lectura.ComprobantesAsync(polizas, ct), []);
+                    request.NumTramite, polizas, await lectura.ComprobantesAsync(polizas, ct), [],
+                    GeneradorContabilidadElectronica.EquivalenciasOmitidas(await lectura.CuentasAsync(ct)));
                 sufijo = "PL";
                 break;
         }
