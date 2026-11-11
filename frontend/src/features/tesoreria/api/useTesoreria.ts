@@ -52,6 +52,7 @@ import type {
   MarcarPartidaTransitoInput,
   CerrarConciliacionInput,
   ReabrirConciliacionInput,
+  PartidaTransitoTipo,
   LayoutCorridaResponse,
 } from './types';
 
@@ -1572,6 +1573,48 @@ export function useReabrirConciliacion() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+/** M-201 · deja en tránsito un movimiento de libros (cheque no cobrado o depósito del último día del mes). */
+export function useMarcarMovimientoTransito() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      movimientoBancarioId: string;
+      tipo: PartidaTransitoTipo;
+      causa: string;
+      fechaPrevistaResolucion: string;
+    }) => {
+      const { id, ...body } = args;
+      await apiRequest<unknown>(`${BASE}/conciliaciones/${id}/movimientos-transito`, {
+        method: 'POST',
+        body,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(id) });
+    },
+  });
+}
+
+/** M-201 · quita un movimiento de libros de las partidas en tránsito. */
+export function useQuitarMovimientoTransito() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; movimientoId: string }) => {
+      await apiRequest<void>(
+        `${BASE}/conciliaciones/${args.id}/movimientos-transito/${args.movimientoId}`,
+        { method: 'DELETE', idempotencyKey: crypto.randomUUID() },
+      );
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(id) });
     },
   });
 }

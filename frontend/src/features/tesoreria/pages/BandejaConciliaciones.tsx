@@ -65,7 +65,7 @@ import {
 } from '@/features/contabilidad/components/dimensiones/areaEquipo';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
-import { mensajeApi, PermisosTesoreriaNuevos } from '@/features/tesoreria/lib/permisos';
+import { mensajeApi } from '@/features/tesoreria/lib/mensaje-api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import {
   useCuentasBancarias,
@@ -84,6 +84,8 @@ import {
   useCerrarConciliacion,
   useReabrirConciliacion,
   useDarVistoBuenoConciliacion,
+  useMarcarMovimientoTransito,
+  useQuitarMovimientoTransito,
   useDevolverConciliacion,
   descargarActaConciliacion,
 } from '@/features/tesoreria/api/useTesoreria';
@@ -95,6 +97,7 @@ import {
   ESTADO_EXTRACTO_LINEA_LABELS,
   PARTIDA_TRANSITO_LABELS,
   type ExtractoLineaResponse,
+  type MovimientoBancarioConciliacionDto,
 } from '@/features/tesoreria/api/types';
 
 const MESES = [
@@ -126,9 +129,9 @@ export function BandejaConciliaciones() {
   // Permisos
   const puedeOperar = useHasPermission(PermisosCanonicos.TesoreriaConciliacionOperar);
   const puedeCerrar = useHasPermission(PermisosCanonicos.TesoreriaConciliacionCerrar);
-  const puedeRevisar = useHasPermission(PermisosTesoreriaNuevos.ConciliacionRevisar);
-  const puedeReabrir = useHasPermission(PermisosTesoreriaNuevos.ConciliacionReabrir);
-  const puedeAutorizarTransito = useHasPermission(PermisosTesoreriaNuevos.ConciliacionAutorizarTransito);
+  const puedeRevisar = useHasPermission(PermisosCanonicos.TesoreriaConciliacionRevisar);
+  const puedeReabrir = useHasPermission(PermisosCanonicos.TesoreriaConciliacionReabrir);
+  const puedeAutorizarTransito = useHasPermission(PermisosCanonicos.TesoreriaConciliacionAutorizarTransito);
 
   // Queries
   const cuentasQuery = useCuentasBancarias(true);
@@ -186,6 +189,14 @@ export function BandejaConciliaciones() {
   const vistoBuenoMutation = useDarVistoBuenoConciliacion();
   const devolverMutation = useDevolverConciliacion();
   const [modalDevolver, setModalDevolver] = useState(false);
+  // M-201: movimientos de libros que quedan en tránsito (cheque no cobrado, depósito del último día).
+  const transitoLibroMutation = useMarcarMovimientoTransito();
+  const quitarTransitoMutation = useQuitarMovimientoTransito();
+  const [movTransito, setMovTransito] = useState<MovimientoBancarioConciliacionDto | null>(null);
+  const [movTipo, setMovTipo] = useState<PartidaTransitoTipo>(PartidaTransitoTipo.ChequeNoCobrado);
+  const [movCausa, setMovCausa] = useState('');
+  const [movFecha, setMovFecha] = useState('');
+  const [errorMovTransito, setErrorMovTransito] = useState<string | null>(null);
   const [errorVistoBueno, setErrorVistoBueno] = useState<string | null>(null);
 
   // Estados de formularios
@@ -411,6 +422,50 @@ export function BandejaConciliaciones() {
     }
   };
 
+  const cerrarMovTransito = () => {
+    setMovTransito(null);
+    setMovCausa('');
+    setMovFecha('');
+    setMovTipo(PartidaTransitoTipo.ChequeNoCobrado);
+    setErrorMovTransito(null);
+  };
+
+  const handleMovTransitoSubmit = async () => {
+    if (!conciliacion || !movTransito) return;
+    if (!movCausa.trim() || !movFecha) {
+      setErrorMovTransito('Indica la causa y la fecha prevista de resolución.');
+      return;
+    }
+    if (movFecha < movTransito.fechaValor.slice(0, 10)) {
+      setErrorMovTransito('La fecha prevista no puede ser anterior a la fecha del movimiento.');
+      return;
+    }
+    setErrorMovTransito(null);
+    try {
+      await transitoLibroMutation.mutateAsync({
+        id: conciliacion.id,
+        movimientoBancarioId: movTransito.id,
+        tipo: movTipo,
+        causa: movCausa.trim(),
+        fechaPrevistaResolucion: movFecha,
+      });
+      toast.success('Movimiento dejado en tránsito');
+      cerrarMovTransito();
+    } catch (err: unknown) {
+      setErrorMovTransito(mensajeApi(err, 'No se pudo dejar el movimiento en tránsito.'));
+    }
+  };
+
+  const handleQuitarTransito = async (movimientoId: string) => {
+    if (!conciliacion) return;
+    try {
+      await quitarTransitoMutation.mutateAsync({ id: conciliacion.id, movimientoId });
+      toast.success('Movimiento quitado de las partidas en tránsito');
+    } catch (err: unknown) {
+      toast.error(mensajeApi(err, 'No se pudo quitar el movimiento de tránsito.'));
+    }
+  };
+
   // Visto bueno de Contabilidad (M-202)
   const handleVistoBueno = async () => {
     if (!conciliacion) return;
@@ -456,6 +511,11 @@ export function BandejaConciliaciones() {
   };
 
   // Filtrado de líneas
+  const enTransitoLibros = conciliacion?.movimientosEnTransito ?? [];
+  const idsEnTransito = new Set(enTransitoLibros.map((t) => t.movimientoBancarioId));
+  const puedeTransitoLibros =
+    puedeAutorizarTransito && conciliacion?.estado === EstadoConciliacion.Abierta;
+
   const lineasFiltradas = useMemo(() => {
     if (!conciliacion) return [];
     if (filtroEstadoLinea === 'todos') return conciliacion.lineas;
@@ -1003,12 +1063,13 @@ export function BandejaConciliaciones() {
                           <TableHead>Concepto / Ref</TableHead>
                           <TableHead className="text-right w-24">Importe</TableHead>
                           <TableHead className="w-24 text-center">Estado</TableHead>
+                          {puedeTransitoLibros && <TableHead className="w-32" />}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {conciliacion.movimientosPeriodo.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={lineaSeleccionada ? 5 : 4} className="text-center py-8 text-ink-muted text-xs">
+                            <TableCell colSpan={(lineaSeleccionada ? 5 : 4) + (puedeTransitoLibros ? 1 : 0)} className="text-center py-8 text-ink-muted text-xs">
                               No hay movimientos registrados para este período
                             </TableCell>
                           </TableRow>
@@ -1067,6 +1128,22 @@ export function BandejaConciliaciones() {
                                     {esConciliado ? 'Conciliado' : 'Pendiente'}
                                   </Badge>
                                 </TableCell>
+                                {puedeTransitoLibros && (
+                                  <TableCell className="text-right text-xs">
+                                    {!esConciliado && !idsEnTransito.has(mov.id) && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          cerrarMovTransito();
+                                          setMovTransito(mov);
+                                        }}
+                                      >
+                                        Dejar en tránsito
+                                      </Button>
+                                    )}
+                                  </TableCell>
+                                )}
                               </TableRow>
                             );
                           })
@@ -1074,6 +1151,64 @@ export function BandejaConciliaciones() {
                       </TableBody>
                     </Table>
                   </TableContainer>
+                  {enTransitoLibros.length > 0 && (
+                    <div className="space-y-2 border-t border-edge pt-3">
+                      <h4 className="text-sm font-semibold">Partidas en tránsito de libros</h4>
+                      <p className="text-xs text-ink-muted">
+                        Están en libros pero aún no en el banco; se concilian el mes siguiente. La diferencia ya las descuenta.
+                      </p>
+                      <TableContainer>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-20">Fecha</TableHead>
+                              <TableHead>Tipo / causa</TableHead>
+                              <TableHead className="w-24">Prevista</TableHead>
+                              <TableHead className="text-right w-28">Importe</TableHead>
+                              {puedeTransitoLibros && <TableHead className="w-20" />}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {enTransitoLibros.map((t) => (
+                              <TableRow key={t.movimientoBancarioId}>
+                                <TableCell className="text-xs whitespace-nowrap">
+                                  <DateTimeDisplay value={t.fechaValor} variant="corta" />
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  <div className="font-medium">{PARTIDA_TRANSITO_LABELS[t.tipo]}</div>
+                                  <div className="text-2xs text-ink-muted">{t.causa}</div>
+                                  {t.referencia && (
+                                    <div className="text-2xs text-ink-muted">Ref: {t.referencia}</div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-xs whitespace-nowrap">
+                                  <DateTimeDisplay value={t.fechaPrevista} variant="corta" />
+                                </TableCell>
+                                <TableCell className="text-right text-xs whitespace-nowrap font-mono">
+                                  <span className={t.monto < 0 ? 'text-danger-fg' : 'text-success-fg'}>
+                                    {t.monto < 0 ? '-' : '+'}
+                                    <MoneyDisplay amount={Math.abs(t.monto)} currency={conciliacion.moneda} />
+                                  </span>
+                                </TableCell>
+                                {puedeTransitoLibros && (
+                                  <TableCell className="text-right text-xs">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={quitarTransitoMutation.isPending}
+                                      onClick={() => handleQuitarTransito(t.movimientoBancarioId)}
+                                    >
+                                      Quitar
+                                    </Button>
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>
@@ -1579,9 +1714,6 @@ export function BandejaConciliaciones() {
                   <SelectItem value={PartidaTransitoTipo.DepositoUltimoDia.toString()}>
                     {PARTIDA_TRANSITO_LABELS[PartidaTransitoTipo.DepositoUltimoDia]}
                   </SelectItem>
-                  <SelectItem value={PartidaTransitoTipo.Otro.toString()}>
-                    {PARTIDA_TRANSITO_LABELS[PartidaTransitoTipo.Otro]}
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1702,6 +1834,73 @@ export function BandejaConciliaciones() {
               onClick={handleCerrarSubmit}
             >
               Firmar, cerrar y descargar acta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: DEJAR EN TRÁNSITO UN MOVIMIENTO DE LIBROS */}
+      <Dialog open={!!movTransito} onOpenChange={(val) => !val && cerrarMovTransito()}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Dejar movimiento en tránsito</DialogTitle>
+            <DialogDescription>
+              Solo los cheques no cobrados y los depósitos del último día del mes quedan en tránsito; se concilian el mes siguiente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-3">
+            {errorMovTransito && (
+              <div role="alert" className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
+                {errorMovTransito}
+              </div>
+            )}
+            <div>
+              <Label className="text-xs">Tipo *</Label>
+              <Select value={movTipo.toString()} onValueChange={(v) => setMovTipo(parseInt(v, 10) as PartidaTransitoTipo)}>
+                <SelectTrigger className="mt-1" aria-label="Tipo de partida en tránsito">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PartidaTransitoTipo.ChequeNoCobrado.toString()}>
+                    {PARTIDA_TRANSITO_LABELS[PartidaTransitoTipo.ChequeNoCobrado]}
+                  </SelectItem>
+                  <SelectItem value={PartidaTransitoTipo.DepositoUltimoDia.toString()}>
+                    {PARTIDA_TRANSITO_LABELS[PartidaTransitoTipo.DepositoUltimoDia]}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs" htmlFor="mov-transito-causa">Causa *</Label>
+              <Textarea
+                id="mov-transito-causa"
+                rows={2}
+                maxLength={300}
+                className="mt-1 text-xs"
+                value={movCausa}
+                onChange={(e) => setMovCausa(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-xs" htmlFor="mov-transito-fecha">Fecha prevista de resolución *</Label>
+              <Input
+                id="mov-transito-fecha"
+                type="date"
+                className="mt-1 text-xs"
+                min={movTransito?.fechaValor.slice(0, 10)}
+                value={movFecha}
+                onChange={(e) => setMovFecha(e.target.value)}
+              />
+              <p className="mt-1 text-2xs text-ink-muted">No puede ser anterior a la fecha del movimiento.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={cerrarMovTransito}>Cancelar</Button>
+            <Button
+              disabled={transitoLibroMutation.isPending || !movCausa.trim() || !movFecha}
+              onClick={handleMovTransitoSubmit}
+            >
+              {transitoLibroMutation.isPending ? 'Guardando…' : 'Dejar en tránsito'}
             </Button>
           </DialogFooter>
         </DialogContent>

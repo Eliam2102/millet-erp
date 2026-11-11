@@ -428,6 +428,11 @@ export const PermisosCanonicos = {
   TesoreriaReppRegistrar: 'tesoreria.repp.registrar',
   TesoreriaConciliacionOperar: 'tesoreria.conciliacion.operar',
   TesoreriaConciliacionCerrar: 'tesoreria.conciliacion.cerrar',
+  // M-199 / M-201 / M-202: autorización de cuentas, visto bueno de conciliación, reapertura y partidas en tránsito.
+  TesoreriaCuentasAutorizar: 'tesoreria.cuentas.autorizar',
+  TesoreriaConciliacionRevisar: 'tesoreria.conciliacion.revisar',
+  TesoreriaConciliacionReabrir: 'tesoreria.conciliacion.reabrir',
+  TesoreriaConciliacionAutorizarTransito: 'tesoreria.conciliacion.autorizar-transito',
   TesoreriaPasivosSolicitarCancelacion:
     'tesoreria.pasivos.solicitar-cancelacion',
   TesoreriaPasivosVer: 'tesoreria.pasivos.ver',

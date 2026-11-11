@@ -788,7 +788,7 @@ export type PartidaTransitoTipo =
 
 export const PARTIDA_TRANSITO_LABELS: Record<PartidaTransitoTipo, string> = {
   [PartidaTransitoTipo.ChequeNoCobrado]: 'Cheque no cobrado',
-  [PartidaTransitoTipo.DepositoUltimoDia]: 'Depósito del último día',
+  [PartidaTransitoTipo.DepositoUltimoDia]: 'Depósito del último día del mes',
   [PartidaTransitoTipo.Otro]: 'Otro',
 };
 
@@ -870,6 +870,19 @@ export interface MovimientoBancarioConciliacionDto {
   estadoConciliacion: number;
 }
 
+/** M-201: movimiento de libros que queda en tránsito; `monto` con signo (+ ingreso, − egreso). */
+export interface PartidaTransitoLibroResponse {
+  movimientoBancarioId: string;
+  fechaValor: string;
+  referencia: string | null;
+  monto: number;
+  tipo: PartidaTransitoTipo;
+  causa: string;
+  fechaPrevista: string;
+  autorizadaPor: string;
+  autorizadaEn: string;
+}
+
 export interface ConciliacionDetalleResponse {
   id: string;
   cuentaBancariaId: string;
@@ -893,6 +906,7 @@ export interface ConciliacionDetalleResponse {
   lineas: ExtractoLineaResponse[];
   bitacora: BitacoraConciliacionResponse[];
   movimientosPeriodo: MovimientoBancarioConciliacionDto[];
+  movimientosEnTransito?: PartidaTransitoLibroResponse[] | null;
 }
 
 /** Espejo de <c>ResultadoEmparejamiento</c> (Tesoreria.Domain): mismos nombres que serializa la API. */

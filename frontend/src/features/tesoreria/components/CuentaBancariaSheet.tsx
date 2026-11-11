@@ -24,7 +24,7 @@ import {
   useRegistrarSaldoInicial,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaSaldoResponse } from '@/features/tesoreria/api/types';
-import { mensajeApi } from '@/features/tesoreria/lib/permisos';
+import { mensajeApi } from '@/features/tesoreria/lib/mensaje-api';
 import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface CuentaBancariaSheetProps {

@@ -36,7 +36,8 @@ import {
 } from '../api/types';
 import { EstadoTesoreriaBadge } from './Badges';
 import { MotivoDialog } from './MotivoDialog';
-import { mensajeApi, PermisosTesoreriaNuevos } from '../lib/permisos';
+import { mensajeApi } from '../lib/mensaje-api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 const CAMPOS: ReadonlyArray<readonly [keyof DatosCuentaSolicitud, string]> = [
   ['banco', 'Banco'],
@@ -188,7 +189,7 @@ function SolicitudCuentaSheet({
   solicitud: SolicitudCuentaResponse | null;
   onClose: () => void;
 }) {
-  const puedeAutorizar = useHasPermission(PermisosTesoreriaNuevos.CuentasAutorizar);
+  const puedeAutorizar = useHasPermission(PermisosCanonicos.TesoreriaCuentasAutorizar);
   const resolver = useResolverSolicitudCuenta();
   const [rechazando, setRechazando] = useState(false);
   const [error, setError] = useState<string | null>(null);
