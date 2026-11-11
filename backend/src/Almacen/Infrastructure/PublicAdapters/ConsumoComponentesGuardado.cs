@@ -36,7 +36,8 @@ public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpr
     }
 
     /// <summary>Registra y descuenta un componente. <c>false</c> = ya estaba registrado (no se vuelve a descontar).</summary>
-    public async Task<bool> RegistrarAsync(Guid empresaId, string origen, PiezaComponenteAw p, CancellationToken ct)
+    public async Task<bool> RegistrarAsync(Guid empresaId, string origen, PiezaComponenteAw p, CancellationToken ct,
+        bool afectaInventario = false)
     {
         using var bypass = empresa.Bypass();
         if (await db.ConsumosComponenteAw.AsNoTracking().AnyAsync(x => x.EmpresaId == empresaId && x.Origen == origen
@@ -45,21 +46,21 @@ public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpr
         var c = new ConsumoComponenteAw(empresaId, origen, p.Etiqueta, p.Operacion, p.ComponenteRef, p.Capas, p.Auftnr, p.Pos,
             p.AnchoMm, p.AltoMm, p.ClaveSucursal, p.BearbZeit);
         db.ConsumosComponenteAw.Add(c);
-        return await EvaluarYGuardarAsync(c, ct);
+        return await EvaluarYGuardarAsync(c, afectaInventario, ct);
     }
 
     /// <summary>Vuelve a evaluar un consumo en revisión (p. ej. ya se capturó la norma o llegó existencia).</summary>
-    public async Task ReintentarAsync(Guid id, CancellationToken ct)
+    public async Task ReintentarAsync(Guid id, CancellationToken ct, bool afectaInventario = false)
     {
         using var bypass = empresa.Bypass();
         var c = await db.ConsumosComponenteAw.SingleOrDefaultAsync(x => x.Id == id && x.Estado == ConsumoComponenteAw.EnRevision, ct);
-        if (c is not null) await EvaluarYGuardarAsync(c, ct);
+        if (c is not null) await EvaluarYGuardarAsync(c, afectaInventario, ct);
     }
 
-    private async Task<bool> EvaluarYGuardarAsync(ConsumoComponenteAw c, CancellationToken ct)
+    private async Task<bool> EvaluarYGuardarAsync(ConsumoComponenteAw c, bool afectaInventario, CancellationToken ct)
     {
         await using var tx = db.Database.IsNpgsql() ? await db.Database.BeginTransactionAsync(ct) : null;
-        await EvaluarAsync(c, ct);
+        await EvaluarAsync(c, afectaInventario, ct);
         try
         {
             await db.SaveChangesAsync(ct);
@@ -75,7 +76,7 @@ public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpr
         }
     }
 
-    private async Task EvaluarAsync(ConsumoComponenteAw c, CancellationToken ct)
+    private async Task EvaluarAsync(ConsumoComponenteAw c, bool afectaInventario, CancellationToken ct)
     {
         if (c.ComponenteRef.Length == 0)
         {
@@ -102,6 +103,12 @@ public sealed class ConsumoComponentesGuardado(AlmacenDbContext db, ICurrentEmpr
         var (cantidad, error) = ConsumoComponentes.Calcular(g.UnidadMedida, c.AnchoMm, c.AltoMm, norma, c.ComponenteRef);
         if (cantidad is null) { Revision(error!); return; }
         cantidad *= c.Capas;
+        // Fernando 10-nov: hoy el inventario baja con la salida del almacén; el consumo calculado solo se guarda para estadística.
+        if (!afectaInventario)
+        {
+            c.Resolver(ConsumoComponenteAw.Estadistico, cantidad, null, null);
+            return;
+        }
 
         var motivo = $"A+W consumo por composición: operación {c.Operacion} pieza {c.Etiqueta} pedido {c.Auftnr} pos {c.Pos}";
         var (estado, folio, errorSalida) = await SalidaAppAlmacenes.RegistrarAsync(db, events, c.EmpresaId, usuario.Id,

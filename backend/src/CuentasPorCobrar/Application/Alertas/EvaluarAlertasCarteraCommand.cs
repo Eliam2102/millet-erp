@@ -82,6 +82,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
                 f.Moneda,
                 f.FechaVencimiento,
                 f.FechaTimbrado,
+                f.PlazoCorregidoDias,
                 Saldo = f.Total - f.MontoPagado - f.MontoNc,
             })
             .ToListAsync(cancellationToken);
@@ -142,7 +143,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
             {
                 var tolerancia = Math.Max(0, _options.ToleranciaDiasVencido);
                 var rebasan = BloqueoPorVencimiento.FacturasQueRebasan(
-                    grupo.Select(f => f.FechaTimbrado), linea.PlazoDias, tolerancia, hoy);
+                    grupo.Select(f => (f.FechaTimbrado, f.PlazoCorregidoDias)), linea.PlazoDias, tolerancia, hoy);
                 if (BloqueoPorVencimiento.DebeBloquear(rebasan, linea.DesbloqueoManualEn))
                 {
                     var diasMax = grupo.Max(f => BloqueoPorVencimiento.DiasDesdeTimbrado(f.FechaTimbrado, hoy));
@@ -169,7 +170,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
         {
             var timbrados = cartera
                 .Where(f => f.ClienteId == linea.ClienteId && f.Moneda == linea.Moneda && f.Saldo > 0)
-                .Select(f => f.FechaTimbrado);
+                .Select(f => (f.FechaTimbrado, f.PlazoCorregidoDias));
             if (BloqueoPorVencimiento.FacturasQueRebasan(
                     timbrados, linea.PlazoDias, Math.Max(0, _options.ToleranciaDiasVencido), hoy).Count == 0
                 && linea.DesbloquearPorPago())

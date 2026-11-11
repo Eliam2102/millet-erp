@@ -179,6 +179,9 @@ public sealed class RegistrarSalidaPorValeHandler
             conversiones.Add(await Recepciones.RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, "", variante, cancellationToken));
         }
+        // M-335: la salida de vidrio por medida es consumo de materia prima; no se captura en el ERP si ya viene de la app.
+        if (variantes.Any(v => v is not null))
+            await AppAlmacenes.OrigenCapturaMpReglas.ExigirErpAsync(_db, Domain.AppAlmacenes.OrigenCapturaMp.Consumo, cancellationToken);
         // M-172: silicón/Ködispace por tambor exigen línea destino y piezas enteras (antes de tocar el saldo).
         var tambores = await Tambores.TamboresEnLinea.ValidarAsync(_db, _articulos, request.Lineas,
             i => conversiones[i].CantidadBase, sucursalId, cancellationToken);

@@ -35,6 +35,7 @@ import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/c
 import { Route as AppAlmacenConciliacionRouteImport } from './routes/_app/almacen/conciliacion';
 import { Route as AppAlmacenConsumosRevisionRouteImport } from './routes/_app/almacen/consumos-revision';
 import { Route as AppAlmacenMensajesAppRouteImport } from './routes/_app/almacen/mensajes-app';
+import { Route as AppAlmacenOrigenCapturaRouteImport } from './routes/_app/almacen/origen-captura';
 import { Route as AppAlmacenMermasRouteImport } from './routes/_app/almacen/mermas';
 import { Route as AppAlmacenNormasConsumoRouteImport } from './routes/_app/almacen/normas-consumo';
 import { Route as AppAlmacenTamboresLineaRouteImport } from './routes/_app/almacen/tambores-linea';
@@ -399,6 +400,12 @@ const AppAlmacenMensajesAppRoute =
   AppAlmacenMensajesAppRouteImport.update({
     id: '/almacen/mensajes-app',
     path: '/almacen/mensajes-app',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenOrigenCapturaRoute =
+  AppAlmacenOrigenCapturaRouteImport.update({
+    id: '/almacen/origen-captura',
+    path: '/almacen/origen-captura',
     getParentRoute: () => AppRoute,
   } as any);
 const AppAlmacenMermasRoute = AppAlmacenMermasRouteImport.update({
@@ -1696,6 +1703,7 @@ export interface FileRoutesByFullPath {
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -1950,6 +1958,7 @@ export interface FileRoutesByTo {
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -2206,6 +2215,7 @@ export interface FileRoutesById {
   '/_app/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/_app/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/_app/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/_app/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/_app/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/_app/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/_app/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -2462,6 +2472,7 @@ export interface FileRouteTypes {
     | '/almacen/conciliacion'
     | '/almacen/consumos-revision'
     | '/almacen/mensajes-app'
+    | '/almacen/origen-captura'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
     | '/almacen/tambores-linea'
@@ -2716,6 +2727,7 @@ export interface FileRouteTypes {
     | '/almacen/conciliacion'
     | '/almacen/consumos-revision'
     | '/almacen/mensajes-app'
+    | '/almacen/origen-captura'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
     | '/almacen/tambores-linea'
@@ -2971,6 +2983,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/conciliacion'
     | '/_app/almacen/consumos-revision'
     | '/_app/almacen/mensajes-app'
+    | '/_app/almacen/origen-captura'
     | '/_app/almacen/mermas'
     | '/_app/almacen/normas-consumo'
     | '/_app/almacen/tambores-linea'
@@ -3390,6 +3403,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/mensajes-app';
       fullPath: '/almacen/mensajes-app';
       preLoaderRoute: typeof AppAlmacenMensajesAppRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/origen-captura': {
+      id: '/_app/almacen/origen-captura';
+      path: '/almacen/origen-captura';
+      fullPath: '/almacen/origen-captura';
+      preLoaderRoute: typeof AppAlmacenOrigenCapturaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/mermas': {
@@ -5023,6 +5043,7 @@ interface AppRouteChildren {
   AppAlmacenConciliacionRoute: typeof AppAlmacenConciliacionRoute;
   AppAlmacenConsumosRevisionRoute: typeof AppAlmacenConsumosRevisionRoute;
   AppAlmacenMensajesAppRoute: typeof AppAlmacenMensajesAppRoute;
+  AppAlmacenOrigenCapturaRoute: typeof AppAlmacenOrigenCapturaRoute;
   AppAlmacenMermasRoute: typeof AppAlmacenMermasRoute;
   AppAlmacenNormasConsumoRoute: typeof AppAlmacenNormasConsumoRoute;
   AppAlmacenTamboresLineaRoute: typeof AppAlmacenTamboresLineaRoute;
@@ -5276,6 +5297,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenConciliacionRoute: AppAlmacenConciliacionRoute,
   AppAlmacenConsumosRevisionRoute: AppAlmacenConsumosRevisionRoute,
   AppAlmacenMensajesAppRoute: AppAlmacenMensajesAppRoute,
+  AppAlmacenOrigenCapturaRoute: AppAlmacenOrigenCapturaRoute,
   AppAlmacenMermasRoute: AppAlmacenMermasRoute,
   AppAlmacenNormasConsumoRoute: AppAlmacenNormasConsumoRoute,
   AppAlmacenTamboresLineaRoute: AppAlmacenTamboresLineaRoute,

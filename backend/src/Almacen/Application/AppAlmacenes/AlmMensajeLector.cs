@@ -31,7 +31,16 @@ public interface IAlmMensajeOrigen
 
     /// <summary>Escribe el acuse en el renglón; repetirlo sobre un renglón ya acusado no cambia nada.</summary>
     Task EscribirAcuseAsync(long secuencia, AcuseApp acuse, CancellationToken ct);
+
+    /// <summary>
+    /// M-283: mensajes (último intento de cada uno) que la app escribió hace más de <paramref name="segundos"/> y siguen sin acuse.
+    /// La antigüedad se mide con el reloj de la base de la app (sus fechas son hora local, no UTC).
+    /// </summary>
+    Task<AlmMensajeSinAcuse> ContarSinAcuseAntiguosAsync(int segundos, CancellationToken ct);
 }
+
+/// <summary>Cuántos mensajes llevan más del plazo sin acuse y cuánto lleva el más viejo (0 si no hay).</summary>
+public readonly record struct AlmMensajeSinAcuse(int Cantidad, int MasAntiguoSegundos);
 
 /// <summary>Aplica un sobre ya parseado (mismo manejador que el endpoint HTTP) y devuelve su acuse. Implementado en Api.</summary>
 public interface IProcesadorMensajeApp
@@ -61,10 +70,23 @@ public sealed class AlmMensajeOptions
     public bool ExigirAreaEquipo { get; init; }
 
     /// <summary>
+    /// Jorge (TI), 11-nov: la rotura y la salida manual son del área de Almacén y el centro se configura con el motivo y el almacén del
+    /// mensaje. Llave <c>SUCURSAL[|TIPO_ALMACEN][|MOTIVO]</c> → <c>AREA/EQUIPO</c> (claves de Dim2/Dim3). Solo aplica si el mensaje no
+    /// trae área ni equipo.
+    /// </summary>
+    public Dictionary<string, string> CentroAlmacen { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// M-283 (contrato v9 §4): lee <c>alm_carga_inicial</c> (la carga de número más alto) y acusa APLICADO / ERROR por renglón.
     /// Apagado por omisión; se enciende cuando TI avise el número de carga. Usa el mismo <see cref="Origen"/> y cadena.
     /// </summary>
     public bool CargaInicialHabilitada { get; init; }
+
+    /// <summary>M-283 (acuerdo 5-nov con TI): minutos sin acuse para avisar al jefe de Almacén. 0 apaga la alarma.</summary>
+    public int AlarmaSinAcuseMinutos { get; init; } = 5;
+
+    /// <summary>Cada cuántos minutos se repite el aviso mientras siga habiendo mensajes sin acuse (no cada ciclo de 10 s).</summary>
+    public int AlarmaReavisoMinutos { get; init; } = 60;
 }
 
 public readonly record struct AlmMensajeTick(int Procesados, int Errores, int Frenados, int Fallas);

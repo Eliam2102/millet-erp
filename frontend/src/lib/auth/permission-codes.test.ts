@@ -195,6 +195,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.reportes.mp-cnk',
   'almacen.reportes.movimientos',
   'almacen.cierre-mes.ejecutar',
+  'almacen.cierre-mes.gestionar-todas-sucursales',
   'almacen.lectura.total',
   'almacen.reservas.administrar',
   'almacen.reorden.leer',

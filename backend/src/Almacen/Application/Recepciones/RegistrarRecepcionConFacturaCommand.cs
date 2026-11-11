@@ -211,6 +211,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
             conversiones.Add(await RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, lineaOc.UnidadMedida!, variante, cancellationToken));
         }
+        // M-335: el vidrio (partida con medida A+W) no se recibe en el ERP si la recepción ya se captura en la app de Almacenes.
+        if (variantes.Any(v => v is not null))
+            await AppAlmacenes.OrigenCapturaMpReglas.ExigirErpAsync(_db, Domain.AppAlmacenes.OrigenCapturaMp.Recepcion, cancellationToken);
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;

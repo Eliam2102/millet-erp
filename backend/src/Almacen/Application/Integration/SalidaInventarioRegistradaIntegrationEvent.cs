@@ -28,7 +28,10 @@ public sealed record SalidaInventarioRegistradaIntegrationEvent(
     Guid? SucursalId,
     Guid? CentroCostoId,
     decimal MontoTotalMxn,
-    IReadOnlyList<LineaSalidaInventarioPayload> Lineas)
+    IReadOnlyList<LineaSalidaInventarioPayload> Lineas,
+    // Campo aditivo opcional (sin bump de versión): clave fija del motivo de la salida manual de la app (FALTANTE, MUESTRA, PRESTAMO,
+    // CONSUMO_INTERNO…). Contabilidad la usa para elegir la cuenta (Fernando Alejos, 10-nov-2026); null = cuenta por causa, como antes.
+    string? MotivoClave = null)
     : IntegrationEvent("almacen.salida_inventario.registrada.v1", EmpresaId, OcurridoEn)
 {
     public static string CausaPorDefecto(TipoMovimiento tipo) => tipo switch
@@ -50,7 +53,7 @@ public sealed record SalidaInventarioRegistradaIntegrationEvent(
         var centros = lineas.Select(l => l.CentroCostoId).Distinct().ToList();
         await events.PublishAsync(new SalidaInventarioRegistradaIntegrationEvent(
             empresaId, DateTimeOffset.UtcNow, mov.Id, mov.Folio!, mov.FechaMovimiento, causa, mov.Motivo,
-            almacenId, sucursalId, centros is [{ } unico] ? unico : null, lineas.Sum(l => l.MontoMxn), lineas), ct);
+            almacenId, sucursalId, centros is [{ } unico] ? unico : null, lineas.Sum(l => l.MontoMxn), lineas, mov.MotivoClave), ct);
     }
 }
 

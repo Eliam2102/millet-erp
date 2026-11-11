@@ -9,6 +9,7 @@ import {
 import {
   NuevaCartaPorteContext,
   type NuevaCartaPorteApi,
+  type TramoPrefill,
 } from '@/features/facturacion/components/nueva-carta-porte-context';
 import { NuevaCartaPorte } from '@/features/facturacion/pages/NuevaCartaPorte';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -20,6 +21,7 @@ import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescart
  */
 export function NuevaCartaPorteProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
+  const [tramo, setTramo] = useState<TramoPrefill | null>(null);
   const alCerrar = useCallback(() => setAbierto(false), []);
   const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
   const cerrarConConfirm = useCallback(
@@ -29,7 +31,9 @@ export function NuevaCartaPorteProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<NuevaCartaPorteApi>(
     () => ({
-      abrir: () => {
+      abrir: (t) => {
+        // Algunos disparadores pasan el evento del clic: solo se acepta un tramo real.
+        setTramo(t != null && typeof t === 'object' && 'tramoId' in t ? t : null);
         setDirty(false);
         setAbierto(true);
       },
@@ -62,7 +66,7 @@ export function NuevaCartaPorteProvider({ children }: { children: ReactNode }) {
           </SheetHeader>
           <SheetBody className="flex flex-col overflow-hidden py-0">
             <div className="contents">
-              {abierto && <NuevaCartaPorte onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
+              {abierto && <NuevaCartaPorte onClose={cerrarConConfirm} onDirtyChange={setDirty} tramo={tramo} />}
             </div>
           </SheetBody>
         </SheetContent>

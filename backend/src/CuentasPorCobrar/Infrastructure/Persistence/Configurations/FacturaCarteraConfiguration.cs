@@ -34,6 +34,7 @@ public sealed class FacturaCarteraConfiguration : IEntityTypeConfiguration<Factu
 
         builder.Property(e => e.FechaTimbrado).IsRequired();
         builder.Property(e => e.FechaVencimiento).IsRequired();
+        builder.Property(e => e.PlazoCorregidoDias);
 
         builder.Property(e => e.MontoPagado).HasPrecision(14, 2).IsRequired();
         builder.Property(e => e.MontoNc).HasPrecision(14, 2).IsRequired();
@@ -97,5 +98,41 @@ public sealed class MovimientoCarteraConfiguration : IEntityTypeConfiguration<Mo
 
         builder.HasIndex(e => e.FacturaCarteraId)
             .HasDatabaseName("ix_movimiento_cartera_factura");
+    }
+}
+
+public sealed class CorreccionCarteraConfiguration : IEntityTypeConfiguration<CorreccionCartera>
+{
+    public void Configure(EntityTypeBuilder<CorreccionCartera> builder)
+    {
+        builder.ToTable("correccion_cartera", t =>
+        {
+            t.HasCheckConstraint("ck_correccion_cartera_tipo", "tipo IN (1, 2)");
+            t.HasCheckConstraint("ck_correccion_cartera_estado", "estado IN (1, 2, 3)");
+        });
+
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+
+        builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.FacturaCarteraId).IsRequired();
+        builder.Property(e => e.Tipo).HasConversion<short>().IsRequired();
+        builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
+        builder.Property(e => e.Motivo).HasMaxLength(400).IsRequired();
+        builder.Property(e => e.SolicitadaPorId).IsRequired();
+        builder.Property(e => e.SolicitadaPorNombre).HasMaxLength(200);
+        builder.Property(e => e.SolicitadaEn).IsRequired();
+        builder.Property(e => e.DecididaPorNombre).HasMaxLength(200);
+        builder.Property(e => e.MotivoDecision).HasMaxLength(400);
+        builder.Property(e => e.MovimientoTipo).HasConversion<short?>();
+        builder.Property(e => e.MovimientoImporte).HasPrecision(14, 2);
+
+        builder.HasOne<FacturaCartera>().WithMany().HasForeignKey(e => e.FacturaCarteraId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => e.FacturaCarteraId).HasDatabaseName("ix_correccion_cartera_factura");
+        builder.HasIndex(e => new { e.Tipo, e.Estado }).HasDatabaseName("ix_correccion_cartera_tipo_estado");
+        // Una sola solicitud pendiente de reversa por movimiento.
+        builder.HasIndex(e => e.MovimientoCarteraId).IsUnique()
+            .HasFilter("estado = 1 AND movimiento_cartera_id IS NOT NULL")
+            .HasDatabaseName("ux_correccion_cartera_movimiento_pendiente");
     }
 }
