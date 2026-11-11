@@ -256,7 +256,7 @@ public sealed class AwClientesSincronizador
             var responsable = nombres.TryGetValue(responsableId, out var n) && !string.IsNullOrWhiteSpace(n) ? n : "Responsable de clientes";
             var marca = $"KZ_GESPERRT={fila.KzGesperrt}" + (fila.KzStatus is { } e ? $", KZ_STATUS={e}" : "");
             _compartidoDb.Incidencias.Add(Incidencia.Abrir(new Incidencia.Datos(
-                empresaId, "datos_maestros", "Cliente", cliente.Id, $"{cliente.Clave} · {cliente.RazonSocial}", null, paso,
+                empresaId, "datos_maestros", "cliente", cliente.Id, $"{cliente.Clave} · {cliente.RazonSocial}", null, paso,
                 "AW_MARCA_SIN_EQUIVALENCIA",
                 $"El cliente llegó de A+W con una marca sin equivalencia ({marca}); no se aplicó baja ni reactivación.",
                 "Agrega la equivalencia en el mapeo de estatus de clientes A+W y vuelve a sincronizar el cliente.",
@@ -266,7 +266,8 @@ public sealed class AwClientesSincronizador
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _compartidoDb.ChangeTracker.Clear();
-            _logger.LogWarning("No se pudo revisar la incidencia de bloqueo del cliente {Clave} ({Tipo}).", cliente.Clave, ex.GetType().Name);
+            _logger.LogWarning("No se pudo revisar la incidencia de bloqueo del cliente {Clave} ({Tipo}).", cliente.Clave,
+                ex is BusinessRuleException br ? br.Code : ex.GetType().Name);
         }
     }
 
