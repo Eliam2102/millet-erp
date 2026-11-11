@@ -119,6 +119,11 @@ public sealed class ComercioExteriorEventListenerWorker : BackgroundService, ILo
                 var payload = JsonSerializer.Deserialize<SolicitudAnticipoAgentePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
                 await mediator.Send(new SolicitarAnticipoAgenteCommand(payload), cancellationToken);
             }
+            if (eventType == AnticipoComprobacionRevertidaHandler.EventType)
+            {
+                var payload = JsonSerializer.Deserialize<ReversaComprobacionCePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+                await mediator.Send(new RecibirReversaComprobacionCeCommand(payload), cancellationToken);
+            }
             if (eventType == AnticipoAgenteSaldoTransferidoHandler.EventType)
             {
                 var payload = JsonSerializer.Deserialize<SaldoAnticipoAgentePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");

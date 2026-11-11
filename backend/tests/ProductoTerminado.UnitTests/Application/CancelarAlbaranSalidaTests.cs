@@ -85,7 +85,7 @@ public sealed class CancelarAlbaranSalidaTests
             new EmitirHojaSalidaHandler(T.Db, Acceso, T.Pedidos, Facturacion, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora)), new RelojFijo(Ahora));
         public CancelarAlbaranSalidaHandler CancelarAlbaran() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public ConfirmarEntregaHandler Entrega() => new(T.Db, Acceso, T.Pedidos, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
-        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora), T.Eventos);
 
         public void Dispose() => T.Dispose();
     }

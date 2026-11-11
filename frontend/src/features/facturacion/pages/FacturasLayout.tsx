@@ -7,7 +7,7 @@ import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useSearch } from '@tanstack/react-router';
 import { Inbox } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 /**
  * <c>Master-detail de comprobantes emitidos</c> (FAC-UX-PR5) — réplica
@@ -26,21 +26,11 @@ export function FacturasLayout({ idActivo, detalle }: FacturasLayoutProps) {
   const query = useListarFacturas({
     estado: search.estado,
     clase: search.clase,
+    q: search.q?.trim() || undefined,
     limit: search.limit ?? 200,
   });
 
-  const items = useMemo(() => {
-    const todos = query.data?.items ?? [];
-    if (!search.q) return todos;
-    const needle = search.q.toLowerCase();
-    return todos.filter(
-      (f) =>
-        f.folio.toLowerCase().includes(needle) ||
-        (f.uuid ?? '').toLowerCase().includes(needle) ||
-        f.receptorNombre.toLowerCase().includes(needle) ||
-        f.receptorRfc.toLowerCase().includes(needle),
-    );
-  }, [query.data, search.q]);
+  const items = query.data?.items ?? [];
 
   return (
     <div className="flex flex-col gap-4   md:h-[calc(100vh-3.5rem)] md:flex-row">

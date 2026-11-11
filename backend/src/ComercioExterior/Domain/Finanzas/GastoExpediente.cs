@@ -4,6 +4,11 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.ComercioExterior.Domain;
 
 public enum BaseDistribucion { ValorAduana = 1, Peso = 2, Cantidad = 3, Directo = 4 }
+/// <summary>
+/// M-169 (Contabilidad, 10-nov): grupo contable del gasto de importación. Decide a qué rol de gasto carga la póliza del costo aplicado;
+/// Contabilidad lo cambia por concepto sin código. Los honorarios se separan además en persona física y moral según el proveedor.
+/// </summary>
+public enum GrupoContableGasto { HonorariosAduanales = 1, FletesManiobras = 2, Almacenajes = 3, OtrosGastosImportacion = 4 }
 public sealed class ConceptoGasto : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
@@ -12,20 +17,34 @@ public sealed class ConceptoGasto : BaseEntity, IPerteneceAEmpresa, IAuditable
     public BaseDistribucion BaseImportacion { get; private set; }
     public BaseDistribucion BaseExportacion { get; private set; }
     public bool RequiereOrdenServicio { get; private set; }
+    /// <summary>M-169: grupo contable del concepto en la póliza del costo de importación (configurable).</summary>
+    public GrupoContableGasto GrupoContable { get; private set; } = GrupoContableGasto.OtrosGastosImportacion;
     public bool EsIvaImportacion => Codigo == "IVA";
     private ConceptoGasto() { }
     public ConceptoGasto(Guid empresa, string codigo, string nombre, BaseDistribucion baseImportacion = BaseDistribucion.ValorAduana) : base(Guid.CreateVersion7())
     {
         EmpresaId = empresa; Codigo = codigo; Nombre = nombre;
         RequiereOrdenServicio = codigo is "ADUANALES" or "HONORARIOS";
+        GrupoContable = GrupoPorOmision(codigo);
         Configurar(baseImportacion, BaseDistribucion.Peso);
     }
-    public void Configurar(BaseDistribucion importacion, BaseDistribucion exportacion, bool? requiereOrdenServicio = null)
+    /// <summary>M-169: honorarios → honorarios aduanales; fletes y maniobras juntos; almacenaje; el resto a otros gastos de importación.</summary>
+    public static GrupoContableGasto GrupoPorOmision(string codigo) => codigo switch
+    {
+        "HONORARIOS" => GrupoContableGasto.HonorariosAduanales,
+        "FLETE_INT" or "FLETE_NAC" or "MANIOBRAS" => GrupoContableGasto.FletesManiobras,
+        "ALMACENAJE" => GrupoContableGasto.Almacenajes,
+        _ => GrupoContableGasto.OtrosGastosImportacion,
+    };
+    public void Configurar(BaseDistribucion importacion, BaseDistribucion exportacion, bool? requiereOrdenServicio = null, GrupoContableGasto? grupoContable = null)
     {
         if (!Enum.IsDefined(importacion) || exportacion is not (BaseDistribucion.Peso or BaseDistribucion.ValorAduana))
             throw new BusinessRuleException("CE_BASE_INVALIDA", "Seleccione una base válida; exportación admite peso o valor.");
+        if (grupoContable is GrupoContableGasto g && !Enum.IsDefined(g))
+            throw new BusinessRuleException("CE_GRUPO_CONTABLE_INVALIDO", "Seleccione un grupo contable válido.");
         BaseImportacion = importacion; BaseExportacion = exportacion;
         if (requiereOrdenServicio is bool requerida) RequiereOrdenServicio = requerida;
+        if (grupoContable is GrupoContableGasto grupo) GrupoContable = grupo;
     }
     public static IReadOnlyList<ConceptoGasto> CrearCatalogo(Guid empresa) => new[]
     {
@@ -88,7 +107,8 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CE_GASTO_YA_APLICADO", "No se puede editar un gasto aplicado a un anticipo.");
         if (fuente == "MXN" && d.Moneda != "MXN")
             throw new BusinessRuleException("CE_TIPO_CAMBIO_FUENTE_INVALIDA", "La fuente MXN solo aplica a gastos en pesos.");
-        if (fuente == "Banxico" && sugerido is > 0) tc = sugerido.Value; // Banxico nunca toma el TC enviado por el cliente
+        var delCatalogo = fuente is "Banxico" or "Catálogo Manual" or "Catálogo DOF";
+        if (delCatalogo && sugerido is > 0) tc = sugerido.Value; // la fuente del catálogo nunca toma el TC enviado por el cliente
         if (concepto.RequiereOrdenServicio && orden is null)
             throw new BusinessRuleException("CE_ORDEN_SERVICIO_REQUERIDA", "Seleccione una orden de servicio para este concepto.");
         if (orden is not null && (orden.Id == Guid.Empty || orden.Total <= 0 || orden.Asignado <= 0 || orden.Asignado > orden.Total ||
@@ -103,10 +123,11 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CE_GASTO_INVALIDO", "Revise proveedor, factura, moneda, fecha e importe positivo a centavos.");
         if (d.ImportesDirectos?.Any(x => x.Key == Guid.Empty || x.Value < 0 || decimal.Round(x.Value, 2) != x.Value) == true)
             throw new BusinessRuleException("CE_DIRECTO_INVALIDO", "Los importes directos son MXN a centavos y no negativos.");
-        var manual = fuente is not ("MXN" or "Banxico");
-        if (manual && (fuente is not ("Negociado" or "CFDI" or "Pedimento") || (nota?.Trim().Length ?? 0) is < 10 or > 500 || sugerido is not > 0 || usuario is null))
+        var manual = fuente != "MXN" && !delCatalogo;
+        if (manual && (fuente is not ("Negociado" or "CFDI" or "Pedimento") || (nota?.Trim().Length ?? 0) is < 10 or > 500 || sugerido is <= 0 || usuario is null))
             throw new BusinessRuleException("CE_TIPO_CAMBIO_NOTA_REQUERIDA", "Elija la fuente (Negociado, CFDI o Pedimento) y capture una nota de 10 caracteres o más.");
-        TipoCambioSugerido = d.Moneda == "MXN" ? null : sugerido ?? tc;
+        // Con fuente capturada el sugerido es sólo comparativo: sin fila del catálogo queda vacío (M-187).
+        TipoCambioSugerido = d.Moneda == "MXN" ? null : manual ? sugerido : sugerido ?? tc;
         DiferenciaTipoCambioPct = TipoCambioSugerido is decimal s ? decimal.Round((tc - s) / s * 100, 2, MidpointRounding.AwayFromZero) : null;
         NotaTipoCambio = manual ? nota!.Trim() : null; TipoCambioModificadoPor = manual ? usuario : null;
         ImpuestoPeca = d.ImpuestoPeca;

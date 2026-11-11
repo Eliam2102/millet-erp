@@ -21,7 +21,13 @@ public sealed class SaldoCarteraContabilidadAdapter(CuentasPorCobrarDbContext db
             .Select(f => new { f.Id, f.Total, f.Moneda }).ToListAsync(ct);
         var movimientos = (await db.MovimientosCartera.AsNoTracking()
                 .Where(m => m.FechaMovimiento < fin && (!m.Revertido || m.RevertidoEn == null || m.RevertidoEn >= fin))
-                .Select(m => new { m.FacturaCarteraId, m.Importe, m.FechaMovimiento, m.Revertido, m.RevertidoEn }).ToListAsync(ct))
+                // M-240: la reversa de un ajuste regresa saldo a la factura: cuenta con signo contrario a un pago.
+                .Select(m => new
+                {
+                    m.FacturaCarteraId,
+                    Importe = m.Tipo == TipoMovimientoCartera.ReversaAjusteCobro ? -m.Importe : m.Importe,
+                    m.FechaMovimiento, m.Revertido, m.RevertidoEn,
+                }).ToListAsync(ct))
             .ToLookup(m => m.FacturaCarteraId);
         return facturas
             .Select(f => new

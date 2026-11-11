@@ -115,6 +115,20 @@ public sealed class FacturaCartera : BaseEntity, IPerteneceAEmpresa, IAuditable
         RecalcularEstado();
     }
 
+    /// <summary>
+    /// M-240: deshace el regreso del faltante de un ajuste revertido cuando se cancela el REP del cobro. La cancelación revierte el
+    /// pago completo del REP; como el faltante ya se había regresado, se vuelve a sumar antes para no regresarlo dos veces.
+    /// </summary>
+    public void DeshacerReversaAjusteCobro(decimal importe)
+    {
+        if (importe <= 0 || MontoPagado + MontoNc + importe > Total)
+            throw new BusinessRuleException("FC_REVERSA_INVALIDA",
+                $"No se puede deshacer la reversa de {importe}: excede el total de la factura {Folio}.");
+
+        MontoPagado += importe;
+        RecalcularEstado();
+    }
+
     public void AplicarNotaCredito(decimal importe)
     {
         AsegurarNoCancelada();

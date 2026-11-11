@@ -36,11 +36,15 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
                     ?? throw new BusinessRuleException("CONTAB_POLIZA_TIPO_NO_EXISTE", $"No existe el tipo de operación {clave}.");
                 var (anio, numero) = RegistroPolizas.Periodo(s.Fecha, null);
                 // C1.4-g: un listener corre sin usuario; la empresa viene del evento (mismo patrón que las recurrentes, K10.4).
-                await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Automatica, t, s.EmpresaId);
+                await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Automatica, t, s.EmpresaId,
+                    await registro.ContextoAsync(clave, null, s.Documento.Modulo, s.Partidas.Select(x => x.CuentaId), t));
                 var partidas = await registro.ValidarPartidasAsync(s.Partidas, tipo.Id, s.Fecha, s.OrigenCuentas, t);
                 var folio = await registro.ReservarNumeroAsync(tipo.Id, anio, t, s.EmpresaId);
                 poliza = Poliza.CrearAutomatica(Guid.CreateVersion7(), tipo, s.Fecha, anio, numero, s.Concepto, s.Documento,
                     s.LlaveIdempotencia, partidas.Partidas, folio, clock.UtcNow);
+                // M-240: reversa parcial ligada a su póliza original (rastro en ambos sentidos).
+                if (s.ReversaDePolizaId is { } originalId)
+                    poliza.LigarReversaParcial(await db.Polizas.IgnoreQueryFilters().AsNoTracking().FirstAsync(x => x.Id == originalId, t));
                 if (s.EmpresaId is { } empresaId)
                 {
                     poliza.EmpresaId = empresaId;
@@ -79,7 +83,11 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
                     resultado.Add(new(previa.Id, previa.Folio!, previa.Estado, true));
                     continue;
                 }
-                var anulacion = await registro.AnularAsync(p, motivo, null, FechaContable.HoyLocal(clock.UtcNow), null, UsuarioMotor, clock.UtcNow, t);
+                // Fernando 10-nov (M-082): un mes cerrado no se reabre; si el periodo de la póliza ya no admite pólizas, la anulación
+                // va en el periodo de hoy como póliza independiente (mismo criterio que RevertirAsync).
+                var hoy = FechaContable.HoyLocal(clock.UtcNow);
+                var cerrado = await registro.RechazoPeriodoAsync(p.PeriodoAnio, p.PeriodoNumero, p.Origen, t, p.EmpresaId);
+                var anulacion = await registro.AnularAsync(p, motivo, cerrado == null ? null : (hoy.Year, hoy.Month), hoy, null, UsuarioMotor, clock.UtcNow, t);
                 resultado.Add(new(anulacion.Id, anulacion.Folio!, anulacion.Estado, false));
                 await NotificarAsync(anulacion, p.Id, [], t);
             }

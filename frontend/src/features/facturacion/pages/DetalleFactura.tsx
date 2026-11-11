@@ -275,7 +275,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       )}
       {accion === 'sustituir' && <SustituirFacturaPanel facturaId={f.id} onDone={() => setAccion(null)} />}
 
-      {pendientePedimento && puedeEmitir && <PedimentoForm facturaId={f.id} />}
+      {pendientePedimento && puedeEmitir && <PedimentoForm facturaId={f.id} motivo={f.motivoPedimento} />}
 
       <TimbradoFallidoBanner
         comprobanteId={f.id}
@@ -624,7 +624,7 @@ function ReenviarCorreo({ facturaId }: { facturaId: string }) {
   );
 }
 
-function PedimentoForm({ facturaId }: { facturaId: string }) {
+function PedimentoForm({ facturaId, motivo }: { facturaId: string; motivo?: string | null }) {
   const [pedimento, setPedimento] = useState('');
   const [fecha, setFecha] = useState('');
   const [identificacion, setIdentificacion] = useState('');
@@ -666,6 +666,11 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
       <div className="sm:col-span-4 text-sm font-medium">
         Factura retenida por pedimento — aplícalo para timbrar
       </div>
+      {motivo && (
+        <p className="sm:col-span-4 text-xs text-ink-muted" data-testid="motivo-pedimento">
+          {motivo}
+        </p>
+      )}
       <div className="sm:col-span-4">
         <ErrorTimbradoAviso error={aplicar.error} />
       </div>

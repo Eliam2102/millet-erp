@@ -102,4 +102,66 @@ public sealed class TipoCambioGastoHttpTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, mxnEnUsd.StatusCode);
         Assert.Equal("CE_TIPO_CAMBIO_FUENTE_INVALIDA", (await mxnEnUsd.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
     }
+
+    [Fact]
+    public async Task M187_fecha_con_tc_manual_o_sin_tc_acepta_el_capturado_y_conserva_el_error_de_banxico()
+    {
+        await using var e = await ExpedientesHttpTests.Escenario.CrearAsync(); using var client = await e.ClienteAsync(true);
+        var creado = await client.PostAsJsonAsync(Base, e.Importacion()); creado.EnsureSuccessStatusCode();
+        var id = (await creado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("expediente").GetProperty("id").GetGuid();
+        var inicial = await Post(client, id, "gastos/conceptos/inicializar", new { }, creado.Headers.ETag!.Tag); inicial.EnsureSuccessStatusCode();
+        var concepto = (await inicial.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("conceptos").EnumerateArray()
+            .First(c => c.GetProperty("codigo").GetString() == "FLETE_INT").GetProperty("id").GetGuid();
+        var conManual = new DateOnly(2026, 10, 4); var sinFila = new DateOnly(2026, 10, 3);
+        Guid proveedor;
+        using (var scope = e.Scope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var maestros = scope.ServiceProvider.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
+            proveedor = await maestros.Proveedores.Where(p => p.Clave == "DEMO-PROV-ACT").Select(p => p.Id).SingleAsync();
+            var usd = await maestros.Monedas.SingleAsync(m => m.Codigo == "USD");
+            maestros.TiposCambio.RemoveRange(await maestros.TiposCambio.Where(t => t.MonedaId == usd.Id && (t.Fecha == conManual || t.Fecha == sinFila)).ToListAsync());
+            maestros.TiposCambio.Add(new TipoCambio(Guid.CreateVersion7(), usd.Id, conManual, 20.1234m, OrigenTipoCambio.Manual));
+            await maestros.SaveChangesAsync();
+        }
+        var facturas = new Dictionary<string, Guid>();
+        using (var scope = e.Scope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var cxp = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>();
+            foreach (var (folio, dia) in new[] { ("M187-CAT", conManual), ("M187-NEG", conManual), ("M187-SIN", sinFila), ("M187-BX", sinFila) })
+            {
+                var fecha = new DateTimeOffset(dia.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero);
+                var factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor.CapturarSinOc(DemoSesionSeedHostedService.EmpresaId, null, Guid.NewGuid().ToString(),
+                    proveedor, e.SucursalId, folio, null, fecha, fecha, dia.AddMonths(1), "USD", null, 1000, 0, 0, 0, 1000, "M-187 prueba", fecha);
+                cxp.FacturasProveedor.Add(factura); facturas.Add(folio, factura.Id);
+            }
+            await cxp.SaveChangesAsync();
+        }
+        object Gasto(string factura, DateOnly fecha, object? extra = null) => new Dictionary<string, object?>
+        {
+            ["conceptoId"] = concepto, ["proveedorId"] = proveedor, ["factura"] = factura, ["moneda"] = "USD", ["importe"] = 1000,
+            ["fechaFactura"] = fecha.ToString("yyyy-MM-dd"), ["facturaProveedorId"] = facturas[factura],
+        }.Concat(extra is null ? [] : JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(extra))!).GroupBy(x => x.Key).ToDictionary(x => x.Key, x => x.Last().Value);
+        static async Task<JsonElement> Leer(HttpResponseMessage r, string factura) =>
+            (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("gastos").EnumerateArray().Single(g => g.GetProperty("factura").GetString() == factura);
+
+        // Rama 2: sin Banxico en la fecha, usa la fila Manual del catálogo y muestra su origen.
+        var catalogo = await Post(client, id, "gastos", Gasto("M187-CAT", conManual), inicial.Headers.ETag!.Tag); catalogo.EnsureSuccessStatusCode();
+        var g1 = await Leer(catalogo, "M187-CAT");
+        Assert.Equal("Catálogo Manual", g1.GetProperty("fuenteTipoCambio").GetString()); Assert.Equal(20123.40m, g1.GetProperty("importeMxn").GetDecimal());
+        // Rama 1: tipo de cambio capturado con fila Manual en la fecha (antes fallaba) y sin ninguna fila.
+        var negociado = await Post(client, id, "gastos", Gasto("M187-NEG", conManual, new { fuenteTipoCambio = "Negociado", tipoCambioUsado = 20.00m, notaTipoCambio = "Pactado con el agente" }), catalogo.Headers.ETag!.Tag);
+        negociado.EnsureSuccessStatusCode();
+        var g2 = await Leer(negociado, "M187-NEG");
+        Assert.Equal(20000.00m, g2.GetProperty("importeMxn").GetDecimal()); Assert.Equal(20.1234m, g2.GetProperty("tipoCambioSugerido").GetDecimal());
+        var sin = await Post(client, id, "gastos", Gasto("M187-SIN", sinFila, new { fuenteTipoCambio = "Pedimento", tipoCambioUsado = 19.50m, notaTipoCambio = "TC del pedimento de importación" }), negociado.Headers.ETag!.Tag);
+        sin.EnsureSuccessStatusCode();
+        var g3 = await Leer(sin, "M187-SIN");
+        Assert.Equal(19500.00m, g3.GetProperty("importeMxn").GetDecimal()); Assert.Equal(JsonValueKind.Null, g3.GetProperty("tipoCambioSugerido").ValueKind);
+        // Rama 3: fuente Banxico sin ninguna fila en la fecha conserva el error actual.
+        var banxico = await Post(client, id, "gastos", Gasto("M187-BX", sinFila), sin.Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, banxico.StatusCode);
+        Assert.Equal("CE_TC_BANXICO_FALTANTE", (await banxico.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+    }
 }

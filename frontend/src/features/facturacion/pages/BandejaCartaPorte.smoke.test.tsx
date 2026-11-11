@@ -54,17 +54,20 @@ describe('<BandejaCartaPorte> — smoke', () => {
   it('lista una Carta Porte y muestra Nueva Carta Porte', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/carta-porte', () =>
-        HttpResponse.json([
-          {
-            id: 'c-1',
-            folio: 'CP-1',
-            estado: 'Timbrado',
-            uuid: 'U-1',
-            tipo: 'T',
-            tramo: 'Cancún → Mérida',
-            fechaSalida: '2026-05-30T08:00:00Z',
-          },
-        ]),
+        HttpResponse.json({
+          items: [
+            {
+              id: 'c-1',
+              folio: 'CP-1',
+              estado: 'Timbrado',
+              uuid: 'U-1',
+              tipo: 'T',
+              tramo: 'Cancún → Mérida',
+              fechaSalida: '2026-05-30T08:00:00Z',
+            },
+          ],
+          total: 1,
+        }),
       ),
     );
     render(<BandejaCartaPorte />, { wrapper: createQueryWrapper() });
@@ -79,7 +82,7 @@ describe('<BandejaCartaPorte> — smoke', () => {
 
   it('empty', async () => {
     mswServer.use(
-      http.get('*/api/v1/facturacion/carta-porte', () => HttpResponse.json([])),
+      http.get('*/api/v1/facturacion/carta-porte', () => HttpResponse.json({ items: [], total: 0 })),
     );
     render(<BandejaCartaPorte />, { wrapper: createQueryWrapper() });
     await waitFor(() =>

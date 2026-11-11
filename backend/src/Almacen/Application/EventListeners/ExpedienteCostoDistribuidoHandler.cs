@@ -13,9 +13,13 @@ using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.Almacen.Application.EventListeners;
 // Contrato espejo; Almacén no referencia el módulo Comercio Exterior.
-/// <remarks>H1 paso 4 (86e3z5w25, aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir; pasa tal cual a Contabilidad.</remarks>
+/// <remarks>H1 paso 4 (86e3z5w25, aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir; pasa tal cual a Contabilidad.
+/// M-169 (aditivo): <c>GastosPorGrupo</c> = ajuste de la versión por grupo contable (HONORARIOS_PF, HONORARIOS_PM, FLETES_MANIOBRAS,
+/// ALMACENAJES, OTROS); un evento sin él sigue igual y Contabilidad carga todo al gasto de importación.</remarks>
 public sealed record CostoExpedientePayload(Guid EmpresaId, Guid ExpedienteId, Guid SucursalId, int NumeroVersion, IReadOnlyList<CostoPartidaPayload> Partidas,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null, IReadOnlyList<GastoGrupoAplicado>? GastosPorGrupo = null);
+/// <summary>M-169: importe del gasto de importación de un grupo contable (MXN, ajuste de la versión).</summary>
+public sealed record GastoGrupoAplicado(string Grupo, decimal ImporteMxn);
 public sealed record CostoPartidaPayload(Guid PartidaId, Guid OcId, Guid RecepcionId, Guid ArticuloId, Guid UbicacionId,
     decimal CantidadRecibida, decimal ImporteMxn, decimal DiferenciaMxn);
 public sealed record AplicarCostoExpedienteCommand(CostoExpedientePayload Payload) : IRequest;
@@ -35,6 +39,11 @@ public sealed record ExpedienteCostoAplicadoEvent(Guid Empresa, DateTimeOffset F
     public Guid? SucursalId { get; init; }
     /// <summary>H1 paso 4: área o equipo del gasto de importación, capturado en Comercio Exterior al distribuir.</summary>
     public Guid? CentroCostoId { get; init; }
+    /// <summary>
+    /// M-169 (aditivo): el gasto de importación confirmado (suma de <c>GastoImportacionMxn</c>) por grupo contable. Vacío en eventos
+    /// sin desglose: Contabilidad carga todo al rol GASTO_IMPORTACION, como antes.
+    /// </summary>
+    public IReadOnlyList<GastoGrupoAplicado> GastosPorGrupo { get; init; } = [];
 }
 public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger,
     IOptions<IncrementablesImportacionOptions> incrementables)
@@ -130,10 +139,30 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
         db.EventosProcesados.Add(new EventoProcesado(p.ExpedienteId, llave));
         if (aplicadas.Count > 0)
         {
-            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas) { SucursalId = p.SucursalId, CentroCostoId = p.CentroCostoId }, cancellationToken);
+            await eventos.PublishAsync(new ExpedienteCostoAplicadoEvent(p.EmpresaId, clock.UtcNow, p.ExpedienteId, p.NumeroVersion, aplicadas)
+            {
+                SucursalId = p.SucursalId, CentroCostoId = p.CentroCostoId,
+                GastosPorGrupo = GastoPorGrupo(p.GastosPorGrupo ?? [], aplicadas.Sum(x => x.GastoImportacionMxn)),
+            }, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// M-169: el desglose que manda Comercio Exterior es del ajuste distribuido; aquí se confirma contra el gasto de importación
+    /// que de verdad se aplicó. Con los incrementables fuera del inventario (por omisión) son iguales y pasa tal cual. Si una parte
+    /// fue a inventario, cada grupo se ajusta en proporción y el centavo de redondeo queda en el grupo mayor, así suma exacto.
+    /// </summary>
+    public static IReadOnlyList<GastoGrupoAplicado> GastoPorGrupo(IReadOnlyList<GastoGrupoAplicado> grupos, decimal gastoAplicado)
+    {
+        var distribuido = grupos.Sum(g => g.ImporteMxn);
+        if (grupos.Count == 0 || distribuido == gastoAplicado) return grupos;
+        if (gastoAplicado == 0 || distribuido == 0) return [];
+        var ajustados = grupos.Select(g => g with { ImporteMxn = decimal.Round(g.ImporteMxn * gastoAplicado / distribuido, 2, MidpointRounding.AwayFromZero) }).ToArray();
+        var mayor = Array.FindIndex(ajustados, g => Math.Abs(g.ImporteMxn) == ajustados.Max(x => Math.Abs(x.ImporteMxn)));
+        ajustados[mayor] = ajustados[mayor] with { ImporteMxn = ajustados[mayor].ImporteMxn + gastoAplicado - ajustados.Sum(g => g.ImporteMxn) };
+        return [.. ajustados.Where(g => g.ImporteMxn != 0)];
     }
 }

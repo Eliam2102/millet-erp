@@ -390,6 +390,32 @@ public sealed class EmitirFacturaVentaHandlerTests
         Assert.Equal(20m, factura.TotalPie2);
     }
 
+    // M-216: la factura ligada al expediente toma su pedimento y no se retiene; sin expediente sí se retiene.
+    [Fact]
+    public async Task M216_ligada_al_expediente_toma_su_pedimento_y_no_queda_retenida()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "EXP-25-0007",
+            NumeroPedimento: "25  16  3807  5000123", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP",
+            Contenedores: [new(Guid.NewGuid(), "MSKU1234567", "MAEU250001", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo");
+        var resp = await Handler(db, empresa, embarques: new Embarques(lectura)).Handle(command with {
+            PedidoFacturableId = p.Id, Lineas = [command.Lineas[0] with { RequierePedimento = true }] }, CancellationToken.None);
+        var f = await db.FacturasVenta.Include(x => x.Lineas).SingleAsync();
+        Assert.Equal("Timbrado", resp.Estado);
+        Assert.Equal("25  16  3807  5000123", f.Lineas.Single().Pedimento);
+        Assert.Equal(new DateOnly(2026, 5, 29), f.Lineas.Single().FechaDocAduanero);
+    }
+
+    [Fact]
+    public async Task M216_sin_expediente_la_linea_que_requiere_pedimento_sigue_retenida()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var resp = await Handler(db, empresa, embarques: new Embarques(new(false))).Handle(command with {
+            PedidoFacturableId = p.Id, Lineas = [command.Lineas[0] with { RequierePedimento = true }] }, CancellationToken.None);
+        Assert.Equal("PendientePedimento", resp.Estado);
+        Assert.Null((await db.FacturasVenta.Include(x => x.Lineas).SingleAsync()).Lineas.Single().Pedimento);
+    }
+
     [Fact]
     public async Task Pedido_no_ligado_se_factura_igual_y_sin_copia_ce()
     {

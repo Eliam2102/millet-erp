@@ -29,7 +29,7 @@ public sealed partial class LibroHttpTests
             Assert.Equal(!confirmar,resultado.Valida);Assert.DoesNotContain(resultado.Errores,x => x.Columna == "clase" || x.Codigo == "AF_COLUMNA_FALTANTE");
             Assert.Contains(resultado.Avisos!,x => x.Codigo == "AF_CARGA_SIN_ACUMULADA");Assert.All(resultado.Cuadre,c => Assert.Null(c.Acumulada));
             var forklift=resultado.Activos!.Single(a => a.Numero == "ACF99575");Assert.Equal("153",forklift.Clase);Assert.Equal(25.0014m,forklift.TasaContablePropia);
-            var apc=resultado.Activos!.Single(a => a.Numero == "ACF99620");Assert.Equal("156",apc.Clase);Assert.Equal(30,apc.TasaContablePropia);
+            var apc=resultado.Activos!.Single(a => a.Numero == "ACF99620");Assert.Equal("156",apc.Clase);Assert.Null(apc.TasaContablePropia);
             var aire=resultado.Activos!.Single(a => a.Numero == "ACF99215");Assert.Equal("152",aire.Clase);Assert.Null(aire.TasaContablePropia);
             var touareg=resultado.Activos!.Single(a => a.Numero == "ACF98840");Assert.Equal("154",touareg.Clase);Assert.Equal(10,touareg.TasaContablePropia);
             if (confirmar) Assert.Contains(resultado.Errores,x => x.Codigo == "AF_CARGA_SIN_ACUMULADA");

@@ -679,6 +679,10 @@ public static class PermisosCanonicos
     public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
     public const string ComercioExteriorGastosDistribuir = "comercio_exterior.gastos.distribuir";
     public const string ComercioExteriorAnticiposGestionar = "comercio_exterior.anticipos.gestionar";
+    /// <summary>M-327: solicitar con motivo la reversa de un anticipo al agente aduanal ya comprobado (Comercio exterior).</summary>
+    public const string ComercioExteriorAnticiposRevertirComprobacionSolicitar = "comercio_exterior.anticipos.revertir-comprobacion-solicitar";
+    /// <summary>M-327: autorizar o no la reversa de la comprobación (Contador General, Millet 10-nov-2026). Quien solicita no autoriza.</summary>
+    public const string ComercioExteriorAnticiposRevertirComprobacionAutorizar = "comercio_exterior.anticipos.revertir-comprobacion-autorizar";
     public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
     public const string ComercioExteriorContenedoresGestionar = "comercio_exterior.expedientes.contenedores-gestionar";
     public const string ComercioExteriorRelacionIvaLeer = "comercio_exterior.relacion-iva.leer";
@@ -689,6 +693,9 @@ public static class PermisosCanonicos
     public const string ComercioExteriorIncidenciasGestionar = "comercio_exterior.incidencias.gestionar";
     public const string ComercioExteriorExpedientesCerrar = "comercio_exterior.expedientes.cerrar";
     public const string ComercioExteriorExpedientesHitosRegistrar = "comercio_exterior.expedientes.hitos-registrar";
+    // M-373: corregir la fecha real o la omisión de un hito ya resuelto. Quién autoriza sigue por confirmar con Millet
+    // (M-151, «Pendiente» el 10-nov); por omisión lo reciben los roles de Gerencia de Comercio exterior (aprobar_cierre).
+    public const string ComercioExteriorExpedientesHitosCorregir = "comercio_exterior.expedientes.hitos-corregir";
     public const string ComercioExteriorExpedientesDocumentosRevisar = "comercio_exterior.expedientes.documentos-revisar";
     public const string ComercioExteriorExpedientesAdjuntosVer = "comercio_exterior.expedientes.adjuntos-ver";
     public const string ComercioExteriorExpedientesAdjuntosSubir = "comercio_exterior.expedientes.adjuntos-subir";
@@ -1101,6 +1108,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000004"), ComercioExteriorAnticiposRevertirComprobacionSolicitar, "Solicitar con motivo la reversa de un anticipo al agente ya comprobado"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000005"), ComercioExteriorAnticiposRevertirComprobacionAutorizar, "Autorizar la reversa de un anticipo al agente ya comprobado contra su saldo a favor (Contador General; no quien la solicitó)"),
         (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),
         (Guid.Parse("0000000e-0001-0000-0000-00000000000b"), ComercioExteriorContenedoresGestionar, "Gestionar contenedores y partidas"),
         (Guid.Parse("0000000e-0003-0000-0000-000000000001"), ComercioExteriorRelacionIvaLeer, "Consultar relación mensual para IVA"),
@@ -1111,6 +1120,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0005-0000-0000-000000000001"), ComercioExteriorIncidenciasGestionar, "Gestionar incidencias del expediente"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000005"), ComercioExteriorExpedientesCerrar, "Reservado para CE-01b"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000006"), ComercioExteriorExpedientesHitosRegistrar, "Reservado para CE-01b"),
+        (Guid.Parse("0000000e-0001-0000-0000-00000000000c"), ComercioExteriorExpedientesHitosCorregir, "Corregir la fecha real o la omisión de un hito con motivo"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000007"), ComercioExteriorExpedientesDocumentosRevisar, "Revisar requisitos documentales"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000008"), ComercioExteriorExpedientesAdjuntosVer, "Consultar archivos"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000009"), ComercioExteriorExpedientesAdjuntosSubir, "Subir archivos y registrar versiones"),

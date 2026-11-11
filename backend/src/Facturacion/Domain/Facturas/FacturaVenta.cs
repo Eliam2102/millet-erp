@@ -314,6 +314,19 @@ public sealed class FacturaVenta : Comprobante
     }
 
     /// <summary>
+    /// M-216: en el Borrador de una factura ligada a un expediente de Comercio exterior, llena con el
+    /// pedimento del expediente las líneas que lo requieren y aún no lo tienen, para que no se retenga.
+    /// </summary>
+    public void CompletarPedimentoDesdeExpediente(string pedimento, DateOnly fechaPedimento)
+    {
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("FACTURA_NO_BORRADOR", $"Solo un Borrador toma el pedimento del expediente (actual: {Estado}).");
+
+        foreach (var linea in _lineas.Where(l => l.RequierePedimento && string.IsNullOrWhiteSpace(l.Pedimento)))
+            linea.AplicarPedimento(pedimento, fechaPedimento, linea.IdentificacionMercancia);
+    }
+
+    /// <summary>
     /// Vincula la autorización del Director de Administración y Finanzas (venta de activo fijo, §7.8,
     /// F9). Solo en comportamiento <see cref="ComportamientoFiscal.VentaActivoFijo"/>
     /// y en Borrador (antes de timbrar).

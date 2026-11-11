@@ -28,4 +28,8 @@ public sealed class PiezasPtOptions
     public bool ConsumoComponentesAfectaInventario { get; set; }
     /// <summary>PT5.10: lectura de pedidos internos Serie 9000 para descargar el inventario del taller. Apagado por omisión.</summary>
     public bool Serie9000Habilitada { get; set; }
+    /// <summary>Descuento de PT por albaranes de A+W (vista <c>vw_erp_albaran_pos</c>, script 20). Apagado por omisión.</summary>
+    public bool AlbaranAwHabilitado { get; set; }
+    /// <summary>Días hacia atrás de albaranes que se releen en cada ciclo (la aplicación en PT es idempotente).</summary>
+    public int AlbaranAwVentanaDias { get; set; } = 7;
 }

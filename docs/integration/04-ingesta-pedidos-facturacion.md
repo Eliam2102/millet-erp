@@ -207,6 +207,33 @@ Del catálogo de productos A+W: `producto_ref`, `descripcion`,
 `unidad_medida` normalizada. Claves SAT **no existen en A+W** — las asigna el
 master del ERP (`compartido.producto_aw`) vía mapeo de unidad + UI.
 
+### 3.6 `vw_erp_albaran_pos` (descuento de PT por albarán de A+W) · propuesta 10-nov
+
+El albarán se queda en A+W; el ERP solo emite la hoja de salida (Geovany, 10-nov). En A+W el albarán es un dato de la
+cabecera (`BW_AUFTR_KOPF.NR_LIEFERSCHEIN` y `DATUM_LIEFERSCHEIN`, Jorge Toache 10-nov). DDL en
+[`20_create_vista_albaran.sql`](../operacion/aw-integracion-scripts/20_create_vista_albaran.sql), pendiente de visto bueno de TI.
+
+- Una fila por albarán y posición: `numero_pedido`, `numero_posicion` (donde se produjeron las piezas: lote de PT
+  pedido-posición), `pedido_albaran`, `posicion_albaran`, `piezas`, `albaran_folio`, `albaran_fecha`, `estatus_pedido`.
+- La cabecera guarda un solo folio. Cada entrega parcial es un pedido hijo (`DOK_TYP = 'Expedición parcial'`) con su folio;
+  sus posiciones apuntan al origen por `REF_AUSLIEF_AUFTR_ID/POS`. Las reclamaciones se quedan con su propio pedido.
+- Lector: `AlbaranesAwOrigenAdapter` (Demo/Real), worker `AlbaranesAwWorker`, bandera `IntegracionesAw:PiezasPt:AlbaranAwHabilitado`
+  (apagada), ventana `AlbaranAwVentanaDias` (7). PT: `AplicarAlbaranesAwCommand`, idempotente por pedido + posición + albarán
+  (movimiento `aw-albaran:{pedido_albaran}:{folio}`: lleva el pedido de A+W que trae el albarán para no depender de que
+  `NR_LIEFERSCHEIN` sea único en todo A+W); no descuenta otra vez lo que ya salió o está cargado por la hoja de salida del ERP.
+- Robustez: una fila con pedido, posición, folio, fecha o `pedido_albaran` nulos se omite con aviso en el log (piezas nulas
+  cuentan 0); una falla al leer la vista se registra y se reintenta en el siguiente intervalo. Piezas no enteras se truncan
+  con aviso. Si una hoja de salida del ERP carga una pieza a la vez, el token `Version` de la pieza (ADR-0012) rechaza el
+  guardado de esa posición y se reintenta en el siguiente ciclo con el estado nuevo.
+- Ventana de 7 días: el worker solo ve pedidos con algún albarán con `albaran_fecha` dentro de la ventana (de ese pedido trae
+  todos sus albaranes). Un albarán más viejo que la ventana que no se leyó a tiempo (worker apagado, origen caído, piezas
+  que llegaron a PT después) ya no se descuenta. **Backfill:** subir temporalmente
+  `IntegracionesAw:PiezasPt:AlbaranAwVentanaDias` a los días que cubran el hueco, reiniciar la app, esperar uno o dos ciclos
+  (la idempotencia evita duplicar lo ya aplicado) y regresarla a 7.
+- Límite: si TI borra o cambia un folio ya leído, el ERP no revierte la salida.
+- Límite: la cancelación del albarán del ERP (PT5.8, #512) no revierte las salidas aplicadas por un albarán de A+W (movimiento
+  `aw-albaran:…`). Si el albarán de A+W estaba mal, se corrige en A+W; el ERP no tiene reversa automática para ese movimiento.
+
 ## 4. Mapeos A+W → tipos del ERP
 
 Rediseño 2026-07-07 (sustituye a los diccionarios de configuración por

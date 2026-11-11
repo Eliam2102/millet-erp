@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import type {
@@ -74,6 +74,8 @@ export function useEstadoCuentaAnticipos(clienteId: string | null | undefined) {
 
 export interface BandejaFacturasAnticipoFiltros {
   estado?: number;
+  q?: string;
+  offset?: number;
   limit?: number;
   alcance?: 'sin-asignar';
 }
@@ -89,10 +91,13 @@ export function useBandejaFacturasAnticipo(filtros: BandejaFacturasAnticipoFiltr
     queryKey: facturacionKeys.anticiposFacturasList(
       filtros as Record<string, unknown>,
     ),
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (filtros.estado != null) params.set('estado', String(filtros.estado));
       params.set('limit', String(filtros.limit ?? 200));
+      if (filtros.offset != null) params.set('offset', String(filtros.offset));
+      if (filtros.q) params.set('q', filtros.q);
       if (filtros.alcance) params.set('alcance', filtros.alcance);
       const { data } = await apiRequest<BandejaScoped<FacturaAnticipoBandejaItem>>(
         `${BASE}/facturas?${params.toString()}`,

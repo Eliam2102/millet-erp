@@ -32,9 +32,10 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { estadoUi } from '../lib/estados-ui';
-import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/facturas/' as const;
+const TAMANO_PAGINA = 50;
 
 /**
  * <c>Bandeja de comprobantes emitidos</c> (FE-F1-PR2). Tabla filtrada
@@ -47,11 +48,15 @@ export function BandejaFacturas() {
   const navigate = useNavigate();
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
 
+  const q = (search.q ?? '').trim();
+  const paginacion = usePaginacionServidor(JSON.stringify(search));
   const query = useListarFacturas({
     estado: search.estado,
     clase: search.clase,
     ncPendiente: search.ncPendiente,
-    limit: 200,
+    q: q || undefined,
+    offset: paginacion.offset,
+    limit: TAMANO_PAGINA,
     alcance: search.alcance,
   });
 
@@ -59,18 +64,7 @@ export function BandejaFacturas() {
     navigate({ to: '/facturacion/facturas', search: { ...search, ...parcial } });
   }
 
-  const q = (search.q ?? '').trim().toLowerCase();
-  const items = (query.data?.items ?? []).filter((f) => {
-    if (q.length === 0) return true;
-    return (
-      f.folio.toLowerCase().includes(q) ||
-      (f.uuid ?? '').toLowerCase().includes(q) ||
-      f.receptorNombre.toLowerCase().includes(q) ||
-      f.receptorRfc.toLowerCase().includes(q)
-    );
-  });
-
-  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
+  const items = query.data?.items ?? [];
   return (
     <div className="space-y-5">
       <PageHeader
@@ -151,9 +145,9 @@ export function BandejaFacturas() {
         }
         pie={
           <PaginacionTabla
-            total={items.length}
+            total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={10}
+            limit={TAMANO_PAGINA}
             tamanos={[]}
             onChange={paginacion.onChange}
           />
@@ -200,7 +194,7 @@ export function BandejaFacturas() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginacion.visibles.map((f) => (
+                {items.map((f) => (
                   <TableRow key={f.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2">
                       <div className="font-mono text-xs">{f.folio}</div>

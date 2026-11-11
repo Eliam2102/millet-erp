@@ -9,6 +9,8 @@ export interface Concepto {
   requiereOrdenServicio: boolean;
   baseImportacion: number;
   baseExportacion: number;
+  /** M-169: grupo contable del gasto de importación (1 honorarios, 2 fletes y maniobras, 3 almacenajes, 4 otros). */
+  grupoContable?: number;
 }
 export interface Gasto {
   id: string;
@@ -86,6 +88,28 @@ export interface Anticipo {
     motivo: string;
   }[];
   cuentaPeca?: boolean;
+  /** M-327: reversa de la comprobación pedida por Comercio exterior; espera la firma del Contador General. */
+  reversaPendiente?: {
+    id: string;
+    motivo: string;
+    solicitadoPor: string;
+    solicitadoEn: string;
+  } | null;
+  /** M-327: historial de reversas (quién pidió, cuándo, motivo y firma). */
+  reversasComprobacion?: {
+    solicitudId: string;
+    motivo: string;
+    solicitadoPor: string;
+    solicitadoEn: string;
+    autorizada: boolean;
+    firmadoPor: string;
+    firmadoEn: string;
+    motivoRechazo: string | null;
+    saldoAFavorMxn: number;
+    gastosLiberadosMxn: number;
+  }[];
+  comprobacionRevertida?: boolean;
+  saldoAFavorAgenteMxn?: number;
   id: string;
   agenteId: string;
   pedimento: string;
@@ -141,6 +165,8 @@ export interface Finanzas {
   bases: { id: string; pedimento: string }[];
   distribuciones: Distribucion[];
   anticipos: Anticipo[];
+  /** M-169: false (por omisión) = el gasto va a gasto de importación y no cambia el costo del inventario. */
+  incrementablesAlInventario?: boolean;
 }
 const key = (id: string) => [...ceKeys.all, 'finanzas', id];
 export function useFinanzas(id: string) {

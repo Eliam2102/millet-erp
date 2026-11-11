@@ -2,6 +2,8 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Cajas.Cobros;
+using Millet.Facturacion.Application.Facturas.AplicarPedimento;
+using Millet.ComercioExterior.Application.PublicPorts;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
@@ -62,7 +64,9 @@ public sealed record ComprobanteDetalleResponse(
     // U-1 (86e3yxn2p): NC ligadas a la factura que no quedaron timbradas (ranura o
     // amortización). Mientras haya alguna, la factura muestra «nota de crédito
     // pendiente» y no acreditan: el por cobrar sigue siendo la factura completa.
-    IReadOnlyList<NotaCreditoPendienteDetalle>? NotasCreditoPendientes = null);
+    IReadOnlyList<NotaCreditoPendienteDetalle>? NotasCreditoPendientes = null,
+    // M-216: por qué sigue retenida en PendientePedimento (falta expediente o pedimento).
+    string? MotivoPedimento = null);
 
 /// <summary>U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC.</summary>
 public sealed record NotaCreditoPendienteDetalle(
@@ -119,11 +123,14 @@ public sealed class ComprobanteDetalleHandler
 {
     private readonly FacturacionDbContext _db;
     private readonly IAlcanceCajaEvaluator _alcance;
+    private readonly IEmbarqueExportacionReadPort? _embarques;
 
-    public ComprobanteDetalleHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance)
+    public ComprobanteDetalleHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance,
+        IEmbarqueExportacionReadPort? embarques = null)
     {
         _db = db;
         _alcance = alcance;
+        _embarques = embarques;
     }
 
     public async Task<ComprobanteDetalleResponse> Handle(
@@ -269,7 +276,8 @@ public sealed class ComprobanteDetalleHandler
             NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
             ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken),
             SustituidaPor: sustituidaPor, SustituyeA: sustituyeA, SustitucionRechazadaMotivo: sustitucionRechazada,
-            NotasCreditoPendientes: ncPendientes);
+            NotasCreditoPendientes: ncPendientes,
+            MotivoPedimento: await PedimentoDesdeExpediente.MotivoAsync(_db, _embarques, f, cancellationToken));
     }
 
     /// <summary>FAC-08b: motivo con el que no se autorizó cancelar la original por la sustituta, si así fue.</summary>

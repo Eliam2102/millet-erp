@@ -22,9 +22,35 @@ export interface RechazarAjusteDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (motivo: string) => void;
   isPending?: boolean;
+  /** M-240: el mismo diálogo de motivo sirve para revertir un ajuste ya autorizado. */
+  modo?: 'rechazar' | 'revertir';
 }
 
-export function RechazarAjusteDialog({ open, onOpenChange, onConfirm, isPending }: RechazarAjusteDialogProps) {
+const TEXTOS = {
+  rechazar: {
+    titulo: 'Rechazar ajuste',
+    descripcion:
+      'La propuesta quedará rechazada y el saldo de sus facturas se libera. Quien la propuso puede registrar otra por el depósito exacto o con el ajuste corregido. El motivo es obligatorio y queda registrado.',
+    etiqueta: 'Motivo del rechazo *',
+    placeholder: 'p. ej. La diferencia no es comisión: el cliente debe completar el pago',
+    accion: 'Rechazar ajuste',
+    pendiente: 'Rechazando…',
+    maximo: 370,
+  },
+  revertir: {
+    titulo: 'Revertir ajuste',
+    descripcion:
+      'El faltante regresa al saldo de la factura y se registra la póliza contraria, ligada a la póliza del cobro. El motivo es obligatorio y queda registrado.',
+    etiqueta: 'Motivo de la reversa *',
+    placeholder: 'p. ej. El banco devolvió la comisión',
+    accion: 'Revertir ajuste',
+    pendiente: 'Revirtiendo…',
+    maximo: 400,
+  },
+} as const;
+
+export function RechazarAjusteDialog({ open, onOpenChange, onConfirm, isPending, modo = 'rechazar' }: RechazarAjusteDialogProps) {
+  const t = TEXTOS[modo];
   const [motivo, setMotivo] = useState('');
   const motivoValido = motivo.trim().length > 0;
 
@@ -37,25 +63,22 @@ export function RechazarAjusteDialog({ open, onOpenChange, onConfirm, isPending 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>Rechazar ajuste</DialogTitle>
-          <DialogDescription>
-            La propuesta quedará rechazada y el saldo de sus facturas se libera. Quien la propuso puede registrar otra
-            por el depósito exacto o con el ajuste corregido. El motivo es obligatorio y queda registrado.
-          </DialogDescription>
+          <DialogTitle>{t.titulo}</DialogTitle>
+          <DialogDescription>{t.descripcion}</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <FormGrid>
             <FormCampo span={12} className="space-y-1">
-              <Label htmlFor="motivo-rechazo-ajuste" className="text-xs">
-                Motivo del rechazo *
+              <Label htmlFor={`motivo-${modo}-ajuste`} className="text-xs">
+                {t.etiqueta}
               </Label>
               <TextAreaField
                 value={motivo}
                 onChange={(v) => setMotivo(v ?? '')}
-                maxLength={370}
+                maxLength={t.maximo}
                 textareaProps={{
-                  id: 'motivo-rechazo-ajuste',
-                  placeholder: 'p. ej. La diferencia no es comisión: el cliente debe completar el pago',
+                  id: `motivo-${modo}-ajuste`,
+                  placeholder: t.placeholder,
                 }}
               />
             </FormCampo>
@@ -67,7 +90,7 @@ export function RechazarAjusteDialog({ open, onOpenChange, onConfirm, isPending 
           </Button>
           <Button type="button" title={!motivoValido ? 'Escribe el motivo para continuar.' : isPending ? 'Espera a que termine la operación.' : undefined}
             disabled={!motivoValido || isPending} onClick={() => onConfirm(motivo.trim())}>
-            {isPending ? 'Rechazando…' : 'Rechazar ajuste'}
+            {isPending ? t.pendiente : t.accion}
           </Button>
         </DialogFooter>
       </DialogContent>

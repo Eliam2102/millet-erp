@@ -23,6 +23,9 @@ public static class ContabilidadPeriodosEndpoints
 
     public sealed record MotivoRequest(string Motivo);
 
+    /// <summary>M-213: reapertura con alcance, evidencia y vencimiento (opcional por compatibilidad).</summary>
+    public sealed record ReabrirRequest(string Motivo, AlcanceReaperturaRequest? Alcance);
+
     public static IEndpointRouteBuilder MapContabilidadPeriodosEndpoints(this IEndpointRouteBuilder app)
     {
         var leer = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadPeriodoLeer;
@@ -92,10 +95,10 @@ public static class ContabilidadPeriodosEndpoints
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         g.MapPost("/{periodoId:guid}/reabrir", async (
-            Guid periodoId, [FromHeader(Name = "If-Match")] string? ifMatch, MotivoRequest b, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            Guid periodoId, [FromHeader(Name = "If-Match")] string? ifMatch, ReabrirRequest b, HttpResponse response, IMediator mediator, CancellationToken ct) =>
         {
             if (!Helpers.TryParseVersion(ifMatch, out var version)) return Helpers.IfMatchRequerido();
-            var r = await mediator.Send(new ReabrirPeriodoCommand(periodoId, version, b.Motivo), ct);
+            var r = await mediator.Send(new ReabrirPeriodoCommand(periodoId, version, b.Motivo, b.Alcance), ct);
             Helpers.SetEtag(response, r.Version);
             return Results.Ok(r);
         })

@@ -554,6 +554,10 @@ export const PermisosCanonicos = {
   ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',
   ComercioExteriorGastosDistribuir: 'comercio_exterior.gastos.distribuir',
   ComercioExteriorAnticiposGestionar: 'comercio_exterior.anticipos.gestionar',
+  ComercioExteriorAnticiposRevertirComprobacionSolicitar:
+    'comercio_exterior.anticipos.revertir-comprobacion-solicitar',
+  ComercioExteriorAnticiposRevertirComprobacionAutorizar:
+    'comercio_exterior.anticipos.revertir-comprobacion-autorizar',
   ComercioExteriorOtrGestionar: 'comercio_exterior.otr.gestionar',
   ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
   ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',
@@ -564,6 +568,7 @@ export const PermisosCanonicos = {
   ComercioExteriorIncidenciasGestionar: 'comercio_exterior.incidencias.gestionar',
   ComercioExteriorExpedientesCerrar: 'comercio_exterior.expedientes.cerrar',
   ComercioExteriorExpedientesHitosRegistrar: 'comercio_exterior.expedientes.hitos-registrar',
+  ComercioExteriorExpedientesHitosCorregir: 'comercio_exterior.expedientes.hitos-corregir',
   ComercioExteriorExpedientesDocumentosRevisar: 'comercio_exterior.expedientes.documentos-revisar',
   ComercioExteriorExpedientesAdjuntosVer: 'comercio_exterior.expedientes.adjuntos-ver',
   ComercioExteriorExpedientesAdjuntosSubir: 'comercio_exterior.expedientes.adjuntos-subir',

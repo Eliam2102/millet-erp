@@ -66,6 +66,8 @@ export const facturacionKeys = {
 
   // Defaults del emisor para el form de emisión (FAC-UX-PR3)
   emisorDefaults: () => [...facturacionKeys.all, 'emisor-defaults'] as const,
+  // TipoCambioUSD del CCE para la emisión de hoy (catálogo, DOF del día hábil anterior)
+  tipoCambioDof: () => [...facturacionKeys.all, 'catalogos', 'tipo-cambio-dof'] as const,
 
   // Lookups de catálogo para pickers de emisión (FAC-UX-PR4)
   clientesLookup: (filtros: Record<string, unknown>) =>

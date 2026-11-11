@@ -33,7 +33,7 @@ public sealed partial class ListenersContabilidadTests
         var p = PropuestaAplicacionPago.Crear(EmpresaBootstrapId, cliente, $"DEP-C06-{Guid.NewGuid():N}"[..20], deposito, "MXN", "REM-C06",
             [(Guid.NewGuid().ToString(), facturaCartera, aplicado, null)], 1_000m, Proponente, Guid.NewGuid(),
             tipo, "Comisión del banco del cliente (FIX)");
-        if (autorizar) p.AutorizarAjuste(Autorizador, DateTimeOffset.UtcNow);
+        if (autorizar) p.AutorizarAjuste(Autorizador, DateTimeOffset.UtcNow, tieneSoporte: true);
         db.PropuestasAplicacionPago.Add(p);
         await db.SaveChangesAsync();
         return p;
@@ -81,6 +81,51 @@ public sealed partial class ListenersContabilidadTests
             var partidas = await PartidasSucursalAsync(e.Sucursal);
             partidas.Sum(x => x.Cargo).Should().Be(partidas.Sum(x => x.Abono));
             Saldo(partidas, e.Cuentas["CLIENTES"]).Should().Be(0m);
+        }
+        finally { await LimpiarAsync(e); if (e is not null) await LimpiarCxcAsync(e.Clientes); }
+    }
+
+    [Fact]
+    public async Task M240_reversa_del_ajuste_registra_la_contraria_ligada_a_la_poliza_del_cobro_y_regresa_el_faltante_a_clientes()
+    {
+        Escenario? e = null;
+        try
+        {
+            e = await PrepararAsync();
+            var factura = Guid.NewGuid();
+            await Facturacion(FacturaVenta(e, factura, e.Clientes[0]));
+            var p = await PropuestaConAjusteAsync(e.Clientes[0], Guid.NewGuid(), 2_300m, 2_320m, TipoAjusteCobro.ComisionBancaria, autorizar: true);
+            await Tesoreria(PagoCliente(p, factura, 2_320m));
+            var pr = (await PolizasAsync(p.MovimientoBancarioId!.Value)).Should().ContainSingle().Subject;
+
+            Millet.Contabilidad.Application.PublicPorts.PolizaRegistrada reversa;
+            using (var scope = factory.Services.CreateScope())
+            {
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var db = scope.ServiceProvider.GetRequiredService<CuentasPorCobrarDbContext>();
+                var propuesta = await db.PropuestasAplicacionPago.IgnoreQueryFilters().SingleAsync(x => x.Id == p.Id);
+                propuesta.Confirmar(Autorizador, DateTimeOffset.UtcNow);
+                propuesta.MarcarReppTimbrado(Guid.NewGuid());
+                propuesta.RevertirAjuste(Autorizador, "El banco devolvió la comisión (FIX)", DateTimeOffset.UtcNow);
+                await db.SaveChangesAsync();
+                var puerto = scope.ServiceProvider.GetRequiredService<Millet.Contabilidad.Application.PublicPorts.IReversaAjusteCobroContablePort>();
+                reversa = await puerto.RegistrarAsync(EmpresaBootstrapId, p.Id, default);
+                (await puerto.RegistrarAsync(EmpresaBootstrapId, p.Id, default)).Id.Should().Be(reversa.Id, "idempotente por propuesta");
+            }
+
+            var polizas = await PolizasAsync(p.MovimientoBancarioId!.Value);
+            polizas.Should().HaveCount(2, "la contraria lleva el mismo documento origen que la del cobro");
+            var contraria = polizas.Single(x => x.Id == reversa.Id);
+            contraria.Estado.Should().Be(EstadoPoliza.Autorizada);
+            contraria.PolizaRelacionadaId.Should().Be(pr.Id);
+            contraria.Relacion.Should().Be(RelacionPoliza.Reversa);
+            contraria.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["COMISIONES_BANCARIAS"] && x.Abono == 20m);
+            contraria.Partidas.Should().Contain(x => x.CuentaId == e.Cuentas["CLIENTES"] && x.Cargo == 20m && x.ClienteId == e.Clientes[0]);
+
+            // El faltante vuelve a clientes: la factura de 2,320 queda con 20 por cobrar y la póliza sigue cuadrada.
+            var partidas = await PartidasSucursalAsync(e.Sucursal);
+            partidas.Sum(x => x.Cargo).Should().Be(partidas.Sum(x => x.Abono));
+            Saldo(partidas, e.Cuentas["CLIENTES"]).Should().Be(20m);
         }
         finally { await LimpiarAsync(e); if (e is not null) await LimpiarCxcAsync(e.Clientes); }
     }
@@ -156,7 +201,7 @@ public sealed partial class ListenersContabilidadTests
                 await db.SaveChangesAsync();
                 p = PropuestaAplicacionPago.Crear(EmpresaBootstrapId, cliente, "DEP-C06-CONC", 2_300m, "MXN", "REM-C06",
                     [(fc.Uuid, fc.Id, 2_320m, 1)], 1_000m, Proponente, Guid.NewGuid(), TipoAjusteCobro.ComisionBancaria, "Comisión (FIX)");
-                p.AutorizarAjuste(Autorizador, Ahora);
+                p.AutorizarAjuste(Autorizador, Ahora, tieneSoporte: true);
                 p.Confirmar(Autorizador, Ahora);
                 p.MarcarReppTimbrado(rep);
                 db.PropuestasAplicacionPago.Add(p);

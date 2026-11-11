@@ -27,8 +27,11 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { toast } from 'sonner';
-import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
+
+const TAMANO_PAGINA = 50;
 
 /**
  * <c>Bandeja de excepciones de ingesta</c> (FE-F3). Pedidos que fallaron
@@ -38,17 +41,16 @@ import { usePaginacionLocal } from '../lib/use-paginacion-local';
 export function BandejaExcepciones() {
   const [soloPendientes, setSoloPendientes] = useState(true);
   const puedeResolver = useHasPermission(PermisosCanonicos.FacturacionPedidosExcepcionesResolver);
-  const query = useExcepciones(soloPendientes);
   const [busqueda, setBusqueda] = useState('');
   const [vista, setVista] = useState<number | undefined>(1);
-  const items = (query.data ?? []).filter(
-    (e) =>
-      (vista !== 2 || e.resuelto) &&
-      (e.pedidoRef + ' ' + e.motivo + ' ' + (e.detalle ?? ''))
-        .toLowerCase()
-        .includes(busqueda.toLowerCase()),
-  );
-  const paginacion = usePaginacionLocal(items, busqueda + vista);
+  const q = useDebouncedValue(busqueda, 300).trim();
+  const paginacion = usePaginacionServidor(q + vista);
+  const query = useExcepciones(soloPendientes, {
+    q: q || undefined,
+    offset: paginacion.offset,
+    limit: TAMANO_PAGINA,
+  });
+  const items = query.data?.items ?? [];
 
   return (
     <div className="space-y-5">
@@ -85,8 +87,8 @@ export function BandejaExcepciones() {
           <BarraFiltros
             busqueda={
               <Input
-                aria-label="Buscar pedido o motivo"
-                placeholder="Pedido o motivo"
+                aria-label="Buscar por pedido o detalle"
+                placeholder="Pedido o detalle"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />
@@ -95,9 +97,9 @@ export function BandejaExcepciones() {
         }
         pie={
           <PaginacionTabla
-            total={items.length}
+            total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={10}
+            limit={TAMANO_PAGINA}
             tamanos={[]}
             onChange={paginacion.onChange}
           />
@@ -143,7 +145,7 @@ export function BandejaExcepciones() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginacion.visibles.map((e) => (
+                {items.map((e) => (
                   <FilaExcepcion key={e.id} excepcion={e} puedeResolver={puedeResolver} />
                 ))}
               </TableBody>

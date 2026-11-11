@@ -63,7 +63,7 @@ public sealed class MovimientoCarteraConfiguration : IEntityTypeConfiguration<Mo
         builder.ToTable("movimiento_cartera", t =>
         {
             t.HasCheckConstraint("ck_movimiento_cartera_importe_positivo", "importe > 0");
-            t.HasCheckConstraint("ck_movimiento_cartera_tipo", "tipo IN (1, 2)");
+            t.HasCheckConstraint("ck_movimiento_cartera_tipo", "tipo IN (1, 2, 3)");
             t.HasCheckConstraint(
                 "ck_movimiento_cartera_reversa_consistente",
                 "(revertido = TRUE AND revertido_en IS NOT NULL) OR (revertido = FALSE)");

@@ -105,6 +105,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mswServer.use(
     http.get('*/api/v1/facturacion/emisor-defaults', () => HttpResponse.json(EMISOR)),
+    // CCE121: el TipoCambioUSD del CCE viene del catálogo (DOF del día hábil anterior).
+    http.get('*/api/v1/facturacion/catalogos/tipo-cambio-dof', () =>
+      HttpResponse.json({ moneda: 'USD', fecha: '2026-11-10', valor: 18.6297 }),
+    ),
     // FAC-ING-PR3: el selector de canal consume el lookup del catálogo.
     http.get('*/api/v1/facturacion/catalogos/canales-venta', () =>
       HttpResponse.json([
@@ -319,7 +323,10 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(screen.queryByLabelText('clave-pedimento')).not.toBeInTheDocument();
     const cambiar = (name: string, value: string) =>
       fireEvent.change(container.querySelector(`[name="${name}"]`)!, { target: { value } });
-    cambiar('cceTcDof', '20');
+    // CCE121: el TC DOF no se captura; se muestra el del catálogo y viaja en la emisión.
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('18.6297')).toHaveAttribute('readonly'),
+    );
     cambiar('cceReceptorNumRegIdTrib', 'DEMO-TAX');
     cambiar('cceReceptorDomicilioCalle', 'Main St 1');
     cambiar('cceReceptorDomicilioEstado', 'Texas');
@@ -339,7 +346,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
         expect.objectContaining({
           pedidoFacturableId: p.pedidoFacturableId,
           comportamientoFiscal: 3,
-          cce: expect.objectContaining({ claveDePedimento: 'A1', incoterm: 'DDP' }),
+          cce: expect.objectContaining({ claveDePedimento: 'A1', incoterm: 'DDP', tcDof: 18.6297 }),
         }),
       ),
     );
@@ -394,7 +401,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(valor('cceReceptorDomicilioCodigoPostal')).toBe('78701');
     const cambiar = (name: string, value: string) =>
       fireEvent.change(container.querySelector(`[name="${name}"]`)!, { target: { value } });
-    cambiar('cceTcDof', '18.42');
+    await screen.findByDisplayValue('18.6297');
     fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
     fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
       target: { value: '7007199900' },

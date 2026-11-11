@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import {
   facturacionKeys,
@@ -9,11 +9,13 @@ import type {
   AplicarPedimentoResponse,
   BandejaScoped,
   CancelacionBandejaItem,
+  ReglaFirmaCancelacion,
   ComprobanteDetalleResponse,
   DatosSustitucionResponse,
   ConsultarCancelacionResponse,
   DescartarComprobanteResponse,
   EmisorDefaultsResponse,
+  TipoCambioDofResponse,
   EmitirFacturaVentaCommand,
   EmitirFacturaVentaResponse,
   EnvioCorreoItem,
@@ -31,6 +33,25 @@ import type {
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/facturas';
+
+/**
+ * TipoCambioUSD del Complemento de Comercio Exterior para una factura emitida hoy:
+ * el del catálogo (DOF del día hábil anterior, art. 20 CFF). El SAT rechaza otro valor (CCE121).
+ */
+export function useTipoCambioDof(enabled: boolean) {
+  return useQuery<TipoCambioDofResponse>({
+    queryKey: facturacionKeys.tipoCambioDof(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<TipoCambioDofResponse>(
+        '/api/v1/facturacion/catalogos/tipo-cambio-dof',
+        { signal },
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
 
 /**
  * <c>useEmisorDefaults()</c> — RFC/razón social/régimen del emisor +
@@ -61,6 +82,7 @@ export function useEmisorDefaults() {
 export function useListarFacturas(filtros: ListarFacturasFiltros) {
   return useQuery<BandejaScoped<FacturaBandejaItem>>({
     queryKey: facturacionKeys.facturasList(filtros),
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (filtros.estado != null) params.set('estado', String(filtros.estado));
@@ -69,6 +91,7 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
       if (filtros.clase != null) params.set('clase', filtros.clase);
       if (filtros.ncPendiente) params.set('ncPendiente', 'true');
+      if (filtros.q) params.set('q', filtros.q);
       const qs = params.toString();
       const { data } = await apiRequest<BandejaScoped<FacturaBandejaItem>>(
         qs ? `${BASE}?${qs}` : `${BASE}/`,
@@ -269,6 +292,67 @@ export function useBandejaCancelaciones(estado: EstadoSolicitudCancelacion | und
 }
 
 /**
+ * <c>useModificarCancelacion()</c> — M-235: quien solicitó corrige motivo o
+ * sustituto mientras sigue pendiente; cualquier firma previa se anula.
+ */
+export function useModificarCancelacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      motivoSat: string;
+      uuidSustituto: string | null;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<SolicitarCancelacionResponse>(
+        `/api/v1/facturacion/comprobantes/${args.id}/cancelar`,
+        {
+          method: 'PUT',
+          body: { motivoSat: args.motivoSat, uuidSustituto: args.uuidSustituto },
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.cancelaciones() });
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.facturaCancelacion(args.id) });
+    },
+  });
+}
+
+/** M-235: reglas de firmas de la cancelación por tipo de operación y monto. */
+export function useReglasFirmaCancelacion(enabled = true) {
+  return useQuery<ReglaFirmaCancelacion[]>({
+    enabled,
+    queryKey: [...facturacionKeys.cancelaciones(), 'reglas-firma'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ReglaFirmaCancelacion[]>(
+        '/api/v1/facturacion/comprobantes/cancelaciones/reglas-firma',
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useGuardarReglasFirmaCancelacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { reglas: ReglaFirmaCancelacion[]; idempotencyKey: string }) => {
+      const { data } = await apiRequest<ReglaFirmaCancelacion[]>(
+        '/api/v1/facturacion/comprobantes/cancelaciones/reglas-firma',
+        { method: 'PUT', body: { reglas: args.reglas }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.cancelaciones() });
+    },
+  });
+}
+
+/**
  * <c>useDecidirCancelacion()</c> — F6.5: el Contador General autoriza (se envía
  * al PAC) o rechaza con motivo; Ingresos puede retirar una pendiente.
  * Idempotency-Key en las tres.
@@ -280,10 +364,14 @@ export function useDecidirCancelacion() {
       id: string;
       accion: 'autorizar' | 'rechazar' | 'retirar';
       motivo?: string;
+      /** M-235: versión que vio quien autoriza; si cambió, el servidor bloquea. */
+      huella?: string | null;
       idempotencyKey: string;
     }) => {
+      const huella =
+        args.accion === 'autorizar' && args.huella ? `?huella=${encodeURIComponent(args.huella)}` : '';
       const { data } = await apiRequest<SolicitarCancelacionResponse>(
-        `/api/v1/facturacion/comprobantes/${args.id}/cancelar/${args.accion}`,
+        `/api/v1/facturacion/comprobantes/${args.id}/cancelar/${args.accion}${huella}`,
         {
           method: 'POST',
           body: args.accion === 'rechazar' ? { motivo: args.motivo ?? '' } : undefined,

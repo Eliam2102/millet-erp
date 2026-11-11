@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.CuentasPorCobrar.Application.AplicacionPagos;
@@ -157,8 +158,37 @@ public static class PropuestasAplicacionEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-240 (86e4083m7): reversa de un ajuste ya autorizado y contabilizado: regresa el faltante a las facturas y genera la póliza
+        // contraria ligada a la del cobro. Supuesto «a validar»: mismo permiso que autorizar (aplicacion-pago.confirmar) y nunca quien propuso.
+        propuestas.MapPost("/{id:guid}/revertir-ajuste", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] RevertirAjusteBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            return Results.Ok(await mediator.Send(new RevertirAjustePropuestaCommand(id, v, body.Motivo), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
+        .WithName("RevertirAjustePropuestaAplicacion")
+        .WithSummary("Revierte el ajuste autorizado de un cobro: regresa el faltante a la factura y genera la póliza contraria (M-240)")
+        .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-240: soporte del ajuste (estado de cuenta o aviso del banco) en el servicio genérico de adjuntos. Lo ven quien propone y
+        // quien autoriza; lo sube y da de baja quien propone (el propietario lo cierra al autorizar).
+        propuestas.MapGroup("/{id:guid}").MapAdjuntos(Millet.CuentasPorCobrar.Domain.Ports.Adjuntos.SoporteAjusteCobro.TipoEntidad,
+            PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer + "|" + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar,
+            PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer, PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer);
+
         return app;
     }
 
     public sealed record RechazarAjusteBody(string Motivo);
+    public sealed record RevertirAjusteBody(string Motivo);
 }

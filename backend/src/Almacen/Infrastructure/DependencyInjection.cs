@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IComprasRequisicionReadPort, NoOpComprasRequisicionReadPort>();
         services.AddScoped<IComprasPedidoVivoReadPort, NoOpComprasPedidoVivoReadPort>();
         services.AddScoped<IUsuarioServicioReadPort, NoOpUsuarioServicioReadPort>();
+        services.AddScoped<Millet.Almacen.Application.Recepciones.CancelarRecepcionHandler>(); // también lo usa la cancelación de entrada de la app
         services.AddScoped<SalidaAppAlmacenesGuardado>();
         services.AddScoped<MermaProcesoAppGuardado>();
         services.AddScoped<ConsumoComponentesGuardado>();

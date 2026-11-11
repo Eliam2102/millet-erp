@@ -70,6 +70,17 @@ public sealed class AlmacenesAppProcesador(
             string estado; string? folio, error;
             if (AlmacenesAppSalida.Tipos.ContainsKey(tipo))
             {
+                // v9: cancelar una entrada cerrada que es una recepción del ERP la revierte como la pantalla (mismo costo y cuentas), no como
+                // un ajuste negativo. Si el ERP no tiene esa recepción, sigue como salida manual.
+                if (AlmacenesAppSalida.CancelacionEntrada(datos, tipo) is { } cancelacion
+                    && await usuarioServicio.ObtenerReordenAsync(ct) is { Activo: true } servicio
+                    && await salidasGuardado.CancelarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                        servicio.EmpresaId, servicio.Id, cancelacion.Entrada, cancelacion.Motivo, ct) is { } c)
+                {
+                    if (!c.Duplicado) return new AcuseApp(mensajeId, c.Estado, c.Folio, c.Error);
+                    previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+                    return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
+                }
                 // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos en el guardado.
                 var (resuelta, errorSalida) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct,
                     dimensiones, opciones.Value.ExigirAreaEquipo);

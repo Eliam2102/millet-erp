@@ -19,7 +19,7 @@ public sealed class CostoPromedioPublicador(IntegracionesAwDbContext db, ICostoP
         foreach (var f in actuales)
         {
             var costo = decimal.Round(f.Costo, 6, MidpointRounding.AwayFromZero); // precisión de la columna destino
-            var llave = (f.ArticuloAw, f.Sucursal, f.AlmacenTipo, f.Linea, f.AnchoMm ?? 0, f.AltoMm ?? 0);
+            var llave = (f.ArticuloAw, f.Sucursal, f.AlmacenTipo ?? "", f.Linea ?? "", f.AnchoMm ?? 0, f.AltoMm ?? 0); // marca interna: NULL = ""
             previos.TryGetValue(llave, out var previo);
             if (previo is not null && previo.Costo == costo) continue;
 
@@ -29,7 +29,7 @@ public sealed class CostoPromedioPublicador(IntegracionesAwDbContext db, ICostoP
             await transporte.EscribirAsync(new CostoPromedioEscrito(fila, version, ahora), ct);
             if (previo is null)
                 db.CostosPromedioPublicados.Add(AwCostoPromedioPublicado.Crear(
-                    f.ArticuloAw, f.Sucursal, f.AlmacenTipo, f.Linea, llave.Item5, llave.Item6, costo, ahora));
+                    f.ArticuloAw, f.Sucursal, llave.Item3, llave.Item4, llave.Item5, llave.Item6, costo, ahora));
             else previo.Registrar(costo, ahora);
             await db.SaveChangesAsync(ct); // por fila: una falla no obliga a reenviar las anteriores
             publicadas++;

@@ -935,7 +935,7 @@ resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subsc
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\', \'comercio_exterior.anticipo-agente.gastos-aplicados.v1\')'
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\', \'comercio_exterior.anticipo-agente.gastos-aplicados.v1\', \'comercio_exterior.anticipo-agente.comprobacion-revertida.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1014,7 +1014,7 @@ resource contabCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/r
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.revaluacion.registrada.v1\', \'cuentas_por_pagar.revaluacion.revertida.v1\', \'cuentas_por_pagar.gasto.registrado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\', \'cuentas_por_pagar.anticipo.amortizado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.revaluacion.registrada.v1\', \'cuentas_por_pagar.revaluacion.revertida.v1\', \'cuentas_por_pagar.gasto.registrado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\', \'cuentas_por_pagar.anticipo.amortizado.v1\', \'cuentas_por_pagar.anticipo-agente.comprobacion-revertida.v1\')'
       compatibilityLevel: 20
     }
   }

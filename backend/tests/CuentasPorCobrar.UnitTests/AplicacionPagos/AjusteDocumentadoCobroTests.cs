@@ -74,11 +74,11 @@ public sealed class AjusteDocumentadoCobroTests
     public void Otra_persona_autoriza_el_ajuste_una_sola_vez()
     {
         var p = Crear(9_952m, TipoAjusteCobro.DiferenciaMenor, "Redondeo del banco");
-        p.AutorizarAjuste(Autorizador, Ahora);
+        p.AutorizarAjuste(Autorizador, Ahora, tieneSoporte: true);
         p.AjusteAutorizadoPor.Should().Be(Autorizador);
         p.AjusteAutorizadoEn.Should().Be(Ahora);
         p.AjustePorAutorizar.Should().BeFalse();
-        var otraVez = () => p.AutorizarAjuste(Guid.NewGuid(), Ahora);
+        var otraVez = () => p.AutorizarAjuste(Guid.NewGuid(), Ahora, tieneSoporte: true);
         otraVez.Should().Throw<BusinessRuleException>().Where(e => e.Code == "PAP_AJUSTE_YA_AUTORIZADO");
     }
 
@@ -104,7 +104,7 @@ public sealed class AjusteDocumentadoCobroTests
         await mismo.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAP_AJUSTE_MISMO_USUARIO");
         publisher.Publicados.Should().BeEmpty();
 
-        var autorizada = await new AutorizarAjustePropuestaHandler(db, publisher, new FakeUser(Autorizador), new FakeClock())
+        var autorizada = await new AutorizarAjustePropuestaHandler(db, publisher, new FakeUser(Autorizador), new FakeClock(), new SoporteFijo(true))
             .Handle(new AutorizarAjustePropuestaCommand(creada.Id, creada.Version), default);
 
         autorizada.AjustePorAutorizar.Should().BeFalse();
@@ -140,7 +140,7 @@ public sealed class AjusteDocumentadoCobroTests
 
         (await puerto.ObtenerAsync(EmpresaId, p.Id, default)).Should().BeNull("sin autorización no hay ajuste contable");
 
-        p.AutorizarAjuste(Autorizador, Ahora);
+        p.AutorizarAjuste(Autorizador, Ahora, tieneSoporte: true);
         await db.SaveChangesAsync();
         var ajuste = await puerto.ObtenerAsync(EmpresaId, p.Id, default);
 
