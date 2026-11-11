@@ -47,6 +47,27 @@ public sealed class ValidadorReceptorFiscal(
         }
     }
 
+    /// <summary>
+    /// N-01: reintento con el cliente corregido en el maestro. La factura (o factura de anticipo) fallida toma los datos fiscales
+    /// vigentes de su cliente, que es la fuente fiscal, en lugar de pedir descartarla y emitirla de nuevo. No aplica a receptor
+    /// extranjero ni a documentos sin cliente resoluble; con el maestro incompleto no cambia nada y la validación lo reporta.
+    /// Devuelve los campos actualizados.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> RefrescarReceptorDesdeMaestroAsync(Comprobante comprobante, CancellationToken ct)
+    {
+        if (comprobante is not (FacturaVenta or FacturaAnticipo) || comprobante.ReceptorPais != "MEX")
+            return [];
+        if (await ResolverClienteAsync(comprobante, ct) is not Guid clienteId)
+            return [];
+        var maestro = await clientes.ObtenerAsync(clienteId, ct);
+        if (maestro is null || string.IsNullOrWhiteSpace(maestro.Rfc) || string.IsNullOrWhiteSpace(maestro.RazonSocial)
+            || string.IsNullOrWhiteSpace(maestro.RegimenFiscal) || string.IsNullOrWhiteSpace(maestro.CodigoPostalFiscal))
+            return [];
+        return comprobante.ActualizarReceptorParaReintento(new DatosFiscalesReceptor(
+            maestro.Rfc.Trim(), maestro.RazonSocial, maestro.RegimenFiscal.Trim(), maestro.CodigoPostalFiscal.Trim(),
+            comprobante.ReceptorUsoCfdi, comprobante.ReceptorPais, DatosFiscalesReceptor.EsRfcGenerico(maestro.Rfc.Trim())));
+    }
+
     public async Task ValidarComprobanteAsync(Comprobante comprobante, CancellationToken ct, bool esRep = false)
     {
         if (comprobante is Domain.CartaPorte.CartaPorte) return;

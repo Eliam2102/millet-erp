@@ -132,6 +132,8 @@ public sealed class ReintentarTimbradoHandler
                 ?? throw new BusinessRuleException("EMISOR_NO_DISPONIBLE", "Revisa los datos fiscales de la empresa y que la sucursal emisora esté activa.");
             comprobante.ActualizarEmisorParaReintento(emisor);
         }
+        // N-01: con el cliente corregido en el maestro, el reintento toma sus datos vigentes (sin descartar y volver a emitir).
+        await _receptorFiscal.RefrescarReceptorDesdeMaestroAsync(comprobante, ct);
         await _receptorFiscal.ValidarComprobanteAsync(comprobante, ct);
         comprobante.ReabrirParaReintentoTimbrado();
 
