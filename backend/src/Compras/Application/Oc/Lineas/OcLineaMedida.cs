@@ -25,4 +25,17 @@ internal static class OcLineaMedida
             throw new BusinessRuleException("VARIANTE_SIN_MEDIDA", "La medida elegida no tiene ancho y alto en A+W; no se puede usar.");
         return v;
     }
+
+    /// <summary>
+    /// RQ de la app de Almacenes: la línea trae ancho y alto de la hoja (mm). La partida de la OC hereda esa medida del catálogo
+    /// A+W, en cualquiera de las dos orientaciones. Sin puerto, sin medida o sin coincidencia: null (se elige al editar la partida).
+    /// </summary>
+    public static async Task<VarianteVidrioLectura?> DeRequisicionAsync(
+        IVarianteVidrioReadPort? variantes, Guid articuloId, int? anchoMm, int? altoMm, CancellationToken ct)
+    {
+        if (variantes is null || anchoMm is not int a || altoMm is not int h) return null;
+        var lista = await variantes.ListarPorArticuloAsync(articuloId, ct);
+        return lista.Where(v => v.AreaHojaM2 is not null && ((v.AnchoMm == a && v.AltoMm == h) || (v.AnchoMm == h && v.AltoMm == a)))
+            .OrderBy(v => v.AnchoMm == a ? 0 : 1).ThenBy(v => v.ClaveVariante).FirstOrDefault();
+    }
 }
