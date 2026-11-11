@@ -82,6 +82,15 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
         Posicion = (short)posicion;
     }
 
+    /// <summary>
+    /// Piezas de la app en la unidad de la línea: con medida y unidad M2 (vidrio, saldo en m²) son hojas enteras, así que valen
+    /// piezas × m² de la hoja (mismo redondeo a 4 decimales que <c>AreaHoja.M2</c>); sin medida, una pieza es una unidad.
+    /// </summary>
+    public static decimal CantidadDePiezasApp(decimal piezas, int? anchoMm, int? altoMm, string unidadMedida) =>
+        anchoMm is > 0 && altoMm is > 0 && string.Equals(unidadMedida, "M2", StringComparison.OrdinalIgnoreCase)
+            ? piezas * Math.Round(anchoMm.Value * (decimal)altoMm.Value / 1_000_000m, 4, MidpointRounding.AwayFromZero)
+            : piezas;
+
     internal void AsignarMedidaApp(int? piezas, int? anchoMm, int? altoMm)
     {
         if (piezas <= 0 || anchoMm <= 0 || altoMm <= 0)

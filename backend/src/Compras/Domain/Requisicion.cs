@@ -240,7 +240,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         foreach (var l in lineas)
         {
             var linea = rq.AgregarLinea(Guid.CreateVersion7(), l.ArticuloId, l.Cantidad, l.UnidadMedida, l.PrecioEstimado,
-                proyecto: l.Obra, fechaRequerida: l.FechaRequerida);
+                centroCostoId: l.CentroCostoId, proyecto: l.Obra, fechaRequerida: l.FechaRequerida);
             linea.AsignarMedidaApp(l.Piezas, l.AnchoMm, l.AltoMm);
             if (l.Posicion is { } posicion) linea.AsignarPosicionApp(posicion);
         }
@@ -262,7 +262,9 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         var porLinea = lineas.Select(l => (Linea: _lineas.FirstOrDefault(x => x.Posicion == l.Posicion)
             ?? throw new BusinessRuleException("RQ_APP_POSICION_INEXISTENTE", $"La RQ '{Folio.Valor}' no tiene la posición {l.Posicion}."),
             l.Piezas)).ToList();
-        foreach (var (linea, piezas) in porLinea) linea.QuitarDeCompra(piezas, motivo);
+        // Las piezas quitadas son hojas: en una línea de vidrio por medida valen piezas × m² de la hoja.
+        foreach (var (linea, piezas) in porLinea)
+            linea.QuitarDeCompra(LineaRequisicion.CantidadDePiezasApp(piezas, linea.AnchoMm, linea.AltoMm, linea.UnidadMedida), motivo);
     }
 
     /// <summary>
