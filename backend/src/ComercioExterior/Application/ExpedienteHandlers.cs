@@ -16,13 +16,21 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
     public async Task<ExpedienteDetalle> Handle(CrearExpedienteCommand request, CancellationToken cancellationToken)
     {
         await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorExpedientesCrear, cancellationToken);
-        var oc = request.Tipo == TipoExpediente.Importacion && request.OcId is Guid id ? await compras.ObtenerAsync(id, cancellationToken) : null;
+        var ids = request.OcIds ?? (request.OcId is Guid origen ? [origen] : Array.Empty<Guid>());
+        if (ids.Length > 100 || ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length || (request.OcId is Guid origenId && (ids.Length == 0 || ids[0] != origenId)))
+            throw new BusinessRuleException("CE_ORDENES_INVALIDAS", "Seleccione órdenes distintas y conserve la OC de origen.");
+        if (request.Tipo == TipoExpediente.Exportacion && ids.Length > 0)
+            throw new BusinessRuleException("CE_ORIGEN_INVALIDO", "La exportación nace de una solicitud de contenedor.");
+        var ordenes = request.Tipo == TipoExpediente.Importacion ? await compras.ObtenerVariasAsync(ids, cancellationToken) : [];
+        var oc = ids.Length == 0 ? null : ordenes.SingleOrDefault(o => o.Id == ids[0]);
         var sucursal = oc?.SucursalId ?? request.SucursalId ?? Guid.Empty;
         await servicio.SucursalAsync(sucursal, true, cancellationToken);
         if (oc is not null && oc.Estado != Millet.Compras.Domain.Oc.EstadoOrdenCompra.Autorizada)
             throw new BusinessRuleException("CE_OC_NO_VIGENTE", "La OC debe estar autorizada o con recepción en curso.");
-        if (request.Tipo == TipoExpediente.Importacion && (oc is null || !oc.EsImportacion || oc.InformacionImportacion is not { } info || info.EsVacio))
+        if (request.Tipo == TipoExpediente.Importacion && (oc is null || !oc.EsImportacion || oc.InformacionImportacion is not { } datosOc || datosOc.EsVacio))
             throw new BusinessRuleException("CE_OC_SIN_IMPORTACION", "La OC no tiene datos de importación.");
+        if (request.Tipo == TipoExpediente.Importacion && (oc is null || ordenes.Count != ids.Length || ordenes.Any(o => !o.EsImportacion || o.InformacionImportacion is not { } datosOrden || datosOrden.EsVacio || o.Estado != Millet.Compras.Domain.Oc.EstadoOrdenCompra.Autorizada || o.ProveedorId != oc.ProveedorId || o.Moneda != oc.Moneda || o.SucursalId != oc.SucursalId)))
+            throw new BusinessRuleException("CE_ORDENES_INVALIDAS", "Las órdenes deben ser de importación, autorizadas y del mismo proveedor, moneda y sucursal.");
         var incoterm = request.IncotermId ?? (oc?.InformacionImportacion?.IncotermId ?? (request.Tipo == TipoExpediente.Exportacion ? await catalogos.IncotermDdpAsync(cancellationToken) : Guid.Empty));
         // Cambiar la propuesta de la OC/DDP es una edición y exige su permiso específico.
         var propuesto = oc?.InformacionImportacion?.IncotermId ?? (request.Tipo == TipoExpediente.Exportacion ? await catalogos.IncotermDdpAsync(cancellationToken) : Guid.Empty);
@@ -33,7 +41,8 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
         // PLATFORM-TODO(<CeFolioPorAnio>): la secuencia es global; reinicio anual por confirmar con Eliam.
         var numero = await db.Database.SqlQueryRaw<long>("SELECT nextval('comercio_exterior.folio_seq') AS \"Value\"").SingleAsync(cancellationToken);
         var folio = string.Create(CultureInfo.InvariantCulture, $"CE-{(request.Tipo == TipoExpediente.Importacion ? "IMP" : "EXP")}-{clock.HoyLocal().Year}-{numero:D6}");
-        var e = new Expediente(Guid.CreateVersion7(), empresa.Current ?? throw new UnauthorizedAccessException(), folio, request.Tipo, sucursal, request.Referencia, request.OcId, incoterm, moneda, request.ResponsableUsuarioId, request.Clientes ?? []);
+        var e = new Expediente(Guid.CreateVersion7(), empresa.Current ?? throw new UnauthorizedAccessException(), folio, request.Tipo, sucursal, request.Referencia, oc?.Id, incoterm, moneda, request.ResponsableUsuarioId, request.Clientes ?? []);
+        if (oc is not null) e.VincularOrdenesCompra(ids);
         e.Editar(request.Referencia, incoterm, moneda, request.Tc, request.FechaTc, request.FuenteTc, request.ResponsableUsuarioId);
         e.InicializarHitos(oc?.FechaDocumento ?? clock.HoyLocal());
         db.Expedientes.Add(e);
@@ -58,6 +67,7 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
             "cancelar" => PermisosCanonicos.ComercioExteriorExpedientesCancelar,
             "requisito-hito" or "requisito-condicional" or "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
             "documentos" => PermisosCanonicos.ComercioExteriorExpedientesAdjuntosSubir,
+            "quitar-documento" => PermisosCanonicos.ComercioExteriorExpedientesAdjuntosBaja,
             "editar" or "participantes" => PermisosCanonicos.ComercioExteriorExpedientesEditar,
             _ => throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.")};
         await servicio.PermisoAsync(permiso, cancellationToken);
@@ -65,6 +75,8 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
         {
             var ids = await db.Partidas.AsNoTracking().Where(p => p.ExpedienteId == request.Id && p.Estado != EstadoPartida.Liberada)
                 .Select(p => p.PedidoFacturableId).Distinct().ToArrayAsync(cancellationToken);
+            var ordenes = await db.Expedientes.Where(e => e.Id == request.Id).Select(e => e.OrdenesCompraIds).SingleOrDefaultAsync(cancellationToken);
+            ids = ids.Concat(ordenes ?? []).Distinct().ToArray();
             ExpedienteDetalle? resultado = null;
             await PedidoEmbarqueLock.ExecuteAsync(db, ids, async ct => resultado = await MutarAsync(request, ct), cancellationToken);
             return resultado!;
@@ -105,8 +117,7 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
             case "cerrar-financiero":
                 var requisitosCierre = await catalogos.RequisitosAsync(e.Tipo, cancellationToken);
                 var adjuntosCierre = await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken);
-                var ocCierre = e.OcId is Guid ocId ? await compras.ObtenerAsync(ocId, cancellationToken) : null;
-                var recibidas = ocCierre?.Partidas?.ToDictionary(p => p.Id, p => p.CantidadRecibida) ?? [];
+                var recibidas = (await compras.ObtenerVariasAsync(e.OrdenesCompraIds, cancellationToken)).SelectMany(o => o.Partidas ?? []).ToDictionary(p => p.Id, p => p.CantidadRecibida);
                 if (request.Accion == "cerrar") e.AprobarCierre(servicio.Actor, clock.UtcNow, requisitosCierre, adjuntosCierre, recibidas);
                 else e.CerrarDimension(request.Accion[7..], servicio.Actor, clock.UtcNow, requisitosCierre, adjuntosCierre, recibidas);
                 break;
@@ -139,6 +150,9 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 else
                     e.AgregarParticipante(Guid.CreateVersion7(), p.Nombre, p.Tipo, p.Contacto, p.Papel, p.ProveedorId, p.ClienteId, p.Descripcion);
                 break;
+            case "quitar-documento":
+                e.RetirarDocumento(request.DocumentoId ?? Guid.Empty, request.Motivo ?? "");
+                break;
             case "documentos":
                 var doc = request.Documento ?? throw new BusinessRuleException("CE_DOCUMENTO_INVALIDO", "Faltan datos del documento.");
                 var requisito = (await catalogos.RequisitosAsync(e.Tipo, cancellationToken)).SingleOrDefault(x => x.Id == doc.TipoDocumentoId) ?? throw new BusinessRuleException("CE_TIPO_DOCUMENTO_INVALIDO", "Este tipo de documento no aplica a la operación.");
@@ -147,7 +161,7 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 else
                 {
                     await catalogos.ValidarAdjuntoAsync(e.Id, requisito.Id, doc.AdjuntoId ?? Guid.Empty, cancellationToken);
-                    e.RegistrarDocumento(Guid.CreateVersion7(), requisito, doc.AdjuntoId ?? Guid.Empty, doc.Motivo, servicio.Actor, doc.NumeroPedimento);
+                    e.RegistrarDocumento(Guid.CreateVersion7(), requisito, doc.AdjuntoId ?? Guid.Empty, doc.Motivo, servicio.Actor, doc.NumeroPedimento, doc.ReemplazaA);
                 }
 
                 break;

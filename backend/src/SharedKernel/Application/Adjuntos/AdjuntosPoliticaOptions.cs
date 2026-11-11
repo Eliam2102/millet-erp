@@ -25,6 +25,7 @@ public sealed class AdjuntosPoliticaOptions
     /// <summary>
     /// Tamaño máximo en bytes (por defecto 20 MB = 20 * 1024 * 1024).
     /// </summary>
+    public bool PermitirValidacionAduanal { get; set; }
     public long MaxBytes { get; set; } = 20 * 1024 * 1024;
 
     /// <summary>
@@ -77,6 +78,17 @@ public sealed class AdjuntosPoliticaOptions
     /// </summary>
     public AdjuntosPoliticaOptions ParaEntidad(string tipoEntidad)
     {
+        if (tipoEntidad == "expediente_ce")
+        {
+            var especifica = PorTipoEntidad.GetValueOrDefault(tipoEntidad);
+            return new AdjuntosPoliticaOptions
+            {
+                MaxBytes = especifica?.MaxBytes ?? MaxBytes,
+                Extensiones = (especifica?.Extensiones is { Count: > 0 } ? especifica.Extensiones : Extensiones).Concat([".xml"]).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                ContentTypes = (especifica?.ContentTypes is { Count: > 0 } ? especifica.ContentTypes : ContentTypes).Concat(["application/xml", "text/xml", "application/octet-stream"]).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                PermitirValidacionAduanal = true
+            };
+        }
         if (!PorTipoEntidad.TryGetValue(tipoEntidad, out var o))
             return this;
 
@@ -99,7 +111,33 @@ public sealed class AdjuntosPoliticaOptions
         {
             var cabecera = new byte[16];
             var leidos = await contenido.ReadAtLeastAsync(cabecera, cabecera.Length, throwOnEndOfStream: false, ct);
+            if (PermitirValidacionAduanal && EsNombreValidacionAduanal(nombre))
+            {
+                if (contenido.Length > MaxBytes || mime is not ("text/plain" or "application/octet-stream"))
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo M debe ser texto y respetar el tamaño permitido.");
+                contenido.Position = 0;
+                var datos = new byte[checked((int)contenido.Length)];
+                await contenido.ReadExactlyAsync(datos, ct);
+                if (!EsValidacionAduanal(datos))
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo no contiene registros de validación aduanal válidos.");
+                return;
+            }
             ValidarInstancia(nombre, mime, contenido.Length, cabecera.AsSpan(0, leidos));
+            if (Path.GetExtension(nombre).Equals(".xml", StringComparison.OrdinalIgnoreCase))
+            {
+                contenido.Position = 0;
+                try
+                {
+                    var settings = new System.Xml.XmlReaderSettings { Async = true, DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaxBytes };
+                    using var reader = System.Xml.XmlReader.Create(contenido, settings);
+                    while (await reader.ReadAsync()) { }
+                }
+                catch (System.Xml.XmlException)
+                {
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo XML no es válido o contiene declaraciones no permitidas.");
+                }
+                return;
+            }
             if (!Path.GetExtension(nombre).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                 return;
 
@@ -113,6 +151,16 @@ public sealed class AdjuntosPoliticaOptions
         {
             contenido.Position = 0;
         }
+    }
+
+    private static bool EsNombreValidacionAduanal(string nombre) =>
+        System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(nombre), @"^M[0-9]{7}\.[0-9]{3}$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    private static bool EsValidacionAduanal(byte[] datos)
+    {
+        if (!datos.AsSpan().StartsWith("500|"u8) || datos.Any(b => b < 9 || b > 13 && b < 32 || b == 127)) return false;
+        var lineas = System.Text.Encoding.Latin1.GetString(datos).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return lineas.Length > 1 && lineas.All(l => l.Length >= 4 && l[3] == '|' && l.AsSpan(0, 3).IndexOfAnyExceptInRange('0', '9') < 0) && lineas.Any(l => l.StartsWith("800|", StringComparison.Ordinal));
     }
 
     public static bool EsPdfValido(byte[] bytes)
@@ -212,6 +260,8 @@ public sealed class AdjuntosPoliticaOptions
                 "El tipo de contenido (Content-Type) es requerido.");
         }
 
+        if (PermitirValidacionAduanal && contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El contenido binario sólo se admite para archivos M de validación aduanal.");
         var contentTypePermitido = ContentTypes.Any(ct =>
             string.Equals(ct.Trim(), contentType.Trim(), StringComparison.OrdinalIgnoreCase));
 

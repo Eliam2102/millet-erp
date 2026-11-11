@@ -272,6 +272,14 @@ describe('CE-01a', () => {
       },
     });
   });
+  it('P25 reemplaza sólo el documento elegido y permite volver a agregar', async () => {
+    useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesAdjuntosSubir] });
+    render(<DocumentosPanel data={data} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: 'Reemplazar este documento' }));
+    expect(screen.getByRole('status')).toHaveTextContent('El siguiente archivo reemplazará');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar reemplazo' }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
   it('la revisión documental tiene permiso propio', () => {
     render(<DocumentosPanel data={data} />, { wrapper: createQueryWrapper() });
     expect(screen.queryByRole('button', { name: 'Revisar documentos' })).not.toBeInTheDocument();

@@ -42,6 +42,20 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
     public Guid SucursalId { get; private set; }
     public string Referencia { get; private set; } = "";
     public Guid? OcId { get; private set; }
+    public Guid[] OrdenesCompraIds { get; private set; } = [];
+    public Guid[]? RequisitosRevisados { get; private set; }
+
+    public void VincularOrdenesCompra(IReadOnlyList<Guid> ids)
+    {
+        ExigirAbierto();
+        if (Tipo != TipoExpediente.Importacion || ids.Count is < 1 or > 100 || ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Count || ids[0] != OcId)
+            throw new BusinessRuleException("CE_ORDENES_INVALIDAS", "Seleccione hasta 100 órdenes distintas de la misma operación, conservando la OC de origen.");
+        OrdenesCompraIds = ids.ToArray();
+        RevisionContenido++;
+    }
+
+    public IReadOnlyList<RequisitoDocumento> RequisitosAplicables(IReadOnlyList<RequisitoDocumento> requisitos) =>
+        RequisitosRevisados is null ? requisitos : requisitos.Where(r => RequisitosRevisados.Contains(r.Id)).ToArray();
     public Guid IncotermId { get; private set; }
     public string Moneda { get; private set; } = "";
     public decimal? Tc { get; private set; }
@@ -80,6 +94,7 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
         Tipo = tipo;
         SucursalId = sucursalId;
         OcId = ocId;
+        OrdenesCompraIds = ocId is Guid orden ? [orden] : [];
         Editar(referencia, incotermId, moneda, null, null, null, responsable);
         foreach (var cliente in clientes)
             AgregarParticipante(Guid.CreateVersion7(), cliente, TipoParticipante.Cliente, null, PapelParticipante.Captura, null, null);
@@ -137,25 +152,32 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
         RevisionContenido++;
     }
 
-    public void RegistrarDocumento(Guid id, RequisitoDocumento requisito, Guid adjuntoId, string? motivo, Guid actor, string? numeroPedimento = null) => AgregarDocumento(id, requisito, adjuntoId, false, motivo, actor, numeroPedimento);
+    public void RegistrarDocumento(Guid id, RequisitoDocumento requisito, Guid adjuntoId, string? motivo, Guid actor, string? numeroPedimento = null, Guid? reemplazaA = null) => AgregarDocumento(id, requisito, adjuntoId, false, motivo, actor, numeroPedimento, reemplazaA);
     public void MarcarNoAplica(Guid id, RequisitoDocumento requisito, string motivo, Guid actor) => AgregarDocumento(id, requisito, null, true, motivo, actor);
-    private void AgregarDocumento(Guid id, RequisitoDocumento requisito, Guid? adjuntoId, bool noAplica, string? motivo, Guid actor, string? numeroPedimento = null)
+    private void AgregarDocumento(Guid id, RequisitoDocumento requisito, Guid? adjuntoId, bool noAplica, string? motivo, Guid actor, string? numeroPedimento = null, Guid? reemplazaA = null)
     {
         ExigirAbierto();
         if (noAplica && !requisito.Condicional)
             throw new BusinessRuleException("CE_REQUISITO_NO_CONDICIONAL", "Este requisito no permite No aplica.");
         if (!noAplica && (adjuntoId is null || adjuntoId == Guid.Empty))
             throw new BusinessRuleException("CE_ADJUNTO_INVALIDO", "Seleccione un adjunto vigente de este expediente.");
-        if (adjuntoId is not null && _documentos.Any(d => d.AdjuntoId == adjuntoId))
+        if (adjuntoId is not null && _documentos.Any(d => d.AdjuntoId == adjuntoId && d.TipoDocumentoId == requisito.Id))
             throw new BusinessRuleException("CE_ADJUNTO_YA_VERSIONADO", "Este archivo ya tiene una versión documental.");
-        var anterior = _documentos.SingleOrDefault(d => d.TipoDocumentoId == requisito.Id && d.Estado == EstadoDocumento.Vigente);
+        var vigentes = _documentos.Where(d => d.TipoDocumentoId == requisito.Id && d.Estado == EstadoDocumento.Vigente).ToArray();
+        var unico = requisito.Codigo is "IMP_PEDIMENTO" or "EXP_PEDIMENTO";
+        var anterior = reemplazaA is Guid reemplazo
+            ? vigentes.SingleOrDefault(d => d.Id == reemplazo) ?? throw new BusinessRuleException("CE_DOCUMENTO_NO_VIGENTE", "Seleccione el documento vigente que desea reemplazar.")
+            : unico ? vigentes.SingleOrDefault() : vigentes.SingleOrDefault(d => d.NoAplica);
+        if (noAplica && vigentes.Length > 0) motivo = MotivoValido(motivo);
         var razon = noAplica || anterior is not null ? MotivoValido(motivo) : null;
         if (actor == Guid.Empty)
             throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Se requiere responsable del documento.");
-        var nuevo = new DocumentoExpediente(id, EmpresaId, Id, requisito.Id, (anterior?.NumeroVersion ?? 0) + 1, adjuntoId, anterior?.Id, razon, noAplica, actor);
+        var nuevo = new DocumentoExpediente(id, EmpresaId, Id, requisito.Id, _documentos.Where(d => d.TipoDocumentoId == requisito.Id).Select(d => d.NumeroVersion).DefaultIfEmpty().Max() + 1, adjuntoId, anterior?.Id, razon, noAplica, actor);
         if (numeroPedimento?.Length > 100) throw new BusinessRuleException("CE_PEDIMENTO_INVALIDO", "Número de pedimento: máximo 100 caracteres.");
         nuevo.RegistrarNumeroPedimento(string.IsNullOrWhiteSpace(numeroPedimento) ? null : numeroPedimento.Trim());
-        anterior?.Reemplazar();
+        if (noAplica) foreach (var vigente in vigentes) vigente.Reemplazar();
+        else anterior?.Reemplazar();
+        RequisitosRevisados = null;
         if (requisito.Codigo == "EXP_PEDIMENTO" && DocumentoPedimentoExportacionId is not null)
         {
             DocumentoPedimentoExportacionId = nuevo.Id;
@@ -169,26 +191,47 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
         RevisionContenido++;
     }
 
+    public void RetirarDocumento(Guid documentoId, string motivo)
+    {
+        ExigirAbierto();
+        var documento = _documentos.SingleOrDefault(d => d.Id == documentoId && d.Estado == EstadoDocumento.Vigente)
+            ?? throw new BusinessRuleException("CE_DOCUMENTO_NO_VIGENTE", "Seleccione un documento vigente.");
+        documento.Retirar(MotivoValido(motivo));
+        if (documento.Id == DocumentoPedimentoExportacionId) { DocumentoPedimentoExportacionId = null; NumeroPedimentoExportacion = null; }
+        if (documento.NumeroPedimento == NumeroPedimentoVigenteImportacion) NumeroPedimentoVigenteImportacion = null;
+        RequisitosRevisados = null;
+        CierreDocumentalPorId = null; CierreDocumentalEn = null;
+        RevisionPendiente = true; RevisadoPorId = null; RevisionContenido++;
+    }
+
     public void DarDeBajaAdjunto(Guid adjuntoId)
     {
         ExigirAbierto();
         if (!_documentos.Any(d => d.AdjuntoId == adjuntoId && d.Estado == EstadoDocumento.Vigente)) return;
+        foreach (var documento in _documentos.Where(d => d.AdjuntoId == adjuntoId && d.Estado == EstadoDocumento.Vigente))
+        {
+            documento.Reemplazar();
+            if (documento.Id == DocumentoPedimentoExportacionId) { DocumentoPedimentoExportacionId = null; NumeroPedimentoExportacion = null; }
+            if (documento.NumeroPedimento == NumeroPedimentoVigenteImportacion) NumeroPedimentoVigenteImportacion = null;
+        }
+        RequisitosRevisados = null;
         CierreDocumentalPorId = null; CierreDocumentalEn = null;
         RevisionPendiente = true;
         RevisadoPorId = null;
         RevisionContenido++;
     }
 
-    public IReadOnlyList<RequisitoDocumento> Faltantes(IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes) => requisitos.Where(r => r.Obligatorio && !_documentos.Any(d => d.TipoDocumentoId == r.Id && d.Estado == EstadoDocumento.Vigente && ((d.NoAplica && r.Condicional) || (d.AdjuntoId is Guid a && adjuntosVigentes.Contains(a))))).ToArray();
+    public IReadOnlyList<RequisitoDocumento> Faltantes(IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes, bool respetarRevision = true) => (respetarRevision ? RequisitosAplicables(requisitos) : requisitos).Where(r => r.Obligatorio && !_documentos.Any(d => d.TipoDocumentoId == r.Id && d.Estado == EstadoDocumento.Vigente && ((d.NoAplica && r.Condicional) || (d.AdjuntoId is Guid a && adjuntosVigentes.Contains(a))))).ToArray();
     public void RevisarDocumentos(IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes, Guid actor)
     {
         ExigirAbierto();
         ExigirSinIncidencias();
-        var faltantes = Faltantes(requisitos, adjuntosVigentes);
+        var faltantes = Faltantes(requisitos, adjuntosVigentes, respetarRevision: false);
         if (faltantes.Count > 0)
             throw new DocumentosFaltantesException(faltantes);
         if (actor == Guid.Empty)
             throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Se requiere revisor.");
+        RequisitosRevisados = requisitos.Select(r => r.Id).ToArray();
         RevisadoPorId = actor;
         RevisionPendiente = false;
         RevisionContenido++;

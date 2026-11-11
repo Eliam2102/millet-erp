@@ -76,7 +76,7 @@ public sealed record RecepcionRechazoItem(
     Guid ArticuloId, string? ArticuloClave, string? ArticuloDescripcion, decimal Cantidad, string UnidadMedida, string Motivo);
 
 public sealed record RecepcionImportacionDetalle(
-    string NumeroPedimento, string NumeroBl, string NumeroContenedor, string Aduana, string? AduanaNombre,
+    string NumeroPedimento, string NumeroBl, string? NumeroContenedor, string Aduana, string? AduanaNombre,
     string ClavePedimento, string? ClavePedimentoNombre);
 
 public sealed record RecepcionLineaItem(
