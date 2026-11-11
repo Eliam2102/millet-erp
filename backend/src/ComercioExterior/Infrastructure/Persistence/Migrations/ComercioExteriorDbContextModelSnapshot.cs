@@ -486,6 +486,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<int>("GrupoContable")
+                        .HasColumnType("integer")
+                        .HasColumnName("grupo_contable");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(200)

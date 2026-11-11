@@ -9,6 +9,8 @@ export interface Concepto {
   requiereOrdenServicio: boolean;
   baseImportacion: number;
   baseExportacion: number;
+  /** M-169: grupo contable del gasto de importación (1 honorarios, 2 fletes y maniobras, 3 almacenajes, 4 otros). */
+  grupoContable?: number;
 }
 export interface Gasto {
   id: string;
@@ -163,6 +165,8 @@ export interface Finanzas {
   bases: { id: string; pedimento: string }[];
   distribuciones: Distribucion[];
   anticipos: Anticipo[];
+  /** M-169: false (por omisión) = el gasto va a gasto de importación y no cambia el costo del inventario. */
+  incrementablesAlInventario?: boolean;
 }
 const key = (id: string) => [...ceKeys.all, 'finanzas', id];
 export function useFinanzas(id: string) {

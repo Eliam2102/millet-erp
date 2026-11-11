@@ -63,15 +63,16 @@ public sealed partial class Expediente
     }
     /// <param name="incrementablesAlInventario">Fernando 4-nov: false (configuración por omisión) = todo el ajuste de importación va a
     /// gasto y el costo unitario no cambia; true = reparto a inventario de Millet 26-oct (versión posterior).</param>
+    /// <param name="proveedoresPersonaFisica">M-169: proveedores de los gastos que son persona física (honorarios aduanales PF).</param>
     public DistribucionGasto PrepararDistribucion(IReadOnlyList<ConceptoGasto> conceptos, IReadOnlyList<BasePartidaCosto> partidas, Guid usuario, DateTimeOffset fecha,
-        bool incrementablesAlInventario = true)
+        bool incrementablesAlInventario = true, IReadOnlySet<Guid>? proveedoresPersonaFisica = null)
     {
         ExigirAbierto();
         if (usuario == Guid.Empty || partidas.Select(p => p.PartidaId).Distinct().Count() != partidas.Count || partidas.Any(p => p.Cantidad <= 0))
             throw new BusinessRuleException("CE_PARTIDA_COSTO_INVALIDA", "Las partidas deben ser únicas y tener cantidad positiva.");
         if (_gastos.Count == 0) throw new BusinessRuleException("CE_GASTOS_FALTANTES", "Registre gastos antes de distribuir.");
         var anterior = _distribuciones.OrderByDescending(d => d.NumeroVersion).FirstOrDefault();
-        var renglones = ProrrateoGastos.Calcular(Tipo, _gastos, conceptos, partidas);
+        var renglones = ProrrateoGastos.Calcular(Tipo, _gastos, conceptos, partidas, proveedoresPersonaFisica);
         var totales = renglones.GroupBy(r => r.PartidaId).ToDictionary(g => g.Key, g => g.Sum(r => r.ImporteMxn));
         if (anterior?.Partidas.Any(p => !partidas.Any(b => b.PartidaId == p.PartidaId)) == true)
             throw new BusinessRuleException("CE_PARTIDA_DISTRIBUIDA", "No se puede retirar una partida con distribución previa.");
@@ -94,7 +95,31 @@ public sealed partial class Expediente
                 var ajusteCompartido = costos.Where(x => x.PartidaId == c.PartidaId || (c.ArticuloId != null && c.UbicacionId != null && x.ArticuloId == c.ArticuloId && x.UbicacionId == c.UbicacionId)).Sum(x => x.InventarioMxn);
                 return c with { CostoUnitarioDespues = c.CostoUnitarioAntes + (existencia > 0 ? ajusteCompartido / existencia : 0) };
             }).ToArray();
-        return new(EmpresaId, Id, (anterior?.NumeroVersion ?? 0) + 1, RevisionFinanciera, usuario, fecha, renglones, costos);
+        return new(EmpresaId, Id, (anterior?.NumeroVersion ?? 0) + 1, RevisionFinanciera, usuario, fecha, renglones, costos)
+        {
+            GastosPorGrupo = Tipo == TipoExpediente.Importacion ? AjustePorGrupo(renglones, anterior, conceptos, proveedoresPersonaFisica) : [],
+        };
+    }
+    /// <summary>
+    /// M-169: ajuste por grupo contable = renglones de esta versión menos los de la anterior (misma regla que el ajuste por partida, así
+    /// que suma lo mismo). Un renglón de una versión previa a M-169 no trae grupo: se toma el del concepto y el proveedor actuales.
+    /// Si Contabilidad movió el concepto de grupo, la nueva versión reclasifica (un grupo baja y el otro sube).
+    /// </summary>
+    private List<GastoGrupoDistribuido> AjustePorGrupo(IReadOnlyList<RenglonDistribucion> renglones, DistribucionGasto? anterior,
+        IReadOnlyList<ConceptoGasto> conceptos, IReadOnlySet<Guid>? proveedoresPersonaFisica)
+    {
+        string Grupo(RenglonDistribucion r)
+        {
+            if (r.Grupo is not null) return r.Grupo;
+            var concepto = conceptos.SingleOrDefault(c => c.Id == r.ConceptoId);
+            var proveedor = _gastos.SingleOrDefault(g => g.Id == r.GastoId)?.ProveedorId;
+            return GrupoGastoImportacion.Codigo(concepto?.GrupoContable ?? GrupoContableGasto.OtrosGastosImportacion,
+                proveedor is Guid p && proveedoresPersonaFisica?.Contains(p) == true);
+        }
+        return renglones.Select(r => (Grupo: Grupo(r), r.ImporteMxn))
+            .Concat((anterior?.Renglones ?? []).Select(r => (Grupo: Grupo(r), ImporteMxn: -r.ImporteMxn)))
+            .GroupBy(x => x.Grupo, StringComparer.Ordinal).Select(g => new GastoGrupoDistribuido(g.Key, g.Sum(x => x.ImporteMxn)))
+            .Where(g => g.ImporteMxn != 0).OrderBy(g => g.Grupo, StringComparer.Ordinal).ToList();
     }
     public void ConfirmarDistribucion(DistribucionGasto distribucion)
     {
