@@ -2,6 +2,8 @@ using MediatR;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
+using Millet.Facturacion.Application.Cancelaciones.Firmas;
+using Millet.Facturacion.Application.Cancelaciones.ModificarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.Queries;
 using Millet.Facturacion.Application.Cancelaciones.RechazarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.RetirarCancelacion;
@@ -66,12 +68,14 @@ public static class ComprobantesEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound);
 
         // F6.5: el Contador General autoriza la cancelación pendiente; solo entonces se envía al PAC.
+        // M-235: con dos firmas, la primera solo se registra; ?huella= es la versión que vio quien autoriza.
         group.MapPost("/{id:guid}/cancelar/autorizar", async (
             Guid id,
+            string? huella,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
-            var response = await mediator.Send(new AutorizarCancelacionCommand(id), cancellationToken);
+            var response = await mediator.Send(new AutorizarCancelacionCommand(id, huella), cancellationToken);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -99,6 +103,45 @@ public static class ComprobantesEndpoints
         .Produces<SolicitarCancelacionResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-235: quien la solicitó corrige motivo o sustituto mientras sigue pendiente (anula firmas previas).
+        group.MapPut("/{id:guid}/cancelar", async (
+            Guid id,
+            SolicitarCancelacionRequest body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new ModificarCancelacionCommand(id, body.MotivoSat, body.UuidSustituto), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesSolicitar)
+        .WithName("ModificarCancelacion")
+        .WithSummary("Modifica el motivo o el sustituto de una cancelación pendiente")
+        .Produces<SolicitarCancelacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-235: firmas por tipo de operación y monto (vacía = una firma).
+        group.MapGet("/cancelaciones/reglas-firma", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarReglasFirmaCancelacionQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesConsultar)
+        .WithName("ListarReglasFirmaCancelacion")
+        .WithSummary("Reglas de firmas de la cancelación por tipo de operación y monto")
+        .Produces<IReadOnlyList<ReglaFirmaCancelacionDto>>(StatusCodes.Status200OK);
+
+        group.MapPut("/cancelaciones/reglas-firma", async (
+            GuardarReglasFirmaCancelacionCommand body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(body, cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesAutorizar)
+        .WithName("GuardarReglasFirmaCancelacion")
+        .WithSummary("Reemplaza las reglas de firmas de la cancelación")
+        .Produces<IReadOnlyList<ReglaFirmaCancelacionDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // F6.5: Ingresos retira una cancelación que aún no se autoriza.

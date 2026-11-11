@@ -26,7 +26,13 @@ public sealed record ConsultarCancelacionResponse(
     string? SolicitadaPor = null,
     string? DecididaPor = null,
     DateTimeOffset? DecididaEn = null,
-    string? MotivoRechazo = null);
+    string? MotivoRechazo = null,
+    int FirmasRequeridas = 1,
+    int FirmasDadas = 0,
+    string? PrimeraFirmaPor = null,
+    DateTimeOffset? PrimeraFirmaEn = null,
+    string? FirmaAnuladaMotivo = null,
+    string? Huella = null);
 
 public sealed class ConsultarCancelacionHandler
     : IRequestHandler<ConsultarCancelacionQuery, ConsultarCancelacionResponse>
@@ -61,6 +67,12 @@ public sealed class ConsultarCancelacionHandler
             SolicitadaPor: solicitud?.SolicitadaPorNombre,
             DecididaPor: solicitud?.DecididaPorNombre,
             DecididaEn: solicitud?.DecididaEn,
-            MotivoRechazo: solicitud?.MotivoRechazo);
+            MotivoRechazo: solicitud?.MotivoRechazo,
+            FirmasRequeridas: solicitud?.FirmasRequeridas ?? 1,
+            FirmasDadas: solicitud?.FirmasDadas ?? 0,
+            PrimeraFirmaPor: solicitud?.PrimeraFirmaPorNombre,
+            PrimeraFirmaEn: solicitud?.PrimeraFirmaEn,
+            FirmaAnuladaMotivo: solicitud?.FirmaAnuladaMotivo,
+            Huella: solicitud?.Huella);
     }
 }
