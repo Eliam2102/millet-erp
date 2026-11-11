@@ -41,6 +41,9 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
                 var folio = await registro.ReservarNumeroAsync(tipo.Id, anio, t, s.EmpresaId);
                 poliza = Poliza.CrearAutomatica(Guid.CreateVersion7(), tipo, s.Fecha, anio, numero, s.Concepto, s.Documento,
                     s.LlaveIdempotencia, partidas.Partidas, folio, clock.UtcNow);
+                // M-240: reversa parcial ligada a su póliza original (rastro en ambos sentidos).
+                if (s.ReversaDePolizaId is { } originalId)
+                    poliza.LigarReversaParcial(await db.Polizas.IgnoreQueryFilters().AsNoTracking().FirstAsync(x => x.Id == originalId, t));
                 if (s.EmpresaId is { } empresaId)
                 {
                     poliza.EmpresaId = empresaId;

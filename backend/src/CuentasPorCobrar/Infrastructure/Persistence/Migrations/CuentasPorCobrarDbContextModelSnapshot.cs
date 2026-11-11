@@ -203,6 +203,14 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(14,2)")
                         .HasColumnName("ajuste_no_fiscal");
 
+                    b.Property<DateTimeOffset?>("AjusteRevertidoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ajuste_revertido_en");
+
+                    b.Property<Guid?>("AjusteRevertidoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ajuste_revertido_por");
+
                     b.Property<Guid>("ClienteId")
                         .HasColumnType("uuid")
                         .HasColumnName("cliente_id");
@@ -254,9 +262,18 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_rechazo");
 
+                    b.Property<string>("MotivoReversaAjuste")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_reversa_ajuste");
+
                     b.Property<Guid?>("MovimientoBancarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("movimiento_bancario_id");
+
+                    b.Property<Guid?>("PolizaReversaAjusteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_reversa_ajuste_id");
 
                     b.Property<Guid?>("PropuestoPor")
                         .HasColumnType("uuid")
@@ -549,7 +566,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_movimiento_cartera_reversa_consistente", "(revertido = TRUE AND revertido_en IS NOT NULL) OR (revertido = FALSE)");
 
-                            t.HasCheckConstraint("ck_movimiento_cartera_tipo", "tipo IN (1, 2)");
+                            t.HasCheckConstraint("ck_movimiento_cartera_tipo", "tipo IN (1, 2, 3)");
                         });
                 });
 

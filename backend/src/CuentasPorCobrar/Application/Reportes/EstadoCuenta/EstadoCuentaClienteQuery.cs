@@ -90,13 +90,19 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
             filas.Add(new Dictionary<string, object?>
             {
                 ["fecha"] = m.FechaMovimiento,
-                ["tipo"] = m.Tipo == TipoMovimientoCartera.Pago ? "Pago" : "Nota de crédito",
+                ["tipo"] = m.Tipo switch
+                {
+                    TipoMovimientoCartera.Pago => "Pago",
+                    TipoMovimientoCartera.ReversaAjusteCobro => "Reversa de ajuste de cobro",
+                    _ => "Nota de crédito",
+                },
                 // Folio de la factura afectada; el id interno del comprobante
                 // origen (REPP/NC) no le dice nada al usuario (feedback 2026-07-14).
                 ["referencia"] = folio,
                 ["moneda"] = moneda,
-                ["cargo"] = null,
-                ["abono"] = m.Importe,
+                // M-240: la reversa del ajuste regresa saldo (cargo), no lo abona.
+                ["cargo"] = m.Tipo == TipoMovimientoCartera.ReversaAjusteCobro ? m.Importe : null,
+                ["abono"] = m.Tipo == TipoMovimientoCartera.ReversaAjusteCobro ? null : m.Importe,
                 ["saldo_documento"] = null,
                 ["estado"] = null,
             });
