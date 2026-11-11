@@ -49,7 +49,7 @@ public sealed class ContabilidadElectronicaTests
     [Fact]
     public void K10_8_a_las_cuentas_sin_codigo_agrupador_valido_o_sin_naturaleza_se_listan_antes_de_generar()
     {
-        var sinCodigo = Cuenta("102-02", Bancos, 3, null);
+        var sinCodigo = Cuenta("102-02", Activo, 2, null);
         var codigoInventado = Cuenta("102-03", Bancos, 3, "999.99");
         var sinNaturaleza = new CuentaContable(Guid.NewGuid(), "102-04", "Banco sin naturaleza", Bancos.Id, 3, null, TipoCuenta.Afectable,
             CuentaControl.Ninguna, "102.01", null);
@@ -68,9 +68,9 @@ public sealed class ContabilidadElectronicaTests
     [Fact]
     public void O2_la_revision_y_el_bloqueo_cuentan_igual_aunque_una_cuenta_tenga_dos_pendientes()
     {
-        var sinCodigoNiNaturaleza = new CuentaContable(Guid.NewGuid(), "102-06", "Banco sin datos", Bancos.Id, 3, null, TipoCuenta.Afectable,
+        var sinCodigoNiNaturaleza = new CuentaContable(Guid.NewGuid(), "102-06", "Banco sin datos", Activo.Id, 2, null, TipoCuenta.Afectable,
             CuentaControl.Ninguna, null, null);
-        var sinCodigo = Cuenta("102-07", Bancos, 3, null);
+        var sinCodigo = Cuenta("102-07", Activo, 2, null);
 
         var problemas = GeneradorContabilidadElectronica.Revisar([.. Catalogo, sinCodigoNiNaturaleza, sinCodigo]);
 
@@ -235,6 +235,78 @@ public sealed class ContabilidadElectronicaTests
         Assert.Equal((TipoArchivoContabilidadElectronica.Balanza, TipoEnvioBalanza.Complementaria, new DateOnly(2027, 3, 5), false),
             (ok.Tipo, ok.TipoEnvio, ok.FechaModificacion, ok.Zip));
         Assert.True(new GenerarContabilidadElectronicaValidator().Validate(ok).IsValid);
+    }
+
+    // ─── M-016: cuentas de nivel 3+ sin código agrupador no se reportan; acumulan en la reportada más cercana ───
+    // 115 Inventarios (n1) → 115-05 Transito (n2, código) → 115-05-01 (n3, SIN código) → 115-05-01-01 (n4, con código); 115-05-02 (n3, SIN código).
+    private static readonly CuentaContable Inventarios = Cuenta("115", null, 1, "115");
+    private static readonly CuentaContable Transito = Cuenta("115-05", Inventarios, 2, "115.05");
+    private static readonly CuentaContable Aduanal = Cuenta("115-05-01", Transito, 3, null);
+    private static readonly CuentaContable AduanalDetalle = Cuenta("115-05-01-01", Aduanal, 4, "115.05");
+    private static readonly CuentaContable Otros = Cuenta("115-05-02", Transito, 3, null);
+    private static readonly CuentaContable[] CatalogoM016 = [Inventarios, Transito, Aduanal, AduanalDetalle, Otros];
+
+    [Fact]
+    public void M016_nivel_3_o_mas_sin_codigo_no_bloquea_pero_nivel_2_sin_codigo_si()
+    {
+        Assert.Empty(GeneradorContabilidadElectronica.Revisar(CatalogoM016));
+
+        var nivel2SinCodigo = Cuenta("116-01", Inventarios, 2, null);
+        var problema = Assert.Single(GeneradorContabilidadElectronica.Revisar([.. CatalogoM016, nivel2SinCodigo]));
+        Assert.Equal(("116-01", GeneradorContabilidadElectronica.SinCodigoAgrupador), (problema.Codigo, problema.Problema));
+        Assert.Equal(["115", "115-05", "115-05-01-01"], GeneradorContabilidadElectronica.CuentasCatalogo(CatalogoM016).Select(c => c.Codigo));
+    }
+
+    [Fact]
+    public void M016_el_catalogo_omite_las_cuentas_sin_codigo_y_las_hijas_apuntan_al_ancestro_reportado_mas_cercano()
+    {
+        var xml = GeneradorContabilidadElectronica.Catalogo(Rfc, 2027, 1, CatalogoM016);
+
+        Assert.Empty(EsquemasSat.Validar(xml));
+        XNamespace ns = EsquemasSat.NsCatalogo;
+        var ctas = xml.Root!.Elements(ns + "Ctas").ToList();
+        Assert.Equal(["115", "115-05", "115-05-01-01"], ctas.Select(c => (string)c.Attribute("NumCta")!));
+        var detalle = ctas.Single(c => (string)c.Attribute("NumCta")! == "115-05-01-01");
+        Assert.Equal("115-05", (string)detalle.Attribute("SubCtaDe")!);
+        Assert.Equal("115.05", (string)detalle.Attribute("CodAgrup")!);
+    }
+
+    [Fact]
+    public void M016_la_balanza_del_nivel_2_incluye_saldo_inicial_debe_haber_y_final_de_las_cuentas_omitidas()
+    {
+        var iniciales = new Dictionary<Guid, decimal> { [Transito.Id] = 100m, [Aduanal.Id] = 500m, [AduanalDetalle.Id] = 200m };
+        var periodo = new Dictionary<Guid, (decimal, decimal)>
+        {
+            [Transito.Id] = (0m, 20m), [Aduanal.Id] = (300m, 100m), [AduanalDetalle.Id] = (50m, 0m), [Otros.Id] = (30m, 0m),
+        };
+
+        var filas = GeneradorContabilidadElectronica.FilasBalanza(CatalogoM016, iniciales, periodo);
+
+        Assert.Equal(["115", "115-05", "115-05-01-01"], filas.Select(f => f.Codigo));
+        // Nivel 2 = lo posteado directo + omitidas (500/300/100 y 30 de «Otros») + la hija reportada (200/50/0).
+        Assert.Equal(new FilaBalanzaCe("115-05", 800m, 380m, 120m, 1_060m), filas.Single(f => f.Codigo == "115-05"));
+        Assert.Equal(new FilaBalanzaCe("115", 800m, 380m, 120m, 1_060m), filas.Single(f => f.Codigo == "115"));
+        Assert.Equal(new FilaBalanzaCe("115-05-01-01", 200m, 50m, 0m, 250m), filas.Single(f => f.Codigo == "115-05-01-01"));
+    }
+
+    [Fact]
+    public void M016_las_polizas_citan_la_cuenta_de_nivel_2_que_acumula_a_la_omitida()
+    {
+        var poliza = new PolizaCe("FP-000010", new DateOnly(2027, 1, 20), "Transito aduanales", null,
+            [new("115-05-02", "Cuenta 115-05-02", null, 100m, 0m), new("115-05-01-01", "Cuenta 115-05-01-01", null, 50m, 0m),
+             new("102-01", "Banco nacional", null, 0m, 150m)]);
+        var equivalencias = GeneradorContabilidadElectronica.EquivalenciasOmitidas([.. CatalogoM016, Banco, Bancos, Activo]);
+
+        Assert.Equal(["115-05-01", "115-05-02"], equivalencias.Keys.Order());
+        Assert.All(equivalencias.Values, v => Assert.Equal("115-05", v.Codigo));
+
+        var xml = GeneradorContabilidadElectronica.Polizas(Rfc, 2027, 1, TipoSolicitudPolizas.AF, "ABC1234567/12", null,
+            [poliza], new Dictionary<string, ComprobanteNacionalContable>(), [], equivalencias);
+
+        Assert.Empty(EsquemasSat.Validar(xml));
+        XNamespace ns = EsquemasSat.NsPolizas;
+        var cuentas = xml.Root!.Elements(ns + "Poliza").Single().Elements(ns + "Transaccion").Select(t => (string)t.Attribute("NumCta")!);
+        Assert.Equal(["115-05", "115-05-01-01", "102-01"], cuentas);
     }
 
     private static CuentaContable Cuenta(string codigo, CuentaContable? padre, int nivel, string? agrupador,

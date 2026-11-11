@@ -40,6 +40,7 @@ import { esApiError } from '@/lib/api';
 const ETIQUETA_TIPO_AJUSTE: Record<TipoAjusteCobro, string> = {
   [TipoAjusteCobro.ComisionBancaria]: 'Comisión bancaria',
   [TipoAjusteCobro.DiferenciaMenor]: 'Diferencia menor en cobro',
+  [TipoAjusteCobro.Redondeo]: 'Redondeo (hasta $0.99)',
 };
 
 export function DetalleAplicacion() {

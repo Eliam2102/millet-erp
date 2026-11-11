@@ -20,7 +20,16 @@ public sealed class ReversaAjusteCobroContableServicio(ContabilidadDbContext db,
 {
     public const string RolComision = "COMISIONES_BANCARIAS";
     public const string RolDiferencia = "DIFERENCIAS_EN_COBRO";
+    public const string RolRedondeo = "REDONDEO";
     public const string PrefijoLlave = "cxc.reversa-ajuste-cobro";
+
+    /// <summary>Rol de la cuenta del ajuste según su tipo (M-326: el redondeo se revierte contra <c>REDONDEO</c>).</summary>
+    public static string RolDe(TipoAjusteCobroContable tipo) => tipo switch
+    {
+        TipoAjusteCobroContable.ComisionBancaria => RolComision,
+        TipoAjusteCobroContable.Redondeo => RolRedondeo,
+        _ => RolDiferencia,
+    };
 
     public async Task<PolizaRegistrada> RegistrarAsync(Guid empresaId, Guid propuestaId, CancellationToken ct)
     {
@@ -36,7 +45,7 @@ public sealed class ReversaAjusteCobroContableServicio(ContabilidadDbContext db,
             ?? throw new BusinessRuleException("CONTAB_COBRO_SIN_POLIZA",
                 "El cobro no tiene póliza vigente: revisa la bandeja de rechazos del motor contable antes de revertir el ajuste.");
 
-        var rol = r.Tipo == TipoAjusteCobroContable.ComisionBancaria ? RolComision : RolDiferencia;
+        var rol = RolDe(r.Tipo);
         var cuentasRol = await db.RolesCuenta.IgnoreQueryFilters().AsNoTracking()
             .Where(x => x.EmpresaId == empresaId && x.CuentaId != null && (x.Codigo == rol || x.Codigo.StartsWith(rol + "_")))
             .Select(x => x.CuentaId!.Value).Distinct().ToListAsync(ct);
