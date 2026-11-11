@@ -36,6 +36,13 @@ ON CONFLICT DO NOTHING;
 INSERT INTO dbo.awbar_bearbeit (etikettnr, bearb_zeit, auftnr, pos, u_pos, teile_nr, fertig, esnr_ist, bearb_nr, bruch_flag)
 VALUES ('PT900101201', date_trunc('second', now()) - interval '2 minutes', '900101', 1, 0, '2', 1, 2821, 7, 1)
 ON CONFLICT DO NOTHING;
+-- Albaranes de A+W (script 20): 900101 pos. 1 sale en dos albaranes parciales (1 + 1 pieza, el segundo desde un pedido
+-- hijo de expedición parcial) y 900102 pos. 1 en uno. PT descuenta las piezas que estén en PT (idempotente por albarán).
+INSERT INTO dbo.vw_erp_albaran_pos (numero_pedido, numero_posicion, pedido_albaran, posicion_albaran, piezas, albaran_folio, albaran_fecha, estatus_pedido)
+VALUES ('900101', 1, '900101', 1, 1, 9100001, current_date, 72),
+       ('900101', 1, '910101', 1, 1, 9100002, current_date, 72),
+       ('900102', 1, '900102', 1, 1, 9100003, current_date, 72)
+ON CONFLICT DO NOTHING;
 -- A4.8 · componentes por composición: 900301 insulado con argón 530000 y separador 520042 (875.51 x 1041.65 mm),
 -- 900302 laminado con PVB 419010 bajo la capa laminada 3000000, 900303 insulado sin gas ni separador (solo vidrio,
 -- excepción) y una rotura del 900301 (no descuenta).
