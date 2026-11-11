@@ -557,7 +557,7 @@ public sealed class ExpedientesHttpTests
             responsableUsuarioId = Responsable,
             clientes = Array.Empty<string>()
         };
-        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false, bool permisosAlmacen = false, bool autorizarSaldoCe = false)
+        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false, bool permisosAlmacen = false, bool autorizarSaldoCe = false, bool corregirHitos = true)
         {
             using var scope = _factory.Services.CreateScope();
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -572,7 +572,7 @@ public sealed class ExpedientesHttpTests
                     (autorizarSaldoCe && p.Codigo == PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion)
                     || (permisosAlmacen && p.Codigo.StartsWith("almacen.", StringComparison.Ordinal))
                     || (permisosAf && p.Codigo.StartsWith("activos_fijos.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))
-                    || (permisosCe && p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer))
+                    || (permisosCe && p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer) && (corregirHitos || p.Codigo != PermisosCanonicos.ComercioExteriorExpedientesHitosCorregir))
                     || (facturacion && p.Codigo.StartsWith("facturacion.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))))
                     db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, p.Id));
             foreach (var codigo in new[] { leerTodas ? PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales : null, gestionarTodas ? PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales : null }.OfType<string>())

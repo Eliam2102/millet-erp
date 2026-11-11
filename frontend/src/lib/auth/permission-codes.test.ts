@@ -409,6 +409,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.cancelar',
   'comercio_exterior.expedientes.cerrar',
   'comercio_exterior.expedientes.hitos-registrar',
+  'comercio_exterior.expedientes.hitos-corregir',
   'comercio_exterior.expedientes.documentos-revisar',
   'comercio_exterior.expedientes.adjuntos-ver',
   'comercio_exterior.expedientes.adjuntos-subir',

@@ -689,6 +689,9 @@ public static class PermisosCanonicos
     public const string ComercioExteriorIncidenciasGestionar = "comercio_exterior.incidencias.gestionar";
     public const string ComercioExteriorExpedientesCerrar = "comercio_exterior.expedientes.cerrar";
     public const string ComercioExteriorExpedientesHitosRegistrar = "comercio_exterior.expedientes.hitos-registrar";
+    // M-373: corregir la fecha real o la omisión de un hito ya resuelto. Quién autoriza sigue por confirmar con Millet
+    // (M-151, «Pendiente» el 10-nov); por omisión lo reciben los roles de Gerencia de Comercio exterior (aprobar_cierre).
+    public const string ComercioExteriorExpedientesHitosCorregir = "comercio_exterior.expedientes.hitos-corregir";
     public const string ComercioExteriorExpedientesDocumentosRevisar = "comercio_exterior.expedientes.documentos-revisar";
     public const string ComercioExteriorExpedientesAdjuntosVer = "comercio_exterior.expedientes.adjuntos-ver";
     public const string ComercioExteriorExpedientesAdjuntosSubir = "comercio_exterior.expedientes.adjuntos-subir";
@@ -1111,6 +1114,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0005-0000-0000-000000000001"), ComercioExteriorIncidenciasGestionar, "Gestionar incidencias del expediente"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000005"), ComercioExteriorExpedientesCerrar, "Reservado para CE-01b"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000006"), ComercioExteriorExpedientesHitosRegistrar, "Reservado para CE-01b"),
+        (Guid.Parse("0000000e-0001-0000-0000-00000000000c"), ComercioExteriorExpedientesHitosCorregir, "Corregir la fecha real o la omisión de un hito con motivo"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000007"), ComercioExteriorExpedientesDocumentosRevisar, "Revisar requisitos documentales"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000008"), ComercioExteriorExpedientesAdjuntosVer, "Consultar archivos"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000009"), ComercioExteriorExpedientesAdjuntosSubir, "Subir archivos y registrar versiones"),
