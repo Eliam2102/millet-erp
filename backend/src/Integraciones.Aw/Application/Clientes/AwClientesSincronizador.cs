@@ -187,6 +187,14 @@ public sealed class AwClientesSincronizador
             ejec.RegistrarError(referencia, "fila_invalida", mapeo.Error!, ahora);
             return;
         }
+        // N-08 (Jorge, 10-nov): la carga solo trae clientes activos (KZ_GESPERRT = 0). Un bloqueado que el ERP no tiene no
+        // se da de alta; el que ya existe sí recibe la baja (0 → 1) al aplicarse.
+        if (_sp.GetService<IOptions<MapeoEstatusClientesAwOptions>>()?.Value.Resolver(fila.KzStatus, fila.KzGesperrt) == true
+            && !await _compartidoDb.Clientes.AnyAsync(c => c.ReferenciaExterna == referencia, ct))
+        {
+            ejec.AcumularFila(AwClientesFilaResultado.SinCambios, false);
+            return;
+        }
         try
         {
             var r = await _aplicar.AplicarAsync(mapeo.Snapshot! with { EjecucionId = ejec.Id }, ct);

@@ -68,9 +68,8 @@ public sealed record AplicarClienteAwSnapshot(
     // Auto-provisión de pedidos: si el cliente ya existe no se toca nada.
     bool SoloCrear = false);
 
-/// <summary><c>NoCreado</c>: alta omitida por moneda sin equivalencia (Cliente = null). <c>OmitidoBloqueado</c>: cliente
-/// bloqueado en A+W que el ERP no tiene; no se da de alta (Cliente = null).</summary>
-public enum AplicarClienteAwAccion { Creado, Actualizado, SinCambios, Conflicto, NoCreado, OmitidoBloqueado }
+/// <summary><c>NoCreado</c>: alta omitida por moneda sin equivalencia (Cliente = null).</summary>
+public enum AplicarClienteAwAccion { Creado, Actualizado, SinCambios, Conflicto, NoCreado }
 
 public sealed record AplicarClienteAwResultado(
     Cliente? Cliente,
@@ -146,11 +145,6 @@ public sealed class AplicarClienteAwService
             // La auto-provisión de pedidos (SoloCrear) no trae moneda de origen y conserva su default.
             if (!snap.SoloCrear && snap.MonedaDefault is null)
                 return new(null, AplicarClienteAwAccion.NoCreado, ResultadoSincronizacionAw.Pendiente);
-
-            // N-08 (Jorge, 10-nov): la carga inicial solo trae clientes activos (KZ_GESPERRT = 0); un bloqueado que el ERP
-            // no conoce no se crea. El que ya existe sí recibe la baja (0 → 1) por ActualizarAsync.
-            if (!snap.SoloCrear && _mapeoEstatus.Resolver(snap.EstadoOrigenCrudo, snap.BloqueoOrigenCrudo) == true)
-                return new(null, AplicarClienteAwAccion.OmitidoBloqueado, ResultadoSincronizacionAw.SinCambios);
 
             // Clave de ligado = RFC o UST_ID normalizado (M2.2). Solo contra clientes manuales: el ligado entre clientes de A+W está diferido hasta aclarar con Millet (ver aclaracion-rfc-repetido.md).
             var rfc = Clave(snap);

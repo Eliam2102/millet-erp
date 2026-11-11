@@ -272,6 +272,10 @@ var awIntegrationAppSettings = [
   { name: 'IntegracionesAw__Productos__Origen', value: awProductosOrigen }
   { name: 'IntegracionesAw__Cambios__Habilitado', value: string(awCambiosHabilitado) }
   { name: 'IntegracionesAw__NotasCreditoLectura__Habilitada', value: string(awNotasCreditoLecturaHabilitada) }
+  // N-08 (Jorge Toache, 10-nov): estatus del cliente = KU_KUNDEN.KZ_GESPERRT, 0 activo y 1 bloqueado; KZ_STATUS no se usa.
+  { name: 'IntegracionesAw__Clientes__MapeoEstatus__Version', value: 'jt10nov' }
+  { name: 'IntegracionesAw__Clientes__MapeoEstatus__KzGesperrt__0', value: 'false' }
+  { name: 'IntegracionesAw__Clientes__MapeoEstatus__KzGesperrt__1', value: 'true' }
   {
     // Origen demo de A+W (BD millet_aw_origen en PostgreSQL). Secreto operator-managed:
     // sin crear, la ref queda sin resolver y el selector responde AW_DEMO_NO_CONFIGURADA.
