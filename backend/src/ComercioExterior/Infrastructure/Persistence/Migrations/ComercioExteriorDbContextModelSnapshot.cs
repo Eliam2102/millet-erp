@@ -188,6 +188,15 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("resoluciones");
 
+                    b.Property<string>("ReversaPendiente")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("reversa_pendiente");
+
+                    b.Property<string>("ReversasComprobacion")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("reversas_comprobacion");
+
                     b.Property<int>("RevisionComprobacion")
                         .HasColumnType("integer")
                         .HasColumnName("revision_comprobacion");

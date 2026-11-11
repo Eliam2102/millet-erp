@@ -419,6 +419,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.gastos.registrar',
   'comercio_exterior.gastos.distribuir',
   'comercio_exterior.anticipos.gestionar',
+  'comercio_exterior.anticipos.revertir-comprobacion-solicitar',
+  'comercio_exterior.anticipos.revertir-comprobacion-autorizar',
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {

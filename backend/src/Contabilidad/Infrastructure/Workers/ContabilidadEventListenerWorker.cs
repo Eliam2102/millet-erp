@@ -213,6 +213,8 @@ public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? 
         NormalizadorEventos.RevaluacionCierreRegistrada, NormalizadorEventos.RevaluacionCierreRevertida,
         NormalizadorEventos.GastoRegistrado, NormalizadorEventos.PasivoAutorizadoParaPago, NormalizadorEventos.EstadoCuentaTcCerrado,
         NormalizadorEventos.AnticipoProveedorAmortizado,
+        // M-327: reversa de la comprobación de un anticipo al agente aduanal.
+        NormalizadorEventos.ReversaComprobacionAnticipoAgente,
     ], StringComparer.Ordinal);
 }
 

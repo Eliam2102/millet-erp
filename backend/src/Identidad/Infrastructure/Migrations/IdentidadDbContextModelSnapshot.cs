@@ -5325,6 +5325,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000e-0006-0000-0000-000000000004"),
+                            Accion = "revertir-comprobacion-solicitar",
+                            Codigo = "comercio_exterior.anticipos.revertir-comprobacion-solicitar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Solicitar con motivo la reversa de un anticipo al agente ya comprobado",
+                            Modulo = "comercio_exterior",
+                            Recurso = "anticipos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0006-0000-0000-000000000005"),
+                            Accion = "revertir-comprobacion-autorizar",
+                            Codigo = "comercio_exterior.anticipos.revertir-comprobacion-autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar la reversa de un anticipo al agente ya comprobado contra su saldo a favor (Contador General; no quien la solicitó)",
+                            Modulo = "comercio_exterior",
+                            Recurso = "anticipos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0004-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "comercio_exterior.otr.gestionar",
