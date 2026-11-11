@@ -83,7 +83,7 @@ public sealed class AlmacenesAppProcesador(
                 }
                 // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos en el guardado.
                 var (resuelta, errorSalida) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct,
-                    dimensiones, opciones.Value.ExigirAreaEquipo);
+                    dimensiones, opciones.Value.ExigirAreaEquipo, opciones.Value.CentroAlmacen);
                 // Un ERROR de datos (artículo/medida/sucursal sin dar de alta, campo inválido) no descuenta nada y queda en la
                 // bandeja de excepciones (A4.3-a) con folio de revisión; la app lo corrige y reprocesa el mismo mensajeId.
                 if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorSalida, ct);
