@@ -978,6 +978,14 @@ export interface PedidoFacturableDetalleResponse
  * RFC/razón social/régimen de la empresa del contexto + la sucursal
  * única activa (null si hay más de una — el usuario elige).
  */
+/** TipoCambioUSD del CCE: valor del catálogo USD para la emisión de hoy; null si falta. */
+export interface TipoCambioDofResponse {
+  moneda: string;
+  /** Fecha de emisión (AAAA-MM-DD) a la que aplica el valor publicado en el DOF el día hábil anterior. */
+  fecha: string;
+  valor: number | null;
+}
+
 export interface EmisorDefaultsResponse {
   rfcEmisor: string;
   razonSocialEmisor: string;

@@ -96,6 +96,17 @@ public sealed class ComplementoCce
     }
 
     /// <summary>
+    /// Reintento de timbrado: el <c>TipoCambioUSD</c> se vuelve a tomar del DOF que rige la
+    /// fecha del nuevo intento (el SAT lo valida contra la fecha del CFDI, CCE121).
+    /// </summary>
+    public void ActualizarTcDof(decimal tcDof)
+    {
+        if (tcDof <= 0)
+            throw new BusinessRuleException("CCE_TC_DOF_INVALIDO", "El tipo de cambio DOF debe ser mayor que cero.");
+        TcDof = tcDof;
+    }
+
+    /// <summary>
     /// Agrega una mercancía validando los datos aduaneros que el SAT exige por
     /// mercancía (CCE 2.0), para NO quemar folio contra el rechazo del PAC (#8).
     /// Espejo de la validación del frontend (superRefine de <c>emitir-factura.ts</c>):

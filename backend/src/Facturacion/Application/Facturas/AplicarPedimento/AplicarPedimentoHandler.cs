@@ -30,13 +30,16 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
     private readonly IIntegrationEventPublisher _eventos;
     private readonly IClock _clock;
     private readonly IProductosReadPort? _productos;
+    private readonly ICatalogosSatReadPort? _catalogos;
 
     public AplicarPedimentoHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
-        IProductosReadPort? productos = null)
+        IProductosReadPort? productos = null,
+        // CCE121: TipoCambioUSD del catálogo para la fecha en que se timbra; sin puerto se conserva el guardado.
+        ICatalogosSatReadPort? catalogos = null)
     {
         _receptorFiscal = receptorFiscal;
         _db = db;
@@ -47,6 +50,7 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         _eventos = eventos;
         _clock = clock;
         _productos = productos;
+        _catalogos = catalogos;
     }
 
     public async Task<AplicarPedimentoResponse> Handle(AplicarPedimentoCommand command, CancellationToken cancellationToken)
@@ -72,6 +76,10 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
             throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {fiscal.Year}-{fiscal.Month:D2} está cerrado; no se puede timbrar.");
 
         await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
+
+        // CCE121: se timbra hoy, así que el TipoCambioUSD es el del DOF que rige hoy.
+        if (factura.ComplementoCce is { } cce && _catalogos is not null)
+            cce.ActualizarTcDof(await TipoCambioCce.DelDofAsync(_catalogos, ahora, cancellationToken));
 
         // Aplica el pedimento (vuelve a Borrador) y timbra.
         factura.AplicarPedimento(command.Pedimento, command.FechaDocAduanero, command.IdentificacionMercancia);

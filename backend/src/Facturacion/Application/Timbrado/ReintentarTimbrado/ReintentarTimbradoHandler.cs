@@ -56,6 +56,7 @@ public sealed class ReintentarTimbradoHandler
     private readonly IProductosReadPort? _productos;
     private readonly IEmpresaFiscalReadPort? _empresaFiscal;
     private readonly EfectosPostTimbrado _efectos;
+    private readonly ICatalogosSatReadPort? _catalogos;
 
     public ReintentarTimbradoHandler(
         FacturacionDbContext db,
@@ -67,8 +68,11 @@ public sealed class ReintentarTimbradoHandler
         IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
-        IProductosReadPort? productos = null, IEmpresaFiscalReadPort? empresaFiscal = null)
+        IProductosReadPort? productos = null, IEmpresaFiscalReadPort? empresaFiscal = null,
+        // CCE121: TipoCambioUSD del catálogo para la fecha del reintento; sin puerto se conserva el guardado.
+        ICatalogosSatReadPort? catalogos = null)
     {
+        _catalogos = catalogos;
         _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
@@ -184,6 +188,11 @@ public sealed class ReintentarTimbradoHandler
                 .ThenInclude(c => c.Lineas)
             .Where(f => f.Id == factura.Id)
             .LoadAsync(ct);
+
+        // CCE121: el reintento timbra con la fecha de hoy, así que el TipoCambioUSD es el del DOF que
+        // rige hoy (catálogo), aunque la factura se haya guardado con otro valor (p. ej. capturado a mano).
+        if (factura.ComplementoCce is { } cce && _catalogos is not null)
+            cce.ActualizarTcDof(await Facturas.TipoCambioCce.DelDofAsync(_catalogos, ahora, ct));
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
