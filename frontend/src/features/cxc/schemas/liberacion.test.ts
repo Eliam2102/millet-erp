@@ -47,6 +47,9 @@ describe('NuevaAutorizacionSchema', () => {
     beneficiarioUsuarioId: GUID,
     motivo: 'Pago en tránsito confirmado',
     clienteOPedidoRef: '7800123456',
+    condicion: 1,
+    montoAutorizado: 60000,
+    moneda: 'MXN',
     vigenciaHoras: 24,
   };
 
@@ -54,13 +57,19 @@ describe('NuevaAutorizacionSchema', () => {
     expect(NuevaAutorizacionSchema.parse(base)).toEqual(base);
   });
 
-  it('rechaza vigencia fuera de 1..24 (espejo del validator)', () => {
+  it('rechaza vigencia menor a 1 h; el máximo lo valida el servidor (M-239)', () => {
     expect(
       NuevaAutorizacionSchema.safeParse({ ...base, vigenciaHoras: 0 }).success,
     ).toBe(false);
     expect(
-      NuevaAutorizacionSchema.safeParse({ ...base, vigenciaHoras: 25 }).success,
-    ).toBe(false);
+      NuevaAutorizacionSchema.safeParse({ ...base, vigenciaHoras: 48 }).success,
+    ).toBe(true);
+  });
+
+  it('M-239: exige condición y un monto mayor a cero', () => {
+    expect(NuevaAutorizacionSchema.safeParse({ ...base, condicion: 0 }).success).toBe(false);
+    expect(NuevaAutorizacionSchema.safeParse({ ...base, condicion: 4 }).success).toBe(false);
+    expect(NuevaAutorizacionSchema.safeParse({ ...base, montoAutorizado: 0 }).success).toBe(false);
   });
 
   it('rechaza beneficiario no-GUID y motivo vacío', () => {

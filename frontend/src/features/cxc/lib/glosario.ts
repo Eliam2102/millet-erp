@@ -2,6 +2,7 @@ import {
   CanalCobranza,
   ComportamientoSerie,
   EstadoAutorizacionCredito,
+  CondicionExcepcionCredito,
   EstadoLineaCredito,
   EstadoPropuestaAplicacion,
   OrigenLineaCredito,
@@ -62,6 +63,13 @@ export const ETIQUETA_ESTADO_AUTORIZACION: Record<EstadoAutorizacionCredito, str
   [EstadoAutorizacionCredito.Autorizada]: 'Vigente',
   [EstadoAutorizacionCredito.Usada]: 'Usada',
   [EstadoAutorizacionCredito.Cancelada]: 'Cancelada',
+  [EstadoAutorizacionCredito.PendienteSegundaFirma]: 'Pendiente de 2.ª firma',
+};
+
+export const ETIQUETA_CONDICION_EXCEPCION: Record<CondicionExcepcionCredito, string> = {
+  [CondicionExcepcionCredito.CoberturaParcial]: 'Cobertura parcial (exceso)',
+  [CondicionExcepcionCredito.SerieNuncaLibera]: 'Serie que no libera sola',
+  [CondicionExcepcionCredito.BloqueoPorVencimiento]: 'Bloqueo por vencimiento',
 };
 
 export const ETIQUETA_CANAL_COBRANZA: Record<CanalCobranza, string> = {
