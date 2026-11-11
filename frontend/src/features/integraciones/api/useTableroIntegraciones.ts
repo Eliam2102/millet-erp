@@ -76,9 +76,11 @@ export function useTableroIntegraciones() {
   });
 }
 
+/** Historial de alertas: se refresca cada 30 s, igual que el tablero, para ver abiertas y recuperadas sin recargar (QA H1). */
 export function useAlertasIntegracion() {
   return useQuery<AlertaIntegracion[]>({
     queryKey: keys.alertas(),
+    refetchInterval: 30_000,
     queryFn: async ({ signal }) =>
       (await apiRequest<AlertaIntegracion[]>(`${BASE}/alertas?limit=50`, { signal })).data,
   });
