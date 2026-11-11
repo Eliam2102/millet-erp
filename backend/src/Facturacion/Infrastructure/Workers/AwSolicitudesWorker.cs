@@ -45,14 +45,17 @@ public sealed class AwSolicitudesWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            try
+            if (!_options.CurrentValue.SoloNotasCredito)
             {
-                await TickAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[AwSolicitudesWorker] Error inesperado.");
+                try
+                {
+                    await TickAsync(stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[AwSolicitudesWorker] Error inesperado.");
+                }
             }
 
             try
@@ -181,6 +184,14 @@ public sealed class AwSolicitudesOptions
     public const string SectionName = "Facturacion:Workers:AwSolicitudes";
 
     public bool Disabled { get; init; }
+
+    /// <summary>
+    /// M-184: el worker solo lee las notas de crédito de A+W y NO drena la cola de pedidos (<c>aw_solicitud_pedido</c>). Sirve
+    /// para encender las notas en un ambiente de pruebas sin ingerir ni marcar como tomados los pedidos de la base de integración.
+    /// Ignorado con <see cref="Disabled"/>.
+    /// </summary>
+    public bool SoloNotasCredito { get; init; }
+
     /// <summary>
     /// Segundos entre barridos de la cola. 15 s (U1.4): con el job de respaldo
     /// también a 15 s, el peor caso de punta a punta queda en ~30 s, dentro
