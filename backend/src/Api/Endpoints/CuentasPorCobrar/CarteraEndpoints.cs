@@ -10,6 +10,7 @@ using Millet.CuentasPorCobrar.Application.Reportes.AntiguedadSaldos;
 using Millet.CuentasPorCobrar.Application.Reportes.Comun;
 using Millet.CuentasPorCobrar.Application.Reportes.EstadoCuenta;
 using Millet.CuentasPorCobrar.Domain.Ports.Facturacion;
+using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.CuentasPorCobrar;
@@ -120,9 +121,13 @@ public static class CarteraEndpoints
         cartera.MapPost("/cartera/facturas/{facturaCarteraId:guid}/corregir-plazo", async (
             Guid facturaCarteraId,
             [FromBody] CorregirPlazoBody body,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
-            Results.Ok(await mediator.Send(new CorregirPlazoFacturaCommand(facturaCarteraId, body.PlazoDias, body.Motivo), cancellationToken)))
+        {
+            await CorreccionesCarteraScope.VerificarFacturaAsync(scope, facturaCarteraId, cancellationToken);
+            return Results.Ok(await mediator.Send(new CorregirPlazoFacturaCommand(facturaCarteraId, body.PlazoDias, body.Motivo), cancellationToken));
+        })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar)
         .WithName("CorregirPlazoFacturaCartera")
@@ -135,9 +140,14 @@ public static class CarteraEndpoints
         cartera.MapPost("/cartera/movimientos/{movimientoId:guid}/solicitar-reversa", async (
             Guid movimientoId,
             [FromBody] MotivoBody body,
+            CuentasPorCobrarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
-            Results.Ok(await mediator.Send(new SolicitarReversaMovimientoCommand(movimientoId, body.Motivo), cancellationToken)))
+        {
+            await CorreccionesCarteraScope.VerificarMovimientoAsync(scopeDb, scope, movimientoId, cancellationToken);
+            return Results.Ok(await mediator.Send(new SolicitarReversaMovimientoCommand(movimientoId, body.Motivo), cancellationToken));
+        })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar)
         .WithName("SolicitarReversaMovimientoCartera")
@@ -149,9 +159,14 @@ public static class CarteraEndpoints
 
         cartera.MapPost("/cartera/correcciones/{id:guid}/autorizar", async (
             Guid id,
+            CuentasPorCobrarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
-            Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, true, null), cancellationToken)))
+        {
+            await CorreccionesCarteraScope.VerificarCorreccionAsync(scopeDb, scope, id, cancellationToken);
+            return Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, true, null), cancellationToken));
+        })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
         .WithName("AutorizarReversaMovimientoCartera")
@@ -163,9 +178,14 @@ public static class CarteraEndpoints
         cartera.MapPost("/cartera/correcciones/{id:guid}/rechazar", async (
             Guid id,
             [FromBody] MotivoBody body,
+            CuentasPorCobrarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
-            Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, false, body.Motivo), cancellationToken)))
+        {
+            await CorreccionesCarteraScope.VerificarCorreccionAsync(scopeDb, scope, id, cancellationToken);
+            return Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, false, body.Motivo), cancellationToken));
+        })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
         .WithName("RechazarReversaMovimientoCartera")
