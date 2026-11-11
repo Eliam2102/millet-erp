@@ -141,6 +141,11 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
 
   return (
     <div className="space-y-5">
+      {f.proformaPedidoId ? (
+        <p className="text-sm text-ink-muted">
+          Viene de la proforma <span className="font-mono font-medium text-ink">{f.proforma ?? ''}</span> aprobada por el cliente.
+        </p>
+      ) : null}
       <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
       {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
         <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor || <span className="text-ink-muted">—</span>}</dd></div>

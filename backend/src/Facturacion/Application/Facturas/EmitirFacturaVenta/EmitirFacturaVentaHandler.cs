@@ -360,6 +360,7 @@ public sealed class EmitirFacturaVentaHandler
             condicionesPago,
             command.Proforma, command.Observaciones ?? pedido?.Comentarios);
         if (salida is not null) factura.LigarSalida(salida.Id, salida.PedidoFacturableId);
+        if (command.ProformaPedidoId is Guid proformaOrigenId) factura.VincularProformaOrigen(proformaOrigenId); // M-340
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
         else if (sustituida?.DatosEmbarqueCe is { } copiaOriginal) factura.TomarEmbarqueCe(copiaOriginal with { PedidoFacturableId = sustituida.PedidoFacturableId });

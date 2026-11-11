@@ -83,6 +83,28 @@ export function useRegistrarConformidadProforma() {
 }
 
 /**
+ * <c>useFacturarDesdeProforma()</c> — M-340: emite la factura desde la versión aprobada de la proforma, sin recaptura.
+ * Un pedido cambiado después de aprobar responde 422 FAC_PROFORMA_PEDIDO_CAMBIO y deja la conformidad invalidada: por eso
+ * se refresca la proforma también al fallar.
+ */
+export function useFacturarDesdeProforma() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { pedidoId: string; proformaId: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<{ id: string; folio: string; estado: string; uuid: string | null; total: number }>(
+        `${BASE}/${args.pedidoId}/proformas/${args.proformaId}/facturar`,
+        { method: 'POST', idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSettled: (_d, _e, args) => {
+      void queryClient.invalidateQueries({ queryKey: facturacionKeys.pedidoUltimaProforma(args.pedidoId) });
+      void queryClient.invalidateQueries({ queryKey: facturacionKeys.pedidos() });
+    },
+  });
+}
+
+/**
  * <c>compararProforma(pedidoId, command)</c> — compara lo que se va a timbrar
  * (mismo payload de emisión) contra la última proforma del pedido. Lectura
  * pura: sin Idempotency-Key.
