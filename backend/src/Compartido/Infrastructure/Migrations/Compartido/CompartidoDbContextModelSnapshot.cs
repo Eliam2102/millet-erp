@@ -683,6 +683,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000006-0001-0000-0000-00000000000e"),
+                            Clave = "integraciones.aw.tipo-cambio.correos-aviso",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Correos que reciben el aviso cuando el tipo de cambio hacia A+W se publica tarde o falla después de la hora límite; TI corre su tarea a mano ese día. Separe con coma; vacío apaga el correo.",
+                            Modulo = "integraciones.aw",
+                            Tipo = (short)0,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 11, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "soportemillet@millet.com.mx, contadorgeneral@millet.com.mx, falejos@millet.com.mx",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000006-0001-0000-0000-000000000009"),
                             Clave = "almacen.conteo-variacion-pct-recuento",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

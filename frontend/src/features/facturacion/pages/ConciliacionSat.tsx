@@ -127,13 +127,24 @@ function FormConciliar({ onConciliada }: { onConciliada: (c: Corrida) => void })
   const [archivo, setArchivo] = useState<File | null>(null);
   const [desde, setDesde] = useState(inicial.desde);
   const [hasta, setHasta] = useState(inicial.hasta);
-  const faltante = !archivo
+  const errorArchivo = !archivo
     ? 'Elige el archivo de metadatos del SAT.'
-    : !desde || !hasta
+    : archivo.size === 0
+      ? 'El archivo está vacío.'
+      : !/\.(txt|zip)$/i.test(archivo.name)
+        ? 'Selecciona un archivo TXT o ZIP.'
+        : archivo.size > 20 * 1024 * 1024
+          ? 'El archivo no debe pasar de 20 MB.'
+          : null;
+  const errorPeriodo =
+    !desde || !hasta
       ? 'Indica el periodo que cubre el archivo.'
       : hasta < desde
         ? 'La fecha final no puede ser anterior a la inicial.'
-        : null;
+        : Date.parse(hasta) - Date.parse(desde) > 92 * 86_400_000
+          ? 'El periodo no debe pasar de 93 días.'
+          : null;
+  const faltante = errorArchivo ?? errorPeriodo;
 
   function enviar() {
     if (faltante || !archivo) return;
@@ -164,7 +175,7 @@ function FormConciliar({ onConciliada }: { onConciliada: (c: Corrida) => void })
         <h2 className="font-medium">Nueva conciliación</h2>
         <p className="text-xs text-ink-muted">
           Descarga del portal del SAT los metadatos de los CFDI emitidos del periodo (archivo .txt o
-          el .zip del paquete) y súbelo aquí.
+          el .zip del paquete) y súbelo aquí. Máximo 20 MB y un periodo de hasta 93 días.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -173,7 +184,12 @@ function FormConciliar({ onConciliada }: { onConciliada: (c: Corrida) => void })
             Archivo del SAT *
           </Label>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={() => archivoInput.current?.click()}>
+            <Button
+              type="button"
+              variant="outline"
+              aria-describedby={errorArchivo ? 'conciliacion-error-archivo' : undefined}
+              onClick={() => archivoInput.current?.click()}
+            >
               Elegir archivo
             </Button>
             <span className="text-xs text-ink-muted">{archivo?.name ?? 'Sin archivo'}</span>
@@ -194,6 +210,10 @@ function FormConciliar({ onConciliada }: { onConciliada: (c: Corrida) => void })
           <Input
             id="conciliacion-desde"
             type="date"
+            required
+            max={hasta || undefined}
+            aria-describedby={errorPeriodo ? 'conciliacion-error-periodo' : undefined}
+            aria-invalid={!!errorPeriodo}
             value={desde}
             onChange={(e) => setDesde(e.target.value)}
           />
@@ -205,6 +225,10 @@ function FormConciliar({ onConciliada }: { onConciliada: (c: Corrida) => void })
           <Input
             id="conciliacion-hasta"
             type="date"
+            required
+            min={desde || undefined}
+            aria-describedby={errorPeriodo ? 'conciliacion-error-periodo' : undefined}
+            aria-invalid={!!errorPeriodo}
             value={hasta}
             onChange={(e) => setHasta(e.target.value)}
           />
@@ -217,7 +241,10 @@ function FormConciliar({ onConciliada }: { onConciliada: (c: Corrida) => void })
           <Upload className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
           {conciliar.isPending ? 'Conciliando…' : 'Conciliar'}
         </Button>
-        {faltante && <p className="text-xs text-ink-muted">{faltante}</p>}
+        <div role="status" className="text-xs text-ink-muted">
+          {errorArchivo && <p id="conciliacion-error-archivo">{errorArchivo}</p>}
+          {errorPeriodo && <p id="conciliacion-error-periodo">{errorPeriodo}</p>}
+        </div>
       </div>
     </section>
   );

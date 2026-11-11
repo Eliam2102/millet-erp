@@ -103,7 +103,7 @@ public static class OrigenDependencyInjection
         services.AddKeyedScoped<IPlantaPinturaPedidosReader>("Demo", (sp, _) => new PinturasPedidosAdapter(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), postgres: true,
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
-            sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
+            sp.GetRequiredService<IClock>(), sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
         services.AddKeyedScoped<IPinturasCatalogosPublisher>("Demo", (sp, _) => new PinturasCatalogosAdapter(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), postgres: true,
             sp.GetRequiredService<IOptions<PinturasCatalogosOptions>>(), sp.GetRequiredService<IClock>(),
