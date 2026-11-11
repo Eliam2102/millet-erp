@@ -67,7 +67,7 @@ public sealed class ConsumoComponentesWorker(IServiceScopeFactory scopes, IOptio
 
         // ponytail: reintenta hasta un lote por ciclo, el más antiguo primero; si la bandeja crece mucho, filtrar por causa.
         foreach (var id in await guardado.EnRevisionAsync(empresa, o.BatchSize, ct))
-            await EnScopeAsync(g => g.ReintentarAsync(id, ct), "No se pudo reintentar un consumo en revisión.", ct);
+            await EnScopeAsync(g => g.ReintentarAsync(id, ct, options.Value.ConsumoComponentesAfectaInventario), "No se pudo reintentar un consumo en revisión.", ct);
 
         var marca = await guardado.MarcaAguaAsync(empresa, origen, ct);
         var desde = (marca ?? new DateTime(2000, 1, 1)).AddMinutes(-o.TraslapeMinutos);
@@ -77,7 +77,7 @@ public sealed class ConsumoComponentesWorker(IServiceScopeFactory scopes, IOptio
             var filas = await reader.LeerAsync(desde, cursor, o.BatchSize, ct);
             foreach (var fila in filas)
                 foreach (var pieza in ConsumoComponentesOrigenAdapter.Expandir(fila))
-                    await EnScopeAsync(async g => { if (await g.RegistrarAsync(empresa, origen, pieza, ct)) nuevos++; },
+                    await EnScopeAsync(async g => { if (await g.RegistrarAsync(empresa, origen, pieza, ct, options.Value.ConsumoComponentesAfectaInventario)) nuevos++; },
                         "No se pudo registrar el consumo de un componente; se continúa con el siguiente.", ct);
             if (filas.Count < o.BatchSize) break;
             // Cursor inclusivo: el último escaneo se vuelve a leer completo (la llave única evita el doble descuento).
