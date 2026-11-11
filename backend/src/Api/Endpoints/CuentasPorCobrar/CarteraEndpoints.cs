@@ -95,6 +95,86 @@ public static class CarteraEndpoints
         .WithName("ObtenerEstadoCuentaCliente")
         .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
 
+        // M-237 (CXC-CARTERA/corregir): correcciones desde el estado de cuenta. Supuesto «a validar»: se reusan los permisos existentes
+        // (corregir/solicitar = cobranza.registrar; autorizar = aplicacion-pago.confirmar, y nunca quien solicitó), como en el ajuste de cobro.
+        cartera.MapGet("/cartera/correcciones", async (
+            [FromQuery] Guid? clienteId,
+            [FromQuery] string? estado,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            Millet.CuentasPorCobrar.Domain.Cartera.EstadoCorreccionCartera? e = null;
+            if (!string.IsNullOrWhiteSpace(estado))
+            {
+                if (!Enum.TryParse<Millet.CuentasPorCobrar.Domain.Cartera.EstadoCorreccionCartera>(estado, true, out var parsed))
+                    return Results.Problem(title: "Estado inválido", statusCode: StatusCodes.Status400BadRequest);
+                e = parsed;
+            }
+            return Results.Ok(await mediator.Send(new CorreccionesCarteraQuery(clienteId, e), cancellationToken));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
+        .WithName("ListarCorreccionesCartera")
+        .WithSummary("Correcciones de plazo y reversas de movimiento de cartera, con quién y por qué (M-237)")
+        .Produces<IReadOnlyList<CorreccionCarteraResponse>>(StatusCodes.Status200OK);
+
+        cartera.MapPost("/cartera/facturas/{facturaCarteraId:guid}/corregir-plazo", async (
+            Guid facturaCarteraId,
+            [FromBody] CorregirPlazoBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new CorregirPlazoFacturaCommand(facturaCarteraId, body.PlazoDias, body.Motivo), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar)
+        .WithName("CorregirPlazoFacturaCartera")
+        .WithSummary("Corrige el plazo de una factura: recalcula vencimiento y antigüedad y deja el antes/después (M-237)")
+        .Produces<CorreccionCarteraResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        cartera.MapPost("/cartera/movimientos/{movimientoId:guid}/solicitar-reversa", async (
+            Guid movimientoId,
+            [FromBody] MotivoBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new SolicitarReversaMovimientoCommand(movimientoId, body.Motivo), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar)
+        .WithName("SolicitarReversaMovimientoCartera")
+        .WithSummary("Solicita revertir un movimiento mal aplicado; otra persona debe autorizarlo (M-237)")
+        .Produces<CorreccionCarteraResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        cartera.MapPost("/cartera/correcciones/{id:guid}/autorizar", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, true, null), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
+        .WithName("AutorizarReversaMovimientoCartera")
+        .WithSummary("Autoriza la reversa de un movimiento: regresa el saldo a la factura (M-237)")
+        .Produces<CorreccionCarteraResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        cartera.MapPost("/cartera/correcciones/{id:guid}/rechazar", async (
+            Guid id,
+            [FromBody] MotivoBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, false, body.Motivo), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
+        .WithName("RechazarReversaMovimientoCartera")
+        .WithSummary("Rechaza la reversa de un movimiento con motivo; la cartera no cambia (M-237)")
+        .Produces<CorreccionCarteraResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // F1-CXC-09 · C7.8: pagos que bloquean el estado de cuenta (CA7.14).
         cartera.MapGet("/cartera/estado-cuenta/{clienteId:guid}/pendientes", async (
             Guid clienteId,
@@ -212,4 +292,7 @@ public static class CarteraEndpoints
 
         return app;
     }
+
+    public sealed record CorregirPlazoBody(int PlazoDias, string Motivo);
+    public sealed record MotivoBody(string Motivo);
 }
