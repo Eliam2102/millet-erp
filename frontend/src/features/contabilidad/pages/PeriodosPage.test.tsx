@@ -206,6 +206,48 @@ describe('<PeriodosPage>', () => {
     expect(within(dialogo).getByRole('button', { name: 'Reabrir periodo' })).toBeDisabled();
   });
 
+  it('M-213: reabrir exige evidencia y vencimiento futuro y envía el alcance al servidor', async () => {
+    const peticiones: unknown[] = [];
+    servidor(peticiones);
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoReabrir);
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    fireEvent.click((await fila('1 · Enero')).getByRole('button', { name: 'Reabrir' }));
+    const dialogo = await screen.findByRole('dialog');
+    const confirmar = within(dialogo).getByRole('button', { name: 'Reabrir periodo' });
+    fireEvent.change(within(dialogo).getByLabelText(/^Motivo/), { target: { value: 'Ajuste de inventario autorizado' } });
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(within(dialogo).getByLabelText('Tipos de póliza'), { target: { value: 'ai, tt' } });
+    fireEvent.change(within(dialogo).getByLabelText('Cuentas (prefijos)'), { target: { value: '1150' } });
+    fireEvent.change(within(dialogo).getByLabelText('Módulos de origen'), { target: { value: 'Almacen' } });
+    fireEvent.change(within(dialogo).getByLabelText('Evidencia (referencia)'), { target: { value: 'Oficio 001/2026' } });
+    fireEvent.change(within(dialogo).getByLabelText('Vence'), { target: { value: '2000-01-01T10:00' } });
+    expect(confirmar).toBeDisabled();
+    const futuro = new Date(Date.now() + 48 * 3600 * 1000);
+    const local = new Date(futuro.getTime() - futuro.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    fireEvent.change(within(dialogo).getByLabelText('Vence'), { target: { value: local } });
+    expect(confirmar).toBeEnabled();
+    fireEvent.click(confirmar);
+    await waitFor(() => expect(peticiones).toHaveLength(1));
+    const enviada = peticiones[0] as { accion: string; body: { motivo: string; alcance: Record<string, unknown> } };
+    expect(enviada.accion).toBe('reabrir');
+    expect(enviada.body.alcance).toMatchObject({
+      tiposPoliza: ['ai', 'tt'], prefijosCuenta: ['1150'], modulos: ['Almacen'], usuariosIds: [], evidencia: 'Oficio 001/2026',
+    });
+    expect(typeof enviada.body.alcance.venceEn).toBe('string');
+  });
+
+  it('M-213: el periodo reabierto muestra hasta cuándo y con qué alcance', async () => {
+    const reabierto = { ...periodo(1, 'Abierto'), reabiertoPor: 'Contador general', reabiertoEn: '2026-02-06T15:00:00Z',
+      reapertura: { reaperturaId: 'r1', tiposPoliza: ['AI'], prefijosCuenta: [], modulos: ['ALMACEN'], usuariosIds: ['u1'],
+        evidenciaReferencia: 'Oficio 001/2026', venceEn: '2026-02-10T15:00:00Z', vencida: false, creadaPor: 'Contador general' } };
+    servidor();
+    mswServer.use(http.get(`${API}/ejercicios`, () => HttpResponse.json([{ ...EJERCICIO, periodos: EJERCICIO.periodos.map((x) => (x.numero === 1 ? reabierto : x)) }])));
+    conPermisos();
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    const f = await fila('1 · Enero');
+    expect(f.getByText(/Reabierto hasta/)).toHaveTextContent(/tipos AI.*módulos ALMACEN.*1 usuario/);
+  });
+
   it.each(['crear', 'abrir', 'cerrar'] as const)('%s conserva la clave al reintentar sin respuesta y la cambia al corregir el comando', async (accion) => {
     servidor();
     const claves: string[] = [];
@@ -252,6 +294,12 @@ describe('<PeriodosPage>', () => {
     const dialogo = await screen.findByRole('dialog');
     const campo = within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/);
     fireEvent.change(campo, { target: { value: 'Corrección autorizada de enero' } });
+    // M-213: la reapertura exige evidencia y un vencimiento futuro.
+    fireEvent.change(within(dialogo).getByLabelText('Evidencia (referencia)'), { target: { value: 'Oficio 001/2026' } });
+    const futuro = new Date(Date.now() + 48 * 3600 * 1000);
+    fireEvent.change(within(dialogo).getByLabelText('Vence'), {
+      target: { value: new Date(futuro.getTime() - futuro.getTimezoneOffset() * 60000).toISOString().slice(0, 16) },
+    });
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Reabrir periodo' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('No tienes permiso para reabrir este periodo');
     expect(campo).toHaveValue('Corrección autorizada de enero');

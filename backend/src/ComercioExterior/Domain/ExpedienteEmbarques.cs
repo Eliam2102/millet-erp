@@ -79,7 +79,7 @@ public sealed partial class Expediente
             ExigirTransporte(c);
             if (!_partidasImportacion.Any(p => p.ContenedorId == id))
                 throw new BusinessRuleException("CE_EMBARQUE_SIN_PARTIDAS", "Asigne al menos una partida de la OC antes de embarcar.");
-            c.Embarcar(fecha, hoy); RevisionContenido++; return;
+            c.Embarcar(fecha, hoy, permitirGuia: true); RevisionContenido++; return;
         }
         // Por confirmar con Comercio Exterior
         if (!PedimentoExportacionVigente(adjuntosVigentes))

@@ -74,7 +74,7 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
 
     public async Task ValidarAdjuntoAsync(Guid expediente, Guid tipo, Guid adjunto, CancellationToken ct)
     {
-        if (!await db.Adjuntos.AnyAsync(x => x.Id == adjunto && x.TipoEntidad == Entidad && x.EntidadId == expediente && x.TipoDocumentoId == tipo && x.BajaEn == null, ct) || !(await AdjuntosVigentesAsync(expediente, ct)).Contains(adjunto))
+        if (!await db.Adjuntos.AnyAsync(x => x.Id == adjunto && x.TipoEntidad == Entidad && x.EntidadId == expediente && db.AdjuntoTiposDocumento.Any(t => t.Id == tipo && t.TipoEntidad == Entidad && t.Activo) && x.BajaEn == null, ct) || !(await AdjuntosVigentesAsync(expediente, ct)).Contains(adjunto))
             throw new BusinessRuleException("CE_ADJUNTO_INVALIDO", "El archivo debe estar vigente, ser de este tipo y pertenecer al expediente.");
     }
 

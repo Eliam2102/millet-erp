@@ -1897,6 +1897,117 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.ReaperturaPeriodo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.Property<DateTimeOffset?>("CerradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cerrada_en");
+
+                    b.Property<DateTimeOffset>("CreadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creada_en");
+
+                    b.Property<string>("CreadaPor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("creada_por");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("EvidenciaReferencia")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("evidencia_referencia");
+
+                    b.PrimitiveCollection<string[]>("Modulos")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("modulos");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero");
+
+                    b.Property<Guid>("PeriodoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("periodo_id");
+
+                    b.PrimitiveCollection<string[]>("PrefijosCuenta")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("prefijos_cuenta");
+
+                    b.PrimitiveCollection<string[]>("TiposPoliza")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("tipos_poliza");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.PrimitiveCollection<Guid[]>("UsuariosIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("usuarios_ids");
+
+                    b.Property<DateTimeOffset>("VenceEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vence_en");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<bool>("Vigente")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vigente");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reaperturas_periodo");
+
+                    b.HasIndex("PeriodoId")
+                        .HasDatabaseName("ix_reaperturas_periodo_periodo_id");
+
+                    b.HasIndex("Vigente", "VenceEn")
+                        .HasDatabaseName("ix_reaperturas_periodo_vence");
+
+                    b.HasIndex("EmpresaId", "Anio", "Numero")
+                        .HasDatabaseName("ix_reaperturas_periodo_vigente")
+                        .HasFilter("vigente");
+
+                    b.ToTable("reaperturas_periodo", "contabilidad");
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.RechazoContable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3293,6 +3404,16 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_polizas_partidas_polizas_poliza_id");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.ReaperturaPeriodo", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.PeriodoContable", null)
+                        .WithMany()
+                        .HasForeignKey("PeriodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_reaperturas_periodo_periodos_contables_periodo_id");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.ReclasificacionIva", b =>

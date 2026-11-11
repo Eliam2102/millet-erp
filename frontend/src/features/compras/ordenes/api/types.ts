@@ -384,14 +384,14 @@ export interface RecepcionImportacion {
   recepcionId: string;
   numeroPedimento: string;
   numeroBl: string;
-  numeroContenedor: string;
+  numeroContenedor: string | null;
   aduana: string;
   clavePedimento: string;
   partidas: { lineaOcId: string; fraccionArancelaria: string }[];
 }
 
 export interface OrdenCompraDetalleResponse {
-  transporteCe?: { numeroPedimento: string | null; contenedores: { numero: string; blGuia: string | null }[] } | null;
+  transporteCe?: { numeroPedimento: string | null; contenedores: { numero: string | null; blGuia: string | null; modalidad?: number | null }[] } | null;
   recepcionesImportacion?: RecepcionImportacion[];
   /** Proveedor con compras previas recurrentes; ausente si no hay dato. */
   esRecurrente?: boolean;

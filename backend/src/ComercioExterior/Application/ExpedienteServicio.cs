@@ -9,8 +9,17 @@ using Millet.Identidad.Domain;
 
 namespace Millet.ComercioExterior.Application;
 /// <summary>Guardas compartidas por los casos de uso, incluidas las invocaciones fuera de HTTP.</summary>
-public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosCeReadPort catalogos, ICurrentUserContext user, ICurrentUserPermissions permisos, IUsuarioSucursalReadPort sucursales, IOcImportacionReadPort compras, IClock clock)
+public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosCeReadPort catalogos, ICurrentUserContext user, ICurrentUserPermissions permisos, IUsuarioSucursalReadPort sucursales, IOcImportacionReadPort compras, IClock clock, Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort? importaciones = null)
 {
+    public Task<IReadOnlyList<OcImportacionLectura>> OrdenesAsync(Expediente e, CancellationToken ct) => compras.ObtenerVariasAsync(e.OrdenesCompraIds, ct);
+    public async Task<IReadOnlyList<RecepcionImportacionCeDto>> RecepcionesAsync(Expediente e, CancellationToken ct)
+    {
+        List<RecepcionImportacionCeDto> resultado = [];
+        if (importaciones is null) return resultado;
+        foreach (var oc in await OrdenesAsync(e, ct))
+            resultado.AddRange((await importaciones.ObtenerPorOcAsync(oc.Id, ct)).Select(r => new RecepcionImportacionCeDto(oc.Id, oc.Folio, r)));
+        return resultado;
+    }
     public Guid Actor => user.UserId ?? throw new UnauthorizedAccessException();
 
     public async Task PermisoAsync(string permiso, CancellationToken ct)
@@ -42,7 +51,7 @@ public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosC
         await (from partida in db.Set<PartidaImportacion>()
             join contenedor in db.Contenedores on partida.ContenedorId equals contenedor.Id
             join expediente in db.Expedientes on partida.ExpedienteId equals expediente.Id
-            where expediente.OcId == e.OcId && expediente.Id != e.Id && expediente.Estado != EstadoExpediente.Cancelado && contenedor.Estado == EstadoContenedor.Activo
+            where expediente.OrdenesCompraIds.Any(id => e.OrdenesCompraIds.Contains(id)) && expediente.Id != e.Id && expediente.Estado != EstadoExpediente.Cancelado && contenedor.Estado == EstadoContenedor.Activo
             group partida by partida.OcLineaId into partidas
             select new { Linea = partidas.Key, Cantidad = partidas.Sum(p => p.Cantidad) }).ToDictionaryAsync(x => x.Linea, x => x.Cantidad, ct);
 
@@ -55,7 +64,7 @@ public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosC
 
     public async Task<ExpedienteDetalle> DetalleAsync(Expediente e, CancellationToken ct)
     {
-        var requisitos = await catalogos.RequisitosAsync(e.Tipo, ct);
+        var requisitos = e.RequisitosAplicables(await catalogos.RequisitosAsync(e.Tipo, ct));
         var adjuntos = await catalogos.AdjuntosVigentesAsync(e.Id, ct);
         var faltantes = e.Faltantes(requisitos, adjuntos);
         var hoy = clock.HoyLocal();
@@ -68,7 +77,7 @@ public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosC
                 e.CorreccionesHitos.Where(c => c.HitoId == h.Id).OrderByDescending(c => c.Fecha).Select(c => new CorreccionHitoDto(c.Id, c.FechaRealAnterior, c.OmitidoAnterior, c.FechaRealNueva, c.OmitidoNuevo, c.Motivo, c.UsuarioId, nombres.GetValueOrDefault(c.UsuarioId, "[USUARIO]"), c.Fecha)).ToArray())).ToArray(),
             e.Avisos.OrderByDescending(a => a.FechaAviso).ThenBy(a => a.Id).Select(a => new AvisoHitoDto(a.Id, a.HitoId, HitoExpediente.Catalogo[e.Hitos.Single(h => h.Id == a.HitoId).Orden - 1].Nombre, a.FechaCompromiso, a.FechaAviso, a.CerradoEn, a.MotivoCierre)).ToArray(),
             e.Incidencias.OrderByDescending(i => i.Fecha).Select(i => IncidenciaMap.Dto(i, nombres, hoy)).ToArray(),
-            e.AvisosIncidencias.OrderByDescending(a => a.Fecha).Select(a => new AvisoIncidenciaDto(a.Id, a.IncidenciaId, a.DestinatarioUsuarioId, a.Fecha)).ToArray(), e.Facturas.Select(f => new FacturaExpedienteDto(f.Id, f.PedidoFacturableId, f.VersionEmbarque, f.Uuid, f.Folio, f.FechaTimbrado, f.Cancelada, f.UuidOriginal)).ToArray(), e.Cierres(requisitos, adjuntos, oc?.Partidas?.ToDictionary(p => p.Id, p => p.CantidadRecibida) ?? []).Select(c => c with { UsuarioNombre = c.UsuarioId is Guid u ? nombres.GetValueOrDefault(u, "Sin nombre") : null }).ToArray(), e.CierreAprobadoPorId, e.CierreAprobadoEn) { AduanaEntrada = e.AduanaEntrada };
+            e.AvisosIncidencias.OrderByDescending(a => a.Fecha).Select(a => new AvisoIncidenciaDto(a.Id, a.IncidenciaId, a.DestinatarioUsuarioId, a.Fecha)).ToArray(), e.Facturas.Select(f => new FacturaExpedienteDto(f.Id, f.PedidoFacturableId, f.VersionEmbarque, f.Uuid, f.Folio, f.FechaTimbrado, f.Cancelada, f.UuidOriginal)).ToArray(), e.Cierres(requisitos, adjuntos, (await OrdenesAsync(e, ct)).SelectMany(o => o.Partidas ?? []).ToDictionary(p => p.Id, p => p.CantidadRecibida)).Select(c => c with { UsuarioNombre = c.UsuarioId is Guid u ? nombres.GetValueOrDefault(u, "Sin nombre") : null }).ToArray(), e.CierreAprobadoPorId, e.CierreAprobadoEn) { AduanaEntrada = e.AduanaEntrada, OcIds = e.OrdenesCompraIds, OrdenesCompra = await OrdenesAsync(e, ct), RecepcionesImportacion = await RecepcionesAsync(e, ct) };
     }
 
     public static ExpedienteFila Fila(Expediente e, IReadOnlyDictionary<Guid, string> nombres, IReadOnlyDictionary<Guid, string> sucursales, DateOnly hoy) => new(e.Id, e.Folio, e.Tipo, e.Referencia, e.SucursalId, sucursales.GetValueOrDefault(e.SucursalId, "[SUCURSAL]"), e.Estado, e.RevisionPendiente, e.Moneda, nombres.GetValueOrDefault(e.ResponsableUsuarioId, "[RESPONSABLE]"), e.Version, e.Estado == EstadoExpediente.Abierto ? e.Hitos.Count(h => h.EstaAtrasado(hoy)) : 0, e.Avisos.Count(a => a.Vigente));

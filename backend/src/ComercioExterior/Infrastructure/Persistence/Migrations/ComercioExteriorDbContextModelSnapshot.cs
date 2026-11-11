@@ -940,7 +940,7 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExpedienteId", "TipoDocumentoId")
                         .IsUnique()
                         .HasDatabaseName("ix_documentos_expediente_id_tipo_documento_id")
-                        .HasFilter("estado = 'Vigente'");
+                        .HasFilter("estado = 'Vigente' AND tipo_documento_id IN ('0000000e-0003-0000-0000-000000000004', '0000000e-0003-0000-0000-00000000000a')");
 
                     b.HasIndex("ExpedienteId", "TipoDocumentoId", "NumeroVersion")
                         .IsUnique()
@@ -1167,6 +1167,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("oc_id");
 
+                    b.PrimitiveCollection<Guid[]>("OrdenesCompraIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("ordenes_compra_ids");
+
                     b.Property<Guid?>("PreparadoPorId")
                         .HasColumnType("uuid")
                         .HasColumnName("preparado_por_id");
@@ -1181,6 +1186,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("referencia");
+
+                    b.PrimitiveCollection<Guid[]>("RequisitosRevisados")
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("requisitos_revisados");
 
                     b.Property<Guid>("ResponsableUsuarioId")
                         .HasColumnType("uuid")

@@ -13,3 +13,7 @@ describe('CA3.9 importación al recibir (datos ficticios DEMO)', () => {
     expect(ImportacionRecepcionSchema.safeParse({ ...completa, numeroPedimento: 'PED-DEMO' }).success).toBe(false);
   });
 });
+
+it.each([3, 4])('P25: modalidad %s admite guía sin contenedor', (modalidad) => {
+  expect(ImportacionRecepcionSchema.safeParse({ numeroPedimento: '261612346000001', numeroBl: 'GUIA-MUESTRA', numeroContenedor: '', modalidad, aduana: '16', clavePedimento: 'AF' }).success).toBe(true);
+});

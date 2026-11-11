@@ -116,9 +116,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <>
               {' '}
               <EstadoExpedienteBadge estado={data.expediente.estado} />
-              <Badge variant="warning">
-                {incidenciasPendientes.length} incidencias pendientes
-              </Badge>
+              <Badge variant="warning">{incidenciasPendientes.length} incidencias pendientes</Badge>
               {data.expediente.revisionPendiente && (
                 <Badge variant="warning">Revisión pendiente</Badge>
               )}
@@ -224,7 +222,12 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             ['Sucursal', data.expediente.sucursalNombre],
             ['Incoterm', data.incotermCodigo],
             ['Moneda', data.expediente.moneda],
-            ['Origen', data.ocFolio ?? 'Solicitud de contenedor'],
+            [
+              'Origen',
+              data.ordenesCompra?.map((o) => o.folio).join(', ') ||
+                data.ocFolio ||
+                'Solicitud de contenedor',
+            ],
             ['Responsable', data.expediente.responsableNombre],
             ['Documentación', data.estadoDocumental],
             ['Físico', data.estadoFisico],
@@ -237,6 +240,22 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             </div>
           ))}
         </dl>
+        {!!data.recepcionesImportacion?.length && (
+          <section
+            className="space-y-2 rounded-lg bg-surface-card p-4 shadow-card-flat"
+            aria-label="Recepciones de importación"
+          >
+            <h2 className="font-semibold">Recepciones y claves de pedimento</h2>
+            <ul>
+              {data.recepcionesImportacion.map(({ ocId, ocFolio, recepcion: r }) => (
+                <li key={`${ocId}-${r.recepcionId}`}>
+                  {ocFolio} · {r.clavePedimento} · {r.numeroPedimento} · BL o guía: {r.numeroBl} ·
+                  Contenedor: {r.numeroContenedor ?? 'No aplica'}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <Tabs defaultValue="resumen">
           <TabsList>
             <TabsTrigger value="resumen">Resumen</TabsTrigger>

@@ -83,7 +83,10 @@ export interface ExpedienteDetalle {
   }[];
   expediente: ExpedienteFila;
   ocId: string | null;
+  ocIds?: string[];
   ocFolio: string | null;
+  ordenesCompra?: OcImportacion[];
+  recepcionesImportacion?: RecepcionImportacionCe[];
   informacionImportacion: {
     paisOrigen: string | null;
     numeroContenedor: string | null;
@@ -115,9 +118,22 @@ export interface ExpedienteDetalle {
     fecha: string;
   }[];
 }
+export interface RecepcionImportacionCe {
+  ocId: string;
+  ocFolio: string;
+  recepcion: {
+    recepcionId: string;
+    clavePedimento: string;
+    numeroPedimento: string;
+    numeroBl: string;
+    numeroContenedor: string | null;
+    aduana: string;
+  };
+}
 export interface CrearExpediente {
   tipo: TipoExpediente;
   ocId: string | null;
+  ocIds?: string[];
   sucursalId: string | null;
   referencia: string;
   incotermId: string | null;
@@ -130,6 +146,7 @@ export interface CrearExpediente {
 }
 export interface OcImportacion {
   id: string;
+  proveedorId?: string;
   folio: string;
   moneda: string;
   sucursalId: string;
@@ -199,7 +216,7 @@ export interface Contenedor {
   parcial?: AutorizacionDespacho | null;
   excepcion?: AutorizacionDespacho | null;
   facturasVigentes?: boolean;
-  modalidad?: 1 | 2 | 3 | null;
+  modalidad?: 1 | 2 | 3 | 4 | null;
   id: string;
   numero: string | null;
   sello: string | null;
@@ -289,6 +306,7 @@ export interface ContenedoresDetalle {
   }[];
   partidasOc?: {
     id: string;
+    ocFolio?: string | null;
     posicion: number;
     descripcion: string;
     cantidad: number;

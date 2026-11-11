@@ -35,6 +35,8 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // F1-CON-03: periodos contables.
     public DbSet<EjercicioContable> Ejercicios => Set<EjercicioContable>();
     public DbSet<PeriodoContable> Periodos => Set<PeriodoContable>();
+    /// <summary>M-213: alcance, evidencia y vencimiento de la reapertura acotada.</summary>
+    public DbSet<ReaperturaPeriodo> Reaperturas => Set<ReaperturaPeriodo>();
     // CON-12: checklist de cierre (pasos configurables, excepciones y confirmaciones, foto de cada cierre).
     public DbSet<PasoCierreContable> PasosCierre => Set<PasoCierreContable>();
     public DbSet<MarcaPasoCierre> MarcasPasoCierre => Set<MarcaPasoCierre>();

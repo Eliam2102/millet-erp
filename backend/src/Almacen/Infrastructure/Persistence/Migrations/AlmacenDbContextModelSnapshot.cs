@@ -2738,7 +2738,6 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnName("numero_bl");
 
                     b.Property<string>("NumeroContenedor")
-                        .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("numero_contenedor");

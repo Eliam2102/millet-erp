@@ -25,14 +25,18 @@ internal static class ImportacionRecepcionGuard
         var pedimento = Valor(captura?.NumeroPedimento, oc.NumeroPedimento);
         var bl = Valor(captura?.NumeroBl, oc.NumeroBl);
         var contenedor = Valor(captura?.NumeroContenedor, oc.NumeroContenedor);
+        var transportes = oc.Transportes?.Where(t => string.Equals(t.BlGuia, bl, StringComparison.OrdinalIgnoreCase)).ToArray() ?? [];
+        // La exención viene del transporte de CE, nunca de una modalidad libre enviada por el cliente.
+        var sinContenedor = transportes.Length > 0 && transportes.All(t => t.Modalidad is 3 or 4);
+        if (sinContenedor && string.IsNullOrWhiteSpace(captura?.NumeroContenedor)) contenedor = null;
         var faltantes = new List<string>();
         if (pedimento is null) faltantes.Add("número de pedimento");
         if (bl is null) faltantes.Add("BL o guía aérea");
-        if (contenedor is null) faltantes.Add("número de contenedor");
+        if (contenedor is null && !sinContenedor) faltantes.Add("número de contenedor");
         if (faltantes.Count > 0) throw new BusinessRuleException("RECEPCION_IMPORTACION_INCOMPLETA",
             $"Para confirmar la recepción de importación captura: {string.Join(", ", faltantes)}.");
         pedimento = NumeroPedimento.Normalizar(pedimento)!;
-        if (bl!.Length > 50 || contenedor!.Length > 40)
+        if (bl!.Length > 50 || contenedor?.Length > 40)
             throw new BusinessRuleException("RECEPCION_IMPORTACION_LONGITUD", "El BL admite hasta 50 caracteres y el contenedor hasta 40.");
         var aduana = captura?.Aduana?.Trim();
         var clave = captura?.ClavePedimento?.Trim().ToUpperInvariant();

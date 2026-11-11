@@ -46,6 +46,8 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         e.HasKey(x => x.Id);
         e.Property(x => x.Id).ValueGeneratedNever();
         e.Property(x => x.Folio).HasMaxLength(24);
+        e.Property(x => x.OrdenesCompraIds).HasColumnType("uuid[]");
+        e.Property(x => x.RequisitosRevisados).HasColumnType("uuid[]");
         e.Property(x => x.Referencia).HasMaxLength(200);
         e.Property(x => x.Moneda).HasMaxLength(3);
         e.Property(x => x.Tc).HasPrecision(18, 6);
@@ -109,7 +111,7 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         d.Property(x => x.Estado).HasConversion<string>();
         d.Property(x => x.Motivo).HasMaxLength(500);
         d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId, x.NumeroVersion }).IsUnique();
-        d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId }).IsUnique().HasFilter("estado = 'Vigente'");
+        d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId }).IsUnique().HasFilter("estado = 'Vigente' AND tipo_documento_id IN ('0000000e-0003-0000-0000-000000000004', '0000000e-0003-0000-0000-00000000000a')");
         d.HasOne<DocumentoExpediente>().WithMany().HasForeignKey(x => x.ReemplazaA).OnDelete(DeleteBehavior.Restrict);
         e.Property(x => x.NumeroPedimentoExportacion).HasMaxLength(100);
         e.Property(x => x.AduanaPedimentoExportacion).HasMaxLength(10);

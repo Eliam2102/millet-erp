@@ -25,6 +25,30 @@ export interface PeriodoContable {
   reabiertoPor: string | null;
   reabiertoEn: string | null;
   version: number;
+  /** M-213: alcance y vencimiento de la reapertura acotada vigente (vencida según la hora del servidor). */
+  reapertura?: ReaperturaVigente | null;
+}
+
+export interface ReaperturaVigente {
+  reaperturaId: string;
+  tiposPoliza: string[];
+  prefijosCuenta: string[];
+  modulos: string[];
+  usuariosIds: string[];
+  evidenciaReferencia: string;
+  venceEn: string;
+  vencida: boolean;
+  creadaPor: string;
+}
+
+/** M-213: qué entra, quién registra, evidencia y vencimiento de una reapertura. */
+export interface AlcanceReapertura {
+  tiposPoliza: string[];
+  prefijosCuenta: string[];
+  modulos: string[];
+  usuariosIds: string[];
+  evidencia: string;
+  venceEn: string;
 }
 
 /** `version` es la del ejercicio: el If-Match de la apertura en lote. */
@@ -108,10 +132,10 @@ export function useAbrirPeriodos() {
 export function useTransicionPeriodo() {
   const invalidar = useInvalidar();
   return useMutation({
-    mutationFn: async (a: { periodo: PeriodoContable; accion: 'cerrar' | 'reabrir'; motivo: string; idempotencyKey: string }) =>
+    mutationFn: async (a: { periodo: PeriodoContable; accion: 'cerrar' | 'reabrir'; motivo: string; alcance?: AlcanceReapertura; idempotencyKey: string }) =>
       (await apiRequest<PeriodoContable>(`${BASE}/${a.periodo.id}/${a.accion}`, {
         method: 'POST',
-        body: { motivo: a.motivo.trim() },
+        body: a.alcance ? { motivo: a.motivo.trim(), alcance: a.alcance } : { motivo: a.motivo.trim() },
         idempotencyKey: a.idempotencyKey,
         ifMatch: String(a.periodo.version),
       })).data,
