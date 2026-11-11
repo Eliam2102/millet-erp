@@ -6520,6 +6520,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(80)")
                         .HasColumnName("codigo");
 
+                    b.Property<bool>("Condicional")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("condicional");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -7060,6 +7066,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "IMP_FACTURA",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Factura comercial",
@@ -7079,6 +7086,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "IMP_PACKING",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Packing list",
@@ -7098,6 +7106,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "IMP_TRANSPORTE",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "BL o AWB",
@@ -7117,6 +7126,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "IMP_PEDIMENTO",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Pedimento",
@@ -7136,6 +7146,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "IMP_OC",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Orden de compra",
@@ -7155,6 +7166,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "IMP_REGULATORIOS",
+                            Condicional = true,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Regulatorios",
@@ -7174,6 +7186,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_PACKING",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Packing list",
@@ -7193,6 +7206,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_FACTURA",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Factura comercial",
@@ -7212,6 +7226,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_BL",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "BL",
@@ -7231,6 +7246,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_PEDIMENTO",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Pedimento",
@@ -7250,6 +7266,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_ORIGEN",
+                            Condicional = true,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Certificado de origen",
@@ -7269,6 +7286,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_ISF",
+                            Condicional = true,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "ISF",
@@ -7288,6 +7306,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_CARTA_PORTE",
+                            Condicional = true,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Carta Porte",
@@ -7307,6 +7326,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "EXP_POD",
+                            Condicional = false,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "POD",

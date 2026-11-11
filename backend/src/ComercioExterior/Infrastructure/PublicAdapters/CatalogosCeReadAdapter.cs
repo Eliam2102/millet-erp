@@ -54,8 +54,8 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
         if (tipos.Count == 0)
             throw new BusinessRuleException("CE_REQUISITOS_NO_CONFIGURADOS", "El catálogo de requisitos no está configurado para esta operación.");
         var hitos = await ce.RequisitosHitos.AsNoTracking().Where(x => x.Tipo == tipo).ToDictionaryAsync(x => x.TipoDocumentoId, x => x.HitoClave, ct);
-        // PLATFORM-TODO(<CeRequisitoCondicional>): condicional fijo por clave hasta configurar la regla.
-        return tipos.Select(x => new RequisitoDocumento(x.Id, x.Codigo, x.Nombre, x.Obligatorio, x.Codigo is "IMP_REGULATORIOS" or "EXP_ORIGEN" or "EXP_ISF" or "EXP_CARTA_PORTE", hitos.GetValueOrDefault(x.Id))).ToArray();
+        // M-373: «condicional» se configura por tipo de documento (compartido.adjunto_tipos_documento.condicional).
+        return tipos.Select(x => new RequisitoDocumento(x.Id, x.Codigo, x.Nombre, x.Obligatorio, x.Condicional, hitos.GetValueOrDefault(x.Id))).ToArray();
     }
 
     public async Task<IReadOnlyList<Guid>> AdjuntosVigentesAsync(Guid expediente, CancellationToken ct)

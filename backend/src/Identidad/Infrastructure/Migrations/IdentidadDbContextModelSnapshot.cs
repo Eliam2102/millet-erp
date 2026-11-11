@@ -5465,6 +5465,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000e-0001-0000-0000-00000000000c"),
+                            Accion = "hitos-corregir",
+                            Codigo = "comercio_exterior.expedientes.hitos-corregir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Corregir la fecha real o la omisión de un hito con motivo",
+                            Modulo = "comercio_exterior",
+                            Recurso = "expedientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0001-0000-0000-000000000007"),
                             Accion = "documentos-revisar",
                             Codigo = "comercio_exterior.expedientes.documentos-revisar",

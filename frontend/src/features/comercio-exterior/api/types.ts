@@ -157,6 +157,19 @@ export interface Hito {
   atrasado: boolean;
   diasAtraso: number;
   conIncidencia?: boolean;
+  /** M-373: correcciones de la fecha real o la omisión, la más reciente primero. */
+  correcciones?: CorreccionHito[] | null;
+}
+export interface CorreccionHito {
+  id: string;
+  fechaRealAnterior: string | null;
+  omitidoAnterior: boolean;
+  fechaRealNueva: string | null;
+  omitidoNuevo: boolean;
+  motivo: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  fecha: string;
 }
 export interface AvisoHito {
   id: string;
@@ -164,6 +177,9 @@ export interface AvisoHito {
   hitoNombre: string;
   fechaCompromiso: string;
   fechaAviso: string;
+  /** M-373: el atraso dejó de existir al corregir el hito. */
+  cerradoEn?: string | null;
+  motivoCierre?: string | null;
 }
 export interface Filtros {
   atraso?: boolean;
@@ -199,7 +215,14 @@ export interface Contenedor {
 }
 export type DatosContenedor = Omit<
   Contenedor,
-  'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion' | 'preparadoParaFacturarEn' | 'parcial' | 'excepcion' | 'facturasVigentes'
+  | 'id'
+  | 'fechaEmbarqueReal'
+  | 'estado'
+  | 'motivoCancelacion'
+  | 'preparadoParaFacturarEn'
+  | 'parcial'
+  | 'excepcion'
+  | 'facturasVigentes'
 >;
 export interface PedimentoExportacion {
   aduana?: string | null;

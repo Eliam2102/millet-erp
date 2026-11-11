@@ -9,6 +9,10 @@ public sealed partial class Expediente
     public IReadOnlyCollection<HitoExpediente> Hitos => _hitos.AsReadOnly();
     private readonly List<AvisoHitoVencido> _avisos = [];
     public IReadOnlyCollection<AvisoHitoVencido> Avisos => _avisos.AsReadOnly();
+    private readonly List<CorreccionHitoExpediente> _correccionesHitos = [];
+    public IReadOnlyCollection<CorreccionHitoExpediente> CorreccionesHitos => _correccionesHitos.AsReadOnly();
+    public const string MotivoCierreAvisoPorCorreccion = "Atraso eliminado al corregir el hito.";
+    private static bool EsOmitible(string clave) => clave is not ("solicitado" or "documentacion-completa" or "despacho-aduanal" or "liberado" or "embarcado" or "entregado" or "cerrado");
 
     public void InicializarHitos(DateOnly fechaSolicitud)
     {
@@ -80,12 +84,78 @@ public sealed partial class Expediente
     public void OmitirHito(string clave, string motivo, Guid responsable)
     {
         ExigirAbierto();
-        if (clave is "solicitado" or "documentacion-completa" or "despacho-aduanal" or "liberado" or "embarcado" or "entregado" or "cerrado")
+        if (!EsOmitible(clave))
             throw new BusinessRuleException("CE_HITO_NO_OMITIBLE", "Este hito es obligatorio y no se puede omitir.");
         var hito = Hito(clave);
         ExigirAnteriores(hito);
         hito.Omitir(motivo, responsable);
         RevisionContenido++;
+    }
+
+    /// <summary>
+    /// M-373: corrige la fecha real o la omisión de un hito ya resuelto, con motivo obligatorio. Respeta el orden
+    /// de los hitos (entre el anterior y el siguiente con fecha real, nunca futura) y recalcula el atraso: si la
+    /// corrección lo elimina, el aviso de atraso se cierra solo; si lo crea, se abre con la fecha de hoy.
+    /// </summary>
+    public CorreccionHitoExpediente CorregirHito(string clave, DateOnly? fechaReal, bool omitir, string? motivo, Guid actor, DateTimeOffset ahora, DateOnly hoy,
+        IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes)
+    {
+        ExigirAbierto();
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("CE_MOTIVO_CORRECCION_REQUERIDO", "Capture el motivo de la corrección del hito.");
+        var razon = MotivoValido(motivo);
+        if (actor == Guid.Empty)
+            throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Se requiere el usuario que corrige el hito.");
+        if (clave == "cerrado")
+            throw new BusinessRuleException("CE_HITO_NO_CORREGIBLE", "El cierre del expediente no se corrige desde los hitos.");
+        var hito = Hito(clave);
+        if (!hito.Resuelto)
+            throw new BusinessRuleException("CE_HITO_PENDIENTE", "El hito no tiene fecha real ni omisión; regístrelo en lugar de corregirlo.");
+        if (omitir)
+        {
+            if (fechaReal is not null)
+                throw new BusinessRuleException("CE_CORRECCION_INVALIDA", "Indique una fecha real o la omisión, no ambas.");
+            if (!EsOmitible(clave))
+                throw new BusinessRuleException("CE_HITO_NO_OMITIBLE", "Este hito es obligatorio y no se puede omitir.");
+            if (hito.Omitido)
+                throw new BusinessRuleException("CE_CORRECCION_SIN_CAMBIO", "El hito ya está omitido.");
+        }
+        else
+        {
+            var fecha = fechaReal ?? throw new BusinessRuleException("CE_FECHA_REAL_REQUERIDA", "Capture la fecha real corregida.");
+            if (!hito.Omitido && hito.FechaReal == fecha)
+                throw new BusinessRuleException("CE_CORRECCION_SIN_CAMBIO", "La fecha real corregida es igual a la vigente.");
+            var anterior = _hitos.Where(h => h.Orden < hito.Orden && h.FechaReal != null).Max(h => h.FechaReal);
+            var siguiente = _hitos.Where(h => h.Orden > hito.Orden && h.FechaReal != null).Min(h => h.FechaReal);
+            if (fecha > hoy || fecha < anterior || fecha > siguiente)
+                throw new BusinessRuleException("CE_FECHA_REAL_INVALIDA", "La fecha real corregida debe quedar entre el hito anterior y el siguiente, y no ser futura.");
+            if (hito.Omitido)
+            {
+                // Pasar de omitido a fecha real exige lo mismo que registrarlo: los documentos ligados a ese hito.
+                var faltantes = Faltantes(requisitos.Where(r => r.HitoClave == clave).ToArray(), adjuntosVigentes);
+                if (faltantes.Count > 0) throw new DocumentosFaltantesException(faltantes);
+            }
+        }
+        var (fechaAnterior, omitidoAnterior, motivoAnterior) = (hito.FechaReal, hito.Omitido, hito.Motivo);
+        hito.Corregir(omitir ? null : fechaReal, omitir, razon);
+        var correccion = new CorreccionHitoExpediente(hito, fechaAnterior, omitidoAnterior, motivoAnterior, razon, actor, ahora);
+        _correccionesHitos.Add(correccion);
+        RecalcularAtraso(hito, hoy);
+        RevisionContenido++;
+        return correccion;
+    }
+
+    private void RecalcularAtraso(HitoExpediente hito, DateOnly hoy)
+    {
+        if (!hito.TerminoConAtraso)
+        {
+            foreach (var aviso in _avisos.Where(a => a.HitoId == hito.Id && a.Vigente))
+                aviso.Cerrar(hoy, MotivoCierreAvisoPorCorreccion);
+            return;
+        }
+        var actual = _avisos.SingleOrDefault(a => a.HitoId == hito.Id && a.FechaCompromiso == hito.FechaCompromiso);
+        if (actual is null) _avisos.Add(new AvisoHitoVencido(hito, hoy));
+        else actual.Reabrir(hoy);
     }
 
     public int GenerarAvisos(DateOnly hoy)
