@@ -677,11 +677,13 @@ function MotivoDialog({
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [evidencia, setEvidencia] = useState('');
   const [venceEn, setVenceEn] = useState('');
+  const [venceFuturo, setVenceFuturo] = useState(false);
   const [error, setError] = useState<{ mensaje: string; recargar: boolean } | null>(null);
   const largo = motivo.trim().length;
   const motivoValido = largo >= MOTIVO_MINIMO && largo <= MOTIVO_MAXIMO;
   const reabrir = transicion?.accion === 'reabrir';
-  const alcanceValido = !reabrir || (evidencia.trim().length >= 5 && venceEn !== '' && new Date(venceEn).getTime() > Date.now());
+  // `venceFuturo` se decide en el manejador de la fecha (no en el render): Date.now() no es puro.
+  const alcanceValido = !reabrir || (evidencia.trim().length >= 5 && venceEn !== '' && venceFuturo);
   const nombre = transicion
     ? `${etiquetaPeriodo(transicion.periodo)} ${transicion.periodo.anio}`
     : '';
@@ -693,6 +695,7 @@ function MotivoDialog({
     setUsuarioId(null);
     setEvidencia('');
     setVenceEn('');
+    setVenceFuturo(false);
     setMotivo('');
     setError(null);
     onClose();
@@ -700,6 +703,10 @@ function MotivoDialog({
 
   function confirmar() {
     if (!transicion || !motivoValido || !alcanceValido) return;
+    if (reabrir && new Date(venceEn).getTime() <= Date.now()) {
+      setVenceFuturo(false);
+      return;
+    }
     setError(null);
     const command = {
       periodoId: transicion.periodo.id,
@@ -806,7 +813,11 @@ function MotivoDialog({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="reapertura-vence">Vence</Label>
-                <Input id="reapertura-vence" type="datetime-local" value={venceEn} onChange={(e) => setVenceEn(e.target.value)} />
+                <Input id="reapertura-vence" type="datetime-local" value={venceEn} onChange={(e) => {
+                    setVenceEn(e.target.value);
+                    setVenceFuturo(e.target.value !== '' && new Date(e.target.value).getTime() > Date.now());
+                  }}
+                />
                 <p className="text-xs text-ink-muted">Al vencer, el periodo vuelve a cerrarse (hora del servidor).</p>
               </div>
             </fieldset>

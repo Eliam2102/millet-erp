@@ -294,6 +294,12 @@ describe('<PeriodosPage>', () => {
     const dialogo = await screen.findByRole('dialog');
     const campo = within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/);
     fireEvent.change(campo, { target: { value: 'Corrección autorizada de enero' } });
+    // M-213: la reapertura exige evidencia y un vencimiento futuro.
+    fireEvent.change(within(dialogo).getByLabelText('Evidencia (referencia)'), { target: { value: 'Oficio 001/2026' } });
+    const futuro = new Date(Date.now() + 48 * 3600 * 1000);
+    fireEvent.change(within(dialogo).getByLabelText('Vence'), {
+      target: { value: new Date(futuro.getTime() - futuro.getTimezoneOffset() * 60000).toISOString().slice(0, 16) },
+    });
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Reabrir periodo' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('No tienes permiso para reabrir este periodo');
     expect(campo).toHaveValue('Corrección autorizada de enero');
