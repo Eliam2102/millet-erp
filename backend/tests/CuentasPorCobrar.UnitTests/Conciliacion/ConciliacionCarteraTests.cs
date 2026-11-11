@@ -261,11 +261,12 @@ public sealed class ConciliacionCarteraTests
             new EmpresaContexto(null));
 
     private static ConciliarCarteraHandler Handler(CuentasPorCobrarDbContext db, IConciliacionFacturacionReadPort puerto, Guid? empresa) =>
-        new(db, puerto, new EmpresaContexto(empresa), Usuario, new Reloj(Timbrado.AddDays(1)));
+        ConciliacionIncidenciasTests.NuevoHandler(db, puerto, new EmpresaContexto(empresa), Usuario, new Reloj(Timbrado.AddDays(1)),
+            new ConciliacionIncidenciasTests.IncidenciasFake(), Usuario.Id);
 
     private static readonly UsuarioFijo Usuario = new(Guid.NewGuid());
 
-    private sealed class PuertoFijo(ComprobantesDelDia dia) : IConciliacionFacturacionReadPort
+    internal sealed class PuertoFijo(ComprobantesDelDia dia) : IConciliacionFacturacionReadPort
     {
         public DateOnly? DiaConsultado { get; private set; }
 
@@ -276,19 +277,19 @@ public sealed class ConciliacionCarteraTests
         }
     }
 
-    private sealed class Reloj(DateTimeOffset ahora) : IClock
+    internal sealed class Reloj(DateTimeOffset ahora) : IClock
     {
         public DateTimeOffset UtcNow => ahora;
     }
 
-    private sealed class UsuarioFijo(Guid id) : ICurrentUserContext
+    internal sealed class UsuarioFijo(Guid id) : ICurrentUserContext
     {
         public Guid Id => id;
         public Guid? UserId => id;
         public string? UserName => "cxc";
     }
 
-    private sealed class EmpresaContexto(Guid? actual) : ICurrentEmpresaContext
+    internal sealed class EmpresaContexto(Guid? actual) : ICurrentEmpresaContext
     {
         public Guid? Current => actual;
         public bool IsBypassed => actual is null;
