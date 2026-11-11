@@ -50,6 +50,13 @@ const bases: Record<number, string> = {
   3: 'Cantidad',
   4: 'Directo por partida',
 };
+/** M-169: grupo contable del concepto; decide la cuenta de gasto de importación de la póliza. */
+const gruposContables: Record<number, string> = {
+  1: 'Honorarios aduanales',
+  2: 'Fletes y maniobras',
+  3: 'Almacenajes',
+  4: 'Otros gastos de importación',
+};
 const errorTexto = (error: unknown) =>
   esApiError(error)
     ? (error.problem.detail ?? error.problem.title)
@@ -141,6 +148,11 @@ function Gastos({
   );
   return (
     <div className="space-y-4">
+      {importacion && !f.incrementablesAlInventario && (
+        <p className="rounded-md bg-info-bg px-3 py-2 text-info-fg">
+          El gasto se registra como gasto de importación; no cambia el costo del inventario.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         {registrar && <Button onClick={() => setEditar(null)}>Registrar gasto</Button>}
         {distribuir && (
@@ -354,6 +366,8 @@ function Gastos({
           <p className="my-2 text-xs text-ink-muted">
             Los valores iniciales son una propuesta VILO pendiente de validación por Laura Cerón.
             Los cambios aplican a la empresa y requieren volver a distribuir los gastos afectados.
+            El grupo contable decide la cuenta de gasto de importación de la póliza; los honorarios
+            se separan en persona física y moral según el proveedor.
           </p>
           {f.conceptos.map((c) => (
             <form
@@ -370,6 +384,7 @@ function Gastos({
                       importacion: Number(d.get('importacion')),
                       exportacion: Number(d.get('exportacion')),
                       requiereOrdenServicio: d.get('requiereOrdenServicio') === 'on',
+                      grupoContable: Number(d.get('grupoContable')),
                     },
                   })
                   .catch(() => {});
@@ -402,6 +417,20 @@ function Gastos({
                   </select>
                 </label>
               ))}
+              <label className="space-y-1 text-xs">
+                Grupo contable
+                <select
+                  name="grupoContable"
+                  className={selectClass}
+                  defaultValue={c.grupoContable ?? 4}
+                >
+                  {Object.entries(gruposContables).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <Button
                 variant="outline"
                 size="sm"

@@ -4,6 +4,11 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.ComercioExterior.Domain;
 
 public enum BaseDistribucion { ValorAduana = 1, Peso = 2, Cantidad = 3, Directo = 4 }
+/// <summary>
+/// M-169 (Contabilidad, 10-nov): grupo contable del gasto de importación. Decide a qué rol de gasto carga la póliza del costo aplicado;
+/// Contabilidad lo cambia por concepto sin código. Los honorarios se separan además en persona física y moral según el proveedor.
+/// </summary>
+public enum GrupoContableGasto { HonorariosAduanales = 1, FletesManiobras = 2, Almacenajes = 3, OtrosGastosImportacion = 4 }
 public sealed class ConceptoGasto : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
@@ -12,20 +17,34 @@ public sealed class ConceptoGasto : BaseEntity, IPerteneceAEmpresa, IAuditable
     public BaseDistribucion BaseImportacion { get; private set; }
     public BaseDistribucion BaseExportacion { get; private set; }
     public bool RequiereOrdenServicio { get; private set; }
+    /// <summary>M-169: grupo contable del concepto en la póliza del costo de importación (configurable).</summary>
+    public GrupoContableGasto GrupoContable { get; private set; } = GrupoContableGasto.OtrosGastosImportacion;
     public bool EsIvaImportacion => Codigo == "IVA";
     private ConceptoGasto() { }
     public ConceptoGasto(Guid empresa, string codigo, string nombre, BaseDistribucion baseImportacion = BaseDistribucion.ValorAduana) : base(Guid.CreateVersion7())
     {
         EmpresaId = empresa; Codigo = codigo; Nombre = nombre;
         RequiereOrdenServicio = codigo is "ADUANALES" or "HONORARIOS";
+        GrupoContable = GrupoPorOmision(codigo);
         Configurar(baseImportacion, BaseDistribucion.Peso);
     }
-    public void Configurar(BaseDistribucion importacion, BaseDistribucion exportacion, bool? requiereOrdenServicio = null)
+    /// <summary>M-169: honorarios → honorarios aduanales; fletes y maniobras juntos; almacenaje; el resto a otros gastos de importación.</summary>
+    public static GrupoContableGasto GrupoPorOmision(string codigo) => codigo switch
+    {
+        "HONORARIOS" => GrupoContableGasto.HonorariosAduanales,
+        "FLETE_INT" or "FLETE_NAC" or "MANIOBRAS" => GrupoContableGasto.FletesManiobras,
+        "ALMACENAJE" => GrupoContableGasto.Almacenajes,
+        _ => GrupoContableGasto.OtrosGastosImportacion,
+    };
+    public void Configurar(BaseDistribucion importacion, BaseDistribucion exportacion, bool? requiereOrdenServicio = null, GrupoContableGasto? grupoContable = null)
     {
         if (!Enum.IsDefined(importacion) || exportacion is not (BaseDistribucion.Peso or BaseDistribucion.ValorAduana))
             throw new BusinessRuleException("CE_BASE_INVALIDA", "Seleccione una base válida; exportación admite peso o valor.");
+        if (grupoContable is GrupoContableGasto g && !Enum.IsDefined(g))
+            throw new BusinessRuleException("CE_GRUPO_CONTABLE_INVALIDO", "Seleccione un grupo contable válido.");
         BaseImportacion = importacion; BaseExportacion = exportacion;
         if (requiereOrdenServicio is bool requerida) RequiereOrdenServicio = requerida;
+        if (grupoContable is GrupoContableGasto grupo) GrupoContable = grupo;
     }
     public static IReadOnlyList<ConceptoGasto> CrearCatalogo(Guid empresa) => new[]
     {
