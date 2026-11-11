@@ -214,6 +214,15 @@ public static class AlmacenesAppSalida
     }
 
     /// <summary>
+    /// SALIDA_MANUAL que cancela una entrada cerrada (v9): <c>origen.tipo = CANCELACION_ENTRADA</c>. Devuelve el folio de la entrada
+    /// (<c>origen.entrada</c>, EN-…) y el <c>origen.motivo</c> libre; null si el mensaje no es esa cancelación.
+    /// </summary>
+    public static (string Entrada, string? Motivo)? CancelacionEntrada(JsonElement datos, string tipo) =>
+        tipo == "SALIDA_MANUAL" && datos.ValueKind == JsonValueKind.Object && Origen(datos, tipo) is { Tipo: "CANCELACION_ENTRADA" } o
+            ? (o.Referencia, Texto(datos.GetProperty("origen"), "motivo"))
+            : null;
+
+    /// <summary>
     /// Llave del almacén de un renglón (M-446): <c>almacenGeneral.tipo</c> + <c>almacenGeneral.linea</c> (vacía en herraje). Sin
     /// tipo → null (el ERP resuelve como antes, por sucursal). El id del almacén general es dato acompañante y no se usa.
     /// </summary>

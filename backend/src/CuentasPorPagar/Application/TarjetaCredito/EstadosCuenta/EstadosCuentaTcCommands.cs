@@ -128,12 +128,16 @@ public sealed record SubirArchivoEstadoCuentaTcResponse(
 
 public sealed class SubirArchivoEstadoCuentaTcValidator : AbstractValidator<SubirArchivoEstadoCuentaTcCommand>
 {
+    public const int TamanoMaximoBytes = 50 * 1024 * 1024;
+
     public SubirArchivoEstadoCuentaTcValidator()
     {
         RuleFor(c => c.Id).NotEmpty();
         RuleFor(c => c.VersionEsperada).GreaterThanOrEqualTo(0);
-        RuleFor(c => c.NombreArchivo).NotEmpty().MaximumLength(255);
-        RuleFor(c => c.Contenido).NotNull().Must(b => b.Length > 0 && b.Length <= 50 * 1024 * 1024)
+        RuleFor(c => c.NombreArchivo).NotEmpty().MaximumLength(255)
+            .Must(n => string.Equals(Path.GetExtension(n), ".xlsx", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("Adjunte el estado de cuenta en formato Excel .xlsx.");
+        RuleFor(c => c.Contenido).NotNull().Must(b => b.Length > 0 && b.Length <= TamanoMaximoBytes)
             .WithMessage("El archivo debe pesar entre 1 byte y 50 MB.");
     }
 }
@@ -206,6 +210,8 @@ public sealed class SubirArchivoEstadoCuentaTcHandler
         // F10-PR3 lo mueve a Azure Blob Storage real).
         using var stream = new MemoryStream(command.Contenido);
         var parseResult = await _parser.ParseAsync(stream, perfil, cancellationToken);
+        if (parseResult.Lineas.Count == 0 && parseResult.Errores.Count > 0)
+            throw new BusinessRuleException("EC_ARCHIVO_ILEGIBLE", parseResult.Errores[0]);
 
         var ahora = _clock.UtcNow;
         var blobRef = $"estados-cuenta-tc/{ec.TarjetaId}/{ec.Id}/{command.NombreArchivo}";

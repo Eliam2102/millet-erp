@@ -32,6 +32,7 @@ import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { AvisoCobrarEnCaja } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { ConformidadProformaDialog } from '@/features/facturacion/components/ConformidadProformaDialog';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
 import { SalidasPedido } from '@/features/facturacion/components/SalidasPedido';
 import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
@@ -138,6 +139,8 @@ function Contenido({
   const [descargandoProforma, setDescargandoProforma] = useState(false);
   // Proforma abierta en el visor (null = cerrado).
   const [proformaEnVisor, setProformaEnVisor] = useState<ProformaPedidoResponse | null>(null);
+  // M-234: proforma a la que se le registra la conformidad del cliente (null = cerrado).
+  const [proformaConformidad, setProformaConformidad] = useState<ProformaPedidoResponse | null>(null);
 
   async function descargarProforma(proforma: ProformaPedidoResponse) {
     setDescargandoProforma(true);
@@ -430,8 +433,14 @@ function Contenido({
           descargando={descargandoProforma}
           onVer={setProformaEnVisor}
           onDescargar={(pf) => void descargarProforma(pf)}
+          onConformidad={puedeEmitir ? setProformaConformidad : undefined}
         />
       )}
+      <ConformidadProformaDialog
+        pedidoId={p.id}
+        proforma={proformaConformidad}
+        onCerrar={() => setProformaConformidad(null)}
+      />
       <VisorProformaDialog
         proforma={proformaEnVisor}
         descargando={descargandoProforma}
