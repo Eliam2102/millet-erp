@@ -126,9 +126,12 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
             if (c is null) notas.Add("Sin conciliación cerrada del mes");
             else
             {
-                conciliado = c.SaldoExtracto;
-                var transito = await db.ExtractoLineas.AsNoTracking().Where(l => l.ConciliacionId == c.Id && l.PartidaTransito).ToListAsync(ct);
-                if (transito.Count > 0) notas.Add($"{transito.Count} partida(s) en tránsito");
+                // Saldo conciliado = extracto + movimientos de libros en tránsito − líneas del banco en tránsito (aún no en libros).
+                var lineasTransito = await db.ExtractoLineas.AsNoTracking().Where(l => l.ConciliacionId == c.Id && l.PartidaTransito).ToListAsync(ct);
+                conciliado = c.SaldoExtracto + c.TransitoLibros
+                    - lineasTransito.Sum(l => l.Sentido == SentidoMovimiento.Ingreso ? l.Monto : -l.Monto);
+                var n = c.PartidasLibro.Count + lineasTransito.Count;
+                if (n > 0) notas.Add($"{n} partida(s) en tránsito");
             }
         }
         else notas.Add("El cuadre con la conciliación se hace al fin de mes");

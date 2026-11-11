@@ -334,6 +334,8 @@ export interface SolicitudCuentaResponse {
   resueltoEn: string | null;
   motivoRechazo: string | null;
   numeroVersion: number | null;
+  solicitadoPorNombre?: string | null;
+  resueltoPorNombre?: string | null;
 }
 
 /** M-204 · solicitud de reclasificación abierta, a la espera de la segunda firma. */
@@ -903,6 +905,7 @@ export interface ConciliacionDetalleResponse {
   actaGeneradaEn: string | null;
   vistoBuenoPor?: string | null;
   vistoBuenoEn?: string | null;
+  vistoBuenoPorNombre?: string | null;
   lineas: ExtractoLineaResponse[];
   bitacora: BitacoraConciliacionResponse[];
   movimientosPeriodo: MovimientoBancarioConciliacionDto[];

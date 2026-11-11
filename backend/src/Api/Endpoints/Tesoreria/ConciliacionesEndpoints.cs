@@ -64,13 +64,14 @@ public static class ConciliacionesEndpoints
             CancellationToken ct) =>
         {
             var res = await mediator.Send(new ObtenerConciliacionDetalleQuery(id), ct);
-            var ids = res.Bitacora.Select(b => b.UsuarioId).Distinct().ToArray();
+            var ids = res.Bitacora.Select(b => b.UsuarioId).Append(res.VistoBuenoPor ?? Guid.Empty).Distinct().ToArray();
             var nombres = await identidadDb.Usuarios.AsNoTracking()
                 .Where(u => ids.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id, u => u.Nombre, ct);
             return Results.Ok(res with
             {
-                Bitacora = res.Bitacora.Select(b => b with { UsuarioNombre = nombres.GetValueOrDefault(b.UsuarioId) }).ToList()
+                Bitacora = res.Bitacora.Select(b => b with { UsuarioNombre = nombres.GetValueOrDefault(b.UsuarioId) }).ToList(),
+                VistoBuenoPorNombre = res.VistoBuenoPor is Guid vb ? nombres.GetValueOrDefault(vb) : null,
             });
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)

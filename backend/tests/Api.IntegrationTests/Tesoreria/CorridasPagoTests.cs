@@ -32,7 +32,7 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
         public ValueTask DisposeAsync() => Amb.DisposeAsync();
     }
 
-    private async Task<Escenario> SembrarAsync(bool conOpinionCumplimiento = true)
+    private async Task<Escenario> SembrarAsync(bool conOpinionCumplimiento = true, decimal saldoInicial = 1_000_000m)
     {
         var amb = new AdjuntosProveedorAmbiente(factory);
         try
@@ -50,7 +50,7 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
                 await compartido.SaveChangesAsync();
                 var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
                 var c = new CuentaBancaria(Empresa, "Egreso MXN", Guid.NewGuid().ToString("N")[..12], null, "MXN");
-                c.RegistrarSaldoInicial(1_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
+                c.RegistrarSaldoInicial(saldoInicial, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
                 // 1,000 + 160 IVA - 106.67 retenciones = 1,053.33 neto.
                 var a = new PasivoPendientePago(Empresa, Guid.NewGuid(), provId, null, 1_053.33m, 1_053.33m, "MXN", null,
                     DateOnly.FromDateTime(DateTime.Today.AddDays(10)), null, "CORR-1", ahora, "PUE", 1_000m, 160m, 106.67m);
@@ -111,6 +111,42 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
         var cancelada = await Post(e.Admin, $"{Base}/{primera.GetProperty("id").GetGuid()}/cancelar", new { motivo = "error de captura" }, primera.GetProperty("version").GetInt32());
         Assert.Equal(HttpStatusCode.OK, cancelada.StatusCode);
         Assert.Equal(HttpStatusCode.Created, (await Crear(e, e.Pasivo1, e.Pasivo2)).StatusCode);
+    }
+
+    [Fact]
+    public async Task M264_paga_parte_de_la_factura_y_no_acepta_mas_que_el_saldo()
+    {
+        await using var e = await SembrarAsync();
+        var c = await AdjuntosProveedorAmbiente.LeerAsync(await Crear(e, e.Pasivo1));
+        var id = c.GetProperty("id").GetGuid();
+
+        var mayor = await Put(e.Admin, $"{Base}/{id}/pasivos/{e.Pasivo1}/importe", new { importe = 1_053.34m }, c.GetProperty("version").GetInt32());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, mayor.StatusCode);
+        Assert.Contains("CORRIDA_IMPORTE_INVALIDO", await mayor.Content.ReadAsStringAsync());
+
+        var parcial = await AdjuntosProveedorAmbiente.LeerAsync(
+            await Put(e.Admin, $"{Base}/{id}/pasivos/{e.Pasivo1}/importe", new { importe = 500m }, c.GetProperty("version").GetInt32()));
+        Assert.Equal(500m, parcial.GetProperty("total").GetDecimal());
+    }
+
+    [Fact]
+    public async Task M264_saldo_insuficiente_bloquea_enviar_a_autorizacion()
+    {
+        await using var e = await SembrarAsync(saldoInicial: 1_000m);
+        var c = await AdjuntosProveedorAmbiente.LeerAsync(await Crear(e, e.Pasivo1, e.Pasivo2));
+
+        var r = await Post(e.Admin, $"{Base}/{c.GetProperty("id").GetGuid()}/enviar-autorizacion", null, c.GetProperty("version").GetInt32());
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+        Assert.Contains("CORRIDA_SALDO_INSUFICIENTE", await r.Content.ReadAsStringAsync());
+    }
+
+    private static Task<HttpResponseMessage> Put(HttpClient c, string url, object body, int version)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Put, url) { Content = JsonContent.Create(body) };
+        req.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        req.Headers.Add("X-Expected-Version", version.ToString());
+        return c.SendAsync(req);
     }
 
     [Fact]

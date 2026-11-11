@@ -18,7 +18,9 @@ public sealed record SolicitudCuentaResponse(
     Guid Id, TipoSolicitudCuenta Tipo, Guid? CuentaBancariaId, EstadoSolicitudCuenta Estado,
     DatosCuentaBancaria? DatosVigentes, DatosCuentaBancaria DatosPropuestos,
     Guid SolicitadoPor, DateTimeOffset SolicitadoEn, Guid? ResueltoPor, DateTimeOffset? ResueltoEn, string? MotivoRechazo,
-    int? NumeroVersion = null);
+    int? NumeroVersion = null,
+    string? SolicitadoPorNombre = null,
+    string? ResueltoPorNombre = null);
 
 internal static class SolicitudCuentaMapper
 {
@@ -102,19 +104,31 @@ public sealed record ListarSolicitudesCuentaQuery(EstadoSolicitudCuenta? Estado 
 /// <summary>Historial de versiones de una cuenta: las solicitudes aprobadas, v1 el alta.</summary>
 public sealed record HistorialCuentaQuery(Guid CuentaId) : IRequest<IReadOnlyList<SolicitudCuentaResponse>>;
 
-public sealed class SolicitudesCuentaQueriesHandler(TesoreriaDbContext db)
+public sealed class SolicitudesCuentaQueriesHandler(TesoreriaDbContext db, Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort? nombres = null)
     : IRequestHandler<ListarSolicitudesCuentaQuery, IReadOnlyList<SolicitudCuentaResponse>>,
       IRequestHandler<HistorialCuentaQuery, IReadOnlyList<SolicitudCuentaResponse>>
 {
     public async Task<IReadOnlyList<SolicitudCuentaResponse>> Handle(ListarSolicitudesCuentaQuery request, CancellationToken cancellationToken) =>
-        (await db.SolicitudesCuentaBancaria.AsNoTracking()
+        await ConNombresAsync((await db.SolicitudesCuentaBancaria.AsNoTracking()
             .Where(s => request.Estado == null || s.Estado == request.Estado)
             .OrderByDescending(s => s.SolicitadoEn).Take(200).ToListAsync(cancellationToken))
-        .Select(s => SolicitudCuentaMapper.ToResponse(s)).ToList();
+            .Select(s => SolicitudCuentaMapper.ToResponse(s)).ToList(), cancellationToken);
 
     public async Task<IReadOnlyList<SolicitudCuentaResponse>> Handle(HistorialCuentaQuery request, CancellationToken cancellationToken) =>
-        (await db.SolicitudesCuentaBancaria.AsNoTracking()
+        await ConNombresAsync((await db.SolicitudesCuentaBancaria.AsNoTracking()
             .Where(s => s.CuentaBancariaId == request.CuentaId && s.Estado == EstadoSolicitudCuenta.Aprobada)
             .OrderBy(s => s.ResueltoEn).ToListAsync(cancellationToken))
-        .Select((s, i) => SolicitudCuentaMapper.ToResponse(s, i + 1)).ToList();
+            .Select((s, i) => SolicitudCuentaMapper.ToResponse(s, i + 1)).ToList(), cancellationToken);
+
+    private async Task<IReadOnlyList<SolicitudCuentaResponse>> ConNombresAsync(List<SolicitudCuentaResponse> lista, CancellationToken ct)
+    {
+        if (nombres is null || lista.Count == 0) return lista;
+        var ids = lista.SelectMany(s => new[] { (Guid?)s.SolicitadoPor, s.ResueltoPor }).OfType<Guid>().Distinct().ToList();
+        var n = await nombres.NombresCajerosAsync(ids, ct);
+        return lista.Select(s => s with
+        {
+            SolicitadoPorNombre = n.GetValueOrDefault(s.SolicitadoPor),
+            ResueltoPorNombre = s.ResueltoPor is Guid r ? n.GetValueOrDefault(r) : null,
+        }).ToList();
+    }
 }

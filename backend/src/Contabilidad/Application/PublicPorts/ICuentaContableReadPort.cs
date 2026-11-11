@@ -16,8 +16,8 @@ public interface ICuentaContableReadPort
     Task<CuentaContableLectura?> ObtenerAsync(Guid cuentaId, CancellationToken ct);
 
     /// <summary>
-    /// M-200: ¿la cuenta (por código) es la asignada al rol <paramref name="rol"/> o a una variante <c>{rol}_*</c>, o cuelga
-    /// de una de ellas? Misma regla con que la conciliación de auxiliares arma el control (p. ej. BANCOS).
+    /// M-200: ¿la cuenta (por código) es la asignada al rol <paramref name="rol"/> o a una variante <c>{rol}_*</c>, o está en la
+    /// misma rama raíz del catálogo que una de ellas (p. ej. 102 Bancos)? El motor solo asigna roles a cuentas afectables.
     /// </summary>
     Task<bool> EsDeRolAsync(string codigoCuenta, string rol, CancellationToken ct);
 }

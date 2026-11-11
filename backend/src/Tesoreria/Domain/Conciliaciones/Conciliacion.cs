@@ -80,8 +80,9 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("TRANSITO_YA_MARCADO", "El movimiento ya está en tránsito.");
         var p = new PartidaTransitoLibro(Id, movimientoId, fechaValor, referencia, montoConSigno, tipo, causa.Trim(), fechaPrevista, autorizadaPor, ahora);
         _partidasLibro.Add(p);
+        var etiqueta = tipo == PartidaTransitoTipo.ChequeNoCobrado ? "Cheque no cobrado" : "Depósito del último día del mes";
         _bitacora.Add(new BitacoraConciliacion(Id, null, movimientoId, "Movimiento en tránsito",
-            $"{tipo}: {causa.Trim()}; se resuelve el {fechaPrevista:dd/MM/yyyy}", autorizadaPor, ahora));
+            $"{etiqueta}: {causa.Trim()}; se resuelve el {fechaPrevista:dd/MM/yyyy}", autorizadaPor, ahora));
         return p;
     }
 

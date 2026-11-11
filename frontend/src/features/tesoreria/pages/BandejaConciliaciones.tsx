@@ -693,7 +693,7 @@ export function BandejaConciliaciones() {
                         Visto bueno:{' '}
                         <DateTimeDisplay value={conciliacion.vistoBuenoEn} variant="corta" />
                         {conciliacion.vistoBuenoPor && (
-                          <span className="font-mono"> · {conciliacion.vistoBuenoPor}</span>
+                          <span> · {conciliacion.vistoBuenoPorNombre ?? conciliacion.vistoBuenoPor}</span>
                         )}
                       </p>
                     )}
@@ -1122,10 +1122,12 @@ export function BandejaConciliaciones() {
                                     className={`text-2xs px-1.5 py-0.5 ${
                                       esConciliado
                                         ? 'border-success text-success-fg bg-success-bg'
-                                        : 'border-edge text-ink-muted'
+                                        : idsEnTransito.has(mov.id)
+                                          ? 'border-info text-info-fg bg-info-bg'
+                                          : 'border-edge text-ink-muted'
                                     }`}
                                   >
-                                    {esConciliado ? 'Conciliado' : 'Pendiente'}
+                                    {esConciliado ? 'Conciliado' : idsEnTransito.has(mov.id) ? 'En tránsito' : 'Pendiente'}
                                   </Badge>
                                 </TableCell>
                                 {puedeTransitoLibros && (
@@ -1374,7 +1376,6 @@ export function BandejaConciliaciones() {
                 <SelectContent>
                   <SelectItem value="BBVA">BBVA Bancomer (auxiliar o CSV)</SelectItem>
                   <SelectItem value="SANTANDER">Santander (auxiliar CSV)</SelectItem>
-                  <SelectItem value="MIFEL">Mifel (pendiente de layout)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

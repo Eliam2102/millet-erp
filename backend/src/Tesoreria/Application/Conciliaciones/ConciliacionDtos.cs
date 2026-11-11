@@ -100,7 +100,8 @@ public sealed record ConciliacionDetalleResponse(
     IReadOnlyList<MovimientoBancarioConciliacionDto> MovimientosPeriodo,
     Guid? VistoBuenoPor = null,
     DateTimeOffset? VistoBuenoEn = null,
-    IReadOnlyList<PartidaTransitoLibroResponse>? MovimientosEnTransito = null);
+    IReadOnlyList<PartidaTransitoLibroResponse>? MovimientosEnTransito = null,
+    string? VistoBuenoPorNombre = null);
 
 /// <summary>M-201: movimiento de libros en tránsito (monto con signo: ingreso positivo, egreso negativo).</summary>
 public sealed record PartidaTransitoLibroResponse(
