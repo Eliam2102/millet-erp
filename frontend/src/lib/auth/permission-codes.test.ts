@@ -277,6 +277,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // en TES-PR3 + cuentas.administrar (TES-7 revisada).
   'tesoreria.cuentas.ver',
   'tesoreria.cuentas.administrar',
+  'tesoreria.cuentas.autorizar',
   'tesoreria.movimientos.ver',
   'tesoreria.movimientos.registrar',
   'tesoreria.movimientos.ver-cuenta-completa',
@@ -300,6 +301,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.repp.registrar',
   'tesoreria.conciliacion.operar',
   'tesoreria.conciliacion.cerrar',
+  'tesoreria.conciliacion.revisar',
+  'tesoreria.conciliacion.reabrir',
+  'tesoreria.conciliacion.autorizar-transito',
   'tesoreria.pasivos.solicitar-cancelacion',
   'tesoreria.pasivos.ver',
   'tesoreria.reportes.ver',
