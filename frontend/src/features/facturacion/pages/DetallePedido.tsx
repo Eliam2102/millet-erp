@@ -33,6 +33,7 @@ import { AvisoCobrarEnCaja } from '@/features/facturacion/components/CobrarEnCaj
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ConformidadProformaDialog } from '@/features/facturacion/components/ConformidadProformaDialog';
+import { TramosTrasladoCard } from '@/features/facturacion/components/TramosTrasladoCard';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
 import { SalidasPedido } from '@/features/facturacion/components/SalidasPedido';
 import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
@@ -123,6 +124,8 @@ function Contenido({
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
   const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
+  const puedeLeerCartaPorte = useHasPermission(PermisosCanonicos.FacturacionCartaPorteLeer);
+  const puedeEmitirCartaPorte = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
   const facturable = p.estado === 'Importado';
   // FAC-08: un pedido con salidas parciales se factura por salida, no completo.
   const salidas = usePedidoSalidas(p.id, puedeLeerFacturas);
@@ -436,6 +439,7 @@ function Contenido({
           onConformidad={puedeEmitir ? setProformaConformidad : undefined}
         />
       )}
+      {puedeLeerCartaPorte && p.id ? <TramosTrasladoCard pedidoId={p.id} puedeEmitir={puedeEmitirCartaPorte} /> : null}
       <ConformidadProformaDialog
         pedidoId={p.id}
         proforma={proformaConformidad}

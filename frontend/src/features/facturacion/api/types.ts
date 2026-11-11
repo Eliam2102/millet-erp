@@ -632,6 +632,8 @@ export interface CartaPorteMercanciaInput {
 
 /** Command de emisión de Carta Porte (tipo T traslado / I ingreso). */
 export interface EmitirCartaPorteCommand {
+  /** M-354: tramo del traslado que se emite (solo vehículo propio). */
+  tramoId?: string | null;
   sucursalId: string;
   cajaId: string | null;
   tipoCfdi: string;
@@ -748,6 +750,77 @@ export interface CartaPorteDetalleResponse {
   timbradoErrorCodigo: string | null;
   timbradoErrorMensaje: string | null;
   folioPac: string | null;
+}
+
+/** M-354: modalidad del tramo. Solo el vehículo propio emite Carta Porte de Millet. */
+export type ModalidadTramo = 'VehiculoPropio' | 'TransportistaTercero';
+
+export interface TramoTraslado {
+  id: string;
+  pedidoFacturableId: string;
+  orden: number;
+  modalidad: ModalidadTramo;
+  origen: string;
+  destino: string;
+  distanciaKm: number | null;
+  origenCodigoPostal: string | null;
+  origenEstado: string | null;
+  destinoCodigoPostal: string | null;
+  destinoEstado: string | null;
+  fechaSalida: string | null;
+  cartaPorteId: string | null;
+  cartaPorteFolio: string | null;
+  cartaPorteEstado: string | null;
+  terceroNombre: string | null;
+  terceroRfc: string | null;
+  documentoTipo: string | null;
+  documentoFolio: string | null;
+  documentoUuid: string | null;
+  documentoFecha: string | null;
+  /** PorEmitir | CartaPorte{Estado} | SinDocumentoTercero | DocumentoTercero */
+  estado: string;
+}
+
+export interface CrearTramoBody {
+  modalidad: ModalidadTramo;
+  origen: string;
+  destino?: string;
+  distanciaKm?: number;
+  origenCodigoPostal?: string;
+  origenEstado?: string;
+  destinoCodigoPostal?: string;
+  destinoEstado?: string;
+}
+
+export interface DocumentoTerceroBody {
+  terceroNombre: string;
+  documentoTipo: string;
+  terceroRfc?: string;
+  folio?: string;
+  uuid?: string;
+  fecha?: string;
+}
+
+/** Renglón de la bitácora de correcciones de una Carta Porte observada. */
+export interface CorreccionCartaPorte {
+  campo: string;
+  valorAnterior: string | null;
+  valorNuevo: string | null;
+  motivo: string;
+  usuario: string | null;
+  en: string;
+}
+
+export interface CorregirCartaPorteBody {
+  motivo: string;
+  actualizarEmisor?: boolean;
+  origen?: string;
+  destino?: string;
+  distanciaKm?: number;
+  origenCodigoPostal?: string;
+  origenEstado?: string;
+  destinoCodigoPostal?: string;
+  destinoEstado?: string;
 }
 
 /** Respuesta de crear vehículo/operador (catálogo). */

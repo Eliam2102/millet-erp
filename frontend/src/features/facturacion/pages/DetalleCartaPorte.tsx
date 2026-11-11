@@ -14,6 +14,10 @@ import {
 } from '@/components/ui/table';
 import type { CartaPorteDetalleResponse } from '@/features/facturacion/api/types';
 import { useCartaPorte, useSiguienteTramo } from '@/features/facturacion/api/useCartaPorte';
+import {
+  CorregirCartaPorteDialog,
+  CorreccionesCartaPorteLista,
+} from '@/features/facturacion/components/CorregirCartaPorteDialog';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { OperadorPicker } from '@/features/facturacion/components/OperadorPicker';
@@ -86,6 +90,9 @@ export function DetalleCartaPorte() {
 function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['data']> }) {
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
   const [siguienteAbierto, setSiguienteAbierto] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  // M-354: solo una Carta Porte observada (timbrado fallido) se corrige antes de reemitir.
+  const puedeCorregir = puedeEmitir && c.estado === 'TimbradoFallido';
   // Solo desde un tramo timbrado tiene sentido crear el siguiente.
   const puedeContinuar = puedeEmitir && c.estado === 'Timbrado';
   const timbrada = c.estado === 'Timbrado' || c.estado === 'Cancelado';
@@ -107,6 +114,9 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
         errorCodigo={c.timbradoErrorCodigo}
         errorMensaje={c.timbradoErrorMensaje}
       />
+
+      <CorregirCartaPorteDialog carta={c} open={corrigiendo} onOpenChange={setCorrigiendo} />
+      <CorreccionesCartaPorteLista id={c.id} />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -142,6 +152,11 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
             <Download className="mr-1 h-4 w-4" />
             PDF
           </Button>
+          {puedeCorregir && (
+            <Button variant="outline" size="sm" onClick={() => setCorrigiendo(true)}>
+              Corregir
+            </Button>
+          )}
           {puedeContinuar && (
             <Button variant="outline" onClick={() => setSiguienteAbierto((v) => !v)}>
               <RouteIcon className="mr-2 h-4 w-4" />
