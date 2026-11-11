@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/table';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
-import { textoFinanciero } from '../lib/estados-ui';
+import { cierresPendientesDeAprobar, textoFinanciero } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState, type FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
@@ -60,6 +60,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
   const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const incidenciasPendientes = (data?.incidencias ?? []).filter((i) => i.estado < 3);
+  const cierresPendientes = cierresPendientesDeAprobar(data?.cierres ?? []);
   if (query.isError)
     return (
       <ErrorState
@@ -116,9 +117,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <>
               {' '}
               <EstadoExpedienteBadge estado={data.expediente.estado} />
-              <Badge variant="warning">
-                {incidenciasPendientes.length} incidencias pendientes
-              </Badge>
+              <Badge variant="warning">{incidenciasPendientes.length} incidencias pendientes</Badge>
               {data.expediente.revisionPendiente && (
                 <Badge variant="warning">Revisión pendiente</Badge>
               )}
@@ -136,22 +135,22 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   disabled={
-                    data.estadoFinanciero !== 'Listo para cierre' ||
+                    cierresPendientes.length > 0 ||
                     incidenciasPendientes.length > 0 ||
                     accion.isPending
                   }
                   title={
                     incidenciasPendientes.length > 0
                       ? incidenciasPendientes.map((i) => i.motivo).join('; ')
-                      : data.estadoFinanciero !== 'Listo para cierre'
-                        ? textoFinanciero(data.estadoFinanciero)
+                      : cierresPendientes.length > 0
+                        ? `Registre antes: ${cierresPendientes.join(', ')}.`
                         : undefined
                   }
                   onClick={() => {
                     void accion.mutateAsync({ accion: 'cerrar' }).catch(() => {});
                   }}
                 >
-                  Cerrar en lo financiero
+                  Aprobar cierre (Gerencia)
                 </Button>
               )}
               {cancelar && abierto && (
