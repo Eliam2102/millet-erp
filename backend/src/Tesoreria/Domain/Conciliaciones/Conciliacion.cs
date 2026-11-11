@@ -25,6 +25,10 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid? ReabiertaPor { get; private set; }
     public DateTimeOffset? ReabiertaEn { get; private set; }
 
+    /// <summary>M-202: visto bueno de Contabilidad; distinto de quien firmó.</summary>
+    public Guid? VistoBuenoPor { get; private set; }
+    public DateTimeOffset? VistoBuenoEn { get; private set; }
+
     public string? FirmanteNombre { get; private set; }
     public string? FirmantePuesto { get; private set; }
     public DateTimeOffset? ActaGeneradaEn { get; private set; }
@@ -72,8 +76,8 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// </summary>
     public int CargarLineas(IEnumerable<ExtractoLinea> nuevasLineas, decimal? nuevoSaldoExtracto = null)
     {
-        if (Estado == EstadoConciliacion.Cerrada)
-            throw new BusinessRuleException("CONCILIACION_CERRADA", "No se pueden importar líneas en una conciliación cerrada.");
+        if (Estado != EstadoConciliacion.Abierta)
+            throw new BusinessRuleException("CONCILIACION_CERRADA", "No se pueden importar líneas en una conciliación cerrada o pendiente de visto bueno.");
 
         if (nuevoSaldoExtracto.HasValue)
             SaldoExtracto = nuevoSaldoExtracto.Value;
@@ -101,8 +105,8 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     public void ActualizarSaldoExtracto(decimal saldoExtracto)
     {
-        if (Estado == EstadoConciliacion.Cerrada)
-            throw new BusinessRuleException("CONCILIACION_CERRADA", "No se puede editar el saldo de una conciliación cerrada.");
+        if (Estado != EstadoConciliacion.Abierta)
+            throw new BusinessRuleException("CONCILIACION_CERRADA", "No se puede editar el saldo de una conciliación cerrada o pendiente de visto bueno.");
         SaldoExtracto = saldoExtracto;
     }
 
@@ -122,8 +126,8 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
         decimal saldoLibrosCalculado,
         DateTimeOffset ahora)
     {
-        if (Estado == EstadoConciliacion.Cerrada)
-            throw new BusinessRuleException("CONCILIACION_YA_CERRADA", "La conciliación ya se encuentra cerrada.");
+        if (Estado != EstadoConciliacion.Abierta)
+            throw new BusinessRuleException("CONCILIACION_YA_CERRADA", "La conciliación ya está firmada o cerrada.");
 
         if (string.IsNullOrWhiteSpace(firmanteNombre))
             throw new BusinessRuleException("CONCILIACION_FIRMANTE_OBLIGATORIO", "El nombre del firmante es obligatorio para emitir el acta.");
@@ -148,12 +152,38 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
                 $"No se puede cerrar la conciliación con una diferencia de ${diff:N2}. El saldo debe ser exactamente $0.00.");
         }
 
-        Estado = EstadoConciliacion.Cerrada;
+        // M-202: la firma de Tesorería no cierra; queda en espera del visto bueno de Contabilidad.
+        Estado = EstadoConciliacion.PendienteVistoBueno;
         CerradaPor = usuarioId;
         CerradaEn = ahora;
         FirmanteNombre = firmanteNombre.Trim();
         FirmantePuesto = firmantePuesto.Trim();
         ActaGeneradaEn = ahora;
+    }
+
+    /// <summary>M-202: Contabilidad da el visto bueno; quien firmó no puede darlo.</summary>
+    public void DarVistoBueno(Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoConciliacion.PendienteVistoBueno)
+            throw new BusinessRuleException("CONCILIACION_NO_PENDIENTE", "Solo una conciliación firmada por Tesorería espera visto bueno.");
+        if (usuarioId == Guid.Empty || usuarioId == CerradaPor)
+            throw new BusinessRuleException("CONCILIACION_VISTO_BUENO_MISMO_USUARIO", "Quien firmó no puede dar el visto bueno.");
+        Estado = EstadoConciliacion.Cerrada;
+        VistoBuenoPor = usuarioId;
+        VistoBuenoEn = ahora;
+        _bitacora.Add(new BitacoraConciliacion(Id, null, null, "Visto bueno de Contabilidad", "Conciliación cerrada", usuarioId, ahora));
+    }
+
+    /// <summary>M-202: Contabilidad devuelve a Tesorería con motivo; regresa a Abierta.</summary>
+    public void DevolverATesoreria(Guid usuarioId, string motivo, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoConciliacion.PendienteVistoBueno)
+            throw new BusinessRuleException("CONCILIACION_NO_PENDIENTE", "Solo se devuelve una conciliación pendiente de visto bueno.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("CONCILIACION_MOTIVO_DEVOLUCION_OBLIGATORIO", "El motivo de la devolución es obligatorio.");
+        Estado = EstadoConciliacion.Abierta;
+        CerradaPor = null; CerradaEn = null; ActaGeneradaEn = null;
+        _bitacora.Add(new BitacoraConciliacion(Id, null, null, "Devuelta a Tesorería", motivo.Trim(), usuarioId, ahora));
     }
 
     /// <summary>
@@ -168,6 +198,7 @@ public sealed class Conciliacion : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CONCILIACION_MOTIVO_REAPERTURA_OBLIGATORIO", "El motivo de reapertura es obligatorio.");
 
         Estado = EstadoConciliacion.Abierta;
+        VistoBuenoPor = null; VistoBuenoEn = null;
         MotivoReapertura = motivo.Trim();
         ReabiertaPor = usuarioId;
         ReabiertaEn = ahora;

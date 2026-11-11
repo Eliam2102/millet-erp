@@ -173,7 +173,9 @@ public sealed class ObtenerConciliacionDetalleHandler(TesoreriaDbContext db)
             c.ActaGeneradaEn,
             lineasDtos,
             bitacoraDtos,
-            movDtos);
+            movDtos,
+            c.VistoBuenoPor,
+            c.VistoBuenoEn);
     }
 }
 
@@ -194,8 +196,8 @@ public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db,
             .FirstOrDefaultAsync(c => c.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
 
-        if (conciliacion.Estado != EstadoConciliacion.Cerrada)
-            throw new BusinessRuleException("CONCILIACION_NO_CERRADA", "El acta solo está disponible para conciliaciones cerradas.");
+        if (conciliacion.Estado == EstadoConciliacion.Abierta)
+            throw new BusinessRuleException("CONCILIACION_NO_CERRADA", "El acta solo está disponible para conciliaciones firmadas.");
 
         var cuenta = await db.CuentasBancarias
             .AsNoTracking()
@@ -214,7 +216,9 @@ public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db,
                 l.Monto,
                 l.Sentido.ToString(),
                 l.PartidaTransitoTipo?.ToString() ?? "Otro",
-                l.PartidaTransitoResponsable ?? "No asignado"))
+                l.PartidaTransitoResponsable ?? "No asignado",
+                l.PartidaTransitoCausa,
+                l.PartidaTransitoFechaPrevista))
             .ToList();
 
         var datosActa = new DatosActaConciliacion(

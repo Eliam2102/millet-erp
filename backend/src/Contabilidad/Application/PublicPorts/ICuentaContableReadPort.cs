@@ -14,6 +14,12 @@ public interface ICuentaContableReadPort
     Task<CuentaContableValidacion> ValidarParaMovimientoAsync(string codigoCuenta, OrigenMovimiento origen, CancellationToken ct);
     Task<CuentaContableValidacion> ValidarParaMovimientoAsync(Guid cuentaId, OrigenMovimiento origen, CancellationToken ct);
     Task<CuentaContableLectura?> ObtenerAsync(Guid cuentaId, CancellationToken ct);
+
+    /// <summary>
+    /// M-200: ¿la cuenta (por código) es la asignada al rol <paramref name="rol"/> o a una variante <c>{rol}_*</c>, o cuelga
+    /// de una de ellas? Misma regla con que la conciliación de auxiliares arma el control (p. ej. BANCOS).
+    /// </summary>
+    Task<bool> EsDeRolAsync(string codigoCuenta, string rol, CancellationToken ct);
 }
 
 /// <summary>

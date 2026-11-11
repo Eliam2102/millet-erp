@@ -217,7 +217,7 @@ public sealed class ConciliacionesCommandsTests
         System.Text.Encoding.ASCII.GetString(pdfBytes[..4]).Should().Be("%PDF");
 
         var concCerrada = await db.Conciliaciones.FindAsync(conc.Id);
-        concCerrada!.Estado.Should().Be(EstadoConciliacion.Cerrada);
+        concCerrada!.Estado.Should().Be(EstadoConciliacion.PendienteVistoBueno);
         concCerrada.FirmanteNombre.Should().Be("Lic. Fernando Ancona");
         concCerrada.FirmantePuesto.Should().Be("Gerente de Tesorería");
     }

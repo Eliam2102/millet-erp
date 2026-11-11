@@ -31,6 +31,9 @@ public sealed class ExtractoLinea : BaseEntity, IAuditable
     public PartidaTransitoTipo? PartidaTransitoTipo { get; private set; }
     public string? PartidaTransitoResponsable { get; private set; }
     public Guid? PartidaTransitoAutorizadaPor { get; private set; }
+    /// <summary>M-201: causa y fecha prevista en que se resuelve la partida.</summary>
+    public string? PartidaTransitoCausa { get; private set; }
+    public DateOnly? PartidaTransitoFechaPrevista { get; private set; }
 
     /// <summary>Candidatos sugeridos cuando la línea entra a revisión por ambigüedad (>1 opción).</summary>
     public List<Guid> CandidatosRevisionIds { get; private set; } = new();
@@ -89,6 +92,8 @@ public sealed class ExtractoLinea : BaseEntity, IAuditable
         PartidaTransitoTipo = null;
         PartidaTransitoResponsable = null;
         PartidaTransitoAutorizadaPor = null;
+        PartidaTransitoCausa = null;
+        PartidaTransitoFechaPrevista = null;
     }
 
     public void EmparejarMultiple(IEnumerable<(Guid MovimientoId, decimal Monto)> matches, MatchTipo tipo, Guid usuarioId, DateTimeOffset ahora)
@@ -108,6 +113,8 @@ public sealed class ExtractoLinea : BaseEntity, IAuditable
         PartidaTransitoTipo = null;
         PartidaTransitoResponsable = null;
         PartidaTransitoAutorizadaPor = null;
+        PartidaTransitoCausa = null;
+        PartidaTransitoFechaPrevista = null;
     }
 
     public void MarcarEnRevision(IEnumerable<Guid> candidatosIds)
@@ -127,10 +134,16 @@ public sealed class ExtractoLinea : BaseEntity, IAuditable
         PartidaTransitoTipo = null;
         PartidaTransitoResponsable = null;
         PartidaTransitoAutorizadaPor = null;
+        PartidaTransitoCausa = null;
+        PartidaTransitoFechaPrevista = null;
     }
 
-    public void MarcarPartidaTransito(PartidaTransitoTipo tipo, string responsable, Guid autorizadaPor)
+    public void MarcarPartidaTransito(PartidaTransitoTipo tipo, string responsable, Guid autorizadaPor, string causa, DateOnly fechaPrevista)
     {
+        if (string.IsNullOrWhiteSpace(causa))
+            throw new BusinessRuleException("TRANSITO_CAUSA_VACIA", "La causa de la partida en tránsito es obligatoria.");
+        if (fechaPrevista < Fecha)
+            throw new BusinessRuleException("TRANSITO_FECHA_INVALIDA", "La fecha prevista de resolución no puede ser anterior a la fecha de la línea.");
         if (string.IsNullOrWhiteSpace(responsable))
             throw new BusinessRuleException("TRANSITO_RESPONSABLE_VACIO", "El responsable de la partida en tránsito es obligatorio.");
         if (autorizadaPor == Guid.Empty)
@@ -143,6 +156,8 @@ public sealed class ExtractoLinea : BaseEntity, IAuditable
         PartidaTransitoTipo = tipo;
         PartidaTransitoResponsable = responsable.Trim();
         PartidaTransitoAutorizadaPor = autorizadaPor;
+        PartidaTransitoCausa = causa.Trim();
+        PartidaTransitoFechaPrevista = fechaPrevista;
         Estado = EstadoExtractoLinea.EnTransito;
         CandidatosRevisionIds.Clear();
     }

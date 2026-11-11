@@ -29,6 +29,25 @@ public sealed class CuentaContableReadAdapter(ContabilidadDbContext db, FormatoC
         return c is null ? null : Lectura(c);
     }
 
+    public async Task<bool> EsDeRolAsync(string codigoCuenta, string rol, CancellationToken ct)
+    {
+        var codigo = FormatoCatalogo.Codigo(codigoCuenta) ?? string.Empty;
+        var prefijo = rol + "_";
+        var deRoles = (await db.RolesCuenta.AsNoTracking()
+            .Where(r => (r.Codigo == rol || r.Codigo.StartsWith(prefijo)) && r.DeletedAt == null && r.CuentaId != null)
+            .Select(r => r.CuentaId!.Value).ToListAsync(ct)).ToHashSet();
+        if (deRoles.Count == 0) return false;
+        var cuenta = await db.Cuentas.AsNoTracking().Where(c => c.Codigo == codigo).Select(c => new { c.Id, c.PadreId }).FirstOrDefaultAsync(ct);
+        // ponytail: sube por el árbol una consulta por nivel; el catálogo tiene 4 o 5 niveles.
+        for (var i = 0; cuenta is not null && i < 10; i++)
+        {
+            if (deRoles.Contains(cuenta.Id)) return true;
+            if (cuenta.PadreId is not Guid padre) return false;
+            cuenta = await db.Cuentas.AsNoTracking().Where(c => c.Id == padre).Select(c => new { c.Id, c.PadreId }).FirstOrDefaultAsync(ct);
+        }
+        return false;
+    }
+
     internal static CuentaContableValidacion Validar(CuentaContable? c, OrigenMovimiento origen, FormatoCatalogo formato)
     {
         if (c is null) return new(false, MotivoRechazoCuenta.NoExiste, null);

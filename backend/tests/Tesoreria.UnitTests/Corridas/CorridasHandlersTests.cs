@@ -27,6 +27,7 @@ public sealed class CorridasHandlersTests
     private static async Task<(CuentaBancaria, List<PasivoPendientePago>)> Escenario(TesoreriaDbContext db, params (Guid Proveedor, decimal Monto)[] pasivos)
     {
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
         var lista = pasivos.Select(x => CorridaPagoDominioTests.Pasivo(x.Proveedor, x.Monto, x.Monto, 0m, 0m, empresa: Empresa)).ToList();
         db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.AddRange(lista);
         await db.SaveChangesAsync();
@@ -91,6 +92,7 @@ public sealed class CorridasHandlersTests
         await using var db = Db();
         var prov = Guid.NewGuid();
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
         var p = CorridaPagoDominioTests.Pasivo(prov, 1_053.33m, 1_000m, 160m, 106.67m, empresa: Empresa);
         db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.Add(p); await db.SaveChangesAsync();
 
@@ -106,7 +108,7 @@ public sealed class CorridasHandlersTests
     {
         await using var db = Db();
         var (_, p) = await Escenario(db, (Guid.NewGuid(), 100m));
-        var usd = new CuentaBancaria(Empresa, "BBVA", "9876543210", null, "USD"); db.CuentasBancarias.Add(usd); await db.SaveChangesAsync();
+        var usd = new CuentaBancaria(Empresa, "BBVA", "9876543210", null, "USD"); usd.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo de prueba"); db.CuentasBancarias.Add(usd); await db.SaveChangesAsync();
         var act = () => Crear(db, Armador).Handle(new(usd.Id, [p[0].FacturaProveedorId]), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_MONEDA_DISTINTA");
         db.CorridasPago.Should().BeEmpty();

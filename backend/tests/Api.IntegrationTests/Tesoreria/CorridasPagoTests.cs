@@ -50,6 +50,7 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
                 await compartido.SaveChangesAsync();
                 var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
                 var c = new CuentaBancaria(Empresa, "Egreso MXN", Guid.NewGuid().ToString("N")[..12], null, "MXN");
+                c.RegistrarSaldoInicial(1_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
                 // 1,000 + 160 IVA - 106.67 retenciones = 1,053.33 neto.
                 var a = new PasivoPendientePago(Empresa, Guid.NewGuid(), provId, null, 1_053.33m, 1_053.33m, "MXN", null,
                     DateOnly.FromDateTime(DateTime.Today.AddDays(10)), null, "CORR-1", ahora, "PUE", 1_000m, 160m, 106.67m);

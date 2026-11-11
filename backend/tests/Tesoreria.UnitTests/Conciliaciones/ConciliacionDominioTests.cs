@@ -64,7 +64,8 @@ public class ConciliacionDominioTests
         // Saldo banco $10,000 == Saldo libros $10,000 (Diferencia = $0.00)
         conc.Cerrar(UsuarioId, "Lic. Roberto Garza", "Gerente de Tesorería", 10_000m, Ahora);
 
-        conc.Estado.Should().Be(EstadoConciliacion.Cerrada);
+        // M-202: la firma de Tesorería deja la conciliación esperando el visto bueno de Contabilidad.
+        conc.Estado.Should().Be(EstadoConciliacion.PendienteVistoBueno);
         conc.FirmanteNombre.Should().Be("Lic. Roberto Garza");
         conc.FirmantePuesto.Should().Be("Gerente de Tesorería");
         conc.CerradaEn.Should().Be(Ahora);
@@ -81,7 +82,7 @@ public class ConciliacionDominioTests
 
         conc.Cerrar(UsuarioId, "Juan Pérez", "Auxiliar Contable", 5_000m, Ahora);
 
-        conc.Estado.Should().Be(EstadoConciliacion.Cerrada);
+        conc.Estado.Should().Be(EstadoConciliacion.PendienteVistoBueno);
 
         var sinPuesto = Conciliacion.Crear(EmpresaId, CuentaBancariaId, 2026, 10, 0m);
         var act = () => sinPuesto.Cerrar(UsuarioId, "Juan Pérez", " ", 0m, Ahora);
@@ -109,6 +110,7 @@ public class ConciliacionDominioTests
         linea.Emparejar(Guid.NewGuid(), MatchTipo.Manual, 2_000m, UsuarioId, Ahora);
         conc.CargarLineas(new[] { linea }, 2_000m);
         conc.Cerrar(UsuarioId, "Lic. Sofía Morales", "Jefe de Tesorería", 2_000m, Ahora);
+        conc.DarVistoBueno(Contadora, Ahora);
 
         // Sin motivo lanza
         var actSinMotivo = () => conc.Reabrir(UsuarioId, "   ", Ahora.AddHours(1));
@@ -120,5 +122,73 @@ public class ConciliacionDominioTests
         conc.Estado.Should().Be(EstadoConciliacion.Abierta);
         conc.MotivoReapertura.Should().Be("Ajuste de partida detectado por auditoría");
         conc.Bitacora.Should().ContainSingle(b => b.Accion == "Reapertura de conciliación");
+        conc.VistoBuenoPor.Should().BeNull();
+    }
+
+    private static readonly Guid Contadora = Guid.NewGuid();
+
+    private static Conciliacion Firmada()
+    {
+        var conc = Conciliacion.Crear(EmpresaId, CuentaBancariaId, 2026, 10, 3_000m);
+        var linea = ExtractoLinea.Crear(conc.Id, 1, new DateOnly(2026, 10, 5), "Depósito", "SPEI 778812", cargo: null, abono: 3_000m);
+        linea.Emparejar(Guid.NewGuid(), MatchTipo.Manual, 3_000m, UsuarioId, Ahora);
+        conc.CargarLineas(new[] { linea }, 3_000m);
+        conc.Cerrar(UsuarioId, "Javier Canché", "Tesorería", 3_000m, Ahora);
+        return conc;
+    }
+
+    [Fact]
+    public void M202_visto_bueno_de_otra_persona_cierra_y_quien_firmo_no_puede()
+    {
+        var conc = Firmada();
+
+        var mismo = () => conc.DarVistoBueno(UsuarioId, Ahora);
+        mismo.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CONCILIACION_VISTO_BUENO_MISMO_USUARIO");
+        conc.Estado.Should().Be(EstadoConciliacion.PendienteVistoBueno);
+
+        conc.DarVistoBueno(Contadora, Ahora.AddHours(2));
+        conc.Estado.Should().Be(EstadoConciliacion.Cerrada);
+        (conc.VistoBuenoPor, conc.VistoBuenoEn).Should().Be((Contadora, Ahora.AddHours(2)));
+    }
+
+    [Fact]
+    public void M202_devolver_exige_motivo_y_regresa_a_abierta()
+    {
+        var conc = Firmada();
+
+        var sinMotivo = () => conc.DevolverATesoreria(Contadora, " ", Ahora);
+        sinMotivo.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CONCILIACION_MOTIVO_DEVOLUCION_OBLIGATORIO");
+
+        conc.DevolverATesoreria(Contadora, "Línea mal emparejada", Ahora);
+        conc.Estado.Should().Be(EstadoConciliacion.Abierta);
+        conc.CerradaPor.Should().BeNull();
+        conc.Bitacora.Should().ContainSingle(b => b.Accion == "Devuelta a Tesorería" && b.Motivo == "Línea mal emparejada");
+    }
+
+    [Fact]
+    public void M202_pendiente_de_visto_bueno_no_acepta_lineas_ni_se_reabre()
+    {
+        var conc = Firmada();
+        var nueva = ExtractoLinea.Crear(conc.Id, 2, new DateOnly(2026, 10, 6), "Otra", null, cargo: 10m, abono: null);
+
+        ((Action)(() => conc.CargarLineas(new[] { nueva }))).Should().Throw<BusinessRuleException>();
+        ((Action)(() => conc.Reabrir(Contadora, "motivo", Ahora))).Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "CONCILIACION_NO_CERRADA");
+    }
+
+    [Fact]
+    public void M201_partida_en_transito_exige_causa_y_fecha_no_anterior()
+    {
+        var linea = ExtractoLinea.Crear(Guid.NewGuid(), 1, new DateOnly(2026, 10, 31), "CHEQUE 1234", "CH1234", cargo: 8_500m, abono: null);
+
+        ((Action)(() => linea.MarcarPartidaTransito(PartidaTransitoTipo.ChequeNoCobrado, "Javier Canché", Contadora, " ", new DateOnly(2026, 11, 15))))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "TRANSITO_CAUSA_VACIA");
+        ((Action)(() => linea.MarcarPartidaTransito(PartidaTransitoTipo.ChequeNoCobrado, "Javier Canché", Contadora, "Cheque no cobrado", new DateOnly(2026, 10, 30))))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "TRANSITO_FECHA_INVALIDA");
+        linea.Estado.Should().Be(EstadoExtractoLinea.Pendiente);
+
+        linea.MarcarPartidaTransito(PartidaTransitoTipo.ChequeNoCobrado, "Javier Canché", Contadora, "Cheque no cobrado", new DateOnly(2026, 11, 15));
+        (linea.Estado, linea.PartidaTransitoCausa, linea.PartidaTransitoFechaPrevista)
+            .Should().Be((EstadoExtractoLinea.EnTransito, "Cheque no cobrado", new DateOnly(2026, 11, 15)));
     }
 }

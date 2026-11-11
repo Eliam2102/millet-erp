@@ -218,7 +218,7 @@ public sealed class EmparejarAutomaticoHandler(
             .FirstOrDefaultAsync(c => c.Id == command.ConciliacionId, cancellationToken)
             ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
 
-        if (conciliacion.Estado == EstadoConciliacion.Cerrada)
+        if (conciliacion.Estado != EstadoConciliacion.Abierta)
             throw new BusinessRuleException("CONCILIACION_CERRADA", "No se puede emparejar en una conciliación cerrada.");
 
         var movimientos = await db.MovimientosBancarios
@@ -279,7 +279,7 @@ public sealed class EmparejarManualHandler(
             .FirstOrDefaultAsync(c => c.Id == command.ConciliacionId, cancellationToken)
             ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
 
-        if (conciliacion.Estado == EstadoConciliacion.Cerrada)
+        if (conciliacion.Estado != EstadoConciliacion.Abierta)
             throw new BusinessRuleException("CONCILIACION_CERRADA", "No se puede modificar una conciliación cerrada.");
 
         var linea = conciliacion.Lineas.FirstOrDefault(l => l.Id == command.ExtractoLineaId)
@@ -369,7 +369,7 @@ public sealed class DesemparejarLineaHandler(
             .FirstOrDefaultAsync(c => c.Id == command.ConciliacionId, cancellationToken)
             ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
 
-        if (conciliacion.Estado == EstadoConciliacion.Cerrada)
+        if (conciliacion.Estado != EstadoConciliacion.Abierta)
             throw new BusinessRuleException("CONCILIACION_CERRADA", "No se puede desemparejar en una conciliación cerrada.");
 
         var linea = conciliacion.Lineas.FirstOrDefault(l => l.Id == command.ExtractoLineaId)
@@ -463,7 +463,7 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
             .FirstOrDefaultAsync(c => c.Id == command.ConciliacionId, cancellationToken)
             ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
 
-        if (conciliacion.Estado == EstadoConciliacion.Cerrada)
+        if (conciliacion.Estado != EstadoConciliacion.Abierta)
             throw new BusinessRuleException("CONCILIACION_CERRADA", "No se puede dar de alta movimientos en una conciliación cerrada.");
 
         var linea = conciliacion.Lineas.FirstOrDefault(l => l.Id == command.ExtractoLineaId)
@@ -706,7 +706,8 @@ public sealed record MarcarPartidaTransitoCommand(
     Guid ExtractoLineaId,
     PartidaTransitoTipo Tipo,
     string Responsable,
-    Guid? AutorizadaPor = null) : IRequest<ExtractoLineaResponse>;
+    string Causa,
+    DateOnly FechaPrevistaResolucion) : IRequest<ExtractoLineaResponse>;
 
 public sealed class MarcarPartidaTransitoValidator : AbstractValidator<MarcarPartidaTransitoCommand>
 {
@@ -715,6 +716,8 @@ public sealed class MarcarPartidaTransitoValidator : AbstractValidator<MarcarPar
         RuleFor(x => x.ConciliacionId).NotEmpty();
         RuleFor(x => x.ExtractoLineaId).NotEmpty();
         RuleFor(x => x.Responsable).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.Causa).NotEmpty().WithMessage("La causa es obligatoria.").MaximumLength(300);
+        RuleFor(x => x.FechaPrevistaResolucion).NotEmpty().WithMessage("La fecha prevista de resolución es obligatoria.");
     }
 }
 
@@ -735,14 +738,18 @@ public sealed class MarcarPartidaTransitoHandler(
         var linea = conciliacion.Lineas.FirstOrDefault(l => l.Id == command.ExtractoLineaId)
             ?? throw new EntityNotFoundException("LINEA_NO_ENCONTRADA", "No se encontró la línea de extracto.");
 
-        Guid autorizador = command.AutorizadaPor ?? (userContext.UserId ?? Guid.Empty);
-        linea.MarcarPartidaTransito(command.Tipo, command.Responsable, autorizador);
+        if (conciliacion.Estado != EstadoConciliacion.Abierta)
+            throw new BusinessRuleException("CONCILIACION_CERRADA", "La conciliación no está abierta.");
+        // Javier Canché 11-nov: la partida en tránsito la autoriza el Director de Planeación Financiera
+        // (facultad tesoreria.conciliacion.autorizar-transito, exigida por el endpoint); quien la marca es quien autoriza.
+        linea.MarcarPartidaTransito(command.Tipo, command.Responsable, userContext.UserId ?? Guid.Empty,
+            command.Causa, command.FechaPrevistaResolucion);
 
         conciliacion.RegistrarEnBitacora(
             linea.Id,
             null,
             "Partida en tránsito",
-            $"Marcada como partida en tránsito ({command.Tipo}) asignada a {command.Responsable}",
+            $"Marcada como partida en tránsito ({command.Tipo}) asignada a {command.Responsable}. Causa: {command.Causa.Trim()}; se resuelve el {command.FechaPrevistaResolucion:dd/MM/yyyy}",
             userContext.UserId ?? Guid.Empty,
             clock.UtcNow);
 
@@ -810,7 +817,9 @@ public sealed class CerrarConciliacionHandler(
                 l.Monto,
                 l.Sentido.ToString(),
                 l.PartidaTransitoTipo?.ToString() ?? "Otro",
-                l.PartidaTransitoResponsable ?? "No asignado"))
+                l.PartidaTransitoResponsable ?? "No asignado",
+                l.PartidaTransitoCausa,
+                l.PartidaTransitoFechaPrevista))
             .ToList();
 
         var datosActa = new DatosActaConciliacion(
@@ -880,6 +889,44 @@ public sealed class ReabrirConciliacionHandler(
 }
 
 // ============================================================================
+// 10. Visto bueno de Contabilidad y devolución a Tesorería (M-202)
+// ============================================================================
+public sealed record DarVistoBuenoConciliacionCommand(Guid ConciliacionId) : IRequest<ConciliacionResumenResponse>;
+
+public sealed record DevolverConciliacionCommand(Guid ConciliacionId, string Motivo) : IRequest<ConciliacionResumenResponse>;
+
+public sealed class DevolverConciliacionValidator : AbstractValidator<DevolverConciliacionCommand>
+{
+    public DevolverConciliacionValidator()
+    {
+        RuleFor(x => x.ConciliacionId).NotEmpty();
+        RuleFor(x => x.Motivo).NotEmpty().WithMessage("El motivo es obligatorio.").MaximumLength(500);
+    }
+}
+
+public sealed class VistoBuenoConciliacionHandler(TesoreriaDbContext db, ICurrentUserContext userContext, IClock clock)
+    : IRequestHandler<DarVistoBuenoConciliacionCommand, ConciliacionResumenResponse>,
+      IRequestHandler<DevolverConciliacionCommand, ConciliacionResumenResponse>
+{
+    public Task<ConciliacionResumenResponse> Handle(DarVistoBuenoConciliacionCommand command, CancellationToken cancellationToken) =>
+        EjecutarAsync(command.ConciliacionId, c => c.DarVistoBueno(userContext.UserId ?? Guid.Empty, clock.UtcNow), cancellationToken);
+
+    public Task<ConciliacionResumenResponse> Handle(DevolverConciliacionCommand command, CancellationToken cancellationToken) =>
+        EjecutarAsync(command.ConciliacionId, c => c.DevolverATesoreria(userContext.UserId ?? Guid.Empty, command.Motivo, clock.UtcNow), cancellationToken);
+
+    private async Task<ConciliacionResumenResponse> EjecutarAsync(Guid id, Action<Conciliacion> accion, CancellationToken ct)
+    {
+        var conciliacion = await db.Conciliaciones.Include(c => c.Lineas)
+            .FirstOrDefaultAsync(c => c.Id == id, ct)
+            ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
+        var cuenta = await db.CuentasBancarias.FirstAsync(c => c.Id == conciliacion.CuentaBancariaId, ct);
+        accion(conciliacion);
+        await db.SaveChangesAsync(ct);
+        return ConciliacionMapper.ToResumen(conciliacion, cuenta);
+    }
+}
+
+// ============================================================================
 // Helper de cálculos y mapeos
 // ============================================================================
 internal static class ConciliacionCalculos
@@ -911,7 +958,7 @@ internal static class ConciliacionCalculos
     /// toca la conciliación, así que el guardado podía quedar viejo); cerrada = el congelado al cerrar.
     /// </summary>
     public static Task<decimal> SaldoLibrosVigenteAsync(TesoreriaDbContext db, Conciliacion c, CuentaBancaria cuenta, CancellationToken ct) =>
-        c.Estado == EstadoConciliacion.Cerrada
+        c.Estado != EstadoConciliacion.Abierta
             ? Task.FromResult(c.SaldoLibros)
             : CalcularSaldoLibrosAsync(db, cuenta, c.PeriodoAnio, c.PeriodoMes, ct);
 }
@@ -955,5 +1002,7 @@ internal static class ConciliacionMapper
         l.CandidatosRevisionIds,
         l.PartidaTransito,
         l.PartidaTransitoTipo,
-        l.PartidaTransitoResponsable);
+        l.PartidaTransitoResponsable,
+        l.PartidaTransitoCausa,
+        l.PartidaTransitoFechaPrevista);
 }

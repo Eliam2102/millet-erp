@@ -39,6 +39,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
     /// <summary>Cuentas bancarias propias — master data del módulo; CRUD propio [TES-7 revisada], seed script solo bootstrap.</summary>
     public DbSet<CuentaBancaria> CuentasBancarias => Set<CuentaBancaria>();
+    public DbSet<SolicitudCuentaBancaria> SolicitudesCuentaBancaria => Set<SolicitudCuentaBancaria>();
 
     /// <summary>Catálogo de conceptos con clasificación de flujo — seed provisional (§5.2).</summary>
     public DbSet<ConceptoMovimiento> ConceptosMovimiento => Set<ConceptoMovimiento>();
@@ -105,6 +106,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CuentaBancariaConfiguration());
+        modelBuilder.ApplyConfiguration(new SolicitudCuentaBancariaConfiguration());
         modelBuilder.ApplyConfiguration(new ConceptoMovimientoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoBancarioConfiguration());
         modelBuilder.ApplyConfiguration(new AplicacionPagoProveedorConfiguration());

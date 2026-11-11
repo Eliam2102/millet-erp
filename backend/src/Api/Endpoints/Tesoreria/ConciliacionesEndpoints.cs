@@ -209,13 +209,14 @@ public static class ConciliacionesEndpoints
                 request.ExtractoLineaId,
                 request.Tipo,
                 request.Responsable,
-                request.AutorizadaPor);
+                request.Causa,
+                request.FechaPrevistaResolucion);
 
             var res = await mediator.Send(command, ct);
             return Results.Ok(res);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionAutorizarTransito)
         .WithName("MarcarPartidaTransito")
         .Produces<ExtractoLineaResponse>(StatusCodes.Status200OK);
 
@@ -247,8 +248,24 @@ public static class ConciliacionesEndpoints
             return Results.Ok(res);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionCerrar)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionReabrir)
         .WithName("ReabrirConciliacion")
+        .Produces<ConciliacionResumenResponse>(StatusCodes.Status200OK);
+
+        // 11b. Visto bueno de Contabilidad (M-202)
+        conciliaciones.MapPost("/{id:guid}/visto-bueno", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DarVistoBuenoConciliacionCommand(id), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionRevisar)
+        .WithName("VistoBuenoConciliacion")
+        .Produces<ConciliacionResumenResponse>(StatusCodes.Status200OK);
+
+        // 11c. Contabilidad devuelve a Tesorería con motivo (M-202)
+        conciliaciones.MapPost("/{id:guid}/devolver", async (Guid id, [FromBody] ReabrirConciliacionRequest request, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DevolverConciliacionCommand(id, request.Motivo), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionRevisar)
+        .WithName("DevolverConciliacion")
         .Produces<ConciliacionResumenResponse>(StatusCodes.Status200OK);
 
         // 12. Descargar acta de conciliación en PDF
@@ -301,7 +318,8 @@ public sealed record MarcarPartidaTransitoRequest(
     Guid ExtractoLineaId,
     PartidaTransitoTipo Tipo,
     string Responsable,
-    Guid? AutorizadaPor = null);
+    string Causa,
+    DateOnly FechaPrevistaResolucion);
 
 public sealed record CerrarConciliacionRequest(
     string FirmanteNombre,
