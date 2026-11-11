@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -48,9 +49,14 @@ public sealed record TrazabilidadMpFila(
     decimal Salida,
     decimal Saldo,
     decimal CostoUnitarioMxn,
-    decimal ValorSaldo);
+    decimal ValorSaldo,
+    // Hojas (unidad física) del vidrio por medida, como la columna Hojas del ALFAK; null = sin medida. Las cantidades siguen en m².
+    decimal? HojasEntrada = null,
+    decimal? HojasSalida = null,
+    decimal? HojasSaldo = null);
 
-public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort? ocs = null)
+public sealed partial class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort? ocs = null,
+    IComprasRequisicionReadPort? requisiciones = null, IVarianteVidrioReadPort? variantes = null)
     : IRequestHandler<TrazabilidadMpQuery, ReporteResponse<TrazabilidadMpFila>>
 {
     public const string ConceptoSaldoInicial = "Saldo inicial";
@@ -58,6 +64,7 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
     public const string ConceptoConsumo = "Consumo";
     public const string ConceptoMerma = "Merma / rotura";
     public const string ConceptoAjuste = "Ajuste / devolución";
+    public const string ConceptoCancelacion = "Cancelación de recepción";
 
     public async Task<ReporteResponse<TrazabilidadMpFila>> Handle(TrazabilidadMpQuery request, CancellationToken cancellationToken)
     {
@@ -79,25 +86,37 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
         var ocIds = lineas.Where(l => l.OcId != null).Select(l => l.OcId!.Value).Distinct().ToList();
         var foliosOc = ocs is null || ocIds.Count == 0 ? new Dictionary<Guid, string>()
             : (await ocs.ObtenerFoliosAsync(ocIds, ct)).ToDictionary(x => x.Key, x => x.Value);
+        var rqIds = lineas.Where(l => l.RqId != null).Select(l => l.RqId!.Value).Distinct().ToList();
+        var foliosRq = requisiciones is null || rqIds.Count == 0 ? new Dictionary<Guid, string>()
+            : (await requisiciones.ObtenerFoliosAsync(rqIds, ct)).ToDictionary(x => x.Key, x => x.Value);
+        var medidas = variantes is null ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : (await variantes.ObtenerPorIdsAsync(lineas.Where(l => l.ProductoAwVarianteId != null).Select(l => l.ProductoAwVarianteId!.Value).Distinct().ToArray(), ct))
+                .ToDictionary(x => x.Key, x => x.Value);
+        decimal? Hojas(LineaKardex l) => MedidaReporte.Hojas(l.ProductoAwVarianteId, l.Cantidad, medidas);
 
         var filas = new List<TrazabilidadMpFila>();
         decimal saldo = 0m, valor = 0m, entradas = 0m, salidas = 0m;
+        decimal? hojasSaldo = null;
         foreach (var l in lineas)
         {
             var signo = l.Tipo.EsEntrada() ? 1m : -1m;
             saldo += signo * l.Cantidad;
             valor += signo * Math.Round(l.Cantidad * l.CostoUnitarioMxn, 2);
+            var hojas = Hojas(l);
+            if (hojas != null) hojasSaldo = (hojasSaldo ?? 0m) + signo * hojas;
             if (l.FechaMovimiento < request.Desde) continue;
             if (signo > 0) entradas += l.Cantidad; else salidas += l.Cantidad;
-            filas.Add(new TrazabilidadMpFila(l.FechaMovimiento, l.Folio, Concepto(l.Tipo), Referencia(l, ordenes, foliosOc), l.Lote,
-                l.SubAlmacenNombre, signo > 0 ? l.Cantidad : 0m, signo < 0 ? l.Cantidad : 0m, saldo, l.CostoUnitarioMxn, valor));
+            filas.Add(new TrazabilidadMpFila(l.FechaMovimiento, l.Folio, Concepto(l.Tipo), Referencia(l, ordenes, foliosOc, foliosRq), l.Lote,
+                l.SubAlmacenNombre, signo > 0 ? l.Cantidad : 0m, signo < 0 ? l.Cantidad : 0m, saldo, l.CostoUnitarioMxn, valor,
+                signo > 0 ? hojas : null, signo < 0 ? hojas : null, hojasSaldo));
         }
         // Saldo inicial = el saldo corrido justo antes de la primera fila del periodo.
         var previas = lineas.Where(l => l.FechaMovimiento < request.Desde).ToList();
         var inicial = previas.Sum(l => (l.Tipo.EsEntrada() ? 1m : -1m) * l.Cantidad);
         var valorInicial = previas.Sum(l => (l.Tipo.EsEntrada() ? 1m : -1m) * Math.Round(l.Cantidad * l.CostoUnitarioMxn, 2));
         if (previas.Count > 0)
-            filas.Insert(0, new TrazabilidadMpFila(request.Desde, null, ConceptoSaldoInicial, null, lote, null, 0m, 0m, inicial, 0m, valorInicial));
+            filas.Insert(0, new TrazabilidadMpFila(request.Desde, null, ConceptoSaldoInicial, null, lote, null, 0m, 0m, inicial, 0m, valorInicial,
+                HojasSaldo: previas.Select(l => Hojas(l) is { } h ? (l.Tipo.EsEntrada() ? h : -h) : (decimal?)null).Where(h => h != null).Sum()));
 
         var art = (await articulos.ObtenerPorIdsAsync([request.ArticuloId], ct)).GetValueOrDefault(request.ArticuloId);
         return new ReporteResponse<TrazabilidadMpFila>(
@@ -121,15 +140,22 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
         TipoMovimiento.EntradaCompra => ConceptoCompra,
         TipoMovimiento.SalidaConsumo or TipoMovimiento.SalidaPorVale => ConceptoConsumo,
         TipoMovimiento.BajaPorDano => ConceptoMerma,
+        TipoMovimiento.CancelacionEntradaCompra => ConceptoCancelacion,
         _ => ConceptoAjuste,
     };
 
-    private static string? Referencia(LineaKardex l, Dictionary<string, string> ordenes, Dictionary<Guid, string> foliosOc)
+    private static string? Referencia(LineaKardex l, Dictionary<string, string> ordenes, Dictionary<Guid, string> foliosOc, Dictionary<Guid, string> foliosRq)
     {
         if (l.OcId is { } oc) return foliosOc.TryGetValue(oc, out var f) ? $"OC {f}" : "OC";
+        if (l.RqId is { } rq) return foliosRq.TryGetValue(rq, out var r) ? $"RQ {r}" : "RQ";
         if (l.Folio != null && ordenes.TryGetValue(l.Folio, out var o)) return $"Orden A+W {o}";
+        // Salida de la app de Almacenes: el pedido A+W del mensaje viaja en el motivo («… pedido 123»).
+        if (l.Motivo != null && PedidoAw().Match(l.Motivo) is { Success: true } p) return $"Orden A+W {p.Groups[1].Value}";
         return l.Motivo;
     }
+
+    [GeneratedRegex(@"\bpedido (\S+)$")]
+    private static partial Regex PedidoAw();
 
     public static readonly IReadOnlyList<ColumnaDescriptor> Columnas =
     [
@@ -144,5 +170,8 @@ public sealed class TrazabilidadMpHandler(AlmacenDbContext db, IArticuloReadPort
         new("saldo", "Saldo", "numero", "right"),
         new("costoUnitarioMxn", "Costo unit.", "moneda", "right"),
         new("valorSaldo", "Valor saldo", "moneda", "right"),
+        new("hojasEntrada", "Hojas entrada", "numero", "right"),
+        new("hojasSalida", "Hojas salida", "numero", "right"),
+        new("hojasSaldo", "Hojas saldo", "numero", "right"),
     ];
 }
