@@ -1,4 +1,3 @@
-import { KpiCard } from '@/components/erp/display/KpiCard';
 import { estadosOtr } from '../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { TabsEstado, BarraFiltros, PaginacionTabla } from '@/components/erp';
@@ -12,62 +11,59 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { useState } from 'react';
-import { TriangleAlert } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { Breadcrumbs, ErrorState } from '@/components/erp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
-import { useOtrEnvios, type OtrEnvio } from '../api/otr';
+import { errorUsuario } from '@/lib/error-usuario';
+import { useOtrEnvios, useOtrAccion, type OtrEnvio } from '../api/otr';
+import { motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
 import { VincularOtrSheet } from '../components/OtrPanel';
-const columnas = 'grid grid-cols-[150px_minmax(0,1.6fr)_160px_64px_130px_160px] items-center';
+const columnas =
+  'grid grid-cols-[120px_minmax(240px,1.6fr)_112px_136px_260px_172px] items-center [&>td]:min-w-0 [&>th]:min-w-0';
 export function OtrBandejaPage() {
   const q = useOtrEnvios();
+  const revalidar = useOtrAccion();
+  const gestionarTodas = useHasPermission(P.ComercioExteriorDocumentosGestionarTodasSucursales);
   const [seleccion, setSeleccion] = useState<OtrEnvio>();
   const [texto, setTexto] = useState('');
   const [pagina, setPagina] = useState(0);
   const [estado, setEstado] = useState<number | undefined>(1);
   const gestionar = useHasPermission(P.ComercioExteriorOtrGestionar);
-  const filas =
-    q.data?.filter(
-      (e) =>
-        (estado === undefined || e.estado === estado) &&
-        `${e.idOrigen} ${e.contenido.cliente}`
-          .toLocaleLowerCase('es-MX')
-          .includes(texto.toLocaleLowerCase('es-MX')),
-    ) ?? [];
+  const encontrados = q.data?.filter((e) =>
+    `${e.idOrigen} ${e.contenido.cliente}`
+      .toLocaleLowerCase('es-MX')
+      .includes(texto.toLocaleLowerCase('es-MX')),
+  );
+  const conteos = encontrados
+    ? {
+        1: encontrados.filter((e) => e.estado === 1).length,
+        2: encontrados.filter((e) => e.estado === 2).length,
+        3: encontrados.filter((e) => e.estado === 3).length,
+      }
+    : undefined;
+  const filas = encontrados?.filter((e) => estado === undefined || e.estado === estado) ?? [];
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
-      <Breadcrumbs items={[{ label: 'Comercio Exterior' }, { label: 'Bandeja OTR' }]} />
-      <PageHeader
-        titulo="Bandeja OTR"
-        descripcion="Vincula cada envío de contenedor a un expediente de exportación del mismo cliente."
-      />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Button
-          variant="ghost"
-          className="h-auto items-stretch p-0 text-left [&>div]:w-full"
-          onClick={() => {
-            setEstado(1);
-            setTexto('');
-            setPagina(0);
-          }}
-        >
-          <KpiCard
-            etiqueta="Por vincular"
-            valor={q.data ? q.data.filter((e) => e.estado === 1).length : '—'}
-            tono="warning"
-          />
-        </Button>
+      <div className="shrink-0">
+        <Breadcrumbs items={[{ label: 'Comercio Exterior' }, { label: 'Bandeja OTR' }]} />
+        <PageHeader
+          titulo="Bandeja OTR"
+          descripcion="Vincula cada envío de contenedor a un expediente de exportación del mismo cliente."
+        />
       </div>
-      <p
-        role="note"
-        className="flex items-start gap-2 rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg"
-      >
-        <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+      <p role="note" className="flex shrink-0 items-start gap-2 text-xs text-ink-muted">
+        <Info aria-hidden="true" className="size-4 shrink-0" />
         A+W OTR organiza transporte. No crea requisiciones, órdenes de compra ni proveedores.
       </p>
+      {revalidar.isError && (
+        <p role="alert" className="shrink-0 text-danger-fg">
+          {errorUsuario(revalidar.error, 'No se pudo revalidar la sucursal.')}
+        </p>
+      )}
       {q.isError ? (
         <ErrorState
           title="No se pudieron cargar los envíos OTR"
@@ -86,7 +82,7 @@ export function OtrBandejaPage() {
                   { valor: 3, label: 'Cancelados' },
                 ]}
                 valor={estado}
-                conteos={undefined}
+                conteos={conteos}
                 onChange={(v) => {
                   setEstado(v);
                   setPagina(0);
@@ -121,7 +117,10 @@ export function OtrBandejaPage() {
           >
             <div className="h-full min-h-0 overflow-auto">
               {filas.length > 0 && (
-                <Table className="grid h-full min-w-0 grid-rows-[auto_1fr] text-sm">
+                <Table
+                  aria-label="Envíos OTR"
+                  className="grid h-full min-w-[1040px] grid-rows-[auto_1fr] text-sm"
+                >
                   <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
                     <TableRow className={`${columnas} h-9`}>
                       {[
@@ -144,29 +143,69 @@ export function OtrBandejaPage() {
                         className={`${columnas} min-h-12 border-b border-line-row`}
                         key={e.id}
                       >
-                        <TableCell className="px-3 font-mono text-xs">{e.idOrigen}</TableCell>
-                        <TableCell className="min-w-0 truncate px-3">
-                          {e.contenido.cliente}
-                          <p className="text-xs text-ink-muted">{e.contenido.direccionEntrega}</p>
+                        <TableCell className="break-words px-3 font-mono text-xs">
+                          {e.idOrigen}
                         </TableCell>
-                        <TableCell className="px-3 font-mono text-xs">
-                          {e.contenido.contenedor.numero ?? <span className="text-ink-muted">Sin número</span>}
+                        <TableCell className="min-w-0 px-3">
+                          <p className="truncate" title={e.contenido.cliente}>
+                            {e.contenido.cliente}
+                          </p>
+                          <p
+                            className="truncate text-xs text-ink-muted"
+                            title={e.contenido.direccionEntrega}
+                          >
+                            {e.contenido.direccionEntrega}
+                          </p>
                         </TableCell>
-                        <TableCell className="px-3 tabular-nums">{e.versionAplicada}</TableCell>
+                        <TableCell className="break-words px-3 font-mono text-xs">
+                          {e.contenido.contenedor.numero ?? (
+                            <span className="text-ink-muted">Sin número</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="break-words px-3 text-xs tabular-nums">
+                          {e.versionAplicada}
+                        </TableCell>
                         <TableCell className="px-3">
                           <Badge variant={estadosOtr[e.estado].tono}>
                             {estadosOtr[e.estado].texto}
                           </Badge>
                           {e.motivoVinculacion && (
-                            <p className="text-xs text-ink-muted">{e.motivoVinculacion}</p>
+                            <p
+                              id={`motivo-${e.id}`}
+                              className="mt-1 break-words text-xs text-ink-secondary"
+                            >
+                              {motivoVinculacionOtr(e.motivoVinculacion)}
+                            </p>
                           )}
                         </TableCell>
                         <TableCell className="px-3">
-                          {gestionar && e.estado === 1 ? (
+                          {gestionar &&
+                          gestionarTodas &&
+                          e.estado === 1 &&
+                          e.motivoVinculacion === 'CE_OTR_SUCURSAL_DESCONOCIDA' ? (
+                            <Button
+                              variant="outline"
+                              disabled={revalidar.isPending}
+                              title={
+                                revalidar.isPending
+                                  ? 'Revalidando sucursal.'
+                                  : 'Buscar la equivalencia vigente de la sucursal A+W.'
+                              }
+                              aria-describedby={`motivo-${e.id}`}
+                              onClick={() => {
+                                void revalidar
+                                  .mutateAsync({ envio: e, ruta: 'revalidar-sucursal' })
+                                  .catch(() => {});
+                              }}
+                            >
+                              Revalidar sucursal
+                            </Button>
+                          ) : gestionar && e.estado === 1 ? (
                             <Button
                               variant="outline"
                               disabled={!!e.motivoVinculacion}
-                              title={e.motivoVinculacion ?? undefined}
+                              title={motivoVinculacionOtr(e.motivoVinculacion) ?? undefined}
+                              aria-describedby={e.motivoVinculacion ? `motivo-${e.id}` : undefined}
                               onClick={() => setSeleccion(e)}
                             >
                               Vincular envío
