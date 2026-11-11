@@ -357,7 +357,7 @@ export interface RecepcionRechazoItem {
 export interface RecepcionImportacionDetalle {
   numeroPedimento: string;
   numeroBl: string;
-  numeroContenedor: string;
+  numeroContenedor: string | null;
   aduana: string;
   aduanaNombre: string | null;
   clavePedimento: string;

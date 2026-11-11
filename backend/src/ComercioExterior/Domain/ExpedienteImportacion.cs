@@ -3,7 +3,7 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Domain;
 
-public enum ModalidadTransporte { Maritimo = 1, Terrestre = 2, Aereo = 3 }
+public enum ModalidadTransporte { Maritimo = 1, Terrestre = 2, Aereo = 3, Paqueteria = 4 }
 
 public sealed class PartidaImportacion : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelongsToAggregate
 {
@@ -72,6 +72,7 @@ public sealed partial class Expediente
             ModalidadTransporte.Maritimo => TipoParticipante.Naviera,
             ModalidadTransporte.Terrestre => TipoParticipante.TransportistaTerrestre,
             ModalidadTransporte.Aereo => TipoParticipante.Aerolinea,
+            ModalidadTransporte.Paqueteria => TipoParticipante.TransportistaTerrestre,
             _ => throw new BusinessRuleException("CE_MODALIDAD_REQUERIDA", "Seleccione la modalidad de transporte del contenedor antes de embarcar.")
         };
         if (!_participantes.Any(p => p.Tipo == tipo))

@@ -31,22 +31,33 @@ public sealed class RelacionIvaHandler(ComercioExteriorDbContext db, ExpedienteS
         var ocsPeriodo = await compras.ObtenerIdsPeriodoAsync(desde, hasta, sucursales, cancellationToken);
         var q = db.Expedientes.AsNoTracking();
         if (sucursales is not null) q = q.Where(e => sucursales.Contains(e.SucursalId));
-        var expedientes = await q.Where(e => (e.Tipo == TipoExpediente.Importacion && e.OcId != null && ocsPeriodo.Contains(e.OcId.Value)) ||
+        var expedientes = await q.Where(e => (e.Tipo == TipoExpediente.Importacion && e.OrdenesCompraIds.Any(id => ocsPeriodo.Contains(id))) ||
                 e.Contenedores.Any(c => c.FechaEmbarqueReal >= desde && c.FechaEmbarqueReal < hasta))
             .Include(e => e.Contenedores).Include(e => e.Partidas).AsSplitQuery().OrderBy(e => e.Folio).ToListAsync(cancellationToken);
         var origen = (await pedidos.ObtenerAsync(expedientes.SelectMany(e => e.Partidas).Select(p => p.PedidoFacturableId).Distinct().ToArray(), cancellationToken)).ToDictionary(p => p.Id);
         var ocs = (await compras.ObtenerVariasAsync(expedientes.Where(e => e.OcId != null)
-            .Select(e => e.OcId!.Value).Distinct().ToArray(), cancellationToken)).ToDictionary(o => o.Id);
+            .SelectMany(e => e.OrdenesCompraIds).Distinct().ToArray(), cancellationToken)).ToDictionary(o => o.Id);
         var periodo = desde.ToString("yyyy-MM", CultureInfo.InvariantCulture);
         List<RelacionIvaFila> filas = [];
         foreach (var e in expedientes)
         {
             if (e.Tipo == TipoExpediente.Importacion && e.OcId is Guid oid)
             {
-                if (!ocs.TryGetValue(oid, out var oc)) continue;
-                // PLATFORM-TODO(<CeRelacionEntradas>): Almacén aún no expone un puerto de entradas por OC.
-                filas.Add(new(periodo, e.Folio, "Importación", oc.Folio, e.PedimentoVigente(oc.InformacionImportacion?.NumeroPedimento),
-                    null, oc.InformacionImportacion?.NumeroBl, oc.InformacionImportacion?.NumeroContenedor, null, null, null, null, null, null, e.AduanaEntrada));
+                var recepciones = await servicio.RecepcionesAsync(e, cancellationToken);
+                foreach (var ocId in e.OrdenesCompraIds)
+                {
+                    if (!ocs.TryGetValue(ocId, out var oc)) continue;
+                    var entradas = recepciones.Where(r => r.OcId == ocId).ToArray();
+                    if (entradas.Length == 0)
+                        filas.Add(new(periodo, e.Folio, "Importación", oc.Folio, e.PedimentoVigente(oc.InformacionImportacion?.NumeroPedimento),
+                            null, oc.InformacionImportacion?.NumeroBl, oc.InformacionImportacion?.NumeroContenedor, null, null, null, null, null, null, e.AduanaEntrada));
+                    foreach (var entrada in entradas)
+                    {
+                        var r = entrada.Recepcion;
+                        filas.Add(new(periodo, e.Folio, "Importación", oc.Folio, r.NumeroPedimento, r.ClavePedimento, r.NumeroBl,
+                            r.NumeroContenedor, null, null, null, null, null, r.RecepcionId.ToString(), r.Aduana));
+                    }
+                }
                 continue;
             }
             foreach (var c in e.Contenedores.Where(c => c.Estado == EstadoContenedor.Activo && c.FechaEmbarqueReal >= desde && c.FechaEmbarqueReal < hasta))
