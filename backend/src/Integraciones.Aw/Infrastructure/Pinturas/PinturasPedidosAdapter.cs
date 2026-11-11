@@ -10,6 +10,7 @@ using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Integraciones.Aw.Application.Pinturas;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pinturas;
 
@@ -20,6 +21,8 @@ namespace Millet.Integraciones.Aw.Infrastructure.Pinturas;
 /// Sustituye a <c>StubPlantaPinturaPedidosReader</c>.
 /// Un dialecto por bandera: SQL Server (MILLET_INTEGRACION) o PostgreSQL (copia de demo de <c>tools/aw-origen-demo</c>).
 /// No hay reenvío: una orden lleva siempre versión 1 y, si se rechaza, Pinturas captura un folio nuevo (doc integration/11).
+/// Una cabecera pendiente sin líneas con más de <see cref="PinturasPedidosOptions.MinutosCabeceraSinLineas"/> minutos se acusa
+/// con error (Jorge Toache, 10-nov): el folio es único y el portal no edita ni borra, así que quedaría invisible para siempre.
 /// </summary>
 public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
 {
@@ -30,16 +33,18 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
     private readonly bool _postgres;
     private readonly IPinturasSucursalResolver _sucursales;
     private readonly PinturasPedidosOptions _opciones;
+    private readonly IClock _reloj;
     private readonly ILogger<PinturasPedidosAdapter> _logger;
 
     public PinturasPedidosAdapter(
         IIntegracionSqlConnectionFactory fabrica, bool postgres, IPinturasSucursalResolver sucursales,
-        IOptions<PinturasPedidosOptions> opciones, ILogger<PinturasPedidosAdapter> logger)
+        IOptions<PinturasPedidosOptions> opciones, IClock reloj, ILogger<PinturasPedidosAdapter> logger)
     {
         _fabrica = fabrica;
         _postgres = postgres;
         _sucursales = sucursales;
         _opciones = opciones.Value;
+        _reloj = reloj;
         _logger = logger;
     }
 
@@ -56,6 +61,12 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
         "LEFT JOIN dbo.pinturas_servicio s ON s.clave = l.servicio_clave " +
         "LEFT JOIN dbo.pinturas_obra o ON o.clave = p.obra_clave " +
         "ORDER BY p.creado_at, p.id, l.linea";
+
+    // Las N cabeceras pendientes más antiguas sin ninguna línea: solo folio y hora de inserción (creado_at, UTC).
+    internal static string SqlSinLineas(bool postgres) =>
+        $"SELECT {(postgres ? "" : "TOP (@max) ")}c.folio_orden, c.creado_at FROM dbo.pinturas_pedido c " +
+        "WHERE c.erp_resultado IS NULL AND NOT EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id) " +
+        $"ORDER BY c.creado_at, c.id{(postgres ? " LIMIT @max" : "")}";
 
     // Solo filas aún pendientes: un acuse nunca pisa otro (relectura tras un acuse fallido o dos instancias del worker).
     internal const string SqlAcuse =
@@ -77,6 +88,8 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
                 _opciones.SucursalClave);
             return [];
         }
+
+        await AcusarCabecerasSinLineasAsync(max, cancellationToken);
 
         var filas = new List<FilaPinturasPedido>();
         await using (var conexion = _fabrica.CreateConnection())
@@ -140,6 +153,51 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
         if (filas == 0)
             _logger.LogWarning("[Pinturas] Acuse de {Folio} sin efecto: la orden no existe o ya tenía acuse.", numeroPedido);
     }
+
+    /// <summary>
+    /// Acusa con error (2) las cabeceras pendientes sin líneas que ya pasaron el umbral; las más recientes siguen pendientes
+    /// (el portal pudo no haber terminado). Solo escribe las 4 columnas del acuse (<see cref="SqlAcuse"/>). Una falla aquí se
+    /// registra y no detiene la lectura de las órdenes completas.
+    /// </summary>
+    private async Task AcusarCabecerasSinLineasAsync(int max, CancellationToken cancellationToken)
+    {
+        if (_opciones.MinutosCabeceraSinLineas <= 0) return;
+        try
+        {
+            var cabeceras = new List<(string Folio, DateTimeOffset CreadoAt)>();
+            await using (var conexion = _fabrica.CreateConnection())
+            {
+                await conexion.OpenAsync(cancellationToken);
+                await using var cmd = Comando(conexion, SqlSinLineas(_postgres), ("@max", max));
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                    cabeceras.Add((Convert.ToString(reader.GetValue(0), CultureInfo.InvariantCulture)!,
+                        new DateTimeOffset(DateTime.SpecifyKind(Convert.ToDateTime(reader.GetValue(1), CultureInfo.InvariantCulture), DateTimeKind.Utc))));
+            }
+
+            var ahora = _reloj.UtcNow;
+            foreach (var folio in CabecerasVencidas(cabeceras, ahora, _opciones.MinutosCabeceraSinLineas))
+            {
+                await MarcarResultadoAsync(folio, ResultadoAcusePlantaPintura.Error, null,
+                    MensajeSinLineas(_opciones.MinutosCabeceraSinLineas), ahora, cancellationToken);
+                _logger.LogWarning("[Pinturas] Orden {Folio} sin renglones tras {Minutos} min: acusada con error.",
+                    folio, _opciones.MinutosCabeceraSinLineas);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "[Pinturas] No se pudieron acusar las cabeceras sin renglones; se reintenta en el siguiente ciclo.");
+        }
+    }
+
+    /// <summary>Folios de las cabeceras sin líneas con al menos <paramref name="minutos"/> desde su inserción.</summary>
+    internal static IReadOnlyList<string> CabecerasVencidas(
+        IEnumerable<(string Folio, DateTimeOffset CreadoAt)> cabeceras, DateTimeOffset ahora, int minutos) =>
+        cabeceras.Where(c => ahora - c.CreadoAt >= TimeSpan.FromMinutes(minutos)).Select(c => c.Folio).ToList();
+
+    internal static string MensajeSinLineas(int minutos) =>
+        $"Orden sin renglones: la cabecera lleva más de {minutos} minutos sin líneas en pinturas_pedido_linea y el ERP no puede " +
+        "facturarla. Capture la orden de nuevo con un folio nuevo.";
 
     /// <summary>
     /// Orden → puerto de Facturación: una línea de venta por línea de la orden (servicio, m2, precio por m2; las piezas
