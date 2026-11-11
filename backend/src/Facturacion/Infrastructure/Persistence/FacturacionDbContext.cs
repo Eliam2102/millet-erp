@@ -85,6 +85,7 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Solicitudes de cancelación SAT 4.0 de comprobantes (F5-PR2).</summary>
     public DbSet<SolicitudCancelacion> SolicitudesCancelacion => Set<SolicitudCancelacion>();
+    public DbSet<ReglaFirmaCancelacion> ReglasFirmaCancelacion => Set<ReglaFirmaCancelacion>();
 
     /// <summary>Recibos electrónicos de pago — REPP, subtipo Pago (F6).</summary>
     public DbSet<ReciboPago> RecibosPago => Set<ReciboPago>();
@@ -188,6 +189,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new NotaCreditoConfiguration());
         modelBuilder.ApplyConfiguration(new RelacionCfdiConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionConfiguration());
+        modelBuilder.ApplyConfiguration(new ReglaFirmaCancelacionConfiguration());
         modelBuilder.ApplyConfiguration(new ReciboPagoConfiguration());
         modelBuilder.ApplyConfiguration(new ReppPendienteConfiguration());
         modelBuilder.Entity<ReppPendienteFactura>(b =>

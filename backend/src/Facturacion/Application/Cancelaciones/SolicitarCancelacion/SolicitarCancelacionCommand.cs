@@ -22,11 +22,16 @@ public sealed record SolicitarCancelacionResponse(
     string EstadoComprobante,
     string EstadoSolicitud,
     string? EstatusSat,
-    string? MensajeError = null)
+    string? MensajeError = null,
+    int FirmasRequeridas = 1,
+    int FirmasDadas = 0,
+    string? PrimeraFirmaPor = null,
+    string? Huella = null)
 {
     public static SolicitarCancelacionResponse De(Comprobante comprobante, SolicitudCancelacion solicitud) =>
         new(solicitud.Id, comprobante.Id, comprobante.Estado.ToString(), solicitud.Estado.ToString(), solicitud.EstatusSat,
-            MensajeSatParaUsuario(solicitud.MensajeError));
+            MensajeSatParaUsuario(solicitud.MensajeError), solicitud.FirmasRequeridas, solicitud.FirmasDadas,
+            solicitud.PrimeraFirmaPorNombre, solicitud.Huella);
 
     /// <summary>
     /// Prueba manual S3-4 (M18): el adaptador del PAC guarda «{mensaje del PAC} — {detalle del SAT}»;

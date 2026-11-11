@@ -1664,6 +1664,12 @@ export interface SolicitarCancelacionResponse {
   estatusSat: string | null;
   /** M18: motivo del rechazo del SAT (sin el texto en inglés del PAC); null si no hubo rechazo. */
   mensajeError?: string | null;
+  /** M-235: firmas que pide la cancelación (1 o 2) y las ya dadas. */
+  firmasRequeridas?: number;
+  firmasDadas?: number;
+  primeraFirmaPor?: string | null;
+  /** M-235: versión de la solicitud que se autoriza (motivo, sustituto, importe). */
+  huella?: string | null;
 }
 
 /** Estatus de la cancelación de un comprobante (GET /comprobantes/{id}/cancelar). */
@@ -1734,6 +1740,23 @@ export interface CancelacionBandejaItem {
   decididaPor: string | null;
   decididaEn: string | null;
   motivoRechazo: string | null;
+  /** M-235: firmas por operación y monto. */
+  firmasRequeridas?: number;
+  firmasDadas?: number;
+  primeraFirmaPor?: string | null;
+  primeraFirmaPorId?: string | null;
+  primeraFirmaEn?: string | null;
+  /** M-235: la solicitud cambió después de la primera firma y esta se anuló. */
+  firmaAnuladaMotivo?: string | null;
+  /** M-235: versión vista; se manda al autorizar para bloquear si cambió. */
+  huella?: string | null;
+}
+
+/** M-235: regla de firmas de la cancelación (tipo null = cualquier operación). */
+export interface ReglaFirmaCancelacion {
+  tipoComprobante: string | null;
+  umbralMxn: number;
+  firmasRequeridas: number;
 }
 
 // ─── Cajas (CAJAS-PR5; backend CAJAS-PR1, 12-cajas.md §7/§10) ─────────
