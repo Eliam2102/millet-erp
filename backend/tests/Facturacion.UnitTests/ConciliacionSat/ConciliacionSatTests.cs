@@ -66,6 +66,21 @@ public sealed class ConciliacionSatTests
     }
 
     [Fact]
+    public void Lector_rechaza_zip_incompleto_y_texto_que_excede_limite()
+    {
+        var incompleto = () => LectorMetadataSat.Leer("PK sintético"u8.ToArray());
+        incompleto.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONCILIACION_SAT_ZIP_INVALIDO");
+
+        using var zip = new MemoryStream();
+        using (var archivo = new ZipArchive(zip, ZipArchiveMode.Create, true))
+        using (var texto = archivo.CreateEntry("metadata.txt").Open())
+            texto.Write(new byte[LectorMetadataSat.TamanoMaximoBytes + 1]);
+
+        var excedido = () => LectorMetadataSat.Leer(zip.ToArray());
+        excedido.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONCILIACION_SAT_ARCHIVO_GRANDE");
+    }
+
+    [Fact]
     public void Lector_rechaza_columnas_faltantes_y_renglones_malos_con_el_numero_de_renglon()
     {
         var sinMonto = () => LectorMetadataSat.Leer(Encoding.UTF8.GetBytes("Uuid~RfcEmisor~RfcReceptor~FechaEmision~EfectoComprobante~Estatus\n"));

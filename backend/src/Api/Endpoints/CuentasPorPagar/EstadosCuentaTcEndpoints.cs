@@ -91,6 +91,10 @@ public static class EstadosCuentaTcEndpoints
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
+            if (archivo.Length > SubirArchivoEstadoCuentaTcValidator.TamanoMaximoBytes)
+                return Results.Problem(title: "Archivo demasiado grande", detail: "El Excel del banco no debe pasar de 50 MB.",
+                    statusCode: StatusCodes.Status413PayloadTooLarge);
+
             using var stream = new MemoryStream();
             await archivo.CopyToAsync(stream, cancellationToken);
             var contenido = stream.ToArray();
@@ -107,6 +111,7 @@ public static class EstadosCuentaTcEndpoints
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento)
+        .WithMetadata(new RequestSizeLimitAttribute(SubirArchivoEstadoCuentaTcValidator.TamanoMaximoBytes + 1024 * 1024))
         .WithName("SubirArchivoEstadoCuentaTc")
         .WithSummary("Sube el Excel del banco, calcula SHA-256, parsea según perfil y persiste líneas")
         .DisableAntiforgery()

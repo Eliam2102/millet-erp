@@ -83,6 +83,27 @@ public class SalidaAppAlmacenesTests
     }
 
     [Fact]
+    public async Task Sin_lote_en_el_mensaje_sale_primero_lo_heredado_sin_lote_y_luego_el_lote_mas_antiguo()
+    {
+        var (db, subA, ubiA, _, _) = Db(); // 10 sin lote, el saldo más viejo
+        await Task.Delay(5); // Id = Guid v7: el orden de creación decide la antigüedad
+        db.SaldosInventario.Add(new SaldoInventario(ubiA, subA, Articulo, 5, 100m, Variante, "L-VIEJO"));
+        await db.SaveChangesAsync();
+        await Task.Delay(5);
+        db.SaldosInventario.Add(new SaldoInventario(ubiA, subA, Articulo, 50, 100m, Variante, "L-NUEVO"));
+        await db.SaveChangesAsync();
+
+        var (estado, _, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(12), default);
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.Recibido);
+        var lineas = await db.LineasMovimiento.ToListAsync();
+        lineas.Should().Contain(l => l.Lote == null && l.Cantidad == 10)
+            .And.Contain(l => l.Lote == "L-VIEJO" && l.Cantidad == 2)
+            .And.NotContain(l => l.Lote == "L-NUEVO");
+    }
+
+    [Fact]
     public async Task Reparte_entre_sub_almacenes_con_un_movimiento_por_cada_uno()
     {
         var (db, _, _, subB, ubiB) = Db();

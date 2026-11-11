@@ -9,7 +9,7 @@ public sealed class CostoPromedioPublicadorTests
     private static CostoPromedioFila Vidrio(decimal costoM2) =>
         new(1001, "CONKAL", "EXPORTACION", "HEGLA 1", 2600, 1800, costoM2, null);
     private static CostoPromedioFila Cantidad(decimal costoPieza) =>
-        new(2002, "CIRCUITO", "", "", null, null, null, costoPieza);
+        new(2002, "CIRCUITO", null, null, null, null, null, costoPieza);
 
     private static async Task<(CostoPromedioPublicador Pub, SimuladoCostoPromedioTransporte Tr)> CrearAsync()
     {
@@ -73,7 +73,20 @@ public sealed class CostoPromedioPublicadorTests
         var v = tr.Filas.Single(f => f.Fila.ArticuloAw == 1001).Fila;
         (v.CostoM2, v.CostoPieza, v.AnchoMm, v.AltoMm).Should().Be((100m, (decimal?)null, 2600, 1800));
         var c = tr.Filas.Single(f => f.Fila.ArticuloAw == 2002).Fila;
-        (c.CostoM2, c.CostoPieza, c.AnchoMm, c.AltoMm, c.AlmacenTipo, c.Linea).Should().Be(((decimal?)null, 5m, (int?)null, (int?)null, "", ""));
+        (c.CostoM2, c.CostoPieza, c.AnchoMm, c.AltoMm, c.AlmacenTipo, c.Linea)
+            .Should().Be(((decimal?)null, 5m, (int?)null, (int?)null, (string?)null, (string?)null));
+    }
+
+    [Fact]
+    public async Task FilaDeSucursalYFilaDeAlmacen_LlevanVersionPropia_YLaDeSucursalSigueNullAlVersionar()
+    {
+        var (pub, tr) = await CrearAsync();
+        var sucursal = Vidrio(100m) with { AlmacenTipo = null, Linea = null };
+        await pub.PublicarAsync([Vidrio(100m), sucursal], default);
+        await pub.PublicarAsync([Vidrio(100m), sucursal with { CostoM2 = 130m }], default);
+        tr.Filas.Where(f => f.Fila.AlmacenTipo is null).Select(f => (f.Version, f.Fila.Linea, f.Fila.CostoM2))
+            .Should().Equal((1, (string?)null, (decimal?)100m), (2, null, 130m));
+        tr.Filas.Should().ContainSingle(f => f.Fila.AlmacenTipo == "EXPORTACION");
     }
 
     [Fact]

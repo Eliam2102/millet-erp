@@ -438,18 +438,24 @@ function Acciones({
           <input
             ref={fileRef}
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) onSubir(f);
               e.target.value = '';
+              if (!f) return;
+              if (!/\.xlsx$/i.test(f.name) || f.size === 0 || f.size > 50 * 1024 * 1024) {
+                toast.error('Selecciona un Excel .xlsx de más de 0 bytes y hasta 50 MB.');
+                return;
+              }
+              onSubir(f);
             }}
           />
           <Button
             variant="outline"
             size="sm"
             onClick={() => fileRef.current?.click()}
+            title="Excel .xlsx de hasta 50 MB"
             disabled={isPending}
           >
             <FileUp className="mr-1 size-3.5" />

@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 
 namespace Millet.Integraciones.Aw.Infrastructure.CostoPromedio;
 
+// PLATFORM-TODO(<CostoPromedioAlmacenes>): transporte simulado mientras TI no corre el script 19 en AlmacenRQ_MP_ENSAYO/AlmacenRQ_MP
+// y no se habilita Integraciones:CostoPromedio:Transporte=Sql (ver docs/modulos/integraciones-aw/00-levantamiento.md §7).
 /// <summary>Transporte en memoria (por omisión): guarda lo que se habría insertado. Mismo criterio de idempotencia que el SQL.</summary>
 public sealed class SimuladoCostoPromedioTransporte : ICostoPromedioTransporte
 {
