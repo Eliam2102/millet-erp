@@ -76,6 +76,9 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
     /// <summary>Envíos del estado de cuenta al cliente — rastro auditable (C7.8).</summary>
     public DbSet<EstadoCuentaEnvio> EstadoCuentaEnvios => Set<EstadoCuentaEnvio>();
 
+    /// <summary>M-237: rastro de correcciones de plazo y reversas de movimientos hechas desde el estado de cuenta.</summary>
+    public DbSet<CorreccionCartera> CorreccionesCartera => Set<CorreccionCartera>();
+
     /// <summary>Corridas de la conciliación diaria de cartera contra Facturación (C7.7).</summary>
     public DbSet<ConciliacionCartera> ConciliacionesCartera => Set<ConciliacionCartera>();
 
@@ -97,6 +100,7 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new LineaCreditoConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaCarteraConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoCarteraConfiguration());
+        modelBuilder.ApplyConfiguration(new CorreccionCarteraConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
         modelBuilder.ApplyConfiguration(new DecisionLiberacionConfiguration());
         modelBuilder.ApplyConfiguration(new ReglaLiberacionSerieConfiguration());
