@@ -36,6 +36,8 @@ public sealed class SalidasTests
         public List<(string Referencia, IReadOnlyList<(int Posicion, decimal Cantidad)> Lineas)> Salidas { get; } = [];
         public List<SolicitudCartaPorte> CartasPorte { get; } = [];
         public bool Falla { get; set; }
+        /// <summary>Folios de albarán con factura timbrada ligada a su salida (lo que ve el candado de cancelación).</summary>
+        public HashSet<string> Facturados { get; } = [];
 
         public Task RegistrarSalidaAsync(Guid pedidoFacturableId, string referencia, IReadOnlyList<(int Posicion, decimal Cantidad)> lineas, CancellationToken ct)
         {
@@ -46,7 +48,7 @@ public sealed class SalidasTests
         }
 
         public Task<CancelacionSalidaPt> CancelarSalidaAsync(string referencia, string motivo, CancellationToken ct) =>
-            Task.FromResult(new CancelacionSalidaPt(false, false, false));
+            Task.FromResult(Facturados.Contains(referencia) ? new CancelacionSalidaPt(true, false, true) : new CancelacionSalidaPt(true, true, false));
 
         public Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct)
         {
@@ -55,7 +57,8 @@ public sealed class SalidasTests
         }
 
         public Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(new Dictionary<string, FacturaAlbaranRuta>());
+            Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(albaranFolios.Where(Facturados.Contains)
+                .ToDictionary(f => f, f => new FacturaAlbaranRuta(f, Guid.NewGuid(), "F-" + f, 100m, null)));
         public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
         public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
@@ -78,7 +81,8 @@ public sealed class SalidasTests
         public DescargarPiezaHojaHandler Descargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public MarcarPiezaRotaHojaHandler Rota() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public ConfirmarEntregaHandler Entrega() => new(T.Db, Acceso, T.Pedidos, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
-        public AplicarFacturaPedidoHandler Factura() => new(T.Db, T.Eventos, new RelojFijo(Ahora));
+        public AplicarFacturaPedidoHandler Factura() => new(T.Db, Facturacion, T.Eventos, new RelojFijo(Ahora));
+        public CancelarAlbaranSalidaHandler CancelarAlbaran() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public ConciliarCobroEntregaHandler Conciliar() => new(T.Db, T.Pedidos, new RelojFijo(Ahora));
         public void Dispose() => T.Dispose();
     }
@@ -125,7 +129,7 @@ public sealed class SalidasTests
         salida.Referencia.Should().Be(dto.Albaranes.Single().Folio);
         salida.Lineas.Should().Equal([(1, 3m)]);
         (await e.T.Db.PedidosPt.SingleAsync()).EnRutaAt.Should().NotBeNull();
-        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle().Which.NumeroPedido.Should().Be("P1");
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty("sin factura el albarán aún se puede cancelar: el 72 no viaja (TI, 10-nov)");
     }
 
     [Fact]
@@ -139,7 +143,88 @@ public sealed class SalidasTests
         segunda.YaEmitida.Should().BeTrue();
         (await e.T.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimientoPieza.Salida)).Should().Be(2);
         e.Facturacion.Salidas.Should().HaveCount(1);
-        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().HaveCount(1);
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty();
+    }
+
+    // ---- Estatus 72: solo cuando el albarán ya no se puede cancelar (TI, 10-nov: en A+W el 72 no se revierte) ----
+
+    [Fact]
+    public async Task El_72_viaja_al_emitir_solo_si_el_albaran_ya_tiene_factura_de_su_salida_y_una_sola_vez()
+    {
+        using var e = await Preparar();
+        var hoja = await e.Crear().Handle(Hoja(["P1-E1"]), default);
+        e.Facturacion.Facturados.Add(hoja.Albaranes.Single().Folio);
+        await e.Emitir().Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
+        var otra = await e.Crear().Handle(Hoja(["P1-E2"]), default);
+        e.Facturacion.Facturados.Add(otra.Albaranes.Single().Folio);
+        await e.Emitir().Handle(new EmitirHojaSalidaCommand(otra.Id), default);
+
+        var ev = e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle().Which;
+        (ev.NumeroPedido, ev.HojaSalidaFolio, ev.AlbaranFolio).Should().Be(("P1", hoja.Folio, hoja.Albaranes.Single().Folio));
+        (await e.T.Db.PedidosPt.SingleAsync()).Estado72At.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Factura_del_pedido_sin_ligar_a_la_salida_no_manda_72_al_emitir_y_el_albaran_se_puede_cancelar()
+    {
+        using var e = await Preparar();
+        (await e.T.Db.PedidosPt.SingleAsync()).MarcarFacturado(Ahora);
+        await e.T.Db.SaveChangesAsync();
+        var hoja = await e.Crear().Handle(Hoja(["P1-E1"]), default);
+        await e.Emitir().Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
+
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty("la factura del pedido no amarra este albarán: aún se puede cancelar");
+        var dto = await e.CancelarAlbaran().Handle(new CancelarAlbaranSalidaCommand(hoja.Id, hoja.Albaranes.Single().Id, "Error de carga"), default);
+        dto.Albaranes.Single().Cancelado.Should().BeTrue();
+        (await e.T.Db.PedidosPt.SingleAsync()).Estado72At.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Factura_timbrada_que_no_amarra_un_albaran_emitido_no_manda_72()
+    {
+        var (e, _) = await Emitida(3, 3);
+        using var __ = e;
+        await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default);
+
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty();
+        (await e.T.Db.PedidosPt.SingleAsync()).Estado72At.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task El_72_viaja_con_la_primera_entrega_en_ruta_y_antes_del_115()
+    {
+        var (e, hoja) = await Emitida(3, 3);
+        using var _ = e;
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty();
+        await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id), default);
+        await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default);
+
+        var orden = e.T.Eventos.Eventos.Where(x => x is PedidoEnRutaEvent or PedidoFacturadoEntregadoEvent).Select(x => x.GetType().Name).ToList();
+        orden.Should().Equal(nameof(PedidoEnRutaEvent), nameof(PedidoFacturadoEntregadoEvent));
+    }
+
+    [Fact]
+    public async Task El_72_viaja_al_timbrar_la_factura_de_una_hoja_ya_emitida_y_no_se_repite_con_la_entrega()
+    {
+        var (e, hoja) = await Emitida(3, 3);
+        using var _ = e;
+        e.Facturacion.Facturados.Add(hoja.Albaranes.Single().Folio);
+        await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default);
+        var ev = e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle().Which;
+        (ev.HojaSalidaFolio, ev.AlbaranFolio).Should().Be((hoja.Folio, hoja.Albaranes.Single().Folio), "el 72 lleva la hoja y el albarán que la factura amarró");
+        await e.Entrega().Handle(Entrega(hoja.Id, hoja.Albaranes.Single().Id), default);
+
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().ContainSingle("el 72 se manda una sola vez por pedido");
+        var orden = e.T.Eventos.Eventos.Where(x => x is PedidoEnRutaEvent or PedidoFacturadoEntregadoEvent).Select(x => x.GetType().Name).ToList();
+        orden.Should().Equal(nameof(PedidoEnRutaEvent), nameof(PedidoFacturadoEntregadoEvent));
+    }
+
+    [Fact]
+    public async Task Factura_sin_hoja_emitida_no_manda_72()
+    {
+        using var e = await Preparar();
+        await e.Factura().Handle(new AplicarFacturaPedidoCommand(EntornoPt.Empresa, e.T.Pedidos.Pedidos["P1"].PedidoFacturableId), default);
+        e.T.Eventos.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty("sin hoja de salida emitida no hay 72");
     }
 
     [Fact]
