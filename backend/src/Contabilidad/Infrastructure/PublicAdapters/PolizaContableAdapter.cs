@@ -36,7 +36,8 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
                     ?? throw new BusinessRuleException("CONTAB_POLIZA_TIPO_NO_EXISTE", $"No existe el tipo de operación {clave}.");
                 var (anio, numero) = RegistroPolizas.Periodo(s.Fecha, null);
                 // C1.4-g: un listener corre sin usuario; la empresa viene del evento (mismo patrón que las recurrentes, K10.4).
-                await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Automatica, t, s.EmpresaId);
+                await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Automatica, t, s.EmpresaId,
+                    await registro.ContextoAsync(clave, null, s.Documento.Modulo, s.Partidas.Select(x => x.CuentaId), t));
                 var partidas = await registro.ValidarPartidasAsync(s.Partidas, tipo.Id, s.Fecha, s.OrigenCuentas, t);
                 var folio = await registro.ReservarNumeroAsync(tipo.Id, anio, t, s.EmpresaId);
                 poliza = Poliza.CrearAutomatica(Guid.CreateVersion7(), tipo, s.Fecha, anio, numero, s.Concepto, s.Documento,

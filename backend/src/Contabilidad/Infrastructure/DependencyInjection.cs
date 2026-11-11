@@ -62,6 +62,11 @@ public static class DependencyInjection
         // F1-CON-03: contrato público de consulta de periodo y candado de movimientos (falla cerrada, D9).
         services.AddScoped<IPeriodoContableConsultaPort, PeriodoContableConsultaAdapter>();
         services.AddScoped<VerificadorPeriodoContable>();
+        // M-213: reapertura acotada (alcance, evidencia y vencimiento) y su proceso de cierre por vencimiento.
+        services.AddOptions<Millet.Contabilidad.Application.Periodos.ReaperturaOpciones>()
+            .Bind(configuration.GetSection(Millet.Contabilidad.Application.Periodos.ReaperturaOpciones.Seccion));
+        services.AddScoped<Millet.Contabilidad.Application.Periodos.ValidadorReapertura>();
+        services.AddHostedService<Workers.ReaperturaVencimientoWorker>();
 
         // CON-12 (86e3jvvme): checklist de cierre. Cada paso automático es un verificador; los que leen otros módulos usan puertos de
         // consumidor que cablea Program.cs (Tesorería, Almacén, Activos Fijos, CxP).
