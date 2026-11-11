@@ -45,6 +45,11 @@ public static class DependencyInjection
             .AddOptions<Application.AplicacionPagos.AplicacionPagosOptions>()
             .Bind(configuration.GetSection(Application.AplicacionPagos.AplicacionPagosOptions.SectionName));
 
+        // M-239: vigencia de las excepciones de crédito (por omisión y máxima) configurable.
+        services
+            .AddOptions<Application.Autorizaciones.ExcepcionCreditoOptions>()
+            .Bind(configuration.GetSection(Application.Autorizaciones.ExcepcionCreditoOptions.SectionName));
+
         // CXC-PR8: worker diario de alertas de cartera (SOLUNION 90d, exceso
         // de crédito, auto-bloqueo por vencimientos).
         services
