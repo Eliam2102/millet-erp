@@ -70,7 +70,9 @@ public sealed class CrearPolizaHandler(
         {
             var tipo = await registro.TipoAsync(r.TipoOperacionId, ct);
             var (anio, numero) = RegistroPolizas.Periodo(r.Fecha, r.PeriodoNumero);
-            await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Manual, ct);
+            // M-213: lo capturado debe caer dentro del alcance si el periodo está reabierto de forma acotada.
+            await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Manual, ct, null,
+                await registro.ContextoAsync(tipo.Clave, usuario.UserId, r.DocumentoOrigen?.Modulo, r.Partidas.Select(x => x.CuentaId), ct));
             var partidas = await registro.ValidarPartidasAsync(r.Partidas, tipo.Id, r.Fecha, OrigenMovimiento.Manual, ct, aplicarAlcanceCentros: true);
             poliza = Poliza.CrearManual(Guid.CreateVersion7(), tipo, r.Fecha, anio, numero, r.Concepto, Documento(r.DocumentoOrigen),
                 partidas.Partidas, usuario.UserId, PoliticaPolizas.Usuario(usuario));
@@ -116,7 +118,8 @@ public sealed class EditarPolizaHandler(
             if (r.TipoOperacionId != poliza.TipoOperacionId)
                 throw new BusinessRuleException("CONTAB_POLIZA_TIPO_INMUTABLE", "El tipo de operación no se cambia: descarte el borrador y capture otro.");
             var (anio, numero) = RegistroPolizas.Periodo(r.Fecha, r.PeriodoNumero);
-            await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Manual, ct);
+            await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Manual, ct, null,
+                await registro.ContextoAsync(poliza.TipoClave, usuario.UserId, poliza.OrigenModulo, r.Partidas.Select(x => x.CuentaId), ct));
             var partidas = await registro.ValidarPartidasAsync(r.Partidas, poliza.TipoOperacionId, r.Fecha, OrigenMovimiento.Manual, ct, aplicarAlcanceCentros: true);
             db.PolizasPartidas.RemoveRange(poliza.Partidas);
             poliza.Editar(r.Fecha, anio, numero, r.Concepto, partidas.Partidas, usuario.UserId);
@@ -160,7 +163,9 @@ public sealed class AutorizarPolizaHandler(
             var poliza = await PoliticaPolizas.CargarAsync(db, request.Id, request.VersionEsperada, ct);
             foreach (var s in poliza.Partidas.Select(p => p.SucursalId).Distinct()) await alcance.VerificarAsync(s, ct);
             poliza.ExigirBorrador("autorizar");
-            await registro.VerificarPeriodoAsync(poliza.PeriodoAnio, poliza.PeriodoNumero, poliza.Origen, ct);
+            // M-213: «quién registra» es quien capturó el borrador; el alcance de tipo, cuentas y módulo se evalúa igual al autorizar.
+            await registro.VerificarPeriodoAsync(poliza.PeriodoAnio, poliza.PeriodoNumero, poliza.Origen, ct, null,
+                await registro.ContextoAsync(poliza.TipoClave, poliza.CapturadaPorId, poliza.OrigenModulo, poliza.Partidas.Select(x => x.CuentaId), ct));
             var partidas = await registro.ValidarPartidasAsync(
                 [.. poliza.Partidas.OrderBy(p => p.Linea).Select(PoliticaPolizas.Request)], poliza.TipoOperacionId, poliza.Fecha, OrigenMovimiento.Manual, ct);
             poliza.ValidarCuadre();
