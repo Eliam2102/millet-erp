@@ -115,8 +115,7 @@ internal sealed class EntornoPt : IDisposable
 
     public EntornoPt()
     {
-        Db = new ProductoTerminadoDbContext(
-            new DbContextOptionsBuilder<ProductoTerminadoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new EmpresaFija(Empresa));
+        Db = OtroContexto();
         Sucursales.Claves["01"] = Sucursal;
         var reloj = new RelojFijo(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
         Liberacion = new LiberacionPedido(Db, Saldos, Eventos, reloj);
@@ -130,6 +129,12 @@ internal sealed class EntornoPt : IDisposable
     public Task<EscaneoResultadoDto> Escanear(string etiqueta, string pedido = "P1", int? pos = 1, string? pieza = "1", DateTime? at = null, string? clave = "01") =>
         Handler.Handle(new RegistrarEscaneoPiezaCommand(Empresa, "Demo", etiqueta, pedido, pos, null, pieza, 2821, null,
             at ?? new DateTime(2026, 10, 28, 8, 0, 0, DateTimeKind.Unspecified), clave), CancellationToken.None);
+
+    private readonly string _bd = Guid.NewGuid().ToString();
+
+    /// <summary>Otro DbContext sobre la misma BD en memoria (simula una transacción concurrente).</summary>
+    public ProductoTerminadoDbContext OtroContexto() => new(
+        new DbContextOptionsBuilder<ProductoTerminadoDbContext>().UseInMemoryDatabase(_bd).Options, new EmpresaFija(Empresa));
 
     public void Dispose() => Db.Dispose();
 }

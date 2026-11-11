@@ -133,10 +133,27 @@ describe('<ConciliacionSat> — smoke (FAC-10)', () => {
     render(<ConciliacionSat />, { wrapper: createQueryWrapper() });
 
     expect(await screen.findByText('Sin diferencias')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'cuadran en estatus, total, tipo y receptor',
+    expect(screen.getByText(/cuadran en estatus, total, tipo y receptor/)).toHaveAttribute(
+      'role',
+      'status',
     );
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('explica el formato de archivo y los límites de fechas antes de enviar', () => {
+    mswServer.use(http.get(BASE, () => HttpResponse.json([])));
+    render(<ConciliacionSat />, { wrapper: createQueryWrapper() });
+    const campo = screen.getByLabelText('Archivo del SAT *');
+
+    fireEvent.change(campo, { target: { files: [new File(['test'], 'metadatos.pdf')] } });
+    expect(screen.getByText('Selecciona un archivo TXT o ZIP.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Conciliar', exact: true })).toBeDisabled();
+
+    fireEvent.change(campo, { target: { files: [new File(['test'], 'metadatos.txt')] } });
+    fireEvent.change(screen.getByLabelText('Desde *'), { target: { value: '2026-01-01' } });
+    fireEvent.change(screen.getByLabelText('Hasta *'), { target: { value: '2026-05-01' } });
+    expect(screen.getByText('El periodo no debe pasar de 93 días.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hasta *')).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('pide archivo y periodo antes de conciliar y manda ambos al servidor', async () => {

@@ -102,6 +102,27 @@ describe('Proforma PDF (U1.8a)', () => {
     expect(texto.indexOf('Subtotal')).toBeLessThan(texto.indexOf('IVA trasladado'));
   });
 
+  it('M-234: muestra la vigencia y, si existe, la conformidad del cliente', async () => {
+    const conforme: ProformaPedidoResponse = {
+      ...PROFORMA,
+      vigenteHasta: '2026-11-05',
+      conformidad: {
+        id: 'c-1',
+        proformaId: 'pf-1',
+        quien: 'Contacto Prueba',
+        fecha: '2026-10-22',
+        medio: 'Correo',
+        notas: null,
+        registradaPor: 'Cajera Prueba',
+        registradaEn: '2026-10-22T16:00:00Z',
+      },
+    };
+    const blob = await pdf(<ProformaCfdiDocument proforma={conforme} />).toBlob();
+    const plano = textoPdf(Buffer.from(await blob.arrayBuffer())).replace(/\s+/g, ' ');
+    expect(plano).toContain('Vigencia: hasta el 05/11/2026');
+    expect(plano).toContain('Conforme: Contacto Prueba · 22/10/2026 · Correo electrónico');
+  });
+
   it('nombra el archivo con pedido y versión', () => {
     expect(nombreArchivoProforma(PROFORMA)).toBe('proforma-MID-001-v2.pdf');
     expect(nombreArchivoProforma({ ...PROFORMA, numeroPedido: null })).toBe(

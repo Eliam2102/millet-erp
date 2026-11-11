@@ -14,3 +14,19 @@ public interface IPiezasPtOrigenReader
     Task<IReadOnlyList<EscaneoOrigen>> LeerAsync(DateTime desde, (DateTime Tiempo, string Etiqueta)? despuesDe,
         IReadOnlyList<(int Desde, int Hasta)> estaciones, int max, CancellationToken ct);
 }
+
+/// <summary>
+/// Una fila de <c>vw_erp_albaran_pos</c>: albarán de A+W de una posición, ya referida al pedido donde se produjeron las
+/// piezas. <c>PedidoAlbaran</c> es el pedido de A+W que lleva el albarán (el mismo o el hijo de expedición parcial).
+/// </summary>
+public sealed record AlbaranPosicionOrigen(string NumeroPedido, int Posicion, int Folio, DateOnly Fecha, decimal Piezas, string PedidoAlbaran);
+
+/// <summary>Lector de albaranes de A+W del origen activo (Demo o Real). Solo SELECT; nunca escribe en A+W.</summary>
+public interface IAlbaranesAwOrigenReader
+{
+    /// <summary>"Demo" o "Real".</summary>
+    Task<string> OrigenActualAsync(CancellationToken ct);
+
+    /// <summary>Todos los albaranes de las posiciones de pedidos con algún albarán de fecha &gt;= <paramref name="desde"/>.</summary>
+    Task<IReadOnlyList<AlbaranPosicionOrigen>> LeerAsync(DateOnly desde, CancellationToken ct);
+}

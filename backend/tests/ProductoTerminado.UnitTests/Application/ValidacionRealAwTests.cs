@@ -220,11 +220,8 @@ public sealed class ValidacionRealAwTests
         facturacion.Salidas[0].PedidoId.Should().Be(facturable1);
         facturacion.Salidas[0].Referencia.Should().Be(hoja1.Albaranes[0].Folio);
 
-        // Verificar evento publicado PedidoEnRutaEvent
-        var evt = events.Eventos.OfType<PedidoEnRutaEvent>().Single();
-        evt.NumeroPedido.Should().Be("10449822");
-        evt.AlbaranFolio.Should().Be(hoja1.Albaranes[0].Folio);
-        evt.HojaSalidaFolio.Should().Be(hoja1.Folio);
+        // Sin factura timbrada el albarán aún se cancela: el 72 no viaja al emitir (TI, 10-nov).
+        events.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty();
 
         // 6. Idempotencia: re-emitir la misma hoja no vuelve a descontar ni re-enviar
         var hojaReemitida = await emitirHandler.Handle(new EmitirHojaSalidaCommand(hoja1.Id), CancellationToken.None);
@@ -259,9 +256,6 @@ public sealed class ValidacionRealAwTests
         salida2.Referencia.Should().Be(hoja2.Albaranes[0].Folio);
         salida2.Lineas.Sum(l => l.Cantidad).Should().Be(2m);
 
-        // Verificar evento PedidoEnRutaEvent para 10449764
-        var evt2 = events.Eventos.OfType<PedidoEnRutaEvent>().Single(e => e.NumeroPedido == "10449764");
-        evt2.AlbaranFolio.Should().Be(hoja2.Albaranes[0].Folio);
-        evt2.HojaSalidaFolio.Should().Be(hoja2.Folio);
+        events.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty("el 72 espera entrega, liquidación o factura timbrada");
     }
 }

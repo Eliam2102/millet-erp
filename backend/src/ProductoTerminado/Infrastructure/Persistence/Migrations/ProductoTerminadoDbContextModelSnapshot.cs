@@ -859,6 +859,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("estado115at");
 
+                    b.Property<DateTimeOffset?>("Estado72At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("estado72at");
+
                     b.Property<DateTimeOffset?>("FacturadoAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("facturado_at");

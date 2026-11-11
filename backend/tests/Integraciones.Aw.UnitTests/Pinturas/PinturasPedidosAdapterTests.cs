@@ -146,7 +146,47 @@ public sealed class PinturasPedidosAdapterTests
 
     private static PinturasPedidosAdapter Adaptador(IPinturasSucursalResolver sucursales, string clave) => new(
         new FabricaQueFalla(), postgres: false, sucursales,
-        Options.Create(new PinturasPedidosOptions { SucursalClave = clave }), NullLogger<PinturasPedidosAdapter>.Instance);
+        Options.Create(new PinturasPedidosOptions { SucursalClave = clave }), new Reloj(), NullLogger<PinturasPedidosAdapter>.Instance);
+
+    private sealed class Reloj : Millet.SharedKernel.Application.IClock { public DateTimeOffset UtcNow { get; } = DateTimeOffset.UtcNow; }
+
+    private static readonly DateTimeOffset Ahora = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void Cabecera_sin_lineas_mas_reciente_que_el_umbral_sigue_pendiente()
+    {
+        PinturasPedidosAdapter.CabecerasVencidas([("OT-9", Ahora.AddMinutes(-9).AddSeconds(-59))], Ahora, 10)
+            .Should().BeEmpty("el portal pudo no haber terminado de insertar las líneas");
+    }
+
+    [Fact]
+    public void Cabecera_sin_lineas_con_el_umbral_cumplido_se_acusa_con_error()
+    {
+        PinturasPedidosAdapter.CabecerasVencidas(
+                [("OT-10", Ahora.AddMinutes(-10)), ("OT-60", Ahora.AddHours(-1)), ("OT-1", Ahora.AddMinutes(-1))], Ahora, 10)
+            .Should().Equal("OT-10", "OT-60");
+        var mensaje = PinturasPedidosAdapter.MensajeSinLineas(10);
+        mensaje.Should().StartWith("Orden sin renglones: ").And.Contain("10 minutos");
+        mensaje.Length.Should().BeLessThanOrEqualTo(500, "erp_error es nvarchar(500)");
+    }
+
+    [Fact]
+    public void Umbral_por_omision_es_10_minutos()
+    {
+        new PinturasPedidosOptions().MinutosCabeceraSinLineas.Should().Be(10);
+    }
+
+    [Fact]
+    public void Sql_de_cabeceras_sin_lineas_solo_toma_pendientes_sin_ninguna_linea_y_las_ordenes_con_lineas_siguen_el_flujo_normal()
+    {
+        var sql = PinturasPedidosAdapter.SqlSinLineas(postgres: false);
+        sql.Should().Contain("c.erp_resultado IS NULL").And.Contain("NOT EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id)")
+            .And.Contain("TOP (@max)").And.Contain("c.creado_at");
+        PinturasPedidosAdapter.SqlSinLineas(postgres: true).Should().Contain("LIMIT @max").And.NotContain("TOP");
+        // Las órdenes con líneas las toma la lectura normal (EXISTS) y nunca la de cabeceras sin líneas (NOT EXISTS).
+        PinturasPedidosAdapter.SqlPendientes(postgres: false).Should()
+            .Contain("AND EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id)");
+    }
 
     [Theory]
     [InlineData("")]
@@ -191,6 +231,7 @@ public sealed class PinturasPedidosAdapterTests
         if (conIntegracion) services.AddIntegracionesAwPedidosAdapters(config);
         services.AddIntegracionesAwOrigen(config);
         services.AddScoped<IPinturasSucursalResolver>(_ => new Sucursales(Guid.NewGuid()));
+        services.AddSingleton<Millet.SharedKernel.Application.IClock>(new Reloj()); // en la app lo registra el host
         services.AddScoped<IAwOrigenActivo, OrigenReal>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
