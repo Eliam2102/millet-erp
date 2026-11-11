@@ -2157,6 +2157,32 @@ export interface ProformaPedidoResponse {
   vigenteHasta?: string | null;
   /** M-145: ya pasó su vigencia. */
   vencida?: boolean;
+  /** M-234: conformidad del cliente con ESTA versión; null = sin conformidad. */
+  conformidad?: ProformaConformidadResponse | null;
+}
+
+/** M-234: medios por los que el cliente da su conformidad con la proforma. */
+export type MedioConformidadProforma = 'Correo' | 'Telefono' | 'Presencial' | 'Mensajeria' | 'Otro';
+
+export interface ProformaConformidadResponse {
+  id: string;
+  proformaId: string;
+  /** Persona del cliente que dio la conformidad. */
+  quien: string;
+  /** AAAA-MM-DD */
+  fecha: string;
+  medio: MedioConformidadProforma;
+  notas: string | null;
+  registradaPor: string | null;
+  registradaEn: string;
+}
+
+export interface RegistrarConformidadProformaBody {
+  quien: string;
+  medio: MedioConformidadProforma;
+  /** AAAA-MM-DD; vacío = hoy. */
+  fecha?: string;
+  notas?: string;
 }
 
 export interface DiferenciaProforma {
