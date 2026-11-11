@@ -15,19 +15,10 @@ import {
   useReglasFirmaCancelacion,
 } from '@/features/facturacion/api/useFacturas';
 import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
+import { TIPOS_OPERACION_CANCELACION } from '@/features/facturacion/lib/tipos-operacion-cancelacion';
 import { formatMoney } from '@/lib/money';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-
-/** M-235: tipos de operación (tipo de comprobante) a los que aplica una regla. */
-export const TIPOS_OPERACION_CANCELACION: ReadonlyArray<{ value: string; label: string }> = [
-  { value: '', label: 'Cualquier operación' },
-  { value: 'FacturaVenta', label: 'Factura de venta' },
-  { value: 'FacturaAnticipo', label: 'Factura de anticipo' },
-  { value: 'NotaCredito', label: 'Nota de crédito' },
-  { value: 'ReciboPago', label: 'Complemento de pago' },
-  { value: 'CartaPorte', label: 'Carta Porte' },
-];
 
 interface Fila {
   tipo: string;
@@ -59,10 +50,17 @@ export function ReglasFirmaCancelacionSheet({
   const query = useReglasFirmaCancelacion(abierto);
   const guardar = useGuardarReglasFirmaCancelacion();
   const [filas, setFilas] = useState<Fila[]>([]);
+  // Las filas se copian de lo guardado al abrir (ajuste de estado en render, sin efecto).
+  const [origen, setOrigen] = useState<ReglaFirmaCancelacion[] | undefined>();
+  if (abierto && query.data && query.data !== origen) {
+    setOrigen(query.data);
+    setFilas(query.data.map(aFila));
+  }
 
-  useEffect(() => {
-    if (abierto && query.data) setFilas(query.data.map(aFila));
-  }, [abierto, query.data]);
+  function cambiarAbierto(valor: boolean) {
+    if (!valor) setOrigen(undefined);
+    onOpenChange(valor);
+  }
 
   function actualizar(i: number, cambio: Partial<Fila>) {
     setFilas((prev) => prev.map((f, j) => (j === i ? { ...f, ...cambio } : f)));
@@ -83,7 +81,7 @@ export function ReglasFirmaCancelacionSheet({
       {
         onSuccess: () => {
           toast.success('Firmas de cancelación guardadas. Aplican a las solicitudes nuevas.');
-          onOpenChange(false);
+          cambiarAbierto(false);
         },
         onError: (error) => mostrarError(error, 'No se pudieron guardar las firmas.'),
       },
@@ -91,7 +89,7 @@ export function ReglasFirmaCancelacionSheet({
   }
 
   return (
-    <Sheet open={abierto} onOpenChange={onOpenChange}>
+    <Sheet open={abierto} onOpenChange={cambiarAbierto}>
       <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Firmas por operación y monto</SheetTitle>
@@ -180,7 +178,7 @@ export function ReglasFirmaCancelacionSheet({
         </SheetBody>
         {puedeEditar && (
           <SheetFooter>
-            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={guardar.isPending}>
+            <Button variant="ghost" onClick={() => cambiarAbierto(false)} disabled={guardar.isPending}>
               Cancelar
             </Button>
             <Button onClick={enviar} disabled={guardar.isPending}>
