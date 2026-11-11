@@ -177,6 +177,7 @@ export const almacenKeys = {
   tamboresLinea: () => [...almacenKeys.all, 'tambores-linea'] as const,
   consumosRevision: () => [...almacenKeys.all, 'consumos-revision'] as const,
   mensajesAppMarcados: () => [...almacenKeys.all, 'mensajes-app-marcados'] as const,
+  origenCapturaMp: () => [...almacenKeys.all, 'origen-captura-mp'] as const,
 
   // Salida por rotura en almacén (ALM-03)
   salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,

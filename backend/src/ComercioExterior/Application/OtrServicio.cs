@@ -10,6 +10,7 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Application;
 public sealed record AplicarEnvioOtr(Guid EmpresaId, OtrEntrada Entrada) : IRequest<bool>;
+public sealed record RevalidarSucursalEnvioOtr(Guid Id, int Version) : IRequest<OtrDetalle>;
 public sealed record VincularEnvioOtr(Guid Id, int Version, Guid ExpedienteId) : IRequest<OtrDetalle>;
 public sealed record AbrirExpedienteDesdeEnvioOtr(Guid Id, int Version, Guid ResponsableUsuarioId, string Moneda) : IRequest<OtrDetalle>;
 public sealed record ResolverConflictoOtr(Guid Id, int Version, Guid ConflictoId, bool UsarOtr, string Motivo) : IRequest<OtrDetalle>;
@@ -19,8 +20,8 @@ public sealed record OtrConflictoDto(Guid Id, long VersionOrigen, string Campo, 
 public sealed record OtrDetalle(Guid Id, string IdOrigen, int Version, long VersionAplicada, string Hash, Guid SucursalId, Guid ClienteId, Guid? ExpedienteId, Guid? ContenedorId, EstadoOtrEnvio Estado, OtrContenido Contenido, IReadOnlyList<OtrLineaDto> Lineas, IReadOnlyList<OtrConflictoDto> Conflictos, string? MotivoVinculacion);
 
 public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcablesReadPort pedidos, ExpedienteServicio seguridad,
-    ICatalogosCeReadPort catalogos, IClock clock, ICurrentEmpresaContext empresa, IIntegrationEventPublisher eventos) :
-    IRequestHandler<AplicarEnvioOtr, bool>, IRequestHandler<VincularEnvioOtr, OtrDetalle>,
+    ICatalogosCeReadPort catalogos, IClock clock, ICurrentEmpresaContext empresa, IIntegrationEventPublisher eventos, ISucursalOtrReadPort sucursalesOtr) :
+    IRequestHandler<AplicarEnvioOtr, bool>, IRequestHandler<RevalidarSucursalEnvioOtr, OtrDetalle>, IRequestHandler<VincularEnvioOtr, OtrDetalle>,
     IRequestHandler<AbrirExpedienteDesdeEnvioOtr, OtrDetalle>, IRequestHandler<ResolverConflictoOtr, OtrDetalle>
 {
     private IQueryable<OtrEnvio> Envios => db.OtrEnvios.Include(x => x.Lineas).Include(x => x.Conflictos).AsSplitQuery();
@@ -30,7 +31,7 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
     {
         await seguridad.PermisoAsync(PermisosCanonicos.ComercioExteriorExpedientesLeer, cancellationToken);
         var sucursales = await seguridad.SucursalesAsync(null, cancellationToken);
-        var q = Envios.Where(x => expediente == null ? x.Estado == EstadoOtrEnvio.PorVincular : x.ExpedienteId == expediente);
+        var q = Envios.Where(x => expediente == null || x.ExpedienteId == expediente);
         if (expediente is Guid id) await seguridad.CargarAsync(id, false, cancellationToken);
         if (sucursales is not null) q = q.Where(x => sucursales.Contains(x.SucursalId));
         var result = new List<OtrDetalle>();
@@ -126,6 +127,21 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
         await seguridad.SucursalAsync(envio.SucursalId, true, cancellationToken);
         if (envio.Version != version) throw new ConcurrencyException("OtrEnvio", id);
         return envio;
+    }
+    public async Task<OtrDetalle> Handle(RevalidarSucursalEnvioOtr request, CancellationToken cancellationToken)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var envio = await GestionarAsync(request.Id, request.Version, cancellationToken);
+        var clave = envio.Contenido().SucursalClaveAw;
+        var sucursal = string.IsNullOrWhiteSpace(clave) ? null : await sucursalesOtr.ResolverAsync(clave, cancellationToken);
+        if (sucursal is null)
+            throw new BusinessRuleException("CE_OTR_SUCURSAL_DESCONOCIDA", "La clave A+W aún no tiene equivalencia con una sucursal activa.");
+        await seguridad.SucursalAsync(sucursal.Value, true, cancellationToken);
+        envio.RevalidarSucursal(sucursal.Value);
+        await EvaluarSinVinculoAsync(envio, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+        return Detalle(envio);
     }
     public async Task<OtrDetalle> Handle(VincularEnvioOtr request, CancellationToken cancellationToken)
     {

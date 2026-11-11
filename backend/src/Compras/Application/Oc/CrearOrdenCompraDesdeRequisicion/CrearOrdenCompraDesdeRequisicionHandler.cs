@@ -57,6 +57,9 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
     private readonly IBlobStoragePort _blobGenerico;
     private readonly IAlmacenarBlobPort _blobOc;
 
+    // RQ de la app: la partida hereda la medida de la hoja (opcional solo para pruebas unitarias sin medidas).
+    private readonly Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? _variantes;
+
     public CrearOrdenCompraDesdeRequisicionHandler(
         ComprasDbContext db, Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort catalogos,
         IDim3ElegibilidadPort dim3,
@@ -68,8 +71,10 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         IArticuloReadPort articulos,
         ICurrentUserPermissions permisos,
         IBlobStoragePort blobGenerico,
-        IAlmacenarBlobPort blobOc)
+        IAlmacenarBlobPort blobOc,
+        Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? variantes = null)
     {
+        _variantes = variantes;
         _db = db;
         _catalogos = catalogos;
         _dim3 = dim3;
@@ -277,6 +282,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
 
         foreach (var lineaRq in lineasDeCompra)
         {
+            var medida = await Lineas.OcLineaMedida.DeRequisicionAsync(
+                _variantes, lineaRq.ArticuloId, lineaRq.AnchoMm, lineaRq.AltoMm, cancellationToken);
             oc.AgregarLineaDesdeRequisicion(
                 lineaId: Guid.CreateVersion7(),
                 articuloId: lineaRq.ArticuloId,
@@ -289,7 +296,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 // Fase E PR3: el CC-Máquina se hereda 1:1 de la línea de RQ.
                 centroCostoId: lineaRq.CentroCostoId, esActivoFijo: lineaRq.EsActivoFijo, claseActivoId: lineaRq.ClaseActivoId,
                 esServicio: articulos.TryGetValue(lineaRq.ArticuloId, out var articulo)
-                    && articulo.EsServicio);
+                    && articulo.EsServicio,
+                productoAwVarianteId: medida?.VarianteId, anchoMm: medida?.AnchoMm, altoMm: medida?.AltoMm);
         }
 
         // Comprometer RQ en la misma TX.

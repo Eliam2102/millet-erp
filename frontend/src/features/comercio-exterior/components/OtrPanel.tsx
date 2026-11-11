@@ -10,6 +10,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import { motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
 import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -88,7 +89,7 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
         <Badge variant={estadosOtr[envio.estado].tono}>{estadosOtr[envio.estado].texto}</Badge>
         <span className="text-xs text-ink-muted">Versión {envio.versionAplicada}</span>
       </header>
-      {envio.motivoVinculacion && <p className="text-warning-fg">{envio.motivoVinculacion}</p>}
+      {envio.motivoVinculacion && <p className="text-warning-fg">{motivoVinculacionOtr(envio.motivoVinculacion)}</p>}
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Object.entries({
           Cliente: envio.contenido.cliente,

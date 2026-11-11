@@ -503,6 +503,12 @@ builder.Services
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions.SectionName));
 builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
 builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmCargaInicialLector>(); // M-283, apagado por omisión
+// M-283: alarma de mensajes sin acuse (aviso por correo al jefe de Almacén) y su contador en el tablero de integraciones.
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.IAvisoMensajesSinAcuse,
+    Millet.Almacen.Infrastructure.Notificaciones.CorreoAvisoMensajesSinAcuse>();
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeAlarma>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Almacen.Infrastructure.PublicAdapters.AlmMensajeFuenteTablero>();
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.AlmMensajeWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
@@ -1900,6 +1906,7 @@ Millet.Api.Endpoints.Almacen.TamboresLineaEndpoints.MapTamboresLineaEndpoints(ap
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
 Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
 Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
+Millet.Api.Endpoints.Almacen.OrigenCapturaMpEndpoints.MapOrigenCapturaMpEndpoints(app);
 Millet.Api.Endpoints.Almacen.ConciliacionDiariaEndpoints.MapConciliacionDiariaEndpoints(app);
 
 // === Almacén — Recepciones Variante A (F2-PR2) + Saldos materializados ===
