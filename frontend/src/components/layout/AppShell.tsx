@@ -68,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           />
           <AvisoCsdBanner />
           <main
-            className={`relative min-h-[calc(100vh-3.5rem)] ${pathname === '/' ? '' : 'px-4 pt-6 pb-10 md:px-6'}`}
+            className={`@container relative min-w-0 min-h-[calc(100vh-3.5rem)] ${pathname === '/' ? '' : 'px-4 pt-6 pb-10 md:px-6'}`}
           >
             {children}
             {isSwitchingEmpresa && (

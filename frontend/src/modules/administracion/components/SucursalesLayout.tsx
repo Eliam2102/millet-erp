@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
@@ -44,94 +45,100 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
   }, [sucursales, filtro]);
 
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de sucursales"
-        data-print="hidden"
-      >
-        <PageHeader
-          titulo={<>Sucursales</>}
-          descripcion={
-            <>
-              {sucursales.length > 0 && (
-                <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs text-ink-muted">
-                  {sucursales.length}
-                </span>
-              )}
-            </>
-          }
-          acciones={
-            <>
-              {canGestionar && !agregando && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setAgregando(true)}
-                  className="gap-1 text-xs"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar sucursal
-                </Button>
-              )}
-            </>
-          }
-        />
-
-        {canVerDatosEmpresa && currentEmpresaId && (
-          <div className="flex justify-between items-center text-xs text-ink-muted px-1">
-            <span>
-              {empresaSesion?.razonSocial ?? empresaQuery.data?.empresa.razonSocial ?? <span className="text-ink-muted">Sin empresa</span>}
-            </span>
-            <Link
-              to="/admin/empresas/$id"
-              params={{ id: currentEmpresaId }}
-              className="hover:text-ink underline"
-            >
-              Datos de la empresa
-            </Link>
-          </div>
-        )}
-
-        {agregando && currentEmpresaId && (
-          <div className="rounded-md border border-dashed border-brand p-2 bg-surface-card">
-            <SucursalInlineForm
-              empresaId={currentEmpresaId}
-              onCancel={() => setAgregando(false)}
-              onSaved={() => {
-                setAgregando(false);
-                empresaQuery.refetch();
-              }}
-            />
-          </div>
-        )}
-
-        {sucursales.length > 3 && (
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
-            <Input
-              type="search"
-              placeholder="Buscar por clave o nombre…"
-              value={filtro}
-              onChange={(e) => setFiltro(e.target.value)}
-              className="h-9 pl-8 text-xs"
-            />
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          <RenderLista
-            query={empresaQuery}
-            items={sucursalesFiltradas}
-            idActivo={idActivo}
-            tieneFiltro={Boolean(filtro.trim())}
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista="sucursales"
+      lista={
+        <aside
+          className={cn(
+            'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+            idActivo != null ? 'hidden md:flex' : 'flex',
+          )}
+          aria-label="Lista de sucursales"
+          data-print="hidden"
+        >
+          <PageHeader
+            titulo={<>Sucursales</>}
+            descripcion={
+              <>
+                {sucursales.length > 0 && (
+                  <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs text-ink-muted">
+                    {sucursales.length}
+                  </span>
+                )}
+              </>
+            }
+            acciones={
+              <>
+                {canGestionar && !agregando && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAgregando(true)}
+                    className="gap-1 text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar sucursal
+                  </Button>
+                )}
+              </>
+            }
           />
-        </div>
-      </aside>
 
+          {canVerDatosEmpresa && currentEmpresaId && (
+            <div className="flex justify-between items-center text-xs text-ink-muted px-1">
+              <span>
+                {empresaSesion?.razonSocial ?? empresaQuery.data?.empresa.razonSocial ?? (
+                  <span className="text-ink-muted">Sin empresa</span>
+                )}
+              </span>
+              <Link
+                to="/admin/empresas/$id"
+                params={{ id: currentEmpresaId }}
+                className="hover:text-ink underline"
+              >
+                Datos de la empresa
+              </Link>
+            </div>
+          )}
+
+          {agregando && currentEmpresaId && (
+            <div className="rounded-md border border-dashed border-brand p-2 bg-surface-card">
+              <SucursalInlineForm
+                empresaId={currentEmpresaId}
+                onCancel={() => setAgregando(false)}
+                onSaved={() => {
+                  setAgregando(false);
+                  empresaQuery.refetch();
+                }}
+              />
+            </div>
+          )}
+
+          {sucursales.length > 3 && (
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
+              <Input
+                type="search"
+                placeholder="Buscar por clave o nombre…"
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                className="h-9 pl-8 text-xs"
+              />
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            <RenderLista
+              query={empresaQuery}
+              items={sucursalesFiltradas}
+              idActivo={idActivo}
+              tieneFiltro={Boolean(filtro.trim())}
+            />
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
           'min-w-0 flex-1 md:overflow-y-auto rounded-md border bg-surface-card',
@@ -141,7 +148,7 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 
