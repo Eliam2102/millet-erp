@@ -189,10 +189,11 @@ public sealed class ReintentarTimbradoHandler
             .Where(f => f.Id == factura.Id)
             .LoadAsync(ct);
 
-        // CCE121: el reintento timbra con la fecha de hoy, así que el TipoCambioUSD es el del DOF que
-        // rige hoy (catálogo), aunque la factura se haya guardado con otro valor (p. ej. capturado a mano).
-        if (factura.ComplementoCce is { } cce && _catalogos is not null)
-            cce.ActualizarTcDof(await Facturas.TipoCambioCce.DelDofAsync(_catalogos, ahora, ct));
+        // CCE121: el reintento manda al PAC un CFDI con la fecha de hoy (FechaFiscal(ahora)), así que el
+        // TipoCambioUSD del complemento y el TipoCambio del comprobante son los del catálogo de hoy,
+        // aunque la factura se haya guardado con otros (p. ej. capturado a mano o emitida otro día).
+        if (_catalogos is not null)
+            await Facturas.TipoCambioCce.AlinearConFechaDeTimbradoAsync(_catalogos, factura, ahora, ct);
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),

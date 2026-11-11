@@ -36,6 +36,22 @@ internal static class TipoCambioCce
     }
 
     /// <summary>
+    /// Timbrado en una fecha distinta de la emisión (reintento, pedimento): el CFDI lleva la
+    /// fecha del intento, así que el <c>TipoCambioUSD</c> del complemento y el <c>TipoCambio</c>
+    /// del comprobante salen del catálogo de ESE día. En USD ambos son el mismo valor. La factura
+    /// debe estar en Borrador (ya reabierta) y con su complemento cargado.
+    /// </summary>
+    public static async Task AlinearConFechaDeTimbradoAsync(
+        ICatalogosSatReadPort catalogos, Domain.Facturas.FacturaVenta factura, DateTimeOffset fechaTimbrado, CancellationToken ct)
+    {
+        if (factura.ComplementoCce is not { } cce) return;
+        cce.ActualizarTcDof(await DelDofAsync(catalogos, fechaTimbrado, ct));
+        if (factura.Moneda != "MXN")
+            factura.ActualizarTipoCambioParaTimbrar(
+                (await TipoCambioFactura.DelDiaAsync(catalogos, factura.Moneda, fechaTimbrado, ct))!.Value);
+    }
+
+    /// <summary>
     /// Resuelve el <c>TipoCambioUSD</c> de una emisión: sin captura (0) devuelve el del catálogo;
     /// con captura distinta del catálogo rechaza (el SAT no acepta otro valor).
     /// </summary>

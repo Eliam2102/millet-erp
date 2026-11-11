@@ -104,6 +104,28 @@ public sealed class CceTests
     }
 
     [Fact]
+    public void Actualizar_tipo_cambio_para_timbrar_solo_en_borrador_y_moneda_extranjera()
+    {
+        var f = FacturaExportacionBorrador();
+        f.ActualizarTipoCambioParaTimbrar(18.6297m);
+        f.TipoCambio.Should().Be(18.6297m);
+
+        var cero = () => f.ActualizarTipoCambioParaTimbrar(0m);
+        cero.Should().Throw<BusinessRuleException>().Where(e => e.Code == "TIPO_CAMBIO_VALOR_INVALIDO");
+
+        f.MarcarTimbradoEnProceso();
+        var enProceso = () => f.ActualizarTipoCambioParaTimbrar(18.7m);
+        enProceso.Should().Throw<BusinessRuleException>().Where(e => e.Code == "TIPO_CAMBIO_INMUTABLE");
+
+        var receptor = new DatosFiscalesReceptor("AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX", false);
+        var mxn = FacturaVenta.CrearBorrador(Guid.NewGuid(), "F-2", 2, Guid.NewGuid(), null, null, receptor,
+            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "PUE", "01", "MXN", null, 2026, 5,
+            (short)1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        var enMxn = () => mxn.ActualizarTipoCambioParaTimbrar(18.6m);
+        enMxn.Should().Throw<BusinessRuleException>().Where(e => e.Code == "TIPO_CAMBIO_MXN");
+    }
+
+    [Fact]
     public void AdjuntarCce_a_factura_no_exportacion_lanza()
     {
         var receptor = new DatosFiscalesReceptor("AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX", false);
@@ -308,6 +330,8 @@ public sealed class CceTests
             .Handle(CommandExportacion(CceCompleto(18.6297m), tipoCambio: 18.6297m), CancellationToken.None);
 
         pac.UltimaEmision!.ComplementoCce!.TipoCambioUsd.Should().Be(18.6297m);
+        // Moneda USD: TipoCambio del comprobante y TipoCambioUSD del complemento, mismo día y mismo valor.
+        pac.UltimaEmision.TipoCambio.Should().Be(pac.UltimaEmision.ComplementoCce.TipoCambioUsd);
         catalogos.ConsultaTipoCambio.Should().Be(("USD", new DateOnly(2026, 5, 30)));
         (await db.FacturasVenta.Include(f => f.ComplementoCce!).SingleAsync()).ComplementoCce!.TcDof.Should().Be(18.6297m);
     }

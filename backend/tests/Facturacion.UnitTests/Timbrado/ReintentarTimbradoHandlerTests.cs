@@ -139,15 +139,16 @@ public sealed class ReintentarTimbradoHandlerTests
     }
 
     /// <summary>Factura de exportación fallida por CCE121: guardada con el TC DOF capturado a mano (18.5).</summary>
-    private static FacturaVenta CrearExportacionFallidaPorTcDof(FacturacionDbContext db, Guid empresaId)
+    private static FacturaVenta CrearExportacionFallidaPorTcDof(FacturacionDbContext db, Guid empresaId,
+        decimal tipoCambio = 18.6297m, decimal tcDof = 18.5m)
     {
         var receptor = new DatosFiscalesReceptor("XEXX010101000", "Foreign Corp", "616", "76120", "S01", "USA", true);
         var fv = FacturaVenta.CrearBorrador(empresaId, "FCNK-000004", 4, Guid.NewGuid(), null, null, receptor,
-            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "PUE", "03", "USD", 18.6297m, 2026, 7,
+            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "PUE", "03", "USD", tipoCambio, 2026, 7,
             (short)8, ComportamientoFiscal.ExportacionConCce, null, null, null, false);
         fv.AgregarLinea(null, "8471300100", "Export goods", "H87", 1m, 3750m, 0m, "02", 0m, null, null);
         fv.RecalcularTotales();
-        var cce = Millet.Facturacion.Domain.Cce.ComplementoCce.Crear(fv.Id, "2", "FOB", 18.5m, "TAX-USA-1", "USA",
+        var cce = Millet.Facturacion.Domain.Cce.ComplementoCce.Crear(fv.Id, "2", "FOB", tcDof, "TAX-USA-1", "USA",
             claveDePedimento: "A1", receptorDomicilioCalle: "123 Main St", receptorDomicilioEstado: "TX",
             receptorDomicilioCodigoPostal: "75001");
         cce.AgregarLinea("8471300100", "01", 1500m, 2.5m, 3750m, true);
@@ -179,6 +180,32 @@ public sealed class ReintentarTimbradoHandlerTests
         r.Estado.Should().Be("Timbrado");
         r.Folio.Should().Be("FCNK-000004");
         pac.UltimaEmision!.ComplementoCce!.TipoCambioUsd.Should().Be(18.6297m);
+        fv.ComplementoCce!.TcDof.Should().Be(18.6297m);
+    }
+
+    [Fact]
+    public async Task CCE121_reintento_otro_dia_alinea_TipoCambio_y_TipoCambioUSD_al_catalogo_del_dia_del_CFDI()
+    {
+        // Emitida otro día con 18.40 en ambos; el reintento manda el CFDI con la fecha de hoy (11-jul),
+        // así que los dos tipos de cambio deben ser los del catálogo de ese día y coincidir (Moneda USD).
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var fv = CrearExportacionFallidaPorTcDof(db, empresaId, tipoCambio: 18.40m, tcDof: 18.40m);
+        var pac = new FakeFiscalApiClient();
+        var catalogos = new FakeCatalogosSatReadPort(tipoCambio: 18.6297m);
+        var handler = new ReintentarTimbradoHandler(db, new FakeSender(new ReservarFolioResponse("SIN-NUEVO-FOLIO", 2, "")),
+            new FakePeriodoContablePort(true), pac, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db), catalogos: catalogos);
+
+        var r = await handler.Handle(new ReintentarTimbradoCommand(fv.Id), CancellationToken.None);
+
+        r.Estado.Should().Be("Timbrado");
+        var emision = pac.UltimaEmision!;
+        DateOnly.FromDateTime(emision.FechaLocal.DateTime).Should().Be(new DateOnly(2026, 7, 11));
+        catalogos.ConsultaTipoCambio.Should().Be(("USD", new DateOnly(2026, 7, 11)));
+        emision.TipoCambio.Should().Be(18.6297m);
+        emision.ComplementoCce!.TipoCambioUsd.Should().Be(emision.TipoCambio!.Value);
+        fv.TipoCambio.Should().Be(18.6297m);
         fv.ComplementoCce!.TcDof.Should().Be(18.6297m);
     }
 

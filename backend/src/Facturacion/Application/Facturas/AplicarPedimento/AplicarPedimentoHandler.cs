@@ -77,12 +77,12 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
 
         await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
 
-        // CCE121: se timbra hoy, así que el TipoCambioUSD es el del DOF que rige hoy.
-        if (factura.ComplementoCce is { } cce && _catalogos is not null)
-            cce.ActualizarTcDof(await TipoCambioCce.DelDofAsync(_catalogos, ahora, cancellationToken));
-
         // Aplica el pedimento (vuelve a Borrador) y timbra.
         factura.AplicarPedimento(command.Pedimento, command.FechaDocAduanero, command.IdentificacionMercancia);
+
+        // CCE121: se timbra hoy, así que TipoCambioUSD y TipoCambio son los del catálogo de hoy.
+        if (_catalogos is not null)
+            await TipoCambioCce.AlinearConFechaDeTimbradoAsync(_catalogos, factura, ahora, cancellationToken);
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
