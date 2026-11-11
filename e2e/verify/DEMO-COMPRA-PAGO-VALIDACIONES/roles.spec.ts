@@ -35,7 +35,7 @@ const codigo = async (r: any) => { const t = await r.text(); try { return `${r.s
 const r2 = (n: number) => Math.round(n * 100) / 100;
 type Rol = Awaited<ReturnType<typeof asRole>>;
 /** Read-only cross-branch scopes of the auditor (so he can open the documents of MID); none of them authorizes, approves or signs. */
-const AUDITOR_LECTURA = ['compras.requisiciones.leer-todas-sucursales', 'compras.ordenes.leer-todas-sucursales', 'cuentas_por_pagar.documentos.leer-todas-sucursales',
+const AUDITOR_LECTURA = ['compras.requisiciones.leer-todas-sucursales', 'compras.requisiciones.ver-todos-departamentos', 'compras.ordenes.leer-todas-sucursales', 'cuentas_por_pagar.documentos.leer-todas-sucursales',
   'cuentas_por_pagar.facturas.leer-todas-sucursales', 'tesoreria.pasivos.ver', 'tesoreria.documentos.leer-todas-sucursales'];
 
 async function abrir(browser: Browser, p: { rol: string; email: string }, url: string, cleanup: any): Promise<Rol> {
@@ -327,6 +327,7 @@ test('V-RO-04 corrida arriba del límite DEMO ($500,000): dos firmas de personas
 
 test('V-RO-05 conciliación: diferencia de $1 solo como sugerencia (P-140) y cierre cuadrado con acta', async ({ page, guard }) => {
   guard.allowStatus(422);
+  await warm(page, '/tesoreria/conciliacion', SA_EMAIL);
   const n = 7 + Math.floor(Math.random() * 900); // cuentas nuevas por corrida (las de V-CO usan 5 y 6)
   const numero = (k: number) => `0119${String(k).padStart(6, '0')}`;
   const dif: Mov = { dia: 15, desc: 'PAGO SPEI HERRAJES INDUSTRIALES DEL NORTE', ref: 'SPEI2609150001', sentido: 2, monto: 18_450.0, concepto: '0000000b-1001-0000-0000-000000000001' };
@@ -341,7 +342,7 @@ test('V-RO-05 conciliación: diferencia de $1 solo como sugerencia (P-140) y cie
   const abrirEImportar = async (cuenta: string, texto: string) => {
     await page.goto('/tesoreria/conciliacion');
     await expect(page.getByRole('heading', { name: 'Conciliación bancaria' })).toBeVisible();
-    const combo = (i: number) => page.getByText(['Cuenta Bancaria', 'Año', 'Mes'][i], { exact: true }).first().locator('xpath=following::button[@role="combobox"][1]');
+    const combo = (i: number) => page.getByText(['Cuenta bancaria', 'Año', 'Mes'][i], { exact: true }).first().locator('xpath=following::button[@role="combobox"][1]');
     await combo(0).click(); await page.getByRole('option', { name: new RegExp(cuenta) }).click();
     await combo(1).click(); await page.getByRole('option', { name: '2026', exact: true }).click();
     await combo(2).click(); await page.getByRole('option', { name: 'Septiembre' }).click();

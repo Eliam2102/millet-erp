@@ -218,27 +218,21 @@ test('V-CXP-04 factura con fecha de contabilización en un periodo contable cerr
   sql(`update contabilidad.periodos_contables set estado=1 where anio=${anio} and numero=1`);
 });
 
-test('V-CXP-05 factura sin recepción: se rechaza con FACTURA_EXCEDE_RECIBIDO y no se guarda', async ({ page, guard }) => {
+test('V-CXP-05 factura sin recepción: se registra completa y el pasivo queda retenido por recepción pendiente (86e3yxpy4)', async ({ page, guard }) => {
   await prepOc(guard);
   const oc = await crearOc(guard); // OC autorizada, nada recibido todavía en Almacén
   const u = nuevoUuid(); const num = numFolio();
   await cargarCfdi(page, cfdiXml({ uuid: u, rfc: RFC_PROV, fecha: today(), folio: num }), 'factura-sin-recepcion.xml');
   const cap = await abrirCaptura(page, u, oc.ocFolio);
-  guard.allowStatus(422);
-  guard.expectApiMutationError(422);
   const post = page.waitForResponse((r) => /\/cuentas-por-pagar\/facturas$/.test(r.url()) && r.request().method() === 'POST');
   await cap.getByRole('button', { name: 'Capturar factura' }).click();
   const r = await post;
-  expect(r.status()).toBe(422);
-  await expect(toast(page)).toBeVisible();
-  await page.waitForTimeout(500);
-  await foto(page, 'V-CXP-05-factura-sin-recepcion-se-rechaza');
-  const prob = JSON.parse(await r.text());
-  expect(prob.code ?? JSON.stringify(prob)).toContain('FACTURA_EXCEDE_RECIBIDO');
-  expect(prob.detail).toContain(oc.ocFolio);
-  // el servidor responde igual si se le llama directo
-  const body = JSON.parse(r.request().postData() ?? '{}');
-  await rechazo(await guard.api.post('/api/v1/cuentas-por-pagar/facturas', { ...body, uuidCfdi: nuevoUuid(), cfdiRecibidoId: null }, { 'Idempotency-Key': uuid() }), 422, 'FACTURA_EXCEDE_RECIBIDO');
-  expect(sql(`select count(*) from cuentas_por_pagar.facturas_proveedor where orden_compra_id = '${oc.ocId}'`), 'no se guardó ninguna factura de esa OC').toBe('0');
+  expect(r.status(), 'la factura mayor que lo recibido se registra completa (ya no se rechaza)').toBe(201);
+  const fac = JSON.parse(await r.text());
+  await page.waitForLoadState('networkidle');
+  await foto(page, 'V-CXP-05-factura-sin-recepcion-retenida');
+  expect(sql(`select count(*) from cuentas_por_pagar.facturas_proveedor where orden_compra_id = '${oc.ocId}'`), 'la factura quedó registrada').toBe('1');
+  const det = await ok(await guard.api.get(`/api/v1/cuentas-por-pagar/facturas/${fac.id}`));
+  expect(Number(det.retenido), 'el excedente sobre lo recibido (todo, aquí) queda retenido por recepción pendiente').toBeGreaterThan(0);
   void apiBaseURL; void captureBearer;
 });

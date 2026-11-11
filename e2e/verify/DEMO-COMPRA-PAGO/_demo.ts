@@ -2,7 +2,7 @@
 import { apiCallOn, expect, shot } from '../../_harness/fixtures';
 import type { Page } from '../../_harness/fixtures';
 import { sql } from '../86e3ke5ck/_data';
-import { apiBaseURL, CC_SEED, DEPTO_COMPRAS, MID, ok, rand, SUB_INSUMOS_MID, today, uuid } from '../86e3pc50v/_data';
+import { apiBaseURL, CC_SEED, pdfMinimo, DEPTO_COMPRAS, MID, ok, rand, SUB_INSUMOS_MID, today, uuid } from '../86e3pc50v/_data';
 
 /** Evidence screenshot: waits for the UI to settle (animations, refetch) so the PNG shows the final state, not a transition. */
 export async function foto(p: Page, nombre: string) {
@@ -85,7 +85,7 @@ export async function adjuntarCotizacionPorUi(pa: Page, guard: any, ocId: string
   const nombre = 'cotizacion-papeleria.pdf';
   await pa.getByRole('tab', { name: 'Adjuntos' }).click();
   const mgr = pa.locator('[data-component="adjuntos-manager"]');
-  await mgr.locator('input[type="file"]').setInputFiles({ name: nombre, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n') });
+  await mgr.locator('input[type="file"]').setInputFiles({ name: nombre, mimeType: 'application/pdf', buffer: pdfMinimo() });
   await expect(mgr.locator('[data-component="adjuntos-staging"]')).toContainText(nombre);
   await mgr.getByRole('combobox', { name: 'Tipo de documento' }).click();
   await pa.getByRole('option', { name: /\(cotizacion\)/ }).click();
@@ -153,7 +153,6 @@ export async function designarAprobador(guard: any, cleanup: { add: (f: () => Pr
   return usuarioId;
 }
 
-const PDF = () => Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
 
 /**
  * Arrange (API): an OC WITHOUT requisition, one line, created by A and transmitted by A after B uploaded both required attachments
@@ -176,7 +175,7 @@ export async function ocSinRqTransmitida(o: { guard: any; page: Page; A: { api: 
     expect(tipoId, `document type "${clave}" missing in the catalog`).toBeTruthy();
     const up = await page.request.fetch(`${apiBaseURL}/api/v1/compras/ordenes/${oc.id}/adjuntos`, {
       method: 'POST', headers: { authorization: o.bearerB.v, 'Idempotency-Key': uuid() },
-      multipart: { tipoDocumentoId: tipoId, archivo: { name: archivo, mimeType: 'application/pdf', buffer: PDF() } },
+      multipart: { tipoDocumentoId: tipoId, archivo: { name: archivo, mimeType: 'application/pdf', buffer: pdfMinimo() } },
     });
     expect([200, 201], `${clave} upload answered ${up.status()}: ${(await up.text()).slice(0, 300)}`).toContain(up.status());
   }

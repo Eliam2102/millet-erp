@@ -40,7 +40,7 @@ export function seed() {
   const emp = sql('select id from compartido.empresas limit 1');
   if (!emp) throw new Error('no empresa in the test DB');
   sql(`delete from tesoreria.corrida_pago_archivo_linea; delete from tesoreria.corrida_pago_archivo; delete from tesoreria.corrida_pago_firma;
-    delete from tesoreria.corrida_pago_linea; delete from tesoreria.corrida_pago;
+    delete from tesoreria.aplicacion_pago_proveedor where corrida_id is not null; delete from tesoreria.corrida_pago_linea; delete from tesoreria.corrida_pago;
     delete from tesoreria.aplicacion_pago_proveedor where proveedor_id::text like '00000019-0004-%';
     delete from tesoreria.pasivo_pendiente_pago where proveedor_id::text like '00000019-0004-%';
     delete from cuentas_por_pagar.facturas_proveedor where proveedor_id::text like '00000019-0004-%';

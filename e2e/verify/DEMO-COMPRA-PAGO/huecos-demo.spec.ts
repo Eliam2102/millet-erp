@@ -12,7 +12,7 @@
  */
 import { apiCallOn, expect, expectNoPlaceholders, reloadAndExpect, shot, test } from '../../_harness/fixtures';
 import type { Page } from '../../_harness/fixtures';
-import { asRole, crearArticulo, CC_SEED, DEPTO_COMPRAS, MID, ok, OPER_EMAIL, proveedorSeed, rand, SA_EMAIL, warm } from '../86e3pc50v/_data';
+import { asRole, crearArticulo, pdfMinimo, CC_SEED, DEPTO_COMPRAS, MID, ok, OPER_EMAIL, proveedorSeed, rand, SA_EMAIL, warm } from '../86e3pc50v/_data';
 import { designarAprobador, JEFE_PERMS, PERSONA } from './_demo';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
@@ -25,7 +25,6 @@ const A_PERMS = [
   'centros_costo.dim3.leer-todos', 'compartido.catalogos.leer', 'datos_maestros.proveedores.leer',
 ];
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
 
 async function foto(p: Page, nombre: string) {
   await p.waitForLoadState('networkidle');
@@ -111,7 +110,7 @@ async function ocDesdeRq(pa: Page, rqId: string, opts: { importacion?: boolean }
   const sheet = pa.getByRole('dialog').last();
   await expect(sheet.locator('form[data-component="sheet-nueva-oc"]')).toBeVisible();
   await sheet.getByRole('combobox', { name: 'Seleccionar proveedor' }).click();
-  await pa.getByLabel('Buscar proveedor por clave').fill('PROV-EST');
+  await pa.getByRole('textbox', { name: 'Buscar proveedor', exact: true }).fill('PROV-EST');
   await pa.getByRole('option', { name: /PROV-EST/ }).first().click();
   await elegirOpcion(pa, sheet, 'Seleccionar condiciones de pago');
   await elegirOpcion(pa, sheet, 'Seleccionar uso principal');
@@ -130,7 +129,7 @@ async function ocDesdeRq(pa: Page, rqId: string, opts: { importacion?: boolean }
 async function adjuntarPorUi(pa: Page, guard: any, ocId: string, clave: 'cotizacion' | 'ficha_tecnica', nombre: string) {
   await pa.getByRole('tab', { name: 'Adjuntos' }).click();
   const mgr = pa.locator('[data-component="adjuntos-manager"]');
-  await mgr.locator('input[type="file"]').setInputFiles({ name: nombre, mimeType: 'application/pdf', buffer: PDF });
+  await mgr.locator('input[type="file"]').setInputFiles({ name: nombre, mimeType: 'application/pdf', buffer: pdfMinimo() });
   await expect(mgr.locator('[data-component="adjuntos-staging"]')).toContainText(nombre);
   await mgr.getByRole('combobox', { name: 'Tipo de documento' }).click();
   await pa.getByRole('option', { name: new RegExp(`\\(${clave}\\)`) }).click();
@@ -144,9 +143,9 @@ async function adjuntarPorUi(pa: Page, guard: any, ocId: string, clave: 'cotizac
 
 /** UI: buyer quotes the price (and optionally the tariff fraction) on line 1. */
 async function ponerPrecio(pa: Page, ocId: string, precio: number, fraccion?: string) {
-  await pa.getByRole('tab', { name: 'Líneas' }).click();
-  await pa.getByRole('button', { name: 'Editar línea 1' }).click();
-  const form = pa.locator('form[aria-label^="Editar línea"]');
+  await pa.getByRole('tab', { name: 'Partidas' }).click();
+  await pa.getByRole('button', { name: 'Editar partida 1' }).click();
+  const form = pa.locator('form[aria-label^="Editar partida"]');
   await campo(form, /^Precio/).fill(String(precio));
   if (fraccion) await form.locator('[data-field="fraccion-arancelaria"]').fill(fraccion);
   const res = await apiCallOn(pa, () => form.getByRole('button', { name: 'Guardar cambios' }).click(),
@@ -158,6 +157,20 @@ async function transmitir(pa: Page, ocId: string, status: number[]) {
   await pa.getByRole('button', { name: 'Transmitir a autorización' }).click();
   return apiCallOn(pa, () => pa.getByRole('button', { name: 'Transmitir', exact: true }).click(),
     { method: 'POST', url: new RegExp(`/compras/ordenes/${ocId}/transmitir$`), status });
+}
+
+/**
+ * The screen now blocks «Transmitir a autorización» up front (Revisión previa checklist) while a requirement is missing, so the
+ * 422 can no longer be provoked by clicking. We assert the disabled button, its reason and the failing checklist row, and then that
+ * the server rejects the same transmit when called directly.
+ */
+async function transmitirBloqueado(pa: Page, guard: any, ocId: string, codigo: string, detalle: RegExp) {
+  await expect(pa.getByRole('button', { name: 'Transmitir a autorización' })).toBeDisabled();
+  await expect(pa.getByText(/Faltan \d+ de \d+ requisitos/)).toBeVisible();
+  await expect(pa.getByText(detalle).first()).toBeVisible();
+  const r = await guard.api.post(`/api/v1/compras/ordenes/${ocId}/transmitir`);
+  expect(r.status()).toBe(422);
+  expect(await r.text()).toContain(codigo);
 }
 
 test('DEMO-02 [a][e] @evidence OC without price is rejected on transmit; quotation attached through the UI', async ({ page, guard, cleanup, browser }) => {
@@ -185,9 +198,7 @@ test('DEMO-02 [a][e] @evidence OC without price is rejected on transmit; quotati
   });
 
   // (a) transmit WITHOUT price -> readable rejection
-  const rej = await transmitir(pa, ocId, [422]);
-  expect(await rej.text()).toContain('OC_PRECIO_REQUERIDO');
-  await expect(pa.getByText(/Captura el precio de las líneas .* antes de enviar a autorización/).first()).toBeVisible();
+  await transmitirBloqueado(pa, guard, ocId, 'OC_PRECIO_REQUERIDO', /Falta el precio de la línea 1/);
   expect(await pa.locator('body').innerText()).not.toMatch(UUID_RE);
   await foto(pa, 'DEMO-02-02-oc-sin-precio-rechazada');
   expect((await ok(await guard.api.get(`/api/v1/compras/ordenes/${ocId}`))).estado, 'OC must stay in Borrador').toBe(0);
@@ -243,9 +254,7 @@ test('DEMO-03 [d] @evidence import OC: 422 without incoterm shows no UUIDs, then
 
   // transmit without incoterm -> 422 with the toast, and no UUID anywhere on the page
   await pa.getByRole('tab', { name: 'Información' }).click();
-  const rej = await transmitir(pa, ocId, [422]);
-  expect(await rej.text()).toContain('IMPORT_INCOTERM_REQUERIDO');
-  await expect(pa.getByText(/Falta el incoterm de la operación/)).toBeVisible();
+  await transmitirBloqueado(pa, guard, ocId, 'IMPORT_INCOTERM_REQUERIDO', /Falta: incoterm y país de origen/);
   // "Comprador titular" / "Encargado de compras" live in the header sub-tab: show it while the toast is still on screen
   await pa.locator('[data-subtab="cabecera"]').click();
   await expect(pa.getByText('Comprador titular').first()).toBeVisible();

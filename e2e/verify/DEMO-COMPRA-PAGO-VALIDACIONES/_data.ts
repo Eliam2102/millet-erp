@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import type { Page } from '@playwright/test';
 import { apiBaseURL, env, envCfg } from '../../_harness/session';
 import { expect, shot, type Guard } from '../../_harness/fixtures';
+import { pdfMinimo } from '../86e3pc50v/_data';
 
 export const MID = '00000005-0003-0000-0000-000000000001';
 export const SUB_INSUMOS_MID = '00000008-0001-0000-0000-000000000001';
@@ -108,7 +109,7 @@ export async function crearRq(guard: Guard, o: { clasificacion?: number; descrip
   return { id, folio: det.folio as string };
 }
 
-const PDF = () => Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
+const PDF = pdfMinimo;
 
 /** OC without requisition, one line, with the two required attachments, transmitted by the session user (the author). */
 export async function ocTransmitida(o: { guard: Guard; page: Page; bearer: { v: string }; provId: string; articuloId: string; cantidad: number; precio: number; motivo: string }) {

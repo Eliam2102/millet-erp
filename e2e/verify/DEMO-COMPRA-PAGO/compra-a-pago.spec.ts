@@ -612,7 +612,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with one real user per role: RQ
       `${dd},"PAGO SPEI ${PROV.razon.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').slice(0, 40)}",${referencia},${total.toFixed(2)},,${saldoFinal.toFixed(2)}`].join('\n');
     await page.goto('/tesoreria/conciliacion');
     await expect(page.getByRole('heading', { name: 'Conciliación bancaria' })).toBeVisible();
-    const combo = (i: number) => page.getByText(['Cuenta Bancaria', 'Año', 'Mes'][i], { exact: true }).first().locator('xpath=following::button[@role="combobox"][1]');
+    const combo = (i: number) => page.getByText(['Cuenta bancaria', 'Año', 'Mes'][i], { exact: true }).first().locator('xpath=following::button[@role="combobox"][1]');
     await combo(0).click();
     await page.getByRole('option', { name: new RegExp(CUENTA_MILLET.numero.slice(-4)) }).click();
     await combo(1).click();

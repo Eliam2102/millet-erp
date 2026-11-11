@@ -21,7 +21,7 @@ const idem = () => ({ 'Idempotency-Key': randomUUID() });
 async function abrirPeriodoEImportar(page: Page, ult4: string, texto: string) {
   await page.goto('/tesoreria/conciliacion');
   await expect(page.getByRole('heading', { name: 'Conciliación bancaria' })).toBeVisible();
-  const combo = (i: number) => page.getByText(['Cuenta Bancaria', 'Año', 'Mes'][i], { exact: true }).first().locator('xpath=following::button[@role="combobox"][1]');
+  const combo = (i: number) => page.getByText(['Cuenta bancaria', 'Año', 'Mes'][i], { exact: true }).first().locator('xpath=following::button[@role="combobox"][1]');
   await combo(0).click();
   await page.getByRole('option', { name: new RegExp(ult4) }).click();
   await combo(1).click();
@@ -32,7 +32,7 @@ async function abrirPeriodoEImportar(page: Page, ult4: string, texto: string) {
   await page.getByRole('button', { name: 'Nueva conciliación' }).click();
   await page.getByRole('button', { name: 'Abrir Conciliación' }).click();
   await expect(page.getByText('Conciliación abierta con éxito').first()).toBeVisible();
-  await page.getByRole('button', { name: 'Cargar Extracto BBVA' }).click();
+  await page.getByRole('button', { name: 'Cargar extracto', exact: true }).click();
   const dlg = page.getByRole('dialog');
   await dlg.getByRole('textbox').last().fill(texto);
   await apiCallOn(page, () => dlg.getByRole('button', { name: 'Cargar y Procesar' }).click(), { method: 'POST', url: /conciliaciones\/[^/]+\/extracto$/, status: [200, 201] });
