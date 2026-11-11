@@ -117,11 +117,24 @@ public class ConsumoComponentesTests
         new("031781876", ConsumoComponentes.OperacionEnsamblado, "520042", 1, "17000030", 1, 600, 900, sucursal, new DateTime(2026, 11, 4, 9, 2, 18));
 
     [Fact]
-    public async Task Descuenta_una_sola_vez_por_etiqueta_operacion_y_componente()
+    public async Task Por_omision_el_consumo_es_solo_estadistico_y_no_mueve_inventario()
     {
         var (db, g) = Guardado(conNorma: true);
         (await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default)).Should().BeTrue();
-        (await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default)).Should().BeFalse();
+
+        var c = await db.ConsumosComponenteAw.SingleAsync();
+        c.Estado.Should().Be(ConsumoComponenteAw.Estadistico);
+        c.Cantidad.Should().Be(3m);
+        c.Folio.Should().BeNull();
+        (await db.Movimientos.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Descuenta_una_sola_vez_por_etiqueta_operacion_y_componente()
+    {
+        var (db, g) = Guardado(conNorma: true);
+        (await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default, true)).Should().BeTrue();
+        (await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default, true)).Should().BeFalse();
 
         var c = await db.ConsumosComponenteAw.SingleAsync();
         c.Estado.Should().Be(ConsumoComponenteAw.Recibido);
@@ -136,8 +149,8 @@ public class ConsumoComponentesTests
     {
         var eventos = new Eventos();
         var (_, g) = Guardado(conNorma: true, eventos);
-        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default);
-        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default); // mismo escaneo: no duplica el evento
+        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default, true);
+        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default, true); // mismo escaneo: no duplica el evento
 
         var ev = eventos.Publicados.OfType<Millet.Almacen.Application.Integration.SalidaInventarioRegistradaIntegrationEvent>().Should().ContainSingle().Subject;
         ev.Causa.Should().Be("consumo_composicion");
@@ -148,7 +161,7 @@ public class ConsumoComponentesTests
     public async Task Sin_norma_queda_en_revision_y_el_reintento_descuenta_cuando_ya_existe()
     {
         var (db, g) = Guardado(conNorma: false);
-        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default);
+        await g.RegistrarAsync(EmpresaId, "Real", Pieza(), default, true);
         var c = await db.ConsumosComponenteAw.AsNoTracking().SingleAsync();
         c.Estado.Should().Be(ConsumoComponenteAw.EnRevision);
         (await db.Movimientos.CountAsync()).Should().Be(0);
@@ -156,7 +169,7 @@ public class ConsumoComponentesTests
         db.NormasConsumoComponente.Add(new NormaConsumoComponente(Separador, 1m, 0m, null) { EmpresaId = EmpresaId });
         await db.SaveChangesAsync();
         (await g.EnRevisionAsync(EmpresaId, 10, default)).Should().ContainSingle();
-        await g.ReintentarAsync(c.Id, default);
+        await g.ReintentarAsync(c.Id, default, true);
 
         (await db.ConsumosComponenteAw.AsNoTracking().SingleAsync()).Estado.Should().Be(ConsumoComponenteAw.Recibido);
         (await db.Movimientos.CountAsync()).Should().Be(1);
@@ -167,7 +180,7 @@ public class ConsumoComponentesTests
     public async Task Sucursal_sin_mapeo_queda_en_revision()
     {
         var (db, g) = Guardado(conNorma: true);
-        await g.RegistrarAsync(EmpresaId, "Real", Pieza("PERIFERICO"), default);
+        await g.RegistrarAsync(EmpresaId, "Real", Pieza("PERIFERICO"), default, true);
         var c = await db.ConsumosComponenteAw.SingleAsync();
         c.Estado.Should().Be(ConsumoComponenteAw.EnRevision);
         c.Error.Should().Contain("PERIFERICO");
@@ -177,7 +190,7 @@ public class ConsumoComponentesTests
     public async Task Pieza_sin_componentes_queda_como_excepcion_sin_movimiento()
     {
         var (db, g) = Guardado(conNorma: true);
-        await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { ComponenteRef = "" }, default);
+        await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { ComponenteRef = "" }, default, true);
         (await db.ConsumosComponenteAw.SingleAsync()).Estado.Should().Be(ConsumoComponenteAw.Excepcion);
         (await db.Movimientos.CountAsync()).Should().Be(0);
     }
@@ -189,8 +202,8 @@ public class ConsumoComponentesTests
         for (var i = 1; i <= 5; i++)
         {
             var etiqueta = $"03178187{i}";
-            await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { Etiqueta = etiqueta }, default);
-            await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { Etiqueta = etiqueta, ComponenteRef = "SIL" }, default);
+            await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { Etiqueta = etiqueta }, default, true);
+            await g.RegistrarAsync(EmpresaId, "Real", Pieza() with { Etiqueta = etiqueta, ComponenteRef = "SIL" }, default, true);
         }
 
         var consumos = await db.ConsumosComponenteAw.AsNoTracking().ToListAsync();

@@ -136,6 +136,15 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// </summary>
     public DateOnly? FechaPedido { get; private set; }
 
+    /// <summary>
+    /// Trazabilidad de Planta Pintura (script 16 v4): clave del empleado del usuario del portal que capturó la orden
+    /// (<c>pinturas_pedido.empleado_captura_clave</c>, = <c>Empleado.Clave</c>). Null en A+W y Manual.
+    /// </summary>
+    public string? EmpleadoCapturaClave { get; private set; }
+
+    /// <summary>Vendedor de la orden de Planta Pintura (<c>pinturas_pedido.vendedor_clave</c>, = <c>Empleado.Clave</c>); opcional.</summary>
+    public string? VendedorClave { get; private set; }
+
     private readonly List<PedidoFacturableLinea> _lineas = [];
     public IReadOnlyCollection<PedidoFacturableLinea> Lineas => _lineas.AsReadOnly();
 
@@ -291,7 +300,9 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         string? comentarios,
         long versionOrigen,
         string? estadoOrigen,
-        DateOnly? fechaPedido = null) =>
+        DateOnly? fechaPedido = null,
+        string? empleadoCapturaClave = null,
+        string? vendedorClave = null) =>
         new(
             id: Guid.CreateVersion7(),
             empresaId: empresaId,
@@ -309,7 +320,12 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
             capturadoPor: null,
             versionOrigen: versionOrigen,
             estadoOrigen: estadoOrigen,
-            estado: EstadoPedidoFacturable.Importado) { FechaPedido = fechaPedido };
+            estado: EstadoPedidoFacturable.Importado)
+        {
+            FechaPedido = fechaPedido,
+            EmpleadoCapturaClave = empleadoCapturaClave,
+            VendedorClave = vendedorClave,
+        };
 
     /// <summary>
     /// Refresca la cabecera desde el origen (Modificación A+W). <b>La factura

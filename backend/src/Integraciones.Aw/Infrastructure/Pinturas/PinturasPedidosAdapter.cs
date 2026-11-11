@@ -53,7 +53,7 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
     internal static string SqlPendientes(bool postgres) =>
         "SELECT p.id, p.folio_orden, p.fecha_pedido, p.cliente_clave, p.cliente_nombre, p.obra_clave, p.obra_nombre, " +
         "p.comentarios, p.iva_porcentaje, p.moneda, o.origen, o.referencia_aw, " +
-        "l.linea, l.servicio_clave, s.nombre, l.piezas, l.m2, l.precio_m2 " +
+        "l.linea, l.servicio_clave, s.nombre, l.piezas, l.m2, l.precio_m2, p.empleado_captura_clave, p.vendedor_clave " +
         $"FROM (SELECT {(postgres ? "" : "TOP (@max) ")}c.* FROM dbo.pinturas_pedido c " +
         "WHERE c.erp_resultado IS NULL AND EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id) " +
         $"ORDER BY c.creado_at, c.id{(postgres ? " LIMIT @max" : "")}) p " +
@@ -122,7 +122,9 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
                         Moneda: Texto(9)!,
                         ObraOrigen: Texto(10),
                         ObraReferenciaAw: Texto(11),
-                        Lineas: lineas));
+                        Lineas: lineas,
+                        EmpleadoCapturaClave: Texto(18),
+                        VendedorClave: Texto(19)));
                 }
                 lineas!.Add(new FilaPinturasLinea(
                     Linea: Convert.ToInt32(reader.GetValue(12), CultureInfo.InvariantCulture),
@@ -239,7 +241,9 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
                     TasaIva: tasaIva);
             }).ToList(),
             PayloadCrudo: JsonSerializer.Serialize(f),
-            FechaPedido: f.FechaPedido);
+            FechaPedido: f.FechaPedido,
+            EmpleadoCapturaClave: Vacio(f.EmpleadoCapturaClave),
+            VendedorClave: Vacio(f.VendedorClave));
     }
 
     internal static string? Recortar(string? error) =>
@@ -263,7 +267,10 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
     }
 }
 
-/// <summary>Cabecera de <c>dbo.pinturas_pedido</c> con los datos de la obra y sus líneas. Es también el payload crudo.</summary>
+/// <summary>
+/// Cabecera de <c>dbo.pinturas_pedido</c> con los datos de la obra y sus líneas. Es también el payload crudo.
+/// <c>EmpleadoCapturaClave</c>/<c>VendedorClave</c>: claves de empleado de la v4 del script 16 (trazabilidad).
+/// </summary>
 internal sealed record FilaPinturasPedido(
     string FolioOrden,
     DateOnly FechaPedido,
@@ -276,7 +283,9 @@ internal sealed record FilaPinturasPedido(
     string Moneda,
     string? ObraOrigen,
     string? ObraReferenciaAw,
-    IReadOnlyList<FilaPinturasLinea> Lineas);
+    IReadOnlyList<FilaPinturasLinea> Lineas,
+    string? EmpleadoCapturaClave = null,
+    string? VendedorClave = null);
 
 /// <summary>Línea de <c>dbo.pinturas_pedido_linea</c> con el nombre del servicio.</summary>
 internal sealed record FilaPinturasLinea(

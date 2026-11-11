@@ -62,6 +62,21 @@ public sealed class PinturasPedidosAdapterTests
     }
 
     [Fact]
+    public void Script16v4_lleva_las_claves_de_capturista_y_vendedor_al_puerto_y_al_payload()
+    {
+        var p = PinturasPedidosAdapter.Mapear(Fila() with { EmpleadoCapturaClave = " EMP-001 ", VendedorClave = "EMP-002" },
+            Sucursal, ComportamientoFiscal.MostradorInmediato);
+
+        p.EmpleadoCapturaClave.Should().Be("EMP-001");
+        p.VendedorClave.Should().Be("EMP-002");
+        p.PayloadCrudo.Should().Contain("\"EmpleadoCapturaClave\":\" EMP-001 \"").And.Contain("\"VendedorClave\":\"EMP-002\"");
+
+        var sinVendedor = PinturasPedidosAdapter.Mapear(Fila() with { EmpleadoCapturaClave = "EMP-001", VendedorClave = "  " },
+            Sucursal, ComportamientoFiscal.MostradorInmediato);
+        sinVendedor.VendedorClave.Should().BeNull("vendedor_clave es opcional");
+    }
+
+    [Fact]
     public void Una_linea_de_venta_por_linea_de_la_orden_sin_promediar_y_en_orden_de_linea()
     {
         var f = Fila() with
@@ -111,7 +126,7 @@ public sealed class PinturasPedidosAdapterTests
             .And.Contain("WHERE c.erp_resultado IS NULL AND EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id) ")
             .And.Contain("ORDER BY c.creado_at, c.id) p ")
             .And.Contain("JOIN dbo.pinturas_pedido_linea l ON l.pedido_id = p.id ")
-            .And.Contain("p.fecha_pedido").And.Contain("l.piezas, l.m2, l.precio_m2")
+            .And.Contain("p.fecha_pedido").And.Contain("l.piezas, l.m2, l.precio_m2, p.empleado_captura_clave, p.vendedor_clave ")
             .And.EndWith("ORDER BY p.creado_at, p.id, l.linea").And.NotContain("LIMIT");
         var pg = PinturasPedidosAdapter.SqlPendientes(postgres: true);
         pg.Should().NotContain("TOP").And.Contain("ORDER BY c.creado_at, c.id LIMIT @max) p ");
