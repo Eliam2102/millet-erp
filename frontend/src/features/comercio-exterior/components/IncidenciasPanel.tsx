@@ -42,7 +42,7 @@ export function IncidenciasPanel({ data }: { data: ExpedienteDetalle }) {
   const enlace = useEnlaceAdjunto(`${CE_BASE}/${data.expediente.id}`);
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-md font-semibold">Incidencias del expediente</h2>
         {gestionar && <Button onClick={() => setSeleccion('nueva')}>Registrar incidencia</Button>}
       </div>
