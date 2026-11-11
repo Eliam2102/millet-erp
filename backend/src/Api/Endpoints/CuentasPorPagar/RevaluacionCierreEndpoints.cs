@@ -36,6 +36,13 @@ public static class RevaluacionCierreEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        group.MapGet("/{anio:int}/{mes:int}/vista-previa", async (int anio, int mes, IMediator mediator, CancellationToken ct) =>
+                Results.Ok(await mediator.Send(new VistaPreviaRevaluacionCierreQuery(anio, mes), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarRevaluacionEjecutar)
+            .WithName("VistaPreviaRevaluacionCierre")
+            .WithSummary("Vista previa (M-317): cálculo y pólizas por proveedor y sucursal sin registrar la revaluación ni publicar eventos")
+            .Produces<VistaPreviaRevaluacionResponse>(StatusCodes.Status200OK);
+
         group.MapGet("/{anio:int}/{mes:int}/reporte", async (int anio, int mes, IMediator mediator, CancellationToken ct) =>
                 Results.Ok(await mediator.Send(new ReporteRevaluacionCierreQuery(anio, mes), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarRevaluacionConsultar)
