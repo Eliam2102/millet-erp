@@ -320,7 +320,7 @@ public sealed class CorreccionesCarteraTests
         return linea;
     }
 
-    private static Task EvaluarAlertas(CuentasPorCobrarDbContext db) =>
+    private static Task<int> EvaluarAlertas(CuentasPorCobrarDbContext db) =>
         new EvaluarAlertasCarteraHandler(db, new Publicador(), Options.Create(new AlertasCarteraOptions()),
             new Reloj(), NullLogger<EvaluarAlertasCarteraHandler>.Instance)
             .Handle(new EvaluarAlertasCarteraCommand(), CancellationToken.None);
