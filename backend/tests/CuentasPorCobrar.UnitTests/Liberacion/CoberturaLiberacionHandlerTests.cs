@@ -773,6 +773,91 @@ public sealed class CoberturaLiberacionHandlerTests
         Assert.Contains(reglas, r => r.Prefijo == "50" && r.Comportamiento == ComportamientoSerie.SiempreLibera);
     }
 
+    // --------------------------------------------------- M-239: monto autorizado, condición y segunda firma al decidir
+
+    private static async Task<AutorizacionCredito> ExcepcionAsync(
+        CuentasPorCobrarDbContext db, string folio, decimal monto, CondicionExcepcionCredito condicion, short firmas, bool deDireccion)
+    {
+        var a = AutorizacionCredito.CrearExcepcional(EmpresaId, Nestor, Coordinador, "Cliente estratégico", folio, Ahora,
+            TimeSpan.FromHours(24), TimeSpan.FromHours(24), condicion, monto, "MXN", firmas, deDireccion);
+        db.AutorizacionesCredito.Add(a);
+        await db.SaveChangesAsync();
+        return a;
+    }
+
+    [Fact]
+    public async Task M239_el_monto_autorizado_limita_lo_que_se_libera_y_no_se_consume()
+    {
+        await using var db = CrearDbContext();
+        await LineaConDisponible(db, limite: 300_000m, disponible: 120_000m); // pedido de 200,000: exceso de 80,000
+        var aut = await ExcepcionAsync(db, "6023901", 60_000m, CondicionExcepcionCredito.CoberturaParcial, 2, deDireccion: true);
+
+        var act = () => Decidir(db, Comando("6023901", 200_000m, aut.Id));
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("AC_MONTO_EXCEDE");
+        (await db.AutorizacionesCredito.SingleAsync()).Estado.Should().Be(EstadoAutorizacionCredito.Autorizada);
+    }
+
+    [Fact]
+    public async Task M239_con_monto_suficiente_y_firma_de_Direccion_libera_y_consume()
+    {
+        await using var db = CrearDbContext();
+        await LineaConDisponible(db, limite: 300_000m, disponible: 120_000m);
+        var aut = await ExcepcionAsync(db, "6023902", 80_000m, CondicionExcepcionCredito.CoberturaParcial, 2, deDireccion: true);
+
+        var (res, _) = await Decidir(db, Comando("6023902", 200_000m, aut.Id));
+
+        res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+        (await db.AutorizacionesCredito.SingleAsync()).Estado.Should().Be(EstadoAutorizacionCredito.Usada);
+    }
+
+    [Fact]
+    public async Task M239_una_excepcion_pendiente_de_segunda_firma_no_se_puede_consumir()
+    {
+        await using var db = CrearDbContext();
+        await LineaConDisponible(db, limite: 300_000m, disponible: 120_000m);
+        var aut = await ExcepcionAsync(db, "6023903", 80_000m, CondicionExcepcionCredito.CoberturaParcial, 2, deDireccion: false);
+        aut.Estado.Should().Be(EstadoAutorizacionCredito.PendienteSegundaFirma);
+
+        var act = () => Decidir(db, Comando("6023903", 200_000m, aut.Id));
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("AC_PENDIENTE_SEGUNDA_FIRMA");
+        (await db.AutorizacionesCredito.SingleAsync()).Estado.Should().Be(EstadoAutorizacionCredito.PendienteSegundaFirma);
+
+        // Con la segunda firma de otra persona (Dirección) ya se puede usar.
+        aut.Firmar(Guid.NewGuid(), Ahora);
+        await db.SaveChangesAsync();
+        (await Decidir(db, Comando("6023903", 200_000m, aut.Id))).Item1.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+    }
+
+    [Fact]
+    public async Task M239_la_condicion_pedida_debe_ser_la_del_pedido()
+    {
+        await using var db = CrearDbContext();
+        await LineaConDisponible(db, limite: 300_000m, disponible: 120_000m);
+        var aut = await ExcepcionAsync(db, "6023904", 80_000m, CondicionExcepcionCredito.BloqueoPorVencimiento, 2, deDireccion: true);
+
+        var act = () => Decidir(db, Comando("6023904", 200_000m, aut.Id));
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("AC_CONDICION_DISTINTA");
+    }
+
+    [Fact]
+    public async Task M239_el_legado_sin_monto_ni_condicion_sigue_sin_tope()
+    {
+        await using var db = CrearDbContext();
+        await LineaConDisponible(db, limite: 300_000m, disponible: 120_000m);
+        var aut = AutorizacionCredito.Crear(EmpresaId, Nestor, Coordinador, "Cliente estratégico", "6023905", Ahora,
+            TimeSpan.FromHours(24), autorizadaPorDireccion: true); // anterior a M-239
+        db.AutorizacionesCredito.Add(aut);
+        await db.SaveChangesAsync();
+
+        var (res, _) = await Decidir(db, Comando("6023905", 200_000m, aut.Id));
+
+        res.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+        (aut.MontoAutorizado, aut.Condicion).Should().Be(((decimal?)null, (CondicionExcepcionCredito?)null));
+    }
+
     private static CuentasPorCobrarDbContext CrearDbContext()
     {
         var options = new DbContextOptionsBuilder<CuentasPorCobrarDbContext>()

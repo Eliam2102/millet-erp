@@ -21,7 +21,7 @@ public sealed partial class Expediente
             if (embarcadas.Length == 0) fisico.Add("Registre las partidas embarcadas de la OC.");
             foreach (var linea in embarcadas)
             {
-                var cantidad = linea.Sum(p => p.Cantidad); var recibido = recibidas.GetValueOrDefault(linea.Key);
+                var cantidad = linea.Sum(p => p.Cantidad); var recibido = linea.Any(p => p.CantidadRecibida is not null) ? linea.Sum(p => p.CantidadRecibida ?? 0) : recibidas.GetValueOrDefault(linea.Key);
                 var ids = linea.Select(p => p.Id).ToHashSet();
                 if (cantidad != recibido && !_incidencias.Any(i => i.Estado == EstadoIncidencia.Resuelta && i.Tipo is (TipoIncidencia.MercanciaFaltante or TipoIncidencia.MercanciaSobrante) && i.PartidaId is Guid p && ids.Contains(p)))
                     fisico.Add($"Partida {linea.First().Posicion}: embarcado {cantidad}, recibido {recibido}; concilie la diferencia o resuelva su incidencia.");

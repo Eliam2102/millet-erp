@@ -11,7 +11,7 @@ namespace Millet.Compartido.Infrastructure.PublicAdapters;
 /// Implementación de <see cref="IIncidenciasPort"/> (U-4) sobre <c>compartido.incidencias</c>. El actor es el usuario
 /// actual; sin usuario (workers, eventos) la incidencia queda abierta o resuelta por «Sistema».
 /// </summary>
-public sealed class IncidenciasAdapter(CompartidoDbContext db, IncidenciasServicio servicio, ICurrentUserContext usuario) : IIncidenciasPort
+public sealed class IncidenciasAdapter(CompartidoDbContext db, IncidenciasServicio servicio, ICurrentUserContext usuario) : IIncidenciasPort, IIncidenciasHistorialPort
 {
     public async Task<IncidenciaAbierta> AbrirAsync(AbrirIncidenciaSolicitud solicitud, CancellationToken cancellationToken)
     {
@@ -43,4 +43,11 @@ public sealed class IncidenciasAdapter(CompartidoDbContext db, IncidenciasServic
     public Task<bool> HayPendientesAsync(Guid documentoId, string? paso, CancellationToken cancellationToken) =>
         db.Incidencias.AsNoTracking().AnyAsync(x => x.DocumentoId == documentoId && (paso == null || x.Paso == paso)
             && (x.Estado == EstadoIncidencia.Abierta || x.Estado == EstadoIncidencia.EnAtencion), cancellationToken);
+
+    public async Task<bool> ExisteCerradaManualAsync(string paso, Guid documentoId, string detalleClave, string resolucionAutomatica, CancellationToken cancellationToken)
+    {
+        var clave = detalleClave.Trim();
+        return await db.Incidencias.AsNoTracking().AnyAsync(x => x.Paso == paso && x.DocumentoId == documentoId && x.DetalleClave == clave
+            && (x.Estado == EstadoIncidencia.Cancelada || (x.Estado == EstadoIncidencia.Resuelta && x.Resolucion != resolucionAutomatica)), cancellationToken);
+    }
 }

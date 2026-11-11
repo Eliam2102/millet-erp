@@ -5,7 +5,9 @@ import type {
   AutorizarLiberacionPendienteBody,
   AutorizacionCreditoResponse,
   BeneficiarioCreditoResponse,
+  ConfiguracionExcepcionCredito,
   CrearAutorizacionCreditoCommand,
+  ReglaFirmaExcepcionCredito,
   DecidirLiberacionCommand,
   DecisionLiberacionResponse,
   PagedResponse,
@@ -266,6 +268,54 @@ export function useCancelarAutorizacionCredito() {
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },
       );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.autorizaciones() });
+    },
+  });
+}
+
+/** M-239: vigencia por omisión/máxima y firmas por monto de las excepciones de crédito. */
+export function useConfiguracionExcepcionCredito(enabled = true) {
+  return useQuery<ConfiguracionExcepcionCredito>({
+    enabled,
+    queryKey: [...cxcKeys.autorizaciones(), 'configuracion'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ConfiguracionExcepcionCredito>(`${BASE_AUT}/configuracion`, { signal });
+      return data;
+    },
+  });
+}
+
+/** M-239: reemplaza las reglas de firmas por monto (Dirección). Vacío = vuelve a la regla de M-085. */
+export function useGuardarReglasFirmaExcepcion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { reglas: ReglaFirmaExcepcionCredito[]; idempotencyKey: string }) => {
+      const { data } = await apiRequest<ConfiguracionExcepcionCredito>(`${BASE_AUT}/reglas-firma`, {
+        method: 'PUT',
+        body: { reglas: args.reglas },
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.autorizaciones() });
+    },
+  });
+}
+
+/** M-239: segunda firma (Dirección) de una excepción pendiente por su monto. */
+export function useFirmarAutorizacionCredito() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; versionEsperada: number; idempotencyKey: string }) => {
+      const { data } = await apiRequest<AutorizacionCreditoResponse>(`${BASE_AUT}/${args.id}/firmar`, {
+        method: 'POST',
+        idempotencyKey: args.idempotencyKey,
+        headers: { 'X-Expected-Version': String(args.versionEsperada) },
+      });
       return data;
     },
     onSuccess: () => {

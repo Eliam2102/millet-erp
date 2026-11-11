@@ -80,6 +80,10 @@ export const ESTADOS_UI = {
       tono: 'neutral',
       texto: ETIQUETA_ESTADO_AUTORIZACION[EstadoAutorizacionCredito.Cancelada],
     },
+    [EstadoAutorizacionCredito.PendienteSegundaFirma]: {
+      tono: 'warning',
+      texto: ETIQUETA_ESTADO_AUTORIZACION[EstadoAutorizacionCredito.PendienteSegundaFirma],
+    },
   },
   cobranza: {
     [ResultadoCobranza.PromesaPago]: {

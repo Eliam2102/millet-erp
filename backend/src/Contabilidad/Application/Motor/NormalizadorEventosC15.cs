@@ -367,7 +367,7 @@ public static partial class NormalizadorEventos
             new Dictionary<string, decimal?>
             {
                 ["Total"] = p.Monto, ["Aplicado"] = p.Monto + ajuste, ["Ajuste"] = ajuste,
-                ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m,
+                ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m, ["AjusteRedondeo"] = 0m,
             },
             [], payload,
             FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null,

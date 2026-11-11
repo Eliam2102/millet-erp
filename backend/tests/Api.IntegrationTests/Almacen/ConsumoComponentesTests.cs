@@ -59,7 +59,7 @@ public class ConsumoComponentesTests(WebApplicationFactory<Program> factory)
         await using var f = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
             s.AddScoped<IConsumoComponentesOrigenReader>(_ => new LectorSimulado([.. filas]))));
         var worker = new ConsumoComponentesWorker(f.Services.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new PiezasPtOptions { ConsumoComponentesHabilitado = true, EmpresaId = empresa }),
+            Options.Create(new PiezasPtOptions { ConsumoComponentesHabilitado = true, ConsumoComponentesAfectaInventario = true, EmpresaId = empresa }),
             NullLogger<ConsumoComponentesWorker>.Instance);
         await worker.CorrerUnaVezAsync(CancellationToken.None);
     }

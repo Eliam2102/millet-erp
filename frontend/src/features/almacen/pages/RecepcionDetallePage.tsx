@@ -198,7 +198,7 @@ export function RecepcionDetallePage() {
               <>
                 <Campo label="Pedimento" valor={query.data.importacion.numeroPedimento} mono />
                 <Campo label="BL / guía aérea" valor={query.data.importacion.numeroBl} mono />
-                <Campo label="Contenedor" valor={query.data.importacion.numeroContenedor} mono />
+                <Campo label="Contenedor" valor={query.data.importacion.numeroContenedor ?? 'No aplica'} mono />
                 <Campo
                   label="Aduana"
                   valor={[query.data.importacion.aduana, query.data.importacion.aduanaNombre]

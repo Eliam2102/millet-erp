@@ -100,4 +100,41 @@ public class Cxc06AjusteCobroTests
         puerto.Consultada.Should().BeNull();
         e.Importes["AjusteComision"].Should().Be(0m);
     }
+
+    // ---------------------------------------------------------------- M-326: redondeo de hasta $0.99
+
+    [Fact]
+    public async Task M326_Redondeo_va_a_su_campo_y_la_poliza_cuadra()
+    {
+        var puerto = new PuertoFijo(new AjusteCobroContable(TipoAjusteCobroContable.Redondeo, 0.40m, "Redondeo de hasta $0.99", null, DateTimeOffset.UtcNow));
+        var e = await new EnriquecedorAjusteCobro(puerto).EnriquecerAsync(Pago(9_999.60m, 10_000m), default);
+
+        e.Importes["AjusteRedondeo"].Should().Be(0.40m);
+        e.Importes["AjusteComision"].Should().Be(0m);
+        e.Importes["AjusteDiferencia"].Should().Be(0m);
+        (e.Importes["Total"]! + e.Importes["AjusteComision"]! + e.Importes["AjusteDiferencia"]! + e.Importes["AjusteRedondeo"]!)
+            .Should().Be(e.Importes["Aplicado"]);
+    }
+
+    [Fact]
+    public void M326_El_evento_trae_el_campo_de_redondeo_en_cero_si_no_hay_ajuste()
+    {
+        var e = Pago(10_000m, 10_000m);
+        e.Importes["AjusteRedondeo"].Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task M326_Faltante_mayor_a_099_sin_ajuste_autorizado_no_se_absorbe_como_redondeo()
+    {
+        // 1.20 sin ajuste documentado: ni redondeo ni nada; el evento va a rechazos hasta que haya ajuste autorizado.
+        var act = () => new EnriquecedorAjusteCobro(new PuertoFijo(null)).EnriquecerAsync(Pago(9_998.80m, 10_000m), default);
+        (await act.Should().ThrowAsync<RechazoMotorException>()).Which.Causa.Should().Be(CausaRechazoContable.DatoFaltante);
+    }
+
+    [Theory]
+    [InlineData(TipoAjusteCobroContable.Redondeo, "REDONDEO")]
+    [InlineData(TipoAjusteCobroContable.ComisionBancaria, "COMISIONES_BANCARIAS")]
+    [InlineData(TipoAjusteCobroContable.DiferenciaMenor, "DIFERENCIAS_EN_COBRO")]
+    public void M326_La_reversa_del_ajuste_usa_el_rol_de_su_tipo(TipoAjusteCobroContable tipo, string rol) =>
+        ReversaAjusteCobroContableServicio.RolDe(tipo).Should().Be(rol);
 }
