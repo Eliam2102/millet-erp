@@ -557,7 +557,7 @@ public sealed class ExpedientesHttpTests
             responsableUsuarioId = Responsable,
             clientes = Array.Empty<string>()
         };
-        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false, bool permisosAlmacen = false, bool autorizarSaldoCe = false, bool corregirHitos = true)
+        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true, bool permisosAf = false, bool permisosAlmacen = false, bool autorizarSaldoCe = false, bool corregirHitos = true, string[]? extra = null)
         {
             using var scope = _factory.Services.CreateScope();
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -575,7 +575,7 @@ public sealed class ExpedientesHttpTests
                     || (permisosCe && p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer) && (corregirHitos || p.Codigo != PermisosCanonicos.ComercioExteriorExpedientesHitosCorregir))
                     || (facturacion && p.Codigo.StartsWith("facturacion.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))))
                     db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, p.Id));
-            foreach (var codigo in new[] { leerTodas ? PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales : null, gestionarTodas ? PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales : null }.OfType<string>())
+            foreach (var codigo in new[] { leerTodas ? PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales : null, gestionarTodas ? PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales : null }.OfType<string>().Concat(extra ?? []))
                 db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, PermisosCanonicos.Todos.Single(p => p.Codigo == codigo).Id));
             db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Guid.NewGuid(), usuario.Id, DemoSesionSeedHostedService.EmpresaId, rol.Id));
             if (asociar)

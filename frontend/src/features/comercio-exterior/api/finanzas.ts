@@ -86,6 +86,28 @@ export interface Anticipo {
     motivo: string;
   }[];
   cuentaPeca?: boolean;
+  /** M-327: reversa de la comprobación pedida por Comercio exterior; espera la firma del Contador General. */
+  reversaPendiente?: {
+    id: string;
+    motivo: string;
+    solicitadoPor: string;
+    solicitadoEn: string;
+  } | null;
+  /** M-327: historial de reversas (quién pidió, cuándo, motivo y firma). */
+  reversasComprobacion?: {
+    solicitudId: string;
+    motivo: string;
+    solicitadoPor: string;
+    solicitadoEn: string;
+    autorizada: boolean;
+    firmadoPor: string;
+    firmadoEn: string;
+    motivoRechazo: string | null;
+    saldoAFavorMxn: number;
+    gastosLiberadosMxn: number;
+  }[];
+  comprobacionRevertida?: boolean;
+  saldoAFavorAgenteMxn?: number;
   id: string;
   agenteId: string;
   pedimento: string;

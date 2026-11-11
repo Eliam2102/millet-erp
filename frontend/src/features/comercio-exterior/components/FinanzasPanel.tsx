@@ -1042,13 +1042,23 @@ function BasesForm({
     </form>
   );
 }
-function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: Finanzas }) {
+export function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: Finanzas }) {
   const gestionar =
     useHasPermission(P.ComercioExteriorAnticiposGestionar) && data.expediente.estado === 1;
   const aprobar =
     useHasPermission(P.TesoreriaPagosCeAutorizarDireccion) && data.expediente.estado === 1;
   const cancelar = useMutarFinanzas(data.expediente.id);
   const [motivoCancelacion, setMotivoCancelacion] = useState('');
+  // M-327: Comercio exterior solicita revertir una comprobación; el Contador General la autoriza.
+  const solicitarReversa =
+    useHasPermission(P.ComercioExteriorAnticiposRevertirComprobacionSolicitar) &&
+    data.expediente.estado === 1;
+  const autorizarReversa =
+    useHasPermission(P.ComercioExteriorAnticiposRevertirComprobacionAutorizar) &&
+    data.expediente.estado === 1;
+  const reversa = useMutarFinanzas(data.expediente.id);
+  const [motivoReversa, setMotivoReversa] = useState('');
+  const [motivoNoAutorizar, setMotivoNoAutorizar] = useState('');
   const [corregir, setCorregir] = useState(false);
   const [nuevo, setNuevo] = useState(false);
   const [seleccion, setSeleccion] = useState<Anticipo | null>(null);
@@ -1069,9 +1079,38 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
           />
         </FormCampo>
       )}
+      {solicitarReversa && (
+        <FormCampo span={6}>
+          <Label htmlFor="ce-revertir-comprobacion">
+            Motivo para revertir una comprobación (la autoriza el Contador General)
+          </Label>
+          <Input
+            id="ce-revertir-comprobacion"
+            value={motivoReversa}
+            onChange={(e) => setMotivoReversa(e.target.value)}
+            maxLength={500}
+          />
+        </FormCampo>
+      )}
+      {autorizarReversa && f.anticipos.some((a) => a.reversaPendiente) && (
+        <FormCampo span={6}>
+          <Label htmlFor="ce-no-autorizar-reversa">Motivo para no autorizar una reversa</Label>
+          <Input
+            id="ce-no-autorizar-reversa"
+            value={motivoNoAutorizar}
+            onChange={(e) => setMotivoNoAutorizar(e.target.value)}
+            maxLength={500}
+          />
+        </FormCampo>
+      )}
       {cancelar.isError && (
         <p role="alert" className="text-danger-fg">
           {errorTexto(cancelar.error)}
+        </p>
+      )}
+      {reversa.isError && (
+        <p role="alert" className="text-danger-fg">
+          {errorTexto(reversa.error)}
         </p>
       )}
       {f.pendientes.map((p) => (
@@ -1120,6 +1159,7 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                 <TableCell>
                   {((gestionar &&
                     a.aplicado === null &&
+                    !a.comprobacionRevertida &&
                     (!a.soporteCalculoId || a.estado === 'Pagado')) ||
                     ((aprobar || (gestionar && (a.saldo ?? 0) > 0)) &&
                       a.aplicado !== null &&
@@ -1149,6 +1189,82 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                         Corregir comprobación
                       </Button>
                     )}
+                  {solicitarReversa &&
+                    a.aplicado !== null &&
+                    a.resoluciones.length === 0 &&
+                    !a.devolucionPendienteId &&
+                    !a.reversaPendiente && (
+                      <Button
+                        variant="ghost"
+                        disabled={!motivoReversa.trim() || reversa.isPending}
+                        title={
+                          !motivoReversa.trim() ? 'Capture el motivo de la reversa.' : undefined
+                        }
+                        onClick={() => {
+                          void reversa
+                            .mutateAsync({
+                              ruta: `anticipos/${a.id}/revertir-comprobacion`,
+                              body: { motivo: motivoReversa },
+                            })
+                            .then(() => setMotivoReversa(''))
+                            .catch(() => {});
+                        }}
+                      >
+                        Revertir comprobación
+                      </Button>
+                    )}
+                  {a.reversaPendiente && (
+                    <div className="text-xs text-ink-muted">
+                      <p>
+                        Reversa solicitada por{' '}
+                        {f.nombres[a.reversaPendiente.solicitadoPor] ?? 'Usuario solicitante'}{' '}
+                        <DateTimeDisplay value={a.reversaPendiente.solicitadoEn} /> ·{' '}
+                        {a.reversaPendiente.motivo}
+                      </p>
+                      <p>Firma del Contador General: Pendiente</p>
+                    </div>
+                  )}
+                  {autorizarReversa && a.reversaPendiente && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        disabled={reversa.isPending}
+                        onClick={() => {
+                          void reversa
+                            .mutateAsync({ ruta: `anticipos/${a.id}/reversa/autorizar`, body: {} })
+                            .catch(() => {});
+                        }}
+                      >
+                        Autorizar reversa
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        disabled={!motivoNoAutorizar.trim() || reversa.isPending}
+                        title={
+                          !motivoNoAutorizar.trim()
+                            ? 'Capture el motivo para no autorizar la reversa.'
+                            : undefined
+                        }
+                        onClick={() => {
+                          void reversa
+                            .mutateAsync({
+                              ruta: `anticipos/${a.id}/reversa/rechazar`,
+                              body: { motivo: motivoNoAutorizar },
+                            })
+                            .then(() => setMotivoNoAutorizar(''))
+                            .catch(() => {});
+                        }}
+                      >
+                        No autorizar
+                      </Button>
+                    </>
+                  )}
+                  {a.comprobacionRevertida && (
+                    <p className="text-xs text-ink-muted tabular-nums">
+                      Saldo a favor del agente: {dinero(a.saldoAFavorAgenteMxn ?? 0)}. Se compensa
+                      contra sus facturas en Cuentas por pagar.
+                    </p>
+                  )}
                   {gestionar && ['Solicitado', 'Autorizado'].includes(a.estado) && (
                     <Button
                       variant="ghost"
@@ -1224,6 +1340,25 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                 Versión {i + 1} · {c.fecha} ·{' '}
                 {dinero(c.impuestos.iva + c.impuestos.igi + c.impuestos.prv + c.gastosMxn)} ·{' '}
                 {c.motivo}
+              </p>
+            ))}
+          </details>
+        ))}
+      {f.anticipos
+        .filter((a) => (a.reversasComprobacion?.length ?? 0) > 0)
+        .map((a) => (
+          <details key={`reversas-${a.id}`}>
+            <summary>Reversas de comprobación del pedimento {a.pedimento}</summary>
+            {a.reversasComprobacion?.map((r) => (
+              <p key={r.solicitudId} className="py-2 tabular-nums">
+                Solicitó {f.nombres[r.solicitadoPor] ?? 'Usuario solicitante'}{' '}
+                <DateTimeDisplay value={r.solicitadoEn} /> · {r.motivo} ·{' '}
+                {r.autorizada ? 'Autorizó' : 'No autorizó'}{' '}
+                {f.nombres[r.firmadoPor] ?? 'Usuario firmante'}{' '}
+                <DateTimeDisplay value={r.firmadoEn} />
+                {r.autorizada
+                  ? ` · Saldo a favor del agente ${dinero(r.saldoAFavorMxn)}`
+                  : ` · ${r.motivoRechazo ?? ''}`}
               </p>
             ))}
           </details>

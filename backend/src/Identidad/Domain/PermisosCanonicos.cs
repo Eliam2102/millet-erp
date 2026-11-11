@@ -679,6 +679,10 @@ public static class PermisosCanonicos
     public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
     public const string ComercioExteriorGastosDistribuir = "comercio_exterior.gastos.distribuir";
     public const string ComercioExteriorAnticiposGestionar = "comercio_exterior.anticipos.gestionar";
+    /// <summary>M-327: solicitar con motivo la reversa de un anticipo al agente aduanal ya comprobado (Comercio exterior).</summary>
+    public const string ComercioExteriorAnticiposRevertirComprobacionSolicitar = "comercio_exterior.anticipos.revertir-comprobacion-solicitar";
+    /// <summary>M-327: autorizar o no la reversa de la comprobación (Contador General, Millet 10-nov-2026). Quien solicita no autoriza.</summary>
+    public const string ComercioExteriorAnticiposRevertirComprobacionAutorizar = "comercio_exterior.anticipos.revertir-comprobacion-autorizar";
     public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
     public const string ComercioExteriorContenedoresGestionar = "comercio_exterior.expedientes.contenedores-gestionar";
     public const string ComercioExteriorRelacionIvaLeer = "comercio_exterior.relacion-iva.leer";
@@ -1104,6 +1108,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000004"), ComercioExteriorAnticiposRevertirComprobacionSolicitar, "Solicitar con motivo la reversa de un anticipo al agente ya comprobado"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000005"), ComercioExteriorAnticiposRevertirComprobacionAutorizar, "Autorizar la reversa de un anticipo al agente ya comprobado contra su saldo a favor (Contador General; no quien la solicitó)"),
         (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),
         (Guid.Parse("0000000e-0001-0000-0000-00000000000b"), ComercioExteriorContenedoresGestionar, "Gestionar contenedores y partidas"),
         (Guid.Parse("0000000e-0003-0000-0000-000000000001"), ComercioExteriorRelacionIvaLeer, "Consultar relación mensual para IVA"),

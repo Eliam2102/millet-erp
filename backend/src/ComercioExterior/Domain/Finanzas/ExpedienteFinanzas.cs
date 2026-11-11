@@ -20,7 +20,9 @@ public sealed partial class Expediente
         if (Tipo == TipoExpediente.Importacion && _gastos.Any(g => !g.ExcluidoDelCosto) &&
             _distribuciones.OrderByDescending(d => d.NumeroVersion).FirstOrDefault()?.RevisionFinanciera != RevisionFinanciera)
             motivos.Add("Gastos sin distribuir");
-        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Aplicado is null)) motivos.Add("Anticipos sin comprobar");
+        // M-327: el anticipo revertido se comprueba en Cuentas por pagar compensando su saldo a favor contra las facturas del agente.
+        if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Aplicado is null && !a.ComprobacionRevertida)) motivos.Add("Anticipos sin comprobar");
+        if (_anticipos.Any(a => a.ReversaPendiente is not null)) motivos.Add("Reversa de comprobación por autorizar");
         if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Saldo > 0)) motivos.Add("Saldo a favor abierto con el agente");
         if (_anticipos.Any(a => a.MotivoCancelacion is null && a.Saldo < 0)) motivos.Add("Por pagar al agente");
         return motivos;

@@ -48,6 +48,8 @@ public sealed partial class ComercioExteriorDbContext
         var a = b.Entity<AnticipoAgente>(); a.ToTable("anticipos_agente"); a.HasKey(x => x.Id); a.Property(x => x.Id).ValueGeneratedNever(); a.Ignore(x => x.AggregateRootId);
         a.Ignore(x => x.Anticipado); a.Ignore(x => x.Aplicado); a.Ignore(x => x.Diferencia); a.Ignore(x => x.Saldo); a.Ignore(x => x.Estado);
         a.HasIndex(x => new { x.EmpresaId, x.AgenteId }); Json(a.Property(x => x.Resoluciones)); Json(a.Property(x => x.HistorialComprobaciones)); Json(a.Property(x => x.PagosRecibidos)); Json(a.Property(x => x.PagosRevertidos)); Json(a.Property(x => x.DepositosRecibidos)); Json(a.Property(x => x.DevolucionAprobada));
+        // M-327: solicitud pendiente e historial de reversas de la comprobación.
+        Json(a.Property(x => x.ReversaPendiente)); Json(a.Property(x => x.ReversasComprobacion)); a.Ignore(x => x.ComprobacionRevertida); a.Ignore(x => x.SaldoAFavorAgenteMxn);
         foreach (var tipo in new[] { typeof(GastoExpediente), typeof(PartidaCosto), typeof(AnticipoAgente) })
             foreach (var property in b.Entity(tipo).Metadata.GetProperties().Where(x => x.ClrType == typeof(decimal) || x.ClrType == typeof(decimal?)))
                 b.Entity(tipo).Property(property.Name).HasPrecision(20, property.Name is "TipoCambio" or "TipoCambioSugerido" or "OrdenServicioTipoCambio" or "PesoKg" ? 6 : 2);
