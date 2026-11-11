@@ -187,6 +187,17 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
                 "pedido sin líneas en vw_erp_pedido_linea");
         }
 
+        // 86e40b4mp: una posición sin descripción no se puede facturar; antes reventaba al crear la línea y el
+        // pedido se releía cada tick. Ahora es dato inválido del origen: va a la bandeja y no se reintenta.
+        if (lineas.FirstOrDefault(l => string.IsNullOrWhiteSpace(l.Descripcion)) is { } sinDescripcion)
+        {
+            logger.LogWarning(
+                "[AwSolicitudesSqlReader] pedido {Pedido}: posición {Posicion} sin descripción de producto → rechazo",
+                cab.NumeroPedido, sinDescripcion.NumeroPosicion);
+            return LecturaPedidoAw.DatosInvalidos(MotivoExcepcion.Otro,
+                $"posición {sinDescripcion.NumeroPosicion} (producto {sinDescripcion.ProductoRef}) llega de A+W sin descripción del producto");
+        }
+
         // PR5 — totales de control (doc 04 §3.1): si la vista de cabecera
         // aporta totales y no cuadran con las líneas leídas, el pedido NO se
         // ingesta con importes potencialmente corruptos → null → bandeja

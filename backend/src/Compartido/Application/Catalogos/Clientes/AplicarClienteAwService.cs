@@ -68,8 +68,9 @@ public sealed record AplicarClienteAwSnapshot(
     // Auto-provisión de pedidos: si el cliente ya existe no se toca nada.
     bool SoloCrear = false);
 
-/// <summary><c>NoCreado</c>: alta omitida por moneda sin equivalencia (Cliente = null).</summary>
-public enum AplicarClienteAwAccion { Creado, Actualizado, SinCambios, Conflicto, NoCreado }
+/// <summary><c>NoCreado</c>: alta omitida por moneda sin equivalencia (Cliente = null). <c>OmitidoBloqueado</c>: cliente
+/// bloqueado en A+W que el ERP no tiene; no se da de alta (Cliente = null).</summary>
+public enum AplicarClienteAwAccion { Creado, Actualizado, SinCambios, Conflicto, NoCreado, OmitidoBloqueado }
 
 public sealed record AplicarClienteAwResultado(
     Cliente? Cliente,
@@ -145,6 +146,11 @@ public sealed class AplicarClienteAwService
             // La auto-provisión de pedidos (SoloCrear) no trae moneda de origen y conserva su default.
             if (!snap.SoloCrear && snap.MonedaDefault is null)
                 return new(null, AplicarClienteAwAccion.NoCreado, ResultadoSincronizacionAw.Pendiente);
+
+            // N-08 (Jorge, 10-nov): la carga inicial solo trae clientes activos (KZ_GESPERRT = 0); un bloqueado que el ERP
+            // no conoce no se crea. El que ya existe sí recibe la baja (0 → 1) por ActualizarAsync.
+            if (!snap.SoloCrear && _mapeoEstatus.Resolver(snap.EstadoOrigenCrudo, snap.BloqueoOrigenCrudo) == true)
+                return new(null, AplicarClienteAwAccion.OmitidoBloqueado, ResultadoSincronizacionAw.SinCambios);
 
             // Clave de ligado = RFC o UST_ID normalizado (M2.2). Solo contra clientes manuales: el ligado entre clientes de A+W está diferido hasta aclarar con Millet (ver aclaracion-rfc-repetido.md).
             var rfc = Clave(snap);
@@ -303,6 +309,9 @@ public sealed class AplicarClienteAwService
         var cpFiscal = string.IsNullOrWhiteSpace(cliente.CodigoPostalFiscal) ? Vacio(snap.CodigoPostalFiscal) : null;
         if (telefono is not null || email is not null || rfc is not null || cpFiscal is not null)
             cliente.ActualizarDatos(rfc: rfc, codigoPostalFiscal: cpFiscal, telefono: telefono, email: email);
+        // M-294: el Tax ID de A+W completa uno vacío; el capturado en el ERP no se pisa.
+        if (string.IsNullOrWhiteSpace(cliente.NumRegIdTrib) && Vacio(snap.NumRegIdTrib) is { } taxId)
+            cliente.AsignarDatosReceptorExtranjero(numRegIdTrib: taxId);
 
         var resultado = ResultadoDe(snap);
         if (registro is null)
@@ -480,6 +489,8 @@ public sealed class AplicarClienteAwService
         N(s.CreditoReferenciaLimite1 is { } l1 ? Math.Round(l1, 4) : null, "0.0000");
         N(s.CreditoReferenciaNet, "R");
         N(s.EstadoOrigenCrudo); N(s.BloqueoOrigenCrudo);
+        // M-294: solo cuando A+W informa Tax ID, para no cambiar el hash de los clientes nacionales.
+        if (Vacio(s.NumRegIdTrib) is not null) T(s.NumRegIdTrib);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()))).ToLowerInvariant();
     }
 }

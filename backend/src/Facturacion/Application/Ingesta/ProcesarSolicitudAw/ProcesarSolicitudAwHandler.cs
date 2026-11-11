@@ -65,6 +65,32 @@ public sealed class ProcesarSolicitudAwHandler
         ProcesarSolicitudAwCommand command,
         CancellationToken cancellationToken)
     {
+        try
+        {
+            return await ProcesarAsync(command, cancellationToken);
+        }
+        catch (Exception ex) when (ex is BusinessRuleException
+            || ex is DbUpdateException { InnerException: Npgsql.PostgresException { SqlState: "22001" } })
+        {
+            // 86e40b4mp: un dato del pedido que el dominio o la BD rechazan no se reintenta sin fin. Queda en
+            // «Pedidos con error de importación» con el detalle y A+W recibe Rechazada (reenviar con versión nueva).
+            _db.ChangeTracker.Clear();
+            var sol = command.Solicitud;
+            var detalle = ex is BusinessRuleException br
+                ? $"{br.Code}: {br.Message}"
+                : "un dato del pedido excede el largo permitido en el ERP (22001)";
+            (await ObtenerOAbrirExcepcionAsync(command.EmpresaId, sol.NumeroPedido, MotivoExcepcion.Otro, detalle, cancellationToken))
+                .Actualizar(MotivoExcepcion.Otro, detalle);
+            await _db.SaveChangesAsync(cancellationToken);
+            return await ResultadoAsync(sol, null, null, ResultadoSolicitudAw.Rechazada,
+                $"{detalle} — reenvíe con una versión nueva", cancellationToken);
+        }
+    }
+
+    private async Task<ProcesarSolicitudAwResponse> ProcesarAsync(
+        ProcesarSolicitudAwCommand command,
+        CancellationToken cancellationToken)
+    {
         var sol = command.Solicitud;
         var empresaId = command.EmpresaId;
         var ahora = _clock.UtcNow;
