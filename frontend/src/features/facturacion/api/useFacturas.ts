@@ -14,6 +14,7 @@ import type {
   ConsultarCancelacionResponse,
   DescartarComprobanteResponse,
   EmisorDefaultsResponse,
+  TipoCambioDofResponse,
   EmitirFacturaVentaCommand,
   EmitirFacturaVentaResponse,
   EnvioCorreoItem,
@@ -31,6 +32,25 @@ import type {
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/facturas';
+
+/**
+ * TipoCambioUSD del Complemento de Comercio Exterior para una factura emitida hoy:
+ * el del catálogo (DOF del día hábil anterior, art. 20 CFF). El SAT rechaza otro valor (CCE121).
+ */
+export function useTipoCambioDof(enabled: boolean) {
+  return useQuery<TipoCambioDofResponse>({
+    queryKey: facturacionKeys.tipoCambioDof(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<TipoCambioDofResponse>(
+        '/api/v1/facturacion/catalogos/tipo-cambio-dof',
+        { signal },
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
 
 /**
  * <c>useEmisorDefaults()</c> — RFC/razón social/régimen del emisor +

@@ -104,6 +104,28 @@ public sealed class CceTests
     }
 
     [Fact]
+    public void Actualizar_tipo_cambio_para_timbrar_solo_en_borrador_y_moneda_extranjera()
+    {
+        var f = FacturaExportacionBorrador();
+        f.ActualizarTipoCambioParaTimbrar(18.6297m);
+        f.TipoCambio.Should().Be(18.6297m);
+
+        var cero = () => f.ActualizarTipoCambioParaTimbrar(0m);
+        cero.Should().Throw<BusinessRuleException>().Where(e => e.Code == "TIPO_CAMBIO_VALOR_INVALIDO");
+
+        f.MarcarTimbradoEnProceso();
+        var enProceso = () => f.ActualizarTipoCambioParaTimbrar(18.7m);
+        enProceso.Should().Throw<BusinessRuleException>().Where(e => e.Code == "TIPO_CAMBIO_INMUTABLE");
+
+        var receptor = new DatosFiscalesReceptor("AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX", false);
+        var mxn = FacturaVenta.CrearBorrador(Guid.NewGuid(), "F-2", 2, Guid.NewGuid(), null, null, receptor,
+            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "PUE", "01", "MXN", null, 2026, 5,
+            (short)1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+        var enMxn = () => mxn.ActualizarTipoCambioParaTimbrar(18.6m);
+        enMxn.Should().Throw<BusinessRuleException>().Where(e => e.Code == "TIPO_CAMBIO_MXN");
+    }
+
+    [Fact]
     public void AdjuntarCce_a_factura_no_exportacion_lanza()
     {
         var receptor = new DatosFiscalesReceptor("AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX", false);
@@ -146,19 +168,20 @@ public sealed class CceTests
 
     // ---- Handler ----
 
-    private static EmitirFacturaVentaHandler Handler(FacturacionDbContext db, Guid empresaId, MediatR.ISender? sender = null) =>
+    private static EmitirFacturaVentaHandler Handler(FacturacionDbContext db, Guid empresaId, MediatR.ISender? sender = null,
+        ICatalogosSatReadPort? catalogos = null, FakeFiscalApiClient? pac = null) =>
         new(db, sender ?? new FakeSender(new ReservarFolioResponse("EXP-000001", 1, "")),
-            new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(),
+            new FakePeriodoContablePort(), catalogos ?? new FakeCatalogosSatReadPort(), pac ?? new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
             new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
-    private static EmitirFacturaVentaCommand CommandExportacion(EmitirFacturaVentaCce? cce) => new(
+    private static EmitirFacturaVentaCommand CommandExportacion(EmitirFacturaVentaCce? cce, decimal tipoCambio = 20m) => new(
         SucursalId: Guid.NewGuid(),
         ReceptorRfc: "XEXX010101000", ReceptorNombre: "Foreign Corp", ReceptorRegimenFiscal: "616",
         ReceptorCodigoPostal: "76120", ReceptorUsoCfdi: "S01", ReceptorPais: "USA",
         RfcEmisor: "BBB010101BBB", RegimenFiscalEmisor: "601",
-        MetodoPago: "PUE", FormaPago: "01", Moneda: "USD", TipoCambio: 20m,
+        MetodoPago: "PUE", FormaPago: "01", Moneda: "USD", TipoCambio: tipoCambio,
         CanalVenta: (short)8, ComportamientoFiscal: ComportamientoFiscal.ExportacionConCce,
         ObraId: null, ObraNombre: null, FacturaAgrupada: false,
         Lineas: [new EmitirFacturaVentaLinea(null, "8471300100", "Export goods", "H87", 1m, 3750m, 0m, "02", 0m, null, null)],
@@ -171,7 +194,8 @@ public sealed class CceTests
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
 
-        var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
+        // Sin captura (0): el TipoCambioUSD sale del catálogo (CCE121).
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 0m, "TAX-USA-1", "USA",
             [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
             ClaveDePedimento: "A1", CertificadoOrigen: true,
             ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX",
@@ -183,7 +207,7 @@ public sealed class CceTests
         var factura = await db.FacturasVenta.Include(f => f.ComplementoCce!).ThenInclude(c => c.Lineas).SingleAsync();
         factura.ComplementoCce.Should().NotBeNull();
         factura.ComplementoCce!.Incoterm.Should().Be("FOB");
-        factura.ComplementoCce!.TcDof.Should().Be(20.5m);
+        factura.ComplementoCce!.TcDof.Should().Be(20m);
         factura.ComplementoCce!.ClaveDePedimento.Should().Be("A1");
         factura.ComplementoCce!.CertificadoOrigen.Should().BeTrue();
         factura.ComplementoCce!.ReceptorDomicilioEstado.Should().Be("TX");
@@ -252,6 +276,78 @@ public sealed class CceTests
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CCE_CLAVE_PEDIMENTO_REQUERIDA");
         sender.FoliosReservados.Should().Be(0);
+    }
+
+    // ---- CCE121: TipoCambioUSD del DOF tomado del catálogo ----
+
+    private static EmitirFacturaVentaCce CceCompleto(decimal tcDof) => new("2", "FOB", tcDof, "TAX-USA-1", "USA",
+        [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
+        ClaveDePedimento: "A1", ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX",
+        ReceptorDomicilioCodigoPostal: "75001");
+
+    [Fact]
+    public async Task CCE121_tc_capturado_distinto_del_catalogo_se_rechaza_antes_del_PAC_y_sin_folio()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderCuentaFolios();
+        var pac = new FakeFiscalApiClient();
+
+        var act = () => Handler(db, empresaId, sender, new FakeCatalogosSatReadPort(tipoCambio: 18.6297m), pac)
+            .Handle(CommandExportacion(CceCompleto(18.5m), tipoCambio: 18.6297m), CancellationToken.None);
+
+        var error = await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CCE_TC_DOF_NO_CORRESPONDE");
+        error.Which.Message.Should().Contain("18.6297").And.Contain("18.5").And.Contain("30/05/2026");
+        pac.UltimaEmision.Should().BeNull();
+        sender.FoliosReservados.Should().Be(0);
+        (await db.FacturasVenta.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CCE121_sin_tc_en_el_catalogo_para_la_fecha_no_deja_pasar_un_valor_libre()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var pac = new FakeFiscalApiClient();
+
+        var act = () => Handler(db, empresaId, catalogos: new FakeCatalogosSatReadPort(tipoCambio: null), pac: pac)
+            .Handle(CommandExportacion(CceCompleto(18.5m)), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CCE_TC_DOF_NO_REGISTRADO"))
+            .Which.Message.Should().Contain("Falta el tipo de cambio USD del 30/05/2026 en el catálogo");
+        pac.UltimaEmision.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CCE121_el_xml_lleva_el_tc_del_catalogo_de_la_fecha_de_emision()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var catalogos = new FakeCatalogosSatReadPort(tipoCambio: 18.6297m);
+        var pac = new FakeFiscalApiClient();
+
+        await Handler(db, empresaId, catalogos: catalogos, pac: pac)
+            .Handle(CommandExportacion(CceCompleto(18.6297m), tipoCambio: 18.6297m), CancellationToken.None);
+
+        pac.UltimaEmision!.ComplementoCce!.TipoCambioUsd.Should().Be(18.6297m);
+        // Moneda USD: TipoCambio del comprobante y TipoCambioUSD del complemento, mismo día y mismo valor.
+        pac.UltimaEmision.TipoCambio.Should().Be(pac.UltimaEmision.ComplementoCce.TipoCambioUsd);
+        catalogos.ConsultaTipoCambio.Should().Be(("USD", new DateOnly(2026, 5, 30)));
+        (await db.FacturasVenta.Include(f => f.ComplementoCce!).SingleAsync()).ComplementoCce!.TcDof.Should().Be(18.6297m);
+    }
+
+    [Fact]
+    public async Task CCE121_consulta_del_formulario_devuelve_el_tc_del_catalogo_de_hoy()
+    {
+        var r = await new Millet.Facturacion.Application.Catalogos.TipoCambioDofHandler(
+                new FakeCatalogosSatReadPort(tipoCambio: 18.6297m), new FakeClock(new(2026, 11, 10, 23, 30, 0, TimeSpan.Zero)))
+            .Handle(new(), CancellationToken.None);
+
+        // 23:30 UTC del 10-nov = 17:30 en México: la emisión es del 10-nov.
+        r.Should().Be(new Millet.Facturacion.Application.Catalogos.TipoCambioDofResponse("USD", new DateOnly(2026, 11, 10), 18.6297m));
+        (await new Millet.Facturacion.Application.Catalogos.TipoCambioDofHandler(
+                new FakeCatalogosSatReadPort(tipoCambio: null), new FakeClock(Ahora)).Handle(new(), CancellationToken.None))
+            .Valor.Should().BeNull();
     }
 
     private sealed class FakeSenderCuentaFolios : MediatR.ISender

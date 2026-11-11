@@ -205,6 +205,10 @@ public sealed class EmitirFacturaVentaHandler
             Millet.Facturacion.Application.Timbrado.CfdiEmisionBuilder.ValidarDatosSatCce(
                 cceSat.ClaveDePedimento, cceSat.ReceptorDomicilioCalle,
                 cceSat.ReceptorDomicilioEstado, cceSat.ReceptorDomicilioCodigoPostal, cceSat.ReceptorPaisResidencia);
+        // TipoCambioUSD del CCE: el del DOF que rige la fecha de emisión, tomado del catálogo (CCE121).
+        if (command.Cce is { } cceTc)
+            command = command with { Cce = cceTc with {
+                TcDof = await TipoCambioCce.ResolverAsync(_catalogos, cceTc.TcDof, ahora, cancellationToken) } };
         await TipoCambioFactura.ValidarAsync(
             _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
