@@ -63,7 +63,7 @@ export function TallerCierrePage() {
         descripcion="Registra el cierre diario del taller con las hojas descargadas por pedidos internos Serie 9000, que no se facturan."
       />
 
-      <section className="grid gap-4 rounded-lg border border-line-row bg-surface-card p-4 sm:grid-cols-2 lg:max-w-2xl">
+      <section className="grid gap-4 rounded-lg border border-line-row bg-surface-card p-4 sm:grid-cols-2">
         <Field label="Taller" required>
           <Select value={sucursalActiva ?? ''} onValueChange={setSucursalId}>
             <SelectTrigger aria-label="Taller">
