@@ -19,6 +19,7 @@ public sealed class PropuestasAplicacionPermisosTests
     [InlineData("ObtenerPropuestaAplicacion")]
     [InlineData("AutorizarAjustePropuestaAplicacion")]
     [InlineData("RechazarAjustePropuestaAplicacion")]
+    [InlineData("RevertirAjustePropuestaAplicacion")]
     public void Ingresos_con_solo_confirmar_ve_la_propuesta_y_autoriza_su_ajuste(string endpoint) =>
         Assert.Contains(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar, Codigos(endpoint));
 

@@ -74,9 +74,11 @@ public sealed class ComprobanteCanceladoHandler : IRequestHandler<ComprobanteCan
             case "Pago":
             case "Egreso":
             {
-                var movimientos = await _db.MovimientosCartera
+                // M-240: la reversa de un ajuste (faltante ya regresado) se deshace primero, luego el pago completo del REP.
+                var movimientos = (await _db.MovimientosCartera
                     .Where(m => m.OrigenComprobanteId == p.ComprobanteId && !m.Revertido)
-                    .ToListAsync(cancellationToken);
+                    .ToListAsync(cancellationToken))
+                    .OrderBy(m => m.Tipo == TipoMovimientoCartera.ReversaAjusteCobro ? 0 : 1).ToList();
 
                 foreach (var mov in movimientos)
                 {
@@ -84,6 +86,8 @@ public sealed class ComprobanteCanceladoHandler : IRequestHandler<ComprobanteCan
                         .FirstAsync(f => f.Id == mov.FacturaCarteraId, cancellationToken);
                     if (mov.Tipo == TipoMovimientoCartera.Pago)
                         factura.RevertirPago(mov.Importe);
+                    else if (mov.Tipo == TipoMovimientoCartera.ReversaAjusteCobro)
+                        factura.DeshacerReversaAjusteCobro(mov.Importe);
                     else
                         factura.RevertirNotaCredito(mov.Importe);
                     mov.Revertir(ahora);

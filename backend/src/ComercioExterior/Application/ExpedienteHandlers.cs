@@ -44,7 +44,7 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
     }
 }
 
-public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos, IOcImportacionReadPort compras) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
+public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos, IOcImportacionReadPort compras, Millet.Compartido.Application.Ports.ITipoDocumentoCondicionalPort tiposDocumento) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
 {
     public async Task<ExpedienteDetalle> Handle(MutarExpedienteCommand request, CancellationToken cancellationToken)
     {
@@ -53,8 +53,10 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
             "cerrar" => PermisosCanonicos.ComercioExteriorExpedientesAprobarCierre,
             "cerrar-fisico" or "cerrar-documental" or "cerrar-financiero" => PermisosCanonicos.ComercioExteriorExpedientesCerrar,
             "hito-compromiso" or "hito-real" or "hito-omitir" => PermisosCanonicos.ComercioExteriorExpedientesHitosRegistrar,
+            // M-373: permiso propio; cambiar quién corrige (M-151) es sólo reasignar el permiso a otro rol.
+            "hito-corregir" => PermisosCanonicos.ComercioExteriorExpedientesHitosCorregir,
             "cancelar" => PermisosCanonicos.ComercioExteriorExpedientesCancelar,
-            "requisito-hito" or "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
+            "requisito-hito" or "requisito-condicional" or "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
             "documentos" => PermisosCanonicos.ComercioExteriorExpedientesAdjuntosSubir,
             "editar" or "participantes" => PermisosCanonicos.ComercioExteriorExpedientesEditar,
             _ => throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.")};
@@ -85,6 +87,17 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 var config = await db.RequisitosHitos.SingleOrDefaultAsync(x => x.Tipo == e.Tipo && x.TipoDocumentoId == rh.TipoDocumentoId, cancellationToken);
                 if (config is null) db.RequisitosHitos.Add(new(e.EmpresaId, e.Tipo, rh.TipoDocumentoId, rh.HitoClave));
                 else config.Cambiar(rh.HitoClave);
+                break;
+            case "requisito-condicional":
+                var rc = request.RequisitoCondicional ?? throw new BusinessRuleException("CE_DOCUMENTO_INVALIDO", "Seleccione el requisito.");
+                if (!(await catalogos.RequisitosAsync(e.Tipo, cancellationToken)).Any(r => r.Id == rc.TipoDocumentoId))
+                    throw new BusinessRuleException("CE_TIPO_DOCUMENTO_INVALIDO", "El documento no corresponde al tipo de operación.");
+                await tiposDocumento.CambiarCondicionalAsync(Millet.ComercioExterior.Infrastructure.PublicAdapters.CatalogosCeReadAdapter.Entidad, rc.TipoDocumentoId, rc.Condicional, cancellationToken);
+                break;
+            case "hito-corregir":
+                var hc = request.Hito ?? throw new BusinessRuleException("CE_HITO_INVALIDO", "Faltan datos del hito.");
+                e.CorregirHito(hc.Clave, hc.FechaReal, hc.Omitir, hc.Motivo, servicio.Actor, clock.UtcNow, clock.HoyLocal(),
+                    await catalogos.RequisitosAsync(e.Tipo, cancellationToken), await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken));
                 break;
             case "cerrar":
             case "cerrar-fisico":

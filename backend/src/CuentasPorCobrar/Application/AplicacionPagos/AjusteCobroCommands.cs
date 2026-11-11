@@ -2,7 +2,10 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Integration;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.CuentasPorCobrar.Domain.AplicacionPagos;
+using Millet.CuentasPorCobrar.Domain.Cartera;
+using Millet.CuentasPorCobrar.Domain.Ports.Adjuntos;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -23,8 +26,13 @@ public sealed class AutorizarAjustePropuestaValidator : AbstractValidator<Autori
     public AutorizarAjustePropuestaValidator() => RuleFor(c => c.Id).NotEmpty();
 }
 
+/// <summary>
+/// M-240: la comisión bancaria se autoriza solo con su soporte adjunto (estado de cuenta o aviso del banco). Sin el puerto de adjuntos
+/// cableado se trata como sin soporte (falla cerrada).
+/// </summary>
 public sealed class AutorizarAjustePropuestaHandler(
-    CuentasPorCobrarDbContext db, IIntegrationEventPublisher eventos, ICurrentUserContext usuario, IClock clock)
+    CuentasPorCobrarDbContext db, IIntegrationEventPublisher eventos, ICurrentUserContext usuario, IClock clock,
+    ISoporteAjusteCobroReadPort? soporte = null)
     : IRequestHandler<AutorizarAjustePropuestaCommand, PropuestaAplicacionResponse>
 {
     public async Task<PropuestaAplicacionResponse> Handle(AutorizarAjustePropuestaCommand command, CancellationToken cancellationToken)
@@ -38,7 +46,9 @@ public sealed class AutorizarAjustePropuestaHandler(
         if (propuesta.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(PropuestaAplicacionPago), propuesta.Id);
 
-        propuesta.AutorizarAjuste(usuarioId, clock.UtcNow);
+        var tieneSoporte = propuesta.TipoAjuste == TipoAjusteCobro.ComisionBancaria && soporte is not null
+            && await soporte.TieneSoporteAsync(propuesta.Id, cancellationToken);
+        propuesta.AutorizarAjuste(usuarioId, clock.UtcNow, tieneSoporte);
 
         var ids = propuesta.Facturas.Select(f => f.FacturaCarteraId).ToList();
         var cartera = await db.FacturasCartera.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, cancellationToken);
@@ -84,5 +94,88 @@ public sealed class RechazarAjustePropuestaHandler(CuentasPorCobrarDbContext db,
         propuesta.Rechazar(usuarioId, $"Ajuste rechazado: {command.Motivo.Trim()}", clock.UtcNow);
         await db.SaveChangesAsync(cancellationToken);
         return await PropuestaAplicacionMapper.ToResponseAsync(db, propuesta, cancellationToken);
+    }
+}
+
+// ============================================================================
+// M-240 (86e4083m7): reversa de un ajuste ya autorizado y contabilizado. Regresa
+// el faltante a la(s) factura(s) (movimiento de cartera ReversaAjusteCobro sobre
+// el REP del cobro) y pide a Contabilidad la póliza contraria, ligada a la del
+// pago. Todo o nada: si Contabilidad no puede registrarla (periodo cerrado, cobro
+// sin póliza), la cartera no cambia.
+// ============================================================================
+
+public sealed record RevertirAjustePropuestaCommand(Guid Id, int VersionEsperada, string Motivo) : IRequest<PropuestaAplicacionResponse>;
+
+public sealed class RevertirAjustePropuestaValidator : AbstractValidator<RevertirAjustePropuestaCommand>
+{
+    public RevertirAjustePropuestaValidator()
+    {
+        RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
+    }
+}
+
+public sealed class RevertirAjustePropuestaHandler(
+    CuentasPorCobrarDbContext db, ICurrentUserContext usuario, IClock clock, IReversaAjusteCobroContablePort contabilidad)
+    : IRequestHandler<RevertirAjustePropuestaCommand, PropuestaAplicacionResponse>
+{
+    public async Task<PropuestaAplicacionResponse> Handle(RevertirAjustePropuestaCommand command, CancellationToken cancellationToken)
+    {
+        var ct = cancellationToken;
+        if (usuario.UserId is not Guid usuarioId || usuarioId == Guid.Empty)
+            throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se pudo identificar a quien revierte el ajuste.");
+
+        var propuesta = await db.PropuestasAplicacionPago.Include(p => p.Facturas)
+            .FirstOrDefaultAsync(p => p.Id == command.Id, ct)
+            ?? throw new EntityNotFoundException("PAP_NO_ENCONTRADA", "No se encontró la propuesta.");
+        if (propuesta.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(PropuestaAplicacionPago), propuesta.Id);
+
+        var ahora = clock.UtcNow;
+        propuesta.RevertirAjuste(usuarioId, command.Motivo, ahora);
+        if (propuesta.MovimientoBancarioId is null)
+            throw new BusinessRuleException("PAP_COBRO_SIN_MOVIMIENTO",
+                "El cobro no tiene el movimiento bancario de Tesorería: no se puede ubicar su póliza para revertir el ajuste.");
+        var rep = propuesta.ReciboPagoId!.Value;
+
+        // El faltante regresa a las facturas de la propuesta, de la última línea hacia atrás, sin pasar de lo que el REP les aplicó.
+        var pagos = await db.MovimientosCartera
+            .Where(m => m.OrigenComprobanteId == rep && m.Tipo == TipoMovimientoCartera.Pago && !m.Revertido)
+            .ToDictionaryAsync(m => m.FacturaCarteraId, ct);
+        var ids = propuesta.Facturas.Select(f => f.FacturaCarteraId).ToList();
+        var facturas = await db.FacturasCartera.Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
+        var pendiente = Math.Abs(propuesta.AjusteNoFiscal);
+        foreach (var linea in propuesta.Facturas.Reverse())
+        {
+            if (pendiente == 0m) break;
+            if (!pagos.TryGetValue(linea.FacturaCarteraId, out var pago) || !facturas.TryGetValue(linea.FacturaCarteraId, out var factura))
+                continue;
+            var importe = Math.Min(pendiente, Math.Min(pago.Importe, factura.MontoPagado));
+            if (importe <= 0m) continue;
+            factura.RevertirPago(importe);
+            db.MovimientosCartera.Add(new MovimientoCartera(propuesta.EmpresaId, factura.Id, TipoMovimientoCartera.ReversaAjusteCobro,
+                rep, importe, ahora));
+            pendiente -= importe;
+        }
+        if (pendiente > 0m)
+            throw new BusinessRuleException("PAP_REVERSA_SIN_PAGO_EN_CARTERA",
+                "El REP del cobro ya no está aplicado en cartera (cancelado o revertido): no hay a qué regresar el faltante.");
+
+        var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            // Contabilidad lee la reversa por IAjusteCobroContablePort (misma conexión: ve lo guardado en esta transacción).
+            var poliza = await contabilidad.RegistrarAsync(propuesta.EmpresaId, propuesta.Id, ct);
+            propuesta.RegistrarPolizaReversaAjuste(poliza.Id);
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+        }
+        finally
+        {
+            if (transaction is not null) await transaction.DisposeAsync();
+        }
+        return await PropuestaAplicacionMapper.ToResponseAsync(db, propuesta, ct);
     }
 }

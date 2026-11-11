@@ -978,6 +978,14 @@ export interface PedidoFacturableDetalleResponse
  * RFC/razón social/régimen de la empresa del contexto + la sucursal
  * única activa (null si hay más de una — el usuario elige).
  */
+/** TipoCambioUSD del CCE: valor del catálogo USD para la emisión de hoy; null si falta. */
+export interface TipoCambioDofResponse {
+  moneda: string;
+  /** Fecha de emisión (AAAA-MM-DD) a la que aplica el valor publicado en el DOF el día hábil anterior. */
+  fecha: string;
+  valor: number | null;
+}
+
 export interface EmisorDefaultsResponse {
   rfcEmisor: string;
   razonSocialEmisor: string;
@@ -1656,6 +1664,12 @@ export interface SolicitarCancelacionResponse {
   estatusSat: string | null;
   /** M18: motivo del rechazo del SAT (sin el texto en inglés del PAC); null si no hubo rechazo. */
   mensajeError?: string | null;
+  /** M-235: firmas que pide la cancelación (1 o 2) y las ya dadas. */
+  firmasRequeridas?: number;
+  firmasDadas?: number;
+  primeraFirmaPor?: string | null;
+  /** M-235: versión de la solicitud que se autoriza (motivo, sustituto, importe). */
+  huella?: string | null;
 }
 
 /** Estatus de la cancelación de un comprobante (GET /comprobantes/{id}/cancelar). */
@@ -1726,6 +1740,23 @@ export interface CancelacionBandejaItem {
   decididaPor: string | null;
   decididaEn: string | null;
   motivoRechazo: string | null;
+  /** M-235: firmas por operación y monto. */
+  firmasRequeridas?: number;
+  firmasDadas?: number;
+  primeraFirmaPor?: string | null;
+  primeraFirmaPorId?: string | null;
+  primeraFirmaEn?: string | null;
+  /** M-235: la solicitud cambió después de la primera firma y esta se anuló. */
+  firmaAnuladaMotivo?: string | null;
+  /** M-235: versión vista; se manda al autorizar para bloquear si cambió. */
+  huella?: string | null;
+}
+
+/** M-235: regla de firmas de la cancelación (tipo null = cualquier operación). */
+export interface ReglaFirmaCancelacion {
+  tipoComprobante: string | null;
+  umbralMxn: number;
+  firmasRequeridas: number;
 }
 
 // ─── Cajas (CAJAS-PR5; backend CAJAS-PR1, 12-cajas.md §7/§10) ─────────
@@ -2126,6 +2157,32 @@ export interface ProformaPedidoResponse {
   vigenteHasta?: string | null;
   /** M-145: ya pasó su vigencia. */
   vencida?: boolean;
+  /** M-234: conformidad del cliente con ESTA versión; null = sin conformidad. */
+  conformidad?: ProformaConformidadResponse | null;
+}
+
+/** M-234: medios por los que el cliente da su conformidad con la proforma. */
+export type MedioConformidadProforma = 'Correo' | 'Telefono' | 'Presencial' | 'Mensajeria' | 'Otro';
+
+export interface ProformaConformidadResponse {
+  id: string;
+  proformaId: string;
+  /** Persona del cliente que dio la conformidad. */
+  quien: string;
+  /** AAAA-MM-DD */
+  fecha: string;
+  medio: MedioConformidadProforma;
+  notas: string | null;
+  registradaPor: string | null;
+  registradaEn: string;
+}
+
+export interface RegistrarConformidadProformaBody {
+  quien: string;
+  medio: MedioConformidadProforma;
+  /** AAAA-MM-DD; vacío = hoy. */
+  fecha?: string;
+  notas?: string;
 }
 
 export interface DiferenciaProforma {

@@ -20,7 +20,8 @@ public sealed record ContraEntregaNoLiquidadaEvent(Guid Empresa, DateTimeOffset 
     : IntegrationEvent("producto_terminado.contra-entrega.no-liquidada.v1", Empresa, Fecha);
 
 /// <summary>
-/// La primera hoja de salida emitida del pedido lo pone en ruta. A+W lo recibe como estatus 72 (aw_retorno, script 14 v5): el 71 lo pone A+W con el albarán.
+/// Estatus 72 para A+W (aw_retorno, script 14 v5). En A+W no se revierte (TI, 10-nov), así que se publica una sola vez, cuando un albarán del
+/// pedido ya no se puede cancelar: factura timbrada (al emitir o al timbrar), entrega en ruta o liquidación cerrada. El 71 lo pone A+W con el albarán.
 /// </summary>
 public sealed record PedidoEnRutaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string HojaSalidaFolio, string AlbaranFolio, string? CartaPorteFolio)
     : IntegrationEvent("producto_terminado.pedido.en-ruta.v1", Empresa, Fecha);

@@ -1,5 +1,7 @@
 using System.Globalization;
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using Millet.SharedKernel.Application.Exceptions;
 using Microsoft.Extensions.Logging;
 using Millet.CuentasPorPagar.Domain.Ports.TarjetaCredito;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
@@ -56,7 +58,9 @@ public sealed class EstadoCuentaTcExcelParser : IEstadoCuentaTcParserPort
         var errores = new List<string>();
         decimal? totalDeclarado = null;
 
-        using var workbook = new XLWorkbook(archivoStream);
+        using var workbook = AbrirLibro(archivoStream);
+        if (workbook.Worksheets.Count == 0)
+            throw new BusinessRuleException("EC_ARCHIVO_ILEGIBLE", "El Excel no contiene hojas.");
         var sheet = workbook.Worksheet(1);
         var locale = perfil.LocaleMontos == "es-MX" || perfil.LocaleMontos == "es-MX-PUNTO"
             ? CultureInfo.GetCultureInfo("es-MX")
@@ -163,6 +167,18 @@ public sealed class EstadoCuentaTcExcelParser : IEstadoCuentaTcParserPort
     /// Resuelve la referencia de columna: 'A','B','AA' (letra Excel) o
     /// '1','2' (índice 1-based). Lanza si no se puede parsear.
     /// </summary>
+    private static XLWorkbook AbrirLibro(Stream stream)
+    {
+        try
+        {
+            return new XLWorkbook(stream);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or FileFormatException or OpenXmlPackageException)
+        {
+            throw new BusinessRuleException("EC_ARCHIVO_ILEGIBLE", "No se pudo leer el estado de cuenta. Adjunte un Excel .xlsx válido.");
+        }
+    }
+
     internal static int ResolverColumna(string referencia)
     {
         var trimmed = referencia.Trim();

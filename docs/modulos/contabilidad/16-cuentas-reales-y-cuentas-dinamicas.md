@@ -60,11 +60,33 @@ El script `backend/scripts/contabilidad-asignar-cuentas-roles.sql` asigna estas 
 | AJUSTE_INVENTARIO | 504.25.02.00 MERMAS | 50 y 54 |
 | IVA_ACREDITABLE_PAGADO | 118.01.01.00 IVA 16% PAGADO | S3 y S8 |
 | COMISIONES_BANCARIAS | 701.10.00.00 COMISIONES BANCARIAS | S7 |
+| GASTOS_IMPORTACION_POR_APLICAR | 201.07.00.00 GASTOS ADUANALES POR APLICAR | M-169 (respuesta del 10-nov) |
+| GASTO_IMPORTACION_HONORARIOS_PF | 601.73.01.00 HONORARIOS ADUANALES PERSONAS FÍSICAS | M-169 |
+| GASTO_IMPORTACION_HONORARIOS_PM | 601.73.02.00 HONORARIOS ADUANALES PERSONAS MORALES | M-169 |
 
 **Notas de Contabilidad:**
 - **Merma:** «la cuenta de DESPERDICIO tiene otro uso», así que la merma no va a 504.25.01.00.
 - **IVA de la comisión bancaria:** va a 118.01.01.00 (IVA pagado), porque el banco ya la cobró.
 - **Factura de proveedor:** se registra sin descontar retenciones; el «descuento» se hace al pagar (renglón 8). Es parte de la regla de retenciones pendiente (§4).
+
+### Gasto de importación por grupo contable (M-169)
+
+La póliza del costo de importación (`almacen.expediente.costo-aplicado.v1`) carga el gasto por el grupo contable del concepto de Comercio Exterior. El grupo se configura por concepto en *Comercio exterior › Expediente › Gastos y prorrateo › Configurar bases por concepto*.
+
+| Concepto de CE (valor inicial) | Grupo | Rol | Cuenta |
+|---|---|---|---|
+| Honorarios del agente aduanal, proveedor persona física | Honorarios aduanales | GASTO_IMPORTACION_HONORARIOS_PF | 601.73.01.00 |
+| Honorarios del agente aduanal, proveedor persona moral | Honorarios aduanales | GASTO_IMPORTACION_HONORARIOS_PM | 601.73.02.00 |
+| Flete internacional, flete nacional, maniobras | Fletes y maniobras | GASTO_IMPORTACION_FLETES_MANIOBRAS | Por abrir (Millet, en pruebas) |
+| Almacenaje | Almacenajes | GASTO_IMPORTACION_ALMACENAJES | Por abrir (Millet, en pruebas) |
+| Seguro, gastos aduanales, terceros, IGI, DTA, PRV, otros | Otros gastos de importación | GASTO_IMPORTACION_OTROS | Por abrir (Millet, en pruebas) |
+| Contrapartida | — | GASTOS_IMPORTACION_POR_APLICAR | 201.07.00.00 |
+
+- La persona física o moral sale del maestro de proveedores (tipo de persona, derivado del RFC: 13 caracteres = física).
+- El IVA de importación no entra al costo ni a la póliza.
+- La migración `M169GastoImportacionPorGrupo` asigna las tres cuentas si ya existen en el catálogo; si no, las asigna este script después de importar el catálogo.
+- Mientras un rol de grupo no tenga cuenta, el evento queda en Rechazos con «Rol sin cuenta». Al asignarle la cuenta se reprocesa sin duplicar la póliza.
+- Un evento anterior a M-169, sin desglose, sigue cargando todo a `GASTO_IMPORTACION`.
 
 ### Después de correr el script
 

@@ -64,6 +64,14 @@ public sealed class AdjuntoTipoDocumento : BaseEntity, IAuditable
 
     public bool Activo { get; private set; } = true;
 
+    /// <summary>
+    /// M-373: el documento se pide sólo cuando aplica a la operación; quien lo captura puede registrar
+    /// «No aplica» con motivo. Lo configura cada área (p. ej. requisitos del expediente de Comercio exterior).
+    /// </summary>
+    public bool Condicional { get; private set; }
+
+    public void CambiarCondicional(bool condicional) => Condicional = condicional;
+
     private AdjuntoTipoDocumento() { }
 
     /// <summary>

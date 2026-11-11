@@ -3,8 +3,8 @@ namespace Millet.ActivosFijos.Domain;
 // Fuente: CATALOGO_MILLET.xlsx, Plan de cuentas (5). Los títulos .00 no reciben movimientos.
 public sealed record ClaseCatalogoMillet(string Clave, string Nombre, string Activo, string? Depreciacion, string? Gasto, decimal? Tasa, bool Depreciable)
 {
-    // Millet, 26-oct-2026: cómputo 33 % en contable y fiscal; contable = fiscal en todas las clases.
-    public decimal? TasaContable => Tasa;
+    // M-078: Millet confirmó 30 % contable para cómputo el 9-nov-2026.
+    public decimal? TasaContable => Clave == "156" ? 30m : Tasa;
 }
 public static class CatalogoClasesMillet
 {

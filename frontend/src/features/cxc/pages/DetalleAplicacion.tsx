@@ -19,7 +19,9 @@ import {
   usePropuestaAplicacion,
   useAutorizarAjuste,
   useRechazarAjuste,
+  useRevertirAjuste,
 } from '@/features/cxc/api/useAplicaciones';
+import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { RechazarAjusteDialog } from '@/features/cxc/components/RechazarAjusteDialog';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -207,15 +209,27 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
   const tienePermiso = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar);
   const autorizar = useAutorizarAjuste();
   const rechazar = useRechazarAjuste();
+  const revertir = useRevertirAjuste();
   const [rechazando, setRechazando] = useState(false);
+  const [revirtiendo, setRevirtiendo] = useState(false);
 
   const porAutorizar = p.ajustePorAutorizar === true;
   const rechazado = esAjusteRechazado(p);
   const esQuienPropuso = usuarioId != null && p.propuestoPor === usuarioId;
   const puedeAutorizar = porAutorizar && !esQuienPropuso && tienePermiso;
+  const esComision = p.tipoAjuste === TipoAjusteCobro.ComisionBancaria;
+  // M-240: se revierte un ajuste autorizado de un cobro ya confirmado y con REP timbrado (aplicado en cartera y contabilizado).
+  const revertido = p.ajusteRevertidoEn != null;
+  const puedeRevertir =
+    !revertido && p.ajusteAutorizadoEn != null && p.estado === EstadoPropuestaAplicacion.Confirmada &&
+    p.reppTimbrado === true && !esQuienPropuso && tienePermiso;
 
   function onError(error: unknown) {
-    if (esApiError(error)) toast.error('No se pudo resolver el ajuste. Revisa los datos y tu conexión antes de volver a intentarlo.');
+    // M-240: la regla de negocio (p. ej. comisión sin soporte, periodo cerrado) se muestra tal cual la explica el backend.
+    if (esApiError(error))
+      toast.error('No se pudo resolver el ajuste.', {
+        description: error.problem.detail ?? 'Revisa los datos y tu conexión antes de volver a intentarlo.',
+      });
     else toast.error('Error inesperado.');
   }
 
@@ -231,13 +245,20 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-medium">
-            {porAutorizar ? 'Ajuste por autorizar' : rechazado ? 'Ajuste rechazado' : 'Ajuste documentado'}
+            {porAutorizar ? 'Ajuste por autorizar' : rechazado ? 'Ajuste rechazado' : revertido ? 'Ajuste revertido' : 'Ajuste documentado'}
           </h3>
           <p className="text-xs text-ink-muted">
             El depósito es {formatoMonto(-p.ajusteNoFiscal, p.moneda)} menor que lo aplicado. No genera
             CFDI; la póliza del cobro carga la diferencia a la cuenta de su tipo.
           </p>
         </div>
+        {puedeRevertir && (
+          <div className="flex gap-2" data-print="hidden">
+            <Button type="button" variant="ghost" onClick={() => setRevirtiendo(true)} disabled={revertir.isPending}>
+              Revertir ajuste
+            </Button>
+          </div>
+        )}
         {puedeAutorizar && (
           <div className="flex gap-2" data-print="hidden">
             <Button
@@ -295,6 +316,21 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
           <dt className="text-xs text-ink-muted">Motivo</dt>
           <dd className="whitespace-pre-wrap">{p.motivoAjuste || <span className="text-ink-muted">—</span>}</dd>
         </div>
+        {revertido && (
+          <>
+            <div className="col-span-2">
+              <dt className="text-xs text-ink-muted">Reversa</dt>
+              <dd>
+                Revertido el <DateTimeDisplay value={p.ajusteRevertidoEn!} variant="datetime" />; el faltante regresó a la factura
+                y se registró la póliza contraria.
+              </dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-xs text-ink-muted">Motivo de la reversa</dt>
+              <dd className="whitespace-pre-wrap">{p.motivoReversaAjuste || <span className="text-ink-muted">—</span>}</dd>
+            </div>
+          </>
+        )}
         {rechazado && p.motivoRechazo && (
           <div className="col-span-2 lg:col-span-4">
             <dt className="text-xs text-ink-muted">Motivo del rechazo</dt>
@@ -302,6 +338,26 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
           </div>
         )}
       </dl>
+      {p.tipoAjuste != null && (
+        <div className="mt-4 space-y-2">
+          {esComision && porAutorizar && (
+            <p className="text-xs text-ink-muted">
+              La comisión bancaria se autoriza solo con su soporte: adjunta el estado de cuenta o el aviso del banco.
+            </p>
+          )}
+          <DocumentoAdjuntosSection
+            base={`/api/v1/cuentas-por-cobrar/propuestas-aplicacion/${p.id}`}
+            tipo="propuesta_aplicacion_cxc"
+            titulo="Soporte del ajuste"
+            permisos={{
+              ver: `${PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer}|${PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar}`,
+              subir: PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer,
+              baja: PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer,
+            }}
+            soloLectura={!porAutorizar}
+          />
+        </div>
+      )}
       {porAutorizar && esQuienPropuso && (
         <p className="mt-3 text-xs text-ink-muted">
           Tú propusiste este cobro: otra persona con permiso debe autorizar el ajuste.
@@ -318,6 +374,24 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
               onSuccess: () => {
                 setRechazando(false);
                 toast.success('Ajuste rechazado. La propuesta quedó rechazada.');
+              },
+              onError,
+            },
+          )
+        }
+      />
+      <RechazarAjusteDialog
+        modo="revertir"
+        open={revirtiendo}
+        onOpenChange={setRevirtiendo}
+        isPending={revertir.isPending}
+        onConfirm={(motivo) =>
+          revertir.mutate(
+            { id: p.id, versionEsperada: p.version, motivo, idempotencyKey: crypto.randomUUID() },
+            {
+              onSuccess: () => {
+                setRevirtiendo(false);
+                toast.success('Ajuste revertido. El faltante regresó a la factura y se registró la póliza contraria.');
               },
               onError,
             },

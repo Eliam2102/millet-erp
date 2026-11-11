@@ -31,7 +31,8 @@ public sealed class ModeloPersistenceTests
             typeof(Millet.ComercioExterior.Domain.HitoExpediente),
             typeof(Millet.ComercioExterior.Domain.ContenedorExpediente),
             typeof(Millet.ComercioExterior.Domain.PartidaEmbarcada),
-            typeof(Millet.ComercioExterior.Domain.AvisoHitoVencido)
+            typeof(Millet.ComercioExterior.Domain.AvisoHitoVencido),
+            typeof(Millet.ComercioExterior.Domain.CorreccionHitoExpediente)
         }
 
         )

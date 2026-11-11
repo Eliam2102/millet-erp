@@ -69,7 +69,7 @@ internal static class IncidenciasModelo
         var fecha = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         modelBuilder.Entity<AdjuntoTipoDocumento>().HasData(new
         {
-            Id = TipoDocumentoEvidenciaId, TipoEntidad = TipoEntidadAdjunto, Codigo = "evidencia_incidencia", Nombre = "Evidencia de la incidencia",
+            Id = TipoDocumentoEvidenciaId, Condicional = false, TipoEntidad = TipoEntidadAdjunto, Codigo = "evidencia_incidencia", Nombre = "Evidencia de la incidencia",
             Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null,
             SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = fecha, UpdatedAt = fecha,
             CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null,

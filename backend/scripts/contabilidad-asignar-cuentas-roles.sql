@@ -41,7 +41,12 @@ INSERT INTO cuentas_confirmadas (rol, cuenta, renglon) VALUES
     ('MERMA',                           '504.25.02.00', 'renglón 51 (cuenta nueva)'),
     ('AJUSTE_INVENTARIO',               '504.25.02.00', 'renglones 50 y 54 (cuenta nueva)'),
     ('IVA_ACREDITABLE_PAGADO',          '118.01.01.00', 'renglones S3 y S8'),
-    ('COMISIONES_BANCARIAS',            '701.10.00.00', 'renglón S7');
+    ('COMISIONES_BANCARIAS',            '701.10.00.00', 'renglón S7'),
+    -- M-169: gasto de importación por grupo (respuesta de Contabilidad del 10-nov). Fletes y maniobras, almacenajes y otros
+    -- gastos de importación siguen sin cuenta hasta que Millet abra esas subcuentas.
+    ('GASTOS_IMPORTACION_POR_APLICAR',  '201.07.00.00', 'M-169, respuesta del 10-nov: gastos aduanales por aplicar'),
+    ('GASTO_IMPORTACION_HONORARIOS_PF', '601.73.01.00', 'M-169: honorarios aduanales de personas físicas (cuenta nueva)'),
+    ('GASTO_IMPORTACION_HONORARIOS_PM', '601.73.02.00', 'M-169: honorarios aduanales de personas morales (cuenta nueva)');
 
 CREATE TEMP TABLE por_asignar ON COMMIT DROP AS
 SELECT r.id, r.empresa_id, r.codigo AS rol, r.cuenta_id AS anterior, c.id AS cuenta_nueva, cc.cuenta, cc.renglon

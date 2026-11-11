@@ -38,7 +38,17 @@ public sealed class M450DistribucionAreaEquipoTests
         var centro = await Servicio(puerto).CentroAsync(Importacion(), new DistribuirDatos(Area, Equipo), default);
 
         centro.Should().Be(Equipo);
-        puerto.Recibido!.Campo.Should().Be(DimensionesDistribucionServicio.Campo);
+        // M-169: se valida cada cargo a gasto de la plantilla (sin grupo y uno por grupo contable).
+        puerto.Recibidos.Select(m => m.Campo).Should().Equal(DimensionesDistribucionServicio.Campos);
+    }
+
+    [Fact]
+    public async Task M169_la_exigencia_de_cualquier_cuenta_de_gasto_por_grupo_aplica_al_expediente()
+    {
+        var puerto = new Puerto(faltanteEn: "GastoHonorariosPm", faltante: "Falta el área: la cuenta 601.73.02.00 lo exige (regla de dimensiones C-03). Captúrelo para continuar.");
+        var act = () => Servicio(puerto).CentroAsync(Importacion(), null, default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Contain("601.73.02.00");
     }
 
     [Fact]
@@ -61,9 +71,9 @@ public sealed class M450DistribucionAreaEquipoTests
         public DateTimeOffset UtcNow => new(2026, 11, 9, 18, 0, 0, TimeSpan.Zero);
     }
 
-    private sealed class Puerto(string? error = null, string? faltante = null) : IDimensionesCapturaPort
+    private sealed class Puerto(string? error = null, string? faltante = null, string? faltanteEn = null) : IDimensionesCapturaPort
     {
-        public MovimientoCaptura? Recibido { get; private set; }
+        public List<MovimientoCaptura> Recibidos { get; } = [];
 
         public Task<ExigenciaDimensiones> ExigenciasAsync(MovimientoCaptura movimiento, CancellationToken ct) =>
             Task.FromResult(ExigenciaDimensiones.Ninguna);
@@ -73,10 +83,11 @@ public sealed class M450DistribucionAreaEquipoTests
 
         public Task<DimensionesCapturaResultado> ValidarAsync(MovimientoCaptura movimiento, Guid? areaId, Guid? equipoId, CancellationToken ct)
         {
-            Recibido = movimiento;
+            Recibidos.Add(movimiento);
             return Task.FromResult(error is not null
                 ? new DimensionesCapturaResultado(error, null, null, ExigenciaDimensiones.Ninguna)
-                : new DimensionesCapturaResultado(null, faltante, equipoId ?? areaId, ExigenciaDimensiones.Ninguna));
+                : new DimensionesCapturaResultado(null, faltanteEn is null || faltanteEn == movimiento.Campo ? faltante : null, equipoId ?? areaId,
+                    ExigenciaDimensiones.Ninguna));
         }
     }
 }

@@ -71,6 +71,7 @@ public static partial class NormalizadorEventos
         {
             return tipo == DevolucionAnticipoAgente ? DevolucionAgente(eventoId, payload)
                 : tipo == CostoImportacionAplicado ? CostoImportacion(eventoId, payload)
+                : tipo == ReversaComprobacionAnticipoAgente ? ReversaAnticipoAgente(eventoId, payload)
                 : tipo == FacturaProveedorRegistrada ? FacturaProveedor(eventoId, payload)
                 : NormalizarC15(tipo, eventoId, payload) ?? NormalizarC15b(tipo, eventoId, payload)
                     ?? NormalizarPcv(tipo, eventoId, payload) ?? NormalizarTerminal(tipo, eventoId, payload)

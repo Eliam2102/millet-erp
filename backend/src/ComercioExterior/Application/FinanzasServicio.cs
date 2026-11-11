@@ -19,12 +19,16 @@ public sealed record PartidaCostoDatos(Guid PartidaId, Guid? ContenedorId, strin
 public sealed record AnticipoDatos(Guid AgenteId, string Pedimento, ImpuestosPedimento Impuestos, DateOnly Fecha, string? ReferenciaPago, bool CuentaPeca = false, Guid? SoporteCalculoId = null, decimal? Importe = null);
 public sealed record ComprobacionAnticipoDatos(ImpuestosPedimento Impuestos, Guid PedimentoPagadoId, Guid ComprobantePagoId, DateOnly Fecha, IReadOnlyCollection<Guid>? GastoIds = null, string? Motivo = null);
 public sealed record ResolucionAnticipoDatos(string Tipo, decimal Importe, DateOnly Fecha, string Referencia, Guid EvidenciaId, Guid? AnticipoDestinoId = null, int? VersionDestino = null);
-public sealed record ConceptoGastoDatos(BaseDistribucion Importacion, BaseDistribucion Exportacion, bool? RequiereOrdenServicio = null);
+/// <param name="GrupoContable">M-169: grupo contable del gasto de importación; null conserva el actual.</param>
+public sealed record ConceptoGastoDatos(BaseDistribucion Importacion, BaseDistribucion Exportacion, bool? RequiereOrdenServicio = null,
+    GrupoContableGasto? GrupoContable = null);
 public sealed record FinanzasDetalle(int Version, string EstadoFinanciero, IReadOnlyList<string> Pendientes,
     IReadOnlyList<ConceptoGasto> Conceptos, IReadOnlyCollection<GastoExpediente> Gastos, IReadOnlyCollection<PartidaCosto> Bases,
     IReadOnlyList<BasePartidaCosto> Partidas, IReadOnlyCollection<DistribucionGasto> Distribuciones, IReadOnlyCollection<AnticipoAgente> Anticipos, IReadOnlyDictionary<Guid, string> Nombres)
 {
     public IReadOnlyList<Millet.Tesoreria.Application.PublicPorts.AutorizacionAnticipoCe> Autorizaciones { get; init; } = [];
+    /// <summary>M-169: false (por omisión, Fernando 4-nov) = el gasto va a gasto de importación y no cambia el costo del inventario.</summary>
+    public bool IncrementablesAlInventario { get; init; }
     public IReadOnlyList<OrdenServicioResumen> OrdenesServicio => Gastos.Where(g => g.OrdenServicioId != null)
         .GroupBy(g => g.OrdenServicioId!.Value).Select(g =>
         {
@@ -39,15 +43,19 @@ public sealed record OrdenServicioResumen(Guid Id, string Folio, string Moneda, 
 public sealed record MutarFinanzasCommand(Guid ExpedienteId, int Version, string Accion, Guid? ElementoId = null,
     DatosGasto? Gasto = null, PartidaCostoDatos? Partida = null, AnticipoDatos? Anticipo = null,
     ComprobacionAnticipoDatos? Comprobacion = null, ResolucionAnticipoDatos? Resolucion = null, ConceptoGastoDatos? Concepto = null,
-    DistribuirDatos? Distribuir = null) : IRequest<FinanzasDetalle>;
+    DistribuirDatos? Distribuir = null, ReversaComprobacionDatos? Reversa = null) : IRequest<FinanzasDetalle>;
+/// <summary>M-327: motivo para solicitar la reversa de una comprobación o para no autorizarla.</summary>
+public sealed record ReversaComprobacionDatos(string? Motivo);
 /// <summary>H1 paso 4 (86e3z5w25): área (Dim2) y equipo (Dim3) que se capturan al distribuir; obligatorios si la cuenta los exige (M-450).</summary>
 public sealed record DistribuirDatos(Guid? AreaId, Guid? EquipoId);
-/// <remarks>H1 paso 4 (aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir; Almacén lo pasa a Contabilidad.</remarks>
+/// <remarks>H1 paso 4 (aditivo): <c>CentroCostoId</c> = área o equipo capturado al distribuir; Almacén lo pasa a Contabilidad.
+/// M-169 (aditivo): <c>GastosPorGrupo</c> = ajuste de la versión por grupo contable; un evento sin él va todo a gasto de importación.</remarks>
 public sealed record ExpedienteCostoDistribuidoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, Guid SucursalId,
     int NumeroVersion, IReadOnlyList<CostoPartidaDistribuido> Partidas)
     : IntegrationEvent("comercio_exterior.expediente.costo-distribuido.v1", Empresa, Fecha)
 {
     public Guid? CentroCostoId { get; init; }
+    public IReadOnlyList<GastoGrupoDistribuido> GastosPorGrupo { get; init; } = [];
 }
 
 /// <summary>Qué exige la cuenta del gasto de importación (regla C-03) en la sucursal del expediente.</summary>
@@ -63,15 +71,23 @@ public sealed class DimensionesDistribucionServicio(ExpedienteServicio servicio,
 {
     public const string TipoEvento = "almacen.expediente.costo-aplicado.v1";
     public const string Campo = "GastoImportacion";
+    /// <summary>
+    /// M-169: campos de las líneas de cargo a gasto de la plantilla (gasto sin grupo y uno por grupo contable). El área y el equipo
+    /// son uno solo para el expediente: se exige lo que pida cualquiera de esas cuentas.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Campos =
+        [Campo, "GastoHonorariosPf", "GastoHonorariosPm", "GastoFletesManiobras", "GastoAlmacenajes", "GastoOtros"];
 
-    public static MovimientoCaptura Movimiento(Expediente e, DateOnly fecha) => new(e.EmpresaId, e.SucursalId, TipoEvento, Campo, null, fecha);
+    public static MovimientoCaptura Movimiento(Expediente e, DateOnly fecha, string campo = Campo) => new(e.EmpresaId, e.SucursalId, TipoEvento, campo, null, fecha);
 
     public async Task<DimensionesDistribucion> ExigenciasAsync(Guid id, CancellationToken ct)
     {
         await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorGastosDistribuir, ct);
         var e = await servicio.CargarAsync(id, false, ct);
-        var r = await dimensiones.ExigenciasAsync(Movimiento(e, clock.HoyLocal()), ct);
-        return new(e.SucursalId, r.ExigeArea, r.ExigeEquipo, r.CuentaCodigo);
+        List<ExigenciaDimensiones> exigencias = [];
+        foreach (var campo in Campos) exigencias.Add(await dimensiones.ExigenciasAsync(Movimiento(e, clock.HoyLocal(), campo), ct));
+        var cuenta = exigencias.FirstOrDefault(x => x.ExigeArea || x.ExigeEquipo)?.CuentaCodigo ?? exigencias.FirstOrDefault(x => x.CuentaCodigo is not null)?.CuentaCodigo;
+        return new(e.SucursalId, exigencias.Any(x => x.ExigeArea), exigencias.Any(x => x.ExigeEquipo), cuenta);
     }
 
     public async Task<IReadOnlyList<Millet.Contabilidad.Application.Dimensiones.CentroOpcionDto>> CentrosAsync(Guid id, bool equipos, Guid? areaId,
@@ -88,10 +104,15 @@ public sealed class DimensionesDistribucionServicio(ExpedienteServicio servicio,
     /// </summary>
     public async Task<Guid?> CentroAsync(Expediente e, DistribuirDatos? datos, CancellationToken ct)
     {
-        var r = await dimensiones.ValidarAsync(Movimiento(e, clock.HoyLocal()), datos?.AreaId, datos?.EquipoId, ct);
-        if (r.Error is not null) throw new BusinessRuleException("CE_DIMENSION_INVALIDA", r.Error);
-        if (r.Faltante is not null) throw new BusinessRuleException("CE_DIMENSION_FALTANTE", r.Faltante);
-        return r.CentroCostoId;
+        Guid? centro = null;
+        foreach (var campo in Campos)
+        {
+            var r = await dimensiones.ValidarAsync(Movimiento(e, clock.HoyLocal(), campo), datos?.AreaId, datos?.EquipoId, ct);
+            if (r.Error is not null) throw new BusinessRuleException("CE_DIMENSION_INVALIDA", r.Error);
+            if (r.Faltante is not null) throw new BusinessRuleException("CE_DIMENSION_FALTANTE", r.Faltante);
+            centro ??= r.CentroCostoId;
+        }
+        return centro;
     }
 }
 
@@ -140,18 +161,25 @@ public sealed class FinanzasServicio(ComercioExteriorDbContext db, ExpedienteSer
         var terceros = await catalogos.NombresTercerosAsync(e.Gastos.Select(g => g.ProveedorId).Concat(e.Anticipos.Select(a => a.AgenteId)).Concat(e.Partidas.Select(p => p.ClienteId)), ct);
         var firmas = await autorizaciones.ObtenerAsync(e.Anticipos.Select(a => a.Id).ToArray(), ct);
         var errores = await aplicaciones.ErroresAsync(e.Anticipos.Select(a => a.Id).ToArray(), ct);
-        var usuarios = await catalogos.NombresAsync(firmas.SelectMany(a => new[] { a.Nivel1UsuarioId, a.Nivel2UsuarioId }).OfType<Guid>().Concat(e.Gastos.Where(g => g.TipoCambioModificadoPor is not null).Select(g => g.TipoCambioModificadoPor!.Value)).Distinct(), ct);
+        var usuarios = await catalogos.NombresAsync(firmas.SelectMany(a => new[] { a.Nivel1UsuarioId, a.Nivel2UsuarioId }).OfType<Guid>().Concat(e.Gastos.Where(g => g.TipoCambioModificadoPor is not null).Select(g => g.TipoCambioModificadoPor!.Value))
+            // M-327: quién pidió y quién firmó cada reversa de comprobación.
+            .Concat(e.Anticipos.SelectMany(a => a.ReversasComprobacion.SelectMany(r => new[] { r.SolicitadoPor, r.FirmadoPor })))
+            .Concat(e.Anticipos.Where(a => a.ReversaPendiente is not null).Select(a => a.ReversaPendiente!.SolicitadoPor)).Distinct(), ct);
         return new(e.Version, e.EstadoFinanciero,
         e.MotivosFinancieros().Concat(errores).ToArray(), await ConceptosAsync(e.EmpresaId, ct), e.Gastos, e.PartidasCosto, await PartidasAsync(e, ct), e.Distribuciones, e.Anticipos,
-            terceros.Concat(usuarios).GroupBy(x => x.Key).ToDictionary(x => x.Key, x => x.First().Value)) { Autorizaciones = firmas };
+            terceros.Concat(usuarios).GroupBy(x => x.Key).ToDictionary(x => x.Key, x => x.First().Value)) { Autorizaciones = firmas, IncrementablesAlInventario = IncrementablesAlInventario };
     }
     public async Task<DistribucionGasto> PreviaAsync(Guid id, int version, CancellationToken ct)
     {
         await servicio.PermisoAsync(PermisosCanonicos.ComercioExteriorGastosDistribuir, ct);
         var e = await servicio.CargarAsync(id, true, ct);
         if (e.Version != version) throw new ConcurrencyException("Expediente", id);
-        return e.PrepararDistribucion(await ConceptosAsync(e.EmpresaId, ct), await PartidasAsync(e, ct), servicio.Actor, clock.UtcNow, IncrementablesAlInventario);
+        return await PrepararAsync(e, ct);
     }
+    /// <summary>M-169: la distribución separa los honorarios aduanales por el tipo de persona del proveedor de cada gasto.</summary>
+    public async Task<DistribucionGasto> PrepararAsync(Expediente e, CancellationToken ct) =>
+        e.PrepararDistribucion(await ConceptosAsync(e.EmpresaId, ct), await PartidasAsync(e, ct), servicio.Actor, clock.UtcNow, IncrementablesAlInventario,
+            await catalogos.ProveedoresPersonaFisicaAsync(e.Gastos.Select(g => g.ProveedorId), ct));
 }
 
 public sealed class MutarFinanzasValidator : AbstractValidator<MutarFinanzasCommand>
@@ -161,7 +189,8 @@ public sealed class MutarFinanzasValidator : AbstractValidator<MutarFinanzasComm
         RuleFor(x => x.ExpedienteId).NotEmpty(); RuleFor(x => x.Version).GreaterThan(0);
         RuleFor(x => x.Resolucion!.Tipo).Must(t => t is "compensar" or "devolucion" or "pago-complementario" or "saldo-al-agente")
             .When(x => x.Resolucion is not null);
-        RuleFor(x => x.Accion).Must(x => x is "gasto" or "partida" or "distribuir" or "anticipo" or "comprobar" or "resolver" or "corregir" or "cancelar-anticipo" or "concepto" or "inicializar-conceptos");
+        RuleFor(x => x.Accion).Must(x => x is "gasto" or "partida" or "distribuir" or "anticipo" or "comprobar" or "resolver" or "corregir" or "cancelar-anticipo" or "concepto" or "inicializar-conceptos"
+            or "revertir-comprobacion" or "autorizar-reversa" or "rechazar-reversa");
     }
 }
 public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, FinanzasServicio finanzas,
@@ -176,10 +205,13 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
             "resolver" => request.Resolucion?.Tipo == "devolucion" ? PermisosCanonicos.ComercioExteriorAnticiposGestionar : PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion,
             "anticipo" or "comprobar" or "corregir" or "cancelar-anticipo" => PermisosCanonicos.ComercioExteriorAnticiposGestionar,
             "distribuir" => PermisosCanonicos.ComercioExteriorGastosDistribuir,
+            // M-327: Comercio exterior solicita; el Contador General autoriza o no (Millet, 10-nov-2026).
+            "revertir-comprobacion" => PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionSolicitar,
+            "autorizar-reversa" or "rechazar-reversa" => PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionAutorizar,
             _ => PermisosCanonicos.ComercioExteriorGastosRegistrar
         };
         await servicio.PermisoAsync(permiso, cancellationToken);
-        await using var tx = request.Accion is "gasto" or "comprobar" or "corregir" ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
+        await using var tx = request.Accion is "gasto" or "comprobar" or "corregir" or "autorizar-reversa" ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         // El saldo compartido abarca expedientes distintos; el ETag de un expediente no lo protege.
         if (tx is not null) await db.Database.ExecuteSqlRawAsync(request.Accion == "gasto" ? "SELECT pg_advisory_xact_lock(7060601)" : "SELECT pg_advisory_xact_lock(22574482598217551)", cancellationToken);
         var e = await servicio.CargarAsync(request.ExpedienteId, true, cancellationToken);
@@ -205,6 +237,28 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 await mediator.Send(new Millet.Tesoreria.Application.Pagos.SolicitarCancelacionPasivoCommand(Anticipo().Id, request.Comprobacion?.Motivo ?? ""), cancellationToken);
                 e.MarcarCambioFinanciero();
                 break;
+            case "revertir-comprobacion":
+                Anticipo().SolicitarReversaComprobacion(request.Reversa?.Motivo ?? "", servicio.Actor, clock.UtcNow);
+                e.MarcarCambioFinanciero();
+                break;
+            case "rechazar-reversa":
+                Anticipo().RechazarReversaComprobacion(servicio.Actor, clock.UtcNow, request.Reversa?.Motivo ?? "");
+                e.MarcarCambioFinanciero();
+                break;
+            case "autorizar-reversa":
+            {
+                var revertir = Anticipo();
+                if (revertir.ReversaPendiente is not null) await ValidacionesFinancieras.PeriodoAbiertoAsync(periodos, clock.HoyLocal(), cancellationToken);
+                var reversa = revertir.AutorizarReversaComprobacion(servicio.Actor, clock.UtcNow, e.Gastos.Where(g => g.AnticipoAgenteId == id).ToArray());
+                if (reversa is null) break; // Ya aplicada: una reversa se aplica una sola vez.
+                e.MarcarCambioFinanciero();
+                // Nueva revisión sin gastos: Cuentas por pagar deshace la aplicación del anticipo a las facturas del agente.
+                await PublicarGastosAsync();
+                await eventos.PublishAsync(new AnticipoComprobacionRevertidaEvent(e.EmpresaId, clock.UtcNow, e.Id, e.Folio, e.SucursalId,
+                    revertir.Id, reversa.SolicitudId, revertir.AgenteId, reversa.SaldoAFavorMxn, reversa.GastosLiberadosMxn, clock.HoyLocal(),
+                    reversa.Motivo, reversa.SolicitadoPor, reversa.FirmadoPor), cancellationToken);
+                break;
+            }
             case "inicializar-conceptos":
                 if (!await db.ConceptosGasto.AnyAsync(c => c.EmpresaId == e.EmpresaId, cancellationToken)) db.ConceptosGasto.AddRange(ConceptoGasto.CrearCatalogo(e.EmpresaId));
                 e.MarcarCambioFinanciero();
@@ -212,7 +266,7 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
             case "concepto":
                 var config = request.Concepto ?? throw new BusinessRuleException("CE_CONCEPTO_INVALIDO", "Capture las bases.");
                 var conceptoEditar = await db.ConceptosGasto.SingleOrDefaultAsync(c => c.Id == id, cancellationToken) ?? throw new EntityNotFoundException("CE_CONCEPTO_INVALIDO", "No existe el concepto.");
-                conceptoEditar.Configurar(config.Importacion, config.Exportacion, config.RequiereOrdenServicio);
+                conceptoEditar.Configurar(config.Importacion, config.Exportacion, config.RequiereOrdenServicio, config.GrupoContable);
                 // El catálogo es de empresa: no se permite alterar expedientes de sucursales fuera del alcance del actor.
                 var afectados = await db.Expedientes.Where(x => x.Gastos.Any(g => g.ConceptoId == id)).ToListAsync(cancellationToken);
                 foreach (var afectado in afectados.Where(x => x.Estado == EstadoExpediente.Abierto))
@@ -255,12 +309,11 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
             case "distribuir":
                 await ValidacionesFinancieras.PeriodoAbiertoAsync(periodos, clock.HoyLocal(), cancellationToken);
                 var centro = e.Tipo == TipoExpediente.Importacion ? await dimensiones.CentroAsync(e, request.Distribuir, cancellationToken) : null;
-                var distribucion = e.PrepararDistribucion(await finanzas.ConceptosAsync(e.EmpresaId, cancellationToken), await finanzas.PartidasAsync(e, cancellationToken), servicio.Actor, clock.UtcNow,
-                    finanzas.IncrementablesAlInventario);
+                var distribucion = await finanzas.PrepararAsync(e, cancellationToken);
                 e.ConfirmarDistribucion(distribucion);
                 if (e.Tipo == TipoExpediente.Importacion)
                     await eventos.PublishAsync(new ExpedienteCostoDistribuidoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.SucursalId, distribucion.NumeroVersion, distribucion.Partidas)
-                        { CentroCostoId = centro }, cancellationToken);
+                        { CentroCostoId = centro, GastosPorGrupo = distribucion.GastosPorGrupo }, cancellationToken);
                 break;
             case "anticipo":
                 var a = request.Anticipo ?? throw new BusinessRuleException("CE_ANTICIPO_INVALIDO", "Capture el anticipo.");
