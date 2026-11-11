@@ -24,14 +24,17 @@ public sealed class ImportarPedidoPlantaPinturaHandler
     private readonly FacturacionDbContext _db;
     private readonly IClientesReadPort _clientes;
     private readonly IProductosReadPort _productos;
+    private readonly IEmpleadosReadPort _empleados;
     private readonly IClock _clock;
 
     public ImportarPedidoPlantaPinturaHandler(
-        FacturacionDbContext db, IClientesReadPort clientes, IProductosReadPort productos, IClock clock)
+        FacturacionDbContext db, IClientesReadPort clientes, IProductosReadPort productos, IEmpleadosReadPort empleados,
+        IClock clock)
     {
         _db = db;
         _clientes = clientes;
         _productos = productos;
+        _empleados = empleados;
         _clock = clock;
     }
 
@@ -55,6 +58,19 @@ public sealed class ImportarPedidoPlantaPinturaHandler
         if (!cliente.Activo)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
                 $"cliente_clave='{pedido.ClienteRef}': está inactivo en el ERP.", cancellationToken);
+
+        // Trazabilidad (script 16 v4): capturista obligatorio y vendedor opcional, ambos del catálogo de empleados del ERP.
+        var capturista = pedido.EmpleadoCapturaClave?.Trim();
+        if (string.IsNullOrEmpty(capturista))
+            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                "empleado_captura_clave: viene vacía; el portal debe mandar el empleado del usuario que captura.", cancellationToken);
+        if (!await _empleados.ExisteClaveAsync(capturista, cancellationToken))
+            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                $"empleado_captura_clave={capturista}: no existe en el ERP", cancellationToken);
+        var vendedor = string.IsNullOrWhiteSpace(pedido.VendedorClave) ? null : pedido.VendedorClave.Trim();
+        if (vendedor is not null && !await _empleados.ExisteClaveAsync(vendedor, cancellationToken))
+            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                $"vendedor_clave={vendedor}: no existe en el ERP", cancellationToken);
 
         // Una línea de venta por línea de la orden (script 16 v3); todas se validan antes de crear.
         if (pedido.Lineas.Count == 0)
@@ -99,7 +115,7 @@ public sealed class ImportarPedidoPlantaPinturaHandler
             nuevo = PedidoFacturable.ImportarDesdePlantaPintura(
                 command.EmpresaId, pedido.NumeroPedido, pedido.SucursalId, cliente.ClienteId, cliente.RazonSocial,
                 pedido.CanalVenta, pedido.ComportamientoFiscal, pedido.Moneda, pedido.ObraId, pedido.ObraNombre,
-                pedido.Comentarios, pedido.VersionOrigen, pedido.EstadoOrigen, pedido.FechaPedido);
+                pedido.Comentarios, pedido.VersionOrigen, pedido.EstadoOrigen, pedido.FechaPedido, capturista, vendedor);
             foreach (var (l, prod) in lineas)
                 nuevo.AgregarLinea(prod.ProductoId, l.Descripcion, l.ClaveProdServSat ?? prod.ClaveProdServSat,
                     l.ClaveUnidadSat ?? prod.ClaveUnidadSat, l.Cantidad, l.Precio, l.Descuento, l.RequierePedimento);

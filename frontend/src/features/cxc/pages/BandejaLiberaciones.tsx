@@ -11,7 +11,7 @@ import {
 } from '@/components/erp';
 
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
-import { ETIQUETA_ESTADO_AUTORIZACION } from '../lib/glosario';
+import { ETIQUETA_CONDICION_EXCEPCION, ETIQUETA_ESTADO_AUTORIZACION } from '../lib/glosario';
 
 import {
   Table,
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Ban, Plus, ShieldCheck, Unlock, XCircle } from 'lucide-react';
+import { Ban, PenLine, Plus, ShieldCheck, Unlock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,6 +32,7 @@ import { useUsuarios } from '@/features/catalogos/api';
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import {
   useAutorizacionesCredito,
+  useFirmarAutorizacionCredito,
   useBeneficiariosCredito,
   useCancelarAutorizacionCredito,
   useDecisionesLiberacion,
@@ -43,6 +44,7 @@ import {
 } from '@/features/cxc/components/ChipsLiberacion';
 import { DecidirLiberacionSheet } from '@/features/cxc/components/DecidirLiberacionSheet';
 import { NuevaAutorizacionDialog } from '@/features/cxc/components/NuevaAutorizacionDialog';
+import { ReglasFirmaExcepcionSheet } from '@/features/cxc/components/ReglasFirmaExcepcionSheet';
 import { AutorizarPendienteDialog } from '@/features/cxc/components/AutorizarPendienteDialog';
 import { RechazarPendienteDialog } from '@/features/cxc/components/RechazarPendienteDialog';
 import {
@@ -359,6 +361,11 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
   const query = useAutorizacionesCredito({ limit: 200 });
   const usuarios = useUsuarios();
   const cancelar = useCancelarAutorizacionCredito();
+  // M-239: segunda firma de Dirección y tabla de firmas por monto.
+  const firmar = useFirmarAutorizacionCredito();
+  const puedeDireccion = useHasPermission(PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion);
+  const usuarioActualId = useAuthStore((s) => s.user?.id);
+  const [reglasAbiertas, setReglasAbiertas] = useState(false);
 
   const nombreUsuario = useMemo(() => {
     const m = new Map<string, string>();
@@ -378,6 +385,18 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
 
   return (
     <div className="space-y-3">
+      {puedeOverride && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setReglasAbiertas(true)}>
+            Firmas por monto
+          </Button>
+        </div>
+      )}
+      <ReglasFirmaExcepcionSheet
+        abierto={reglasAbiertas}
+        onOpenChange={setReglasAbiertas}
+        puedeEditar={puedeDireccion}
+      />
       <ListadoModulo
         tabs={
           <TabsEstado
@@ -423,7 +442,7 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
           <EmptyState
             icon={<Unlock className="h-10 w-10" />}
             title="Sin autorizaciones de crédito."
-            description="El gerente puede crear una con 'Nueva autorización'; vence a más tardar en 24 horas."
+            description="El gerente puede crear una con 'Nueva autorización'; vence según la vigencia configurada."
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">
@@ -433,6 +452,7 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
                   <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Pedido</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Beneficiario</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Condición y monto</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Motivo</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Vigente hasta</TableHead>
                   <TableHead className="px-3 py-2" />
@@ -453,12 +473,50 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
                         autorizó {resolverUsuario(a.supervisorUsuarioId)}
                       </p>
                     </TableCell>
+                    <TableCell className="px-3 py-2 text-xs">
+                      {a.condicion ? ETIQUETA_CONDICION_EXCEPCION[a.condicion] : '—'}
+                      <p className="tabular-nums text-ink-muted">
+                        {a.montoAutorizado != null
+                          ? `hasta ${a.montoAutorizado.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${a.moneda ?? 'MXN'}`
+                          : 'sin tope (anterior)'}
+                      </p>
+                      {a.estado === EstadoAutorizacionCredito.PendienteSegundaFirma && (
+                        <p className="text-warning-fg">Falta la firma de Dirección</p>
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-64 truncate px-3 py-2">{a.motivo}</TableCell>
                     <TableCell className="px-3 py-2 text-xs text-ink-muted">
                       <DateTimeDisplay value={a.vigenteHasta} />
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right">
-                      {puedeOverride && a.estado === EstadoAutorizacionCredito.Autorizada && (
+                      {puedeDireccion &&
+                        a.estado === EstadoAutorizacionCredito.PendienteSegundaFirma &&
+                        a.supervisorUsuarioId !== usuarioActualId &&
+                        a.beneficiarioUsuarioId !== usuarioActualId && (
+                          <Button
+                            size="sm"
+                            className="mr-1"
+                            disabled={firmar.isPending}
+                            onClick={() =>
+                              firmar.mutate(
+                                { id: a.id, versionEsperada: a.version, idempotencyKey: crypto.randomUUID() },
+                                {
+                                  onSuccess: () => toast.success('Segunda firma registrada: la autorización quedó vigente.'),
+                                  onError: (e) =>
+                                    toast.error(esApiError(e) ? e.problem.title : 'No se pudo registrar la firma.', {
+                                      description: esApiError(e) ? e.problem.detail : undefined,
+                                    }),
+                                },
+                              )
+                            }
+                          >
+                            <PenLine className="mr-1 h-3.5 w-3.5" />
+                            Firmar (Dirección)
+                          </Button>
+                        )}
+                      {puedeOverride &&
+                        (a.estado === EstadoAutorizacionCredito.Autorizada ||
+                          a.estado === EstadoAutorizacionCredito.PendienteSegundaFirma) && (
                         <Button
                           variant="ghost"
                           size="sm"

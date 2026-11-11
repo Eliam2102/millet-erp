@@ -45,6 +45,11 @@ public static class DependencyInjection
             .AddOptions<Application.AplicacionPagos.AplicacionPagosOptions>()
             .Bind(configuration.GetSection(Application.AplicacionPagos.AplicacionPagosOptions.SectionName));
 
+        // M-239: vigencia de las excepciones de crédito (por omisión y máxima) configurable.
+        services
+            .AddOptions<Application.Autorizaciones.ExcepcionCreditoOptions>()
+            .Bind(configuration.GetSection(Application.Autorizaciones.ExcepcionCreditoOptions.SectionName));
+
         // CXC-PR8: worker diario de alertas de cartera (SOLUNION 90d, exceso
         // de crédito, auto-bloqueo por vencimientos).
         services
@@ -57,6 +62,8 @@ public static class DependencyInjection
             .AddOptions<Workers.ConciliacionCarteraOptions>()
             .Bind(configuration.GetSection(Workers.ConciliacionCarteraOptions.SectionName));
         services.AddHostedService<Workers.ConciliacionCarteraWorker>();
+        // M-236: incidencia común por diferencia de la conciliación (apertura en el contexto de la empresa de la corrida).
+        services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Conciliacion.IAperturaIncidenciasConciliacionPort, Adapters.AperturaIncidenciasConciliacionAdapter>();
 
         // C7.8: correo del estado de cuenta por el transporte único de correo
         // (Correo:Proveedor, 86e3txv0n); NoOp deja el envío en Registrado.

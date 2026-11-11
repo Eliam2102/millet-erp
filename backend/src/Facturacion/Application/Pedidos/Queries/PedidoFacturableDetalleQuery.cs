@@ -79,7 +79,10 @@ public sealed record PedidoFacturableDetalleResponse(
     string? MetodoPagoOrigen = null,
     string? CondicionPagoOrigen = null,
     // 86e3tfd6n: anticipos cobrados con el número de este pedido de A+W y del mismo cliente.
-    IReadOnlyList<AnticipoLigadoPedido>? AnticiposLigados = null);
+    IReadOnlyList<AnticipoLigadoPedido>? AnticiposLigados = null,
+    // Script 16 v4: claves de empleado (Empleado.Clave) del capturista y del vendedor de la orden de Planta Pintura.
+    string? EmpleadoCapturaClave = null,
+    string? VendedorClave = null);
 
 /// <summary>Anticipo cobrado antes de que el pedido llegara al ERP y ligado a él por número de pedido de A+W.</summary>
 public sealed record AnticipoLigadoPedido(
@@ -240,7 +243,8 @@ public sealed class PedidoFacturableDetalleHandler
             pedido.ClaseManual?.ToString(), pedido.SubtipoVentaDirecta?.ToString(), pedido.EsEmergencia,
             pedido.MotivoEmergencia, pedido.ReferenciaPedidoAw,
             pedido.EsCredito, pedido.MetodoPagoOrigen, pedido.CondicionPagoOrigen,
-            await AnticiposLigadosAsync(pedido, cancellationToken));
+            await AnticiposLigadosAsync(pedido, cancellationToken),
+            pedido.EmpleadoCapturaClave, pedido.VendedorClave);
     }
 
     private async Task<IReadOnlyList<AnticipoLigadoPedido>> AnticiposLigadosAsync(PedidoFacturable pedido, CancellationToken ct)

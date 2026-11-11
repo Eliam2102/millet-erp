@@ -37,6 +37,8 @@ public enum ResultadoAcusePlantaPintura : short
 /// (<see cref="CanalesVentaConocidos.PlantaPintura"/>).
 /// <c>Lineas</c> = una por línea de la orden (<c>pinturas_pedido_linea</c>, script 16 v3); <c>FechaPedido</c> = fecha
 /// de la orden en el portal (<c>pinturas_pedido.fecha_pedido</c>), fecha del documento de venta.
+/// <c>EmpleadoCapturaClave</c> (obligatoria) y <c>VendedorClave</c> (opcional) = claves de <c>Empleado.Clave</c> del
+/// usuario del portal que capturó y del vendedor (script 16 v4, trazabilidad); la ingesta las valida contra el catálogo.
 /// </summary>
 public sealed record PedidoPlantaPintura(
     string NumeroPedido,
@@ -53,7 +55,9 @@ public sealed record PedidoPlantaPintura(
     string? EstadoOrigen,
     IReadOnlyList<LineaPedidoPlantaPintura> Lineas,
     string PayloadCrudo,
-    DateOnly? FechaPedido = null);
+    DateOnly? FechaPedido = null,
+    string? EmpleadoCapturaClave = null,
+    string? VendedorClave = null);
 
 public sealed record LineaPedidoPlantaPintura(
     string ProductoRef,

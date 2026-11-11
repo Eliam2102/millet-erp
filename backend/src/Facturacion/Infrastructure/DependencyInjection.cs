@@ -65,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<IPlazoCreditoClienteReadPort, CuentasPorCobrar.PlazoCreditoClienteReadAdapter>();
         services.AddScoped<ISaldoFacturaReadPort, CuentasPorCobrar.SaldoFacturaReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
+        services.AddScoped<IEmpleadosReadPort, DatosMaestros.EmpleadosReadAdapter>();
         services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
         // --- Datos fiscales del emisor (Administración): adapter REAL sobre ---

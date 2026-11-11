@@ -52,8 +52,37 @@ public static partial class GeneradorContabilidadElectronica
     // ─── Catálogo ────────────────────────────────────────────────────────────
 
     /// <summary>Cuentas que van al catálogo: las cuentas activas (los rubros de reporte no son cuentas).</summary>
+    /// <summary>
+    /// M-016 (Contabilidad, 10-nov): las cuentas de nivel 3 o más sin código agrupador no se reportan al SAT; su importe se
+    /// reporta en la cuenta de nivel 2 (o la reportada más cercana) que las acumula. Las de nivel 1-2 sin código sí bloquean.
+    /// </summary>
+    public static bool EsOmitida(CuentaContable c) => !c.EsRubro && c.Nivel >= 3 && string.IsNullOrWhiteSpace(c.CodigoAgrupador);
+
     public static IReadOnlyList<CuentaContable> CuentasCatalogo(IEnumerable<CuentaContable> cuentas) =>
-        [.. cuentas.Where(c => !c.EsRubro && c.Activa).OrderBy(c => c.Codigo, StringComparer.Ordinal)];
+        [.. cuentas.Where(c => !c.EsRubro && c.Activa && !EsOmitida(c)).OrderBy(c => c.Codigo, StringComparer.Ordinal)];
+
+    /// <summary>Ancestro más cercano que se reporta (no rubro ni omitido); null si no hay o si el primer ancestro no omitido es rubro.</summary>
+    internal static CuentaContable? AncestroReportado(CuentaContable c, IReadOnlyDictionary<Guid, CuentaContable> porId)
+    {
+        var visitadas = new HashSet<Guid> { c.Id };
+        for (var padre = c.PadreId; padre is { } id && visitadas.Add(id) && porId.TryGetValue(id, out var p); padre = p.PadreId)
+        {
+            if (EsOmitida(p)) continue;
+            return p.EsRubro ? null : p;
+        }
+        return null;
+    }
+
+    /// <summary>Código → cuenta reportada que acumula a cada cuenta omitida; las pólizas citan la de nivel 2 y no la omitida.</summary>
+    public static IReadOnlyDictionary<string, (string Codigo, string Nombre)> EquivalenciasOmitidas(IEnumerable<CuentaContable> cuentas)
+    {
+        var todas = cuentas.ToList();
+        var porId = todas.ToDictionary(c => c.Id);
+        var eq = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
+        foreach (var c in todas.Where(EsOmitida))
+            if (AncestroReportado(c, porId) is { } a) eq[c.Codigo] = (a.Codigo, a.Nombre);
+        return eq;
+    }
 
     /// <summary>K10.8-a: cuentas del catálogo sin código agrupador válido o sin naturaleza. Si hay alguna, no se genera.</summary>
     public static IReadOnlyList<ProblemaCuentaCe> Revisar(IEnumerable<CuentaContable> cuentas)
@@ -101,7 +130,7 @@ public static partial class GeneradorContabilidadElectronica
                 new XAttribute("CodAgrup", c.CodigoAgrupador!.Trim()),
                 new XAttribute("NumCta", c.Codigo),
                 new XAttribute("Desc", Texto(c.Nombre, 400, c.Codigo)));
-            if (c.PadreId is { } padre && porId.TryGetValue(padre, out var p) && !p.EsRubro)
+            if (AncestroReportado(c, porId) is { } p)
                 cta.Add(new XAttribute("SubCtaDe", p.Codigo));
             cta.Add(new XAttribute("Nivel", Math.Max((int)c.Nivel, 1)),
                 new XAttribute("Natur", c.Naturaleza == NaturalezaCuenta.Acreedora ? "A" : "D"));
@@ -137,7 +166,7 @@ public static partial class GeneradorContabilidadElectronica
         }
 
         return [.. acumulado
-            .Where(kv => porId.TryGetValue(kv.Key, out var c) && !c.EsRubro)
+            .Where(kv => porId.TryGetValue(kv.Key, out var c) && !c.EsRubro && !EsOmitida(c))
             .Select(kv =>
             {
                 var c = porId[kv.Key];
@@ -177,7 +206,8 @@ public static partial class GeneradorContabilidadElectronica
     /// encuentran sus datos (RFC y total) la póliza sale sin comprobante y se avisa.
     /// </summary>
     public static XDocument Polizas(string rfc, int anio, int mes, TipoSolicitudPolizas solicitud, string? numOrden, string? numTramite,
-        IEnumerable<PolizaCe> polizas, IReadOnlyDictionary<string, ComprobanteNacionalContable> comprobantes, List<string> avisos)
+        IEnumerable<PolizaCe> polizas, IReadOnlyDictionary<string, ComprobanteNacionalContable> comprobantes, List<string> avisos,
+        IReadOnlyDictionary<string, (string Codigo, string Nombre)>? equivalencias = null)
     {
         XNamespace ns = EsquemasSat.NsPolizas;
         var raiz = new XElement(ns + "Polizas",
@@ -208,8 +238,10 @@ public static partial class GeneradorContabilidadElectronica
             }
             foreach (var x in p.Partidas)
             {
+                var (numCta, desCta) = equivalencias is not null && equivalencias.TryGetValue(x.CuentaCodigo, out var eq)
+                    ? eq : (x.CuentaCodigo, x.CuentaNombre);
                 var transaccion = new XElement(ns + "Transaccion",
-                    new XAttribute("NumCta", x.CuentaCodigo), new XAttribute("DesCta", Texto(x.CuentaNombre, 100, x.CuentaCodigo)),
+                    new XAttribute("NumCta", numCta), new XAttribute("DesCta", Texto(desCta, 100, numCta)),
                     new XAttribute("Concepto", Texto(string.IsNullOrWhiteSpace(x.Concepto) ? p.Concepto : x.Concepto, 200, p.Folio)),
                     new XAttribute("Debe", Importe(x.Cargo)), new XAttribute("Haber", Importe(x.Abono)));
                 if (compNal is not null) transaccion.Add(new XElement(compNal));

@@ -192,9 +192,23 @@ export const EstadoAutorizacionCredito = {
   Usada: 2,
   /** Cancelada por el supervisor antes de usarse. */
   Cancelada: 3,
+  /** M-239: por su monto espera la segunda firma de Dirección; no se puede usar. */
+  PendienteSegundaFirma: 4,
 } as const satisfies Record<string, number>;
 export type EstadoAutorizacionCredito =
   (typeof EstadoAutorizacionCredito)[keyof typeof EstadoAutorizacionCredito];
+
+/** M-239: condición excepcional que registra la solicitud. Mirror de <c>CondicionExcepcionCredito</c>. */
+export const CondicionExcepcionCredito = {
+  /** El crédito cubre 50–99 % del pedido; la excepción cubre el exceso. */
+  CoberturaParcial: 1,
+  /** Serie que nunca libera sola; la excepción cubre el importe del pedido. */
+  SerieNuncaLibera: 2,
+  /** Cliente bloqueado por vencimiento; la excepción cubre el importe del pedido. */
+  BloqueoPorVencimiento: 3,
+} as const satisfies Record<string, number>;
+export type CondicionExcepcionCredito =
+  (typeof CondicionExcepcionCredito)[keyof typeof CondicionExcepcionCredito];
 
 /** Mirror de backend <c>DecisionLiberacionResponse</c> (inmutable). */
 export interface DecisionLiberacionResponse {
@@ -260,6 +274,15 @@ export interface AutorizacionCreditoResponse {
   estado: EstadoAutorizacionCredito;
   decisionLiberacionId: string | null;
   version: number;
+  /** M-239: condición y monto que cubre la excepción (null en autorizaciones anteriores = sin tope). */
+  condicion?: CondicionExcepcionCredito | null;
+  montoAutorizado?: number | null;
+  moneda?: string;
+  /** M-239: firmas que pide por su monto (la segunda es de Dirección). */
+  firmasRequeridas?: number;
+  autorizadaPorDireccion?: boolean;
+  segundaFirmaPorId?: string | null;
+  segundaFirmaEn?: string | null;
 }
 
 /** Payload de creación (mirror de <c>CrearAutorizacionCreditoCommand</c>). */
@@ -267,8 +290,27 @@ export interface CrearAutorizacionCreditoCommand {
   beneficiarioUsuarioId: string;
   motivo: string;
   clienteOPedidoRef: string;
-  /** 1..24 (default backend 24). */
-  vigenciaHoras: number;
+  /** M-239: condición excepcional y monto que cubre; el monto limita lo que se libera. */
+  condicion: CondicionExcepcionCredito;
+  montoAutorizado: number;
+  moneda: string;
+  /** M-239: null = la vigencia por omisión de la configuración. */
+  vigenciaHoras?: number | null;
+}
+
+/** M-239: regla de firmas por monto (arriba del umbral en MXN se pide la segunda firma). */
+export interface ReglaFirmaExcepcionCredito {
+  umbralMxn: number;
+  firmasRequeridas: number;
+}
+
+/** M-239: vigencia y firmas por monto de las excepciones de crédito. */
+export interface ConfiguracionExcepcionCredito {
+  vigenciaPorOmisionHoras: number;
+  vigenciaMaximaHoras: number;
+  reglas: ReglaFirmaExcepcionCredito[];
+  /** true = no hay reglas guardadas y se aplica la de M-085 (50,000). */
+  reglasPorOmision: boolean;
 }
 
 // ─── Cobranza (Domain.Cobranza, CXC-PR5) ──────────────────────────────
@@ -463,6 +505,8 @@ export type EstadoPropuestaAplicacion =
 export const TipoAjusteCobro = {
   ComisionBancaria: 1,
   DiferenciaMenor: 2,
+  /** M-326: lo asigna el sistema a un faltante de hasta $0.99; no se elige a mano. */
+  Redondeo: 3,
 } as const satisfies Record<string, number>;
 export type TipoAjusteCobro = (typeof TipoAjusteCobro)[keyof typeof TipoAjusteCobro];
 
