@@ -1354,6 +1354,8 @@ export interface ComprobanteDetalleResponse {
   referenciaCliente?: string | null;
   condicionesPago?: string | null;
   proforma?: string | null;
+  /** M-340: versión de la proforma aprobada de la que viene la factura (el folio PF va en `proforma`). */
+  proformaPedidoId?: string | null;
   observaciones?: string | null;
   totalKg?: number;
   totalPie2?: number;
@@ -1439,8 +1441,6 @@ export interface DatosSustitucionResponse {
   referenciaCliente: string | null;
   condicionesPago: string | null;
   proforma: string | null;
-  /** M-340: versión de la proforma aprobada de la que viene la factura (el folio PF va en `proforma`). */
-  proformaPedidoId?: string | null;
   observaciones: string | null;
   lineas: Array<{
     productoId: string | null;
