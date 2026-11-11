@@ -47,6 +47,20 @@ public interface IIncidenciasPort
     Task<bool> HayPendientesAsync(Guid documentoId, string? paso, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// M-236: consulta del historial de incidencias, aparte de <see cref="IIncidenciasPort"/> para no obligar a los demás
+/// módulos a implementarla. La implementa el mismo adaptador de Compartido.
+/// </summary>
+public interface IIncidenciasHistorialPort
+{
+    /// <summary>
+    /// ¿Alguien cerró a mano una incidencia de ese paso, documento y detalle? Cuenta la cancelada y la resuelta con un
+    /// texto distinto de <paramref name="resolucionAutomatica"/> (el que escribe el propio sistema al cerrarla sola).
+    /// Un cierre manual es definitivo para esa clave: no se vuelve a abrir.
+    /// </summary>
+    Task<bool> ExisteCerradaManualAsync(string paso, Guid documentoId, string detalleClave, string resolucionAutomatica, CancellationToken cancellationToken);
+}
+
 /// <summary>Paso conocido: clave estable, nombre para mostrar y módulo.</summary>
 public sealed record PasoIncidencia(string Clave, string Nombre, string Modulo);
 
@@ -65,6 +79,7 @@ public static class PasosIncidencia
     public const string AlmSalidaAcuse = "alm.salida.acuse";
     public const string AlmCostoNetoFactura = "alm.costo.neto-factura";
     public const string FisPacConexionRechazada = "fis.pac.conexion-rechazada";
+    public const string CxcConciliacionDiferencia = "cxc.conciliacion.diferencia";
 
     // Pasos donde se retoma.
     public const string AlmRecepcionRegistrar = "alm.recepcion.registrar";
@@ -75,6 +90,7 @@ public static class PasosIncidencia
     public const string AlmSalidaDevolucionInterna = "alm.salida.devolucion-interna";
     public const string CxpFacturaRevision = "cxp.factura.revision";
     public const string FisPacConfiguracion = "fis.pac.configuracion";
+    public const string CxcConciliacionRevision = "cxc.conciliacion.revision";
 
     public static IReadOnlyList<PasoIncidencia> Todos { get; } =
     [
@@ -94,6 +110,8 @@ public static class PasosIncidencia
         new(CxpFacturaRevision, "Revisión de la factura del proveedor", "cuentas_por_pagar"),
         new(FisPacConexionRechazada, "El timbrador rechazó la conexión", "integraciones_fiscal"),
         new(FisPacConfiguracion, "Configuración del timbrador", "integraciones_fiscal"),
+        new(CxcConciliacionDiferencia, "Diferencia en la conciliación de cartera", "cuentas_por_cobrar"),
+        new(CxcConciliacionRevision, "Revisar la conciliación de cartera", "cuentas_por_cobrar"),
     ];
 
     private static readonly Dictionary<string, PasoIncidencia> PorClave = Todos.ToDictionary(p => p.Clave);
