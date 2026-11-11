@@ -220,6 +220,27 @@ public static class ConciliacionesEndpoints
         .WithName("MarcarPartidaTransito")
         .Produces<ExtractoLineaResponse>(StatusCodes.Status200OK);
 
+        // 9b. Movimiento de libros en tránsito: cheque no cobrado o depósito del último día (M-201, Javier Canché 11-nov)
+        conciliaciones.MapPost("/{id:guid}/movimientos-transito", async (Guid id, [FromBody] MovimientoTransitoRequest request,
+            IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new MarcarMovimientoTransitoCommand(id, request.MovimientoBancarioId, request.Tipo,
+                request.Causa, request.FechaPrevistaResolucion), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionAutorizarTransito)
+        .WithName("MarcarMovimientoTransito")
+        .Produces<PartidaTransitoLibroResponse>(StatusCodes.Status200OK);
+
+        conciliaciones.MapDelete("/{id:guid}/movimientos-transito/{movimientoId:guid}", async (Guid id, Guid movimientoId,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new QuitarMovimientoTransitoCommand(id, movimientoId), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionAutorizarTransito)
+        .WithName("QuitarMovimientoTransito")
+        .Produces(StatusCodes.Status204NoContent);
+
         // 10. Cerrar conciliación (Solo cierra con diferencia 0 y genera acta, RN-7)
         conciliaciones.MapPost("/{id:guid}/cerrar", async (
             Guid id,
@@ -327,3 +348,9 @@ public sealed record CerrarConciliacionRequest(
 
 public sealed record ReabrirConciliacionRequest(
     string Motivo);
+
+public sealed record MovimientoTransitoRequest(
+    Guid MovimientoBancarioId,
+    PartidaTransitoTipo Tipo,
+    string Causa,
+    DateOnly FechaPrevistaResolucion);

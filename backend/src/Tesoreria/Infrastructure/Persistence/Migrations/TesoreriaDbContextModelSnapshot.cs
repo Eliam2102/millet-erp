@@ -612,6 +612,94 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.ToTable("extracto_linea_match", "tesoreria");
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.PartidaTransitoLibro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AutorizadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("autorizada_en");
+
+                    b.Property<Guid>("AutorizadaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizada_por");
+
+                    b.Property<string>("Causa")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("causa");
+
+                    b.Property<Guid>("ConciliacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conciliacion_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateOnly>("FechaPrevista")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_prevista");
+
+                    b.Property<DateOnly>("FechaValor")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_valor");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("monto");
+
+                    b.Property<Guid>("MovimientoBancarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_bancario_id");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("referencia");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_conciliacion_transito_libros");
+
+                    b.HasIndex("ConciliacionId", "MovimientoBancarioId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_conciliacion_transito_libros_movimiento");
+
+                    b.ToTable("conciliacion_transito_libros", "tesoreria", t =>
+                        {
+                            t.HasCheckConstraint("ck_conciliacion_transito_libros_tipo", "tipo IN (1, 2)");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3304,6 +3392,16 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_extracto_linea_match_movimiento_bancario_movimiento_bancari");
                 });
 
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.PartidaTransitoLibro", b =>
+                {
+                    b.HasOne("Millet.Tesoreria.Domain.Conciliaciones.Conciliacion", null)
+                        .WithMany("PartidasLibro")
+                        .HasForeignKey("ConciliacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conciliacion_transito_libros_conciliaciones_conciliacion_id");
+                });
+
             modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPagoLinea", b =>
                 {
                     b.HasOne("Millet.Tesoreria.Domain.Corridas.ArchivoLayoutPago", null)
@@ -3455,6 +3553,8 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Navigation("Bitacora");
 
                     b.Navigation("Lineas");
+
+                    b.Navigation("PartidasLibro");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Conciliaciones.ExtractoLinea", b =>

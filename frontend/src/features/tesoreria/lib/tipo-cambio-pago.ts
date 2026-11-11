@@ -16,3 +16,22 @@ export function errorTipoCambioPago(
   if (!/^\d+(\.\d{1,6})?$/.test(valor.trim())) return `El ${etiqueta} admite hasta 6 decimales`;
   return null;
 }
+
+/** M-265b: un TC capturado a mano exige motivo; null si no hay TC capturado o ya trae motivo. */
+export function errorMotivoTipoCambio(
+  moneda: string | null,
+  valor: string | null,
+  motivo: string,
+): string | null {
+  if (moneda == null || moneda === 'MXN' || valor == null || valor.trim() === '') return null;
+  return motivo.trim() === '' ? 'Indica por qué capturas el tipo de cambio a mano.' : null;
+}
+
+/** M-265b: motivo a mandar; undefined cuando no se capturó TC. */
+export function motivoTipoCambioParaEnviar(
+  moneda: string | null,
+  valor: string | null,
+  motivo: string,
+): string | undefined {
+  return tipoCambioPagoParaEnviar(moneda, valor) === undefined ? undefined : motivo.trim();
+}

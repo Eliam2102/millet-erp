@@ -70,6 +70,8 @@ export interface ReporteShellProps<TFila> {
    * pantalla: no se imprime ni entra a PDF/Excel.
    */
   accionFila?: (row: TFila) => ReactNode;
+  /** Clase extra por fila (p. ej. para resaltar renglones de cuadre); no afecta PDF/Excel. */
+  claseFila?: (row: TFila) => string | undefined;
   /** Encabezado accesible de la columna de acción. Default: «Acciones». */
   etiquetaAccion?: string;
   /** Filas visibles; las exportaciones conservan el reporte completo. */
@@ -90,6 +92,7 @@ export function ReporteShell<TFila>({
   nombreArchivo,
   accionFila,
   etiquetaAccion = 'Acciones',
+  claseFila,
   filasVisibles,
   notasExport,
   nivelTitulo = 'h1',
@@ -268,7 +271,7 @@ export function ReporteShell<TFila>({
                   </tr>
                 ) : (
                   (filasVisibles ?? reporte.filas).map((fila, i) => (
-                    <tr key={i} className="border-t">
+                    <tr key={i} className={cn('border-t', claseFila?.(fila))}>
                       {reporte.columnas.map((c) => (
                         <td
                           key={c.clave}

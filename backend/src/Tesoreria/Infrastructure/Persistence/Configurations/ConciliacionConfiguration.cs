@@ -57,5 +57,12 @@ public sealed class ConciliacionConfiguration : IEntityTypeConfiguration<Concili
             .HasForeignKey(b => b.ConciliacionId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(e => e.Bitacora).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // M-201: movimientos de libros en tránsito; siempre se cargan porque entran en la diferencia.
+        builder.HasMany(e => e.PartidasLibro)
+            .WithOne()
+            .HasForeignKey(p => p.ConciliacionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(e => e.PartidasLibro).UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
     }
 }

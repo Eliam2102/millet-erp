@@ -252,7 +252,7 @@ export const ClasificacionFlujo = {
   Operacion: 1,
   Inversion: 2,
   Financiamiento: 3,
-  /** M-203: traspaso entre cuentas propias; no es ingreso ni egreso del flujo. */
+  /** M-203: traspaso entre cuentas propias; sí forma parte del flujo de efectivo (Javier Canché, 9 y 11-nov). */
   TraspasoInterno: 4,
 } as const;
 export type ClasificacionFlujo =
@@ -296,6 +296,44 @@ export interface CuentaSaldoResponse {
   activa: boolean;
   saldo: number;
   version: number;
+}
+
+/** M-199 · estado de una solicitud de alta o cambio de cuenta bancaria. */
+export const EstadoSolicitudCuenta = { Pendiente: 1, Aprobada: 2, Rechazada: 3 } as const;
+export type EstadoSolicitudCuenta =
+  (typeof EstadoSolicitudCuenta)[keyof typeof EstadoSolicitudCuenta];
+
+export const TipoSolicitudCuenta = { Alta: 1, Cambio: 2 } as const;
+export type TipoSolicitudCuenta = (typeof TipoSolicitudCuenta)[keyof typeof TipoSolicitudCuenta];
+
+/** M-199 · datos de la cuenta dentro de una solicitud (número y CLABE enmascarados). */
+export interface DatosCuentaSolicitud {
+  banco: string;
+  numeroCuenta: string;
+  clabe: string | null;
+  moneda: string;
+  cuentaContableRef: string | null;
+  perfilExtracto: string | null;
+  sucursal: string | null;
+  finalidad: string | null;
+  titular: string | null;
+  firmantes: string | null;
+}
+
+/** M-199 · mirror de `SolicitudCuentaResponse`. */
+export interface SolicitudCuentaResponse {
+  id: string;
+  tipo: TipoSolicitudCuenta;
+  cuentaBancariaId: string | null;
+  estado: EstadoSolicitudCuenta;
+  datosVigentes: DatosCuentaSolicitud | null;
+  datosPropuestos: DatosCuentaSolicitud;
+  solicitadoPor: string;
+  solicitadoEn: string;
+  resueltoPor: string | null;
+  resueltoEn: string | null;
+  motivoRechazo: string | null;
+  numeroVersion: number | null;
 }
 
 /** M-204 · solicitud de reclasificación abierta, a la espera de la segunda firma. */
@@ -692,6 +730,8 @@ export interface CorridaResponse {
 export const EstadoConciliacion = {
   Abierta: 1,
   Cerrada: 2,
+  /** M-202: firmada por Tesorería, espera el visto bueno de Contabilidad. */
+  PendienteVistoBueno: 3,
 } as const;
 export type EstadoConciliacion =
   (typeof EstadoConciliacion)[keyof typeof EstadoConciliacion];
@@ -699,6 +739,7 @@ export type EstadoConciliacion =
 export const ESTADO_CONCILIACION_HEADER_LABELS: Record<EstadoConciliacion, string> = {
   [EstadoConciliacion.Abierta]: 'Abierta',
   [EstadoConciliacion.Cerrada]: 'Cerrada',
+  [EstadoConciliacion.PendienteVistoBueno]: 'Pendiente de visto bueno',
 };
 
 /** Estado de una línea del extracto bancario. */
@@ -801,6 +842,9 @@ export interface ExtractoLineaResponse {
   partidaTransito: boolean;
   partidaTransitoTipo: PartidaTransitoTipo | null;
   partidaTransitoResponsable: string | null;
+  partidaTransitoCausa?: string | null;
+  /** yyyy-MM-dd */
+  partidaTransitoFechaPrevista?: string | null;
 }
 
 export interface BitacoraConciliacionResponse {
@@ -844,6 +888,8 @@ export interface ConciliacionDetalleResponse {
   firmanteNombre: string | null;
   firmantePuesto: string | null;
   actaGeneradaEn: string | null;
+  vistoBuenoPor?: string | null;
+  vistoBuenoEn?: string | null;
   lineas: ExtractoLineaResponse[];
   bitacora: BitacoraConciliacionResponse[];
   movimientosPeriodo: MovimientoBancarioConciliacionDto[];
@@ -927,7 +973,9 @@ export interface MarcarPartidaTransitoInput {
   extractoLineaId: string;
   tipo: PartidaTransitoTipo;
   responsable: string;
-  autorizadaPor?: string;
+  causa: string;
+  /** yyyy-MM-dd; no puede ser anterior a la fecha de la línea. */
+  fechaPrevistaResolucion: string;
 }
 
 export interface CerrarConciliacionInput {

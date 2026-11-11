@@ -163,7 +163,7 @@ public sealed class ObtenerConciliacionDetalleHandler(TesoreriaDbContext db)
             c.PeriodoMes,
             c.SaldoExtracto,
             saldoLibros,
-            c.SaldoExtracto - saldoLibros,
+            c.SaldoExtracto - (saldoLibros - c.TransitoLibros),
             c.Estado,
             c.CerradaPor,
             c.CerradaEn,
@@ -175,7 +175,8 @@ public sealed class ObtenerConciliacionDetalleHandler(TesoreriaDbContext db)
             bitacoraDtos,
             movDtos,
             c.VistoBuenoPor,
-            c.VistoBuenoEn);
+            c.VistoBuenoEn,
+            c.PartidasLibro.OrderBy(p => p.FechaValor).Select(ConciliacionMapper.ToTransitoLibro).ToList());
     }
 }
 
@@ -219,6 +220,10 @@ public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db,
                 l.PartidaTransitoResponsable ?? "No asignado",
                 l.PartidaTransitoCausa,
                 l.PartidaTransitoFechaPrevista))
+            
+            .Concat(conciliacion.PartidasLibro.Select(p => new DatosPartidaTransito(
+                p.FechaValor, "Movimiento en libros que el banco aún no refleja", p.Referencia, Math.Abs(p.Monto),
+                p.Monto > 0 ? "Ingreso" : "Egreso", p.Tipo.ToString(), "Director de Planeación Financiera", p.Causa, p.FechaPrevista)))
             .ToList();
 
         var datosActa = new DatosActaConciliacion(

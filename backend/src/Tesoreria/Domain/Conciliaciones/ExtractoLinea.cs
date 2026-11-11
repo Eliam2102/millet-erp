@@ -140,6 +140,7 @@ public sealed class ExtractoLinea : BaseEntity, IAuditable
 
     public void MarcarPartidaTransito(PartidaTransitoTipo tipo, string responsable, Guid autorizadaPor, string causa, DateOnly fechaPrevista)
     {
+        Conciliacion.ValidarTipoTransito(tipo);
         if (string.IsNullOrWhiteSpace(causa))
             throw new BusinessRuleException("TRANSITO_CAUSA_VACIA", "La causa de la partida en tránsito es obligatoria.");
         if (fechaPrevista < Fecha)

@@ -820,6 +820,10 @@ public sealed class CerrarConciliacionHandler(
                 l.PartidaTransitoResponsable ?? "No asignado",
                 l.PartidaTransitoCausa,
                 l.PartidaTransitoFechaPrevista))
+            
+            .Concat(conciliacion.PartidasLibro.Select(p => new DatosPartidaTransito(
+                p.FechaValor, "Movimiento en libros que el banco aún no refleja", p.Referencia, Math.Abs(p.Monto),
+                p.Monto > 0 ? "Ingreso" : "Egreso", p.Tipo.ToString(), "Director de Planeación Financiera", p.Causa, p.FechaPrevista)))
             .ToList();
 
         var datosActa = new DatosActaConciliacion(
@@ -886,6 +890,58 @@ public sealed class ReabrirConciliacionHandler(
         await db.SaveChangesAsync(cancellationToken);
         return ConciliacionMapper.ToResumen(conciliacion, cuenta);
     }
+}
+
+// ============================================================================
+// 9b. Movimiento de libros en tránsito (M-201, Javier Canché 11-nov)
+// ============================================================================
+public sealed record MarcarMovimientoTransitoCommand(Guid ConciliacionId, Guid MovimientoBancarioId, PartidaTransitoTipo Tipo,
+    string Causa, DateOnly FechaPrevistaResolucion) : IRequest<PartidaTransitoLibroResponse>;
+
+public sealed record QuitarMovimientoTransitoCommand(Guid ConciliacionId, Guid MovimientoBancarioId) : IRequest<Unit>;
+
+public sealed class MarcarMovimientoTransitoValidator : AbstractValidator<MarcarMovimientoTransitoCommand>
+{
+    public MarcarMovimientoTransitoValidator()
+    {
+        RuleFor(x => x.ConciliacionId).NotEmpty();
+        RuleFor(x => x.MovimientoBancarioId).NotEmpty();
+        RuleFor(x => x.Causa).NotEmpty().WithMessage("La causa es obligatoria.").MaximumLength(300);
+        RuleFor(x => x.FechaPrevistaResolucion).NotEmpty().WithMessage("La fecha prevista de resolución es obligatoria.");
+    }
+}
+
+public sealed class MovimientoTransitoHandler(TesoreriaDbContext db, ICurrentUserContext userContext, IClock clock)
+    : IRequestHandler<MarcarMovimientoTransitoCommand, PartidaTransitoLibroResponse>,
+      IRequestHandler<QuitarMovimientoTransitoCommand, Unit>
+{
+    public async Task<PartidaTransitoLibroResponse> Handle(MarcarMovimientoTransitoCommand command, CancellationToken cancellationToken)
+    {
+        var conciliacion = await Cargar(command.ConciliacionId, cancellationToken);
+        var mov = await db.MovimientosBancarios.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == command.MovimientoBancarioId && m.CuentaBancariaId == conciliacion.CuentaBancariaId, cancellationToken)
+            ?? throw new EntityNotFoundException("MOVIMIENTO_NO_ENCONTRADO", "El movimiento no es de la cuenta de la conciliación.");
+        // Javier Canché (11-nov): la partida en tránsito la autoriza el Director de Planeación Financiera; quien la marca es quien autoriza.
+        var p = conciliacion.MarcarMovimientoEnTransito(mov.Id, mov.FechaValor, mov.ReferenciaBancaria,
+            mov.Sentido == SentidoMovimiento.Ingreso ? mov.Monto : -mov.Monto,
+            mov.EstadoConciliacion != EstadoConciliacionMovimiento.NoConciliado,
+            command.Tipo, command.Causa, command.FechaPrevistaResolucion, userContext.UserId ?? Guid.Empty, clock.UtcNow);
+        db.Add(p);
+        await db.SaveChangesAsync(cancellationToken);
+        return ConciliacionMapper.ToTransitoLibro(p);
+    }
+
+    public async Task<Unit> Handle(QuitarMovimientoTransitoCommand command, CancellationToken cancellationToken)
+    {
+        var conciliacion = await Cargar(command.ConciliacionId, cancellationToken);
+        conciliacion.QuitarMovimientoEnTransito(command.MovimientoBancarioId, userContext.UserId ?? Guid.Empty, clock.UtcNow);
+        await db.SaveChangesAsync(cancellationToken);
+        return Unit.Value;
+    }
+
+    private async Task<Conciliacion> Cargar(Guid id, CancellationToken ct) =>
+        await db.Conciliaciones.FirstOrDefaultAsync(c => c.Id == id, ct)
+        ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
 }
 
 // ============================================================================
@@ -965,6 +1021,9 @@ internal static class ConciliacionCalculos
 
 internal static class ConciliacionMapper
 {
+    public static PartidaTransitoLibroResponse ToTransitoLibro(PartidaTransitoLibro p) =>
+        new(p.MovimientoBancarioId, p.FechaValor, p.Referencia, p.Monto, p.Tipo, p.Causa, p.FechaPrevista, p.AutorizadaPor, p.AutorizadaEn);
+
     public static ConciliacionResumenResponse ToResumen(Conciliacion c, CuentaBancaria cuenta) => new(
         c.Id,
         c.CuentaBancariaId,

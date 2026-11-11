@@ -99,4 +99,10 @@ public sealed record ConciliacionDetalleResponse(
     IReadOnlyList<BitacoraConciliacionResponse> Bitacora,
     IReadOnlyList<MovimientoBancarioConciliacionDto> MovimientosPeriodo,
     Guid? VistoBuenoPor = null,
-    DateTimeOffset? VistoBuenoEn = null);
+    DateTimeOffset? VistoBuenoEn = null,
+    IReadOnlyList<PartidaTransitoLibroResponse>? MovimientosEnTransito = null);
+
+/// <summary>M-201: movimiento de libros en tránsito (monto con signo: ingreso positivo, egreso negativo).</summary>
+public sealed record PartidaTransitoLibroResponse(
+    Guid MovimientoBancarioId, DateOnly FechaValor, string? Referencia, decimal Monto, PartidaTransitoTipo Tipo,
+    string Causa, DateOnly FechaPrevista, Guid AutorizadaPor, DateTimeOffset AutorizadaEn);

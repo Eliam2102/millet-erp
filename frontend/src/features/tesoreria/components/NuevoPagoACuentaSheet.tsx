@@ -21,7 +21,12 @@ import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector'
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { useCuentasBancarias, useRegistrarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
 import { TipoCambioPagoCampo } from './TipoCambioPagoCampo';
-import { errorTipoCambioPago, tipoCambioPagoParaEnviar } from '@/features/tesoreria/lib/tipo-cambio-pago';
+import {
+  errorMotivoTipoCambio,
+  errorTipoCambioPago,
+  motivoTipoCambioParaEnviar,
+  tipoCambioPagoParaEnviar,
+} from '@/features/tesoreria/lib/tipo-cambio-pago';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export interface NuevoPagoACuentaSheetProps {
@@ -48,6 +53,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
   const [motivo, setMotivo] = useState('');
   // TES-09: TC del pago capturado (null = el del catálogo a la fecha valor); la moneda es la de la cuenta de egreso.
   const [tipoCambio, setTipoCambio] = useState<string | null>(null);
+  const [motivoTipoCambio, setMotivoTipoCambio] = useState('');
   const cuentas = useCuentasBancarias(true, open);
   const moneda = cuentas.data?.find((c) => c.id === cuentaId)?.moneda ?? null;
 
@@ -59,7 +65,8 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
     montoNum > 0 &&
     motivo.trim().length > 0 &&
     referencia.trim().length > 0 &&
-    errorTipoCambioPago(moneda, tipoCambio) == null;
+    errorTipoCambioPago(moneda, tipoCambio) == null &&
+    errorMotivoTipoCambio(moneda, tipoCambio, motivoTipoCambio) == null;
 
   function limpiar() {
     setProveedorId(null);
@@ -69,6 +76,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
     setReferencia('');
     setMotivo('');
     setTipoCambio(null);
+    setMotivoTipoCambio('');
   }
 
   function cambiarAbierto(next: boolean) {
@@ -87,6 +95,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
       proveedorId,
       referenciaBancaria: referencia.trim(),
       tipoCambioPago: tipoCambioPagoParaEnviar(moneda, tipoCambio),
+      motivoTipoCambio: motivoTipoCambioParaEnviar(moneda, tipoCambio, motivoTipoCambio),
     };
     registrar.mutate(
       {
@@ -201,6 +210,8 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
                     fecha={fechaValor}
                     value={tipoCambio}
                     onChange={setTipoCambio}
+                    motivo={motivoTipoCambio}
+                    onMotivoChange={setMotivoTipoCambio}
                   />
                 </FormCampo>
               )}

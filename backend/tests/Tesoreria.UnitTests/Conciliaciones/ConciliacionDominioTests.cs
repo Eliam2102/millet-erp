@@ -191,4 +191,41 @@ public class ConciliacionDominioTests
         (linea.Estado, linea.PartidaTransitoCausa, linea.PartidaTransitoFechaPrevista)
             .Should().Be((EstadoExtractoLinea.EnTransito, "Cheque no cobrado", new DateOnly(2026, 11, 15)));
     }
+
+    [Fact]
+    public void M201_deposito_del_ultimo_dia_en_transito_permite_cerrar_octubre_opcion_A()
+    {
+        // Javier Canché 11-nov: depósito de 25,300.00 registrado el 31-oct que el banco aplica el 2-nov queda en tránsito (opción A).
+        var conc = Conciliacion.Crear(EmpresaId, CuentaBancariaId, 2026, 10, 100_000m);
+        var deposito = Guid.NewGuid();
+
+        var act = () => conc.Cerrar(UsuarioId, "Javier Canché", "Tesorería", 125_300m, Ahora);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CONCILIACION_DESCUADRADA");
+
+        ((Action)(() => conc.MarcarMovimientoEnTransito(deposito, new DateOnly(2026, 10, 30), "SPEI 1", 25_300m, false,
+            PartidaTransitoTipo.DepositoUltimoDia, "Abono del 30-oct", new DateOnly(2026, 11, 2), Contadora, Ahora)))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "TRANSITO_DEPOSITO_NO_ES_FIN_DE_MES");
+        ((Action)(() => conc.MarcarMovimientoEnTransito(deposito, new DateOnly(2026, 10, 31), "SPEI 1", 25_300m, false,
+            PartidaTransitoTipo.Otro, "Otro", new DateOnly(2026, 11, 2), Contadora, Ahora)))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "TRANSITO_TIPO_NO_PERMITIDO");
+
+        conc.MarcarMovimientoEnTransito(deposito, new DateOnly(2026, 10, 31), "SPEI 1", 25_300m, false,
+            PartidaTransitoTipo.DepositoUltimoDia, "Abono del sábado 31; el banco lo aplica el 2-nov", new DateOnly(2026, 11, 2), Contadora, Ahora);
+        conc.Cerrar(UsuarioId, "Javier Canché", "Tesorería", 125_300m, Ahora);
+        conc.Estado.Should().Be(EstadoConciliacion.PendienteVistoBueno);
+        conc.Diferencia.Should().Be(0m);
+    }
+
+    [Fact]
+    public void M201_cheque_expedido_no_cobrado_queda_en_transito_con_signo_de_egreso()
+    {
+        var conc = Conciliacion.Crear(EmpresaId, CuentaBancariaId, 2026, 10, 58_500m);
+        conc.MarcarMovimientoEnTransito(Guid.NewGuid(), new DateOnly(2026, 10, 20), "CH 1234", -8_500m, false,
+            PartidaTransitoTipo.ChequeNoCobrado, "Cheque 1234 no cobrado por el proveedor", new DateOnly(2026, 11, 15), Contadora, Ahora);
+        conc.Cerrar(UsuarioId, "Javier Canché", "Tesorería", 50_000m, Ahora);
+        conc.Estado.Should().Be(EstadoConciliacion.PendienteVistoBueno);
+        ((Action)(() => conc.MarcarMovimientoEnTransito(Guid.NewGuid(), new DateOnly(2026, 10, 20), null, -1m, false,
+            PartidaTransitoTipo.ChequeNoCobrado, "x", new DateOnly(2026, 11, 1), Contadora, Ahora))).Should().Throw<BusinessRuleException>();
+    }
 }
+

@@ -107,6 +107,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CuentaBancariaConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudCuentaBancariaConfiguration());
+        modelBuilder.ApplyConfiguration(new PartidaTransitoLibroConfiguration());
         modelBuilder.ApplyConfiguration(new ConceptoMovimientoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoBancarioConfiguration());
         modelBuilder.ApplyConfiguration(new AplicacionPagoProveedorConfiguration());
