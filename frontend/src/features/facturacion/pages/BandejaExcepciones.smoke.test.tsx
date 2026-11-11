@@ -48,7 +48,7 @@ describe('<BandejaExcepciones> — smoke', () => {
     let resuelto = false;
     mswServer.use(
       http.get('*/api/v1/facturacion/pedidos-facturables/excepciones', () =>
-        HttpResponse.json(resuelto ? [] : [excepcion]),
+        HttpResponse.json({ items: resuelto ? [] : [excepcion], total: resuelto ? 0 : 1 }),
       ),
       http.post(
         '*/api/v1/facturacion/pedidos-facturables/excepciones/ex-1/resolver',
@@ -71,7 +71,7 @@ describe('<BandejaExcepciones> — smoke', () => {
   it('estado empty cuando no hay excepciones pendientes', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/pedidos-facturables/excepciones', () =>
-        HttpResponse.json([]),
+        HttpResponse.json({ items: [], total: 0 }),
       ),
     );
     render(<BandejaExcepciones />, { wrapper: createQueryWrapper() });

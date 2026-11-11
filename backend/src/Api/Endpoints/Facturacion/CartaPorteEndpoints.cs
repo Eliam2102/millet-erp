@@ -33,15 +33,15 @@ public static class CartaPorteEndpoints
         // GET: bandeja de Carta Porte. B11.
         group.MapGet("/", async (
             [FromQuery] EstadoTimbrado? estado, [FromQuery] int? offset, [FromQuery] int? limit,
-            IMediator mediator, CancellationToken ct) =>
+            [FromQuery] string? q, IMediator mediator, CancellationToken ct) =>
         {
-            var items = await mediator.Send(new BandejaCartaPorteQuery(estado, offset ?? 0, limit ?? 50), ct);
-            return Results.Ok(items);
+            var response = await mediator.Send(new BandejaCartaPorteQuery(estado, offset ?? 0, limit ?? 50, q), ct);
+            return Results.Ok(response);
         })
         .RequireAuthorization(leer)
         .WithName("BandejaCartaPorte")
         .WithSummary("Bandeja de Cartas Porte")
-        .Produces<IReadOnlyList<CartaPorteBandejaItem>>(StatusCodes.Status200OK);
+        .Produces<BandejaCartaPorteResponse>(StatusCodes.Status200OK);
 
         // GET: detalle de una Carta Porte. B11.
         group.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>

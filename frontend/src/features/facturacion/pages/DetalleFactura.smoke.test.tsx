@@ -369,6 +369,22 @@ describe('<DetalleFactura> — smoke', () => {
       expect(screen.getByText(/No se pudo cargar la factura/i)).toBeInTheDocument(),
     );
   });
+  it('M-216: la factura retenida por pedimento dice qué falta para liberarla', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({
+          ...detalle, estado: 'PendientePedimento', uuid: null, fechaTimbrado: null, relaciones: [],
+          motivoPedimento: 'El expediente EXP-25-0007 aún no tiene pedimento capturado.',
+        }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByTestId('motivo-pedimento'))
+      .toHaveTextContent('El expediente EXP-25-0007 aún no tiene pedimento capturado.');
+    expect(screen.getByRole('button', { name: /Aplicar pedimento y timbrar/ })).toBeInTheDocument();
+  });
+
   it('FAC-08b: «Sustituir» abre el borrador de la sustituta en una factura vigente', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({ ...detalle, relaciones: [] })),

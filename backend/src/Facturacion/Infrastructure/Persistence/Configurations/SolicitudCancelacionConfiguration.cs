@@ -34,6 +34,16 @@ public sealed class SolicitudCancelacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.DecididaPorNombre).HasMaxLength(200);
         builder.Property(e => e.MotivoRechazo).HasMaxLength(500);
 
+        // M-235: firmas por operación y monto, y huella de lo autorizado.
+        builder.Property(e => e.FirmasRequeridas).HasDefaultValue((short)1).IsRequired();
+        builder.Property(e => e.ImporteMxn).HasPrecision(18, 2).HasDefaultValue(0m).IsRequired();
+        builder.Property(e => e.PrimeraFirmaPorNombre).HasMaxLength(200);
+        builder.Property(e => e.PrimeraFirmaHuella).HasMaxLength(64);
+        builder.Property(e => e.FirmaAnuladaMotivo).HasMaxLength(200);
+        builder.Ignore(e => e.Huella);
+        builder.Ignore(e => e.FirmasDadas);
+        builder.ToTable(t => t.HasCheckConstraint("ck_solicitud_cancelacion_firmas", "firmas_requeridas IN (1, 2)"));
+
         builder.HasIndex(e => e.ComprobanteId)
             .HasDatabaseName("ix_solicitud_cancelacion_comprobante");
 

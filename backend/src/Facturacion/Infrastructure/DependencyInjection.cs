@@ -139,9 +139,9 @@ public static class DependencyInjection
         // mismo toggle. Stub = fallback dev (no auto-crea → bandeja).
         services.AddScoped<IMasterProvisioningPort, NoOpMasterProvisioningPort>();
 
-        // --- F7-PR2: pedimentos del Sistema de Salidas — stub hasta Integraciones.Origenes ---
-        // PLATFORM-TODO(<SalidasPedimentos>)
-        services.AddScoped<ISalidasPedimentosReader, StubSalidasPedimentosReader>();
+        // --- M-216: el pedimento de la factura retenida sale del expediente de Comercio exterior
+        // (el Sistema de Salidas se absorbe en el ERP, D03) ---
+        services.AddScoped<ISalidasPedimentosReader, Pedimentos.ExpedientePedimentosReader>();
 
         // --- F9: catálogo de Activos Fijos — stub hasta el módulo Activos Fijos ---
         // PLATFORM-TODO(<ActivosFijos>)

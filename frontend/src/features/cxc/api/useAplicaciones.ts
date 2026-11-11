@@ -176,3 +176,22 @@ export function useRechazarAjuste() {
     },
   });
 }
+
+/** <c>useRevertirAjuste()</c> — M-240: revierte un ajuste autorizado y ya aplicado (motivo obligatorio). */
+export function useRevertirAjuste() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; versionEsperada: number; motivo: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<PropuestaAplicacionResponse>(`${BASE}/${args.id}/revertir-ajuste`, {
+        method: 'POST',
+        body: { motivo: args.motivo },
+        idempotencyKey: args.idempotencyKey,
+        headers: { 'X-Expected-Version': String(args.versionEsperada) },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.propuestas() });
+    },
+  });
+}

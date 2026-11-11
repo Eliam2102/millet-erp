@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AdjuntosManager } from '@/components/erp/adjuntos/AdjuntosManager';
@@ -83,10 +84,12 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
       >
         <h3 className="font-semibold">Documentos requeridos por hito</h3>
         <p className="text-xs text-ink-muted">
-          Esta configuración aplica a todos los expedientes del mismo tipo de operación.
+          Esta configuración aplica a todos los expedientes del mismo tipo de operación. Un
+          documento condicional se pide sólo cuando aplica: puede registrarse «No aplica» con
+          motivo.
         </p>
         {data.requisitos.map((r) => (
-          <FormCampo key={r.id} span={6}>
+          <FormCampo key={r.id} span={6} className="space-y-1.5">
             <Label htmlFor={`ce-requisito-hito-${r.id}`}>{r.nombre}</Label>
             <select
               id={`ce-requisito-hito-${r.id}`}
@@ -111,6 +114,24 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
                   </option>
                 ))}
             </select>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`ce-requisito-condicional-${r.id}`}
+                checked={r.condicional}
+                disabled={!revisar || accion.isPending || data.expediente.estado !== 1}
+                onCheckedChange={(valor) => {
+                  void accion
+                    .mutateAsync({
+                      accion: 'requisito-condicional',
+                      body: { tipoDocumentoId: r.id, condicional: valor === true },
+                    })
+                    .catch(() => {});
+                }}
+              />
+              <Label htmlFor={`ce-requisito-condicional-${r.id}`} className="font-normal">
+                Condicional: se pide sólo cuando aplica
+              </Label>
+            </div>
           </FormCampo>
         ))}
       </div>
@@ -202,7 +223,13 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
               <h3 className="font-medium">
                 {r.nombre}{' '}
                 <span className="text-xs text-ink-muted">
-                  {r.obligatorio ? 'Obligatorio' : r.condicional ? 'Condicional' : 'Opcional'}
+                  {r.obligatorio
+                    ? r.condicional
+                      ? 'Obligatorio cuando aplica'
+                      : 'Obligatorio'
+                    : r.condicional
+                      ? 'Condicional'
+                      : 'Opcional'}
                 </span>
               </h3>
               {r.condicional && subir && (

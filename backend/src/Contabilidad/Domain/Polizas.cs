@@ -300,6 +300,20 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
         LlaveIdempotencia = llave;
     }
 
+    /// <summary>
+    /// M-240: póliza automática que revierte una parte de otra (la contraria del ajuste de un cobro). Queda ligada como reversa: la
+    /// original no cambia de estado y no se anula mientras la reversa siga vigente (la negaría dos veces).
+    /// </summary>
+    public void LigarReversaParcial(Poliza original)
+    {
+        if (original.Estado != EstadoPoliza.Autorizada)
+            throw new BusinessRuleException("CONTAB_POLIZA_REVERSA_NO_AUTORIZADA", "Solo se revierte una póliza autorizada.");
+        if (original.EsAnulacion || original.Relacion == RelacionPoliza.Reversa)
+            throw new BusinessRuleException("CONTAB_POLIZA_REVERSA_INVALIDA", "Una anulación o una reversa no se revierten.");
+        PolizaRelacionadaId = original.Id;
+        Relacion = RelacionPoliza.Reversa;
+    }
+
     /// <summary>K10.4: la póliza reclasifica a otra (autorizada); queda ligada para verse en ambos sentidos.</summary>
     public void LigarReclasificacion(Poliza original)
     {

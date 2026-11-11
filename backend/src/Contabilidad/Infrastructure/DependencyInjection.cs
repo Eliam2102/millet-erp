@@ -62,6 +62,11 @@ public static class DependencyInjection
         // F1-CON-03: contrato público de consulta de periodo y candado de movimientos (falla cerrada, D9).
         services.AddScoped<IPeriodoContableConsultaPort, PeriodoContableConsultaAdapter>();
         services.AddScoped<VerificadorPeriodoContable>();
+        // M-213: reapertura acotada (alcance, evidencia y vencimiento) y su proceso de cierre por vencimiento.
+        services.AddOptions<Millet.Contabilidad.Application.Periodos.ReaperturaOpciones>()
+            .Bind(configuration.GetSection(Millet.Contabilidad.Application.Periodos.ReaperturaOpciones.Seccion));
+        services.AddScoped<Millet.Contabilidad.Application.Periodos.ValidadorReapertura>();
+        services.AddHostedService<Workers.ReaperturaVencimientoWorker>();
 
         // CON-12 (86e3jvvme): checklist de cierre. Cada paso automático es un verificador; los que leen otros módulos usan puertos de
         // consumidor que cablea Program.cs (Tesorería, Almacén, Activos Fijos, CxP).
@@ -92,6 +97,8 @@ public static class DependencyInjection
         services.AddScoped<RegistroPolizas>();
         services.AddScoped<LecturaPolizas>();
         services.AddScoped<IPolizaContablePort, PolizaContableAdapter>();
+        // M-240: póliza contraria de la reversa de un ajuste de cobro (CxC la pide al revertir).
+        services.AddScoped<IReversaAjusteCobroContablePort, Millet.Contabilidad.Application.Motor.ReversaAjusteCobroContableServicio>();
         services.AddScoped<IPolizaContableReadPort, PolizaContableAdapter>();
         services.AddScoped<IReversaPolizaContablePort, PolizaContableAdapter>();
         // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.

@@ -286,7 +286,7 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                     // 86e3tac2y: la Dirección revisa el acta del cierre de Almacén.
                     or PermisosCanonicos.AlmacenCierreRevisarActa),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
-                "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas y autoriza las cancelaciones de CFDI (F6.5).",
+                "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas, autoriza las cancelaciones de CFDI (F6.5) y la reversa de anticipos al agente ya comprobados (M-327).",
                 p => p.Codigo is PermisosCanonicos.ActivosFijosTrasladosGestionar or PermisosCanonicos.ActivosFijosReversasSolicitar or PermisosCanonicos.ActivosFijosActivosVer or PermisosCanonicos.ActivosFijosLeerTodasSucursales or PermisosCanonicos.ActivosFijosGestionarTodasSucursales or PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear
                     or PermisosCanonicos.FacturacionCancelacionesAutorizar or PermisosCanonicos.FacturacionCancelacionesConsultar
                     or PermisosCanonicos.FacturacionFacturasLeer or PermisosCanonicos.FacturacionAnticiposLeer
@@ -294,7 +294,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                     // así que ve el detalle de cualquier comprobante (sin esto, 404 por alcance de caja).
                     or PermisosCanonicos.FacturacionCajaLeerTodas
                     // 86e3tac2y: Finanzas recibe el aviso del ajuste de inventario mayor (supuesto: lo recibe el Contador General).
-                    or PermisosCanonicos.AlmacenAvisosAjusteMayor),
+                    or PermisosCanonicos.AlmacenAvisosAjusteMayor
+                    // M-327 (Millet, 10-nov-2026): autoriza la reversa de un anticipo al agente ya comprobado. Perfil corporativo:
+                    // consulta y firma expedientes de todas las sucursales.
+                    or PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionAutorizar or PermisosCanonicos.ComercioExteriorExpedientesLeer
+                    or PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales or PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales),
             // REQ-PERM (86e3xd4uz): los 80 usuarios del Portal de Requisiciones. Equivalencia en
             // docs/operacion/equivalencia-permisos-portal-requisiciones.md.
             (Guid.Parse("00000010-0001-0000-0000-000000000001"), "requisitante",

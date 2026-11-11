@@ -2,10 +2,10 @@ namespace Millet.Integraciones.Aw.Infrastructure.CostoPromedio;
 
 /// <summary>
 /// Costo promedio de un artículo en un almacén (M-447). Vidrio (con medida de hoja): <see cref="CostoM2"/>; material por
-/// cantidad: <see cref="CostoPieza"/>. Siempre uno de los dos. Sin lista de almacenes en la sucursal, tipo y línea van "".
+/// cantidad: <see cref="CostoPieza"/>. Siempre uno de los dos. Tipo y línea NULL = fila de sucursal; línea NULL = herraje.
 /// </summary>
 public sealed record CostoPromedioFila(
-    int ArticuloAw, string Sucursal, string AlmacenTipo, string Linea, int? AnchoMm, int? AltoMm, decimal? CostoM2, decimal? CostoPieza)
+    int ArticuloAw, string Sucursal, string? AlmacenTipo, string? Linea, int? AnchoMm, int? AltoMm, decimal? CostoM2, decimal? CostoPieza)
 {
     /// <summary>Moneda de A+W; el promedio del ERP siempre está en MXN.</summary>
     public const string Moneda = "PESOSMX";

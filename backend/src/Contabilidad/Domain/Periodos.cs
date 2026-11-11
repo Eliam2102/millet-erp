@@ -154,6 +154,21 @@ public sealed class PeriodoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
         return Transicion(AccionPeriodo.Reabrir, EstadoPeriodo.Abierto, motivo, usuarioId, usuarioNombre, ahora);
     }
 
+    /// <summary>
+    /// M-213: vence la reapertura acotada y el periodo vuelve a cerrarse por el sistema. No exige el cierre secuencial (el periodo ya
+    /// estuvo cerrado antes de la reapertura) y deja el motivo en la bitácora.
+    /// </summary>
+    public TransicionPeriodoContable CerrarPorVencimiento(DateTimeOffset ahora, string usuarioNombre)
+    {
+        if (Estado != EstadoPeriodo.Abierto)
+            throw new BusinessRuleException("CONTAB_PERIODO_NO_ABIERTO", $"El periodo {Clave} no está abierto: no hay nada que cerrar.");
+        CerradoPor = usuarioNombre;
+        CerradoEn = ahora;
+        ReabiertoPor = null;
+        ReabiertoEn = null;
+        return Transicion(AccionPeriodo.Cerrar, EstadoPeriodo.Cerrado, "Cierre automático: venció la reapertura acotada del periodo.", null, usuarioNombre, ahora);
+    }
+
     private static void ValidarMotivo(string? motivo)
     {
         if (motivo is null || motivo.Trim().Length is < MotivoMinimo or > MotivoMaximo)

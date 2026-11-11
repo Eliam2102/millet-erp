@@ -64,6 +64,13 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         e.Navigation(x => x.Hitos).UsePropertyAccessMode(PropertyAccessMode.Field);
         e.HasMany(x => x.Avisos).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
         e.Navigation(x => x.Avisos).UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.HasMany(x => x.CorreccionesHitos).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.CorreccionesHitos).UsePropertyAccessMode(PropertyAccessMode.Field);
+        var ch = modelBuilder.Entity<CorreccionHitoExpediente>();
+        ch.ToTable("correcciones_hitos"); ch.HasKey(x => x.Id); ch.Property(x => x.Id).ValueGeneratedNever(); ch.Ignore(x => x.AggregateRootId);
+        ch.Property(x => x.Motivo).HasMaxLength(500); ch.Property(x => x.MotivoAnterior).HasMaxLength(500);
+        ch.HasIndex(x => new { x.HitoId, x.Fecha });
+        ch.HasOne<HitoExpediente>().WithMany().HasForeignKey(x => x.HitoId).OnDelete(DeleteBehavior.Restrict);
         var h = modelBuilder.Entity<HitoExpediente>();
         h.ToTable("hitos");
         h.HasKey(x => x.Id);
@@ -80,6 +87,8 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         a.HasKey(x => x.Id);
         a.Property(x => x.Id).ValueGeneratedNever();
         a.Ignore(x => x.AggregateRootId);
+        a.Ignore(x => x.Vigente);
+        a.Property(x => x.MotivoCierre).HasMaxLength(200);
         a.HasIndex(x => new { x.HitoId, x.FechaCompromiso }).IsUnique();
         a.HasOne<HitoExpediente>().WithMany().HasForeignKey(x => x.HitoId).OnDelete(DeleteBehavior.Restrict);
         var p = modelBuilder.Entity<ParticipanteExpediente>();

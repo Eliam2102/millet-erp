@@ -6,8 +6,35 @@ namespace Millet.ComercioExterior.Domain;
 public sealed record BasePartidaCosto(Guid PartidaId, Guid? ContenedorId, string Descripcion, decimal ValorAduanaMxn,
     decimal PesoKg, decimal Cantidad, Guid? ClienteId = null, Guid? OcId = null, Guid? RecepcionId = null,
     Guid? ArticuloId = null, Guid? UbicacionId = null, decimal Existencia = 0, decimal CostoPromedioMxn = 0, decimal ExistenciaTotal = 0);
+/// <param name="Grupo">M-169: grupo contable del gasto al distribuir (<see cref="GrupoGastoImportacion"/>); null en versiones previas.</param>
 public sealed record RenglonDistribucion(Guid GastoId, Guid ConceptoId, BaseDistribucion Base, Guid PartidaId,
-    Guid? ClienteId, decimal BaseUsada, decimal ImporteMxn);
+    Guid? ClienteId, decimal BaseUsada, decimal ImporteMxn, string? Grupo = null);
+
+/// <summary>M-169: ajuste de la versión (contra la anterior) por grupo contable; viaja a Almacén y a Contabilidad.</summary>
+public sealed record GastoGrupoDistribuido(string Grupo, decimal ImporteMxn);
+
+/// <summary>
+/// M-169 (Contabilidad, 10-nov): grupos contables del gasto de importación que llegan a la póliza. Los honorarios aduanales se
+/// separan en persona física y moral (cuentas 601.73.01.00 y 601.73.02.00 del catálogo del 5-nov) según el tipo de persona del
+/// proveedor del gasto en el maestro de proveedores.
+/// </summary>
+public static class GrupoGastoImportacion
+{
+    public const string HonorariosPersonaFisica = "HONORARIOS_PF";
+    public const string HonorariosPersonaMoral = "HONORARIOS_PM";
+    public const string FletesManiobras = "FLETES_MANIOBRAS";
+    public const string Almacenajes = "ALMACENAJES";
+    public const string Otros = "OTROS";
+
+    /// <summary>Proveedor sin tipo de persona conocido: persona moral (los agentes aduanales de Millet son sociedades).</summary>
+    public static string Codigo(GrupoContableGasto grupo, bool personaFisica) => grupo switch
+    {
+        GrupoContableGasto.HonorariosAduanales => personaFisica ? HonorariosPersonaFisica : HonorariosPersonaMoral,
+        GrupoContableGasto.FletesManiobras => FletesManiobras,
+        GrupoContableGasto.Almacenajes => Almacenajes,
+        _ => Otros,
+    };
+}
 public sealed record CostoPartidaDistribuido(Guid PartidaId, string Descripcion, Guid? ClienteId, Guid? OcId,
     Guid? RecepcionId, Guid? ArticuloId, Guid? UbicacionId, decimal CantidadRecibida, decimal ImporteMxn,
     decimal DiferenciaMxn, decimal InventarioMxn, decimal GastoImportacionMxn, decimal CostoUnitarioAntes, decimal CostoUnitarioDespues)
@@ -29,6 +56,11 @@ public sealed class DistribucionGasto : BaseEntity, IPerteneceAEmpresa, IAuditab
     public DateTimeOffset Fecha { get; private set; }
     public List<RenglonDistribucion> Renglones { get; private set; } = [];
     public List<CostoPartidaDistribuido> Partidas { get; private set; } = [];
+    /// <summary>
+    /// M-169: ajuste de esta versión por grupo contable (importación). Se calcula al preparar la distribución y solo viaja en el
+    /// evento; no se guarda (se puede reconstruir con los renglones de la versión y de la anterior).
+    /// </summary>
+    public IReadOnlyList<GastoGrupoDistribuido> GastosPorGrupo { get; internal set; } = [];
     private DistribucionGasto() { }
     internal DistribucionGasto(Guid empresa, Guid expediente, int version, int revision, Guid usuario,
         DateTimeOffset fecha, IEnumerable<RenglonDistribucion> renglones, IEnumerable<CostoPartidaDistribuido> partidas) : base(Guid.CreateVersion7())
@@ -58,7 +90,7 @@ public static class ProrrateoGastos
     }
 
     public static IReadOnlyList<RenglonDistribucion> Calcular(TipoExpediente tipo, IEnumerable<GastoExpediente> gastos,
-        IReadOnlyList<ConceptoGasto> conceptos, IReadOnlyList<BasePartidaCosto> partidas)
+        IReadOnlyList<ConceptoGasto> conceptos, IReadOnlyList<BasePartidaCosto> partidas, IReadOnlySet<Guid>? proveedoresPersonaFisica = null)
     {
         List<RenglonDistribucion> resultado = [];
         foreach (var gasto in gastos.Where(g => !g.ExcluidoDelCosto))
@@ -87,7 +119,9 @@ public static class ProrrateoGastos
                 if (bases.Any(b => b <= 0)) throw new BusinessRuleException("CE_BASE_SIN_DATOS", "Capture una base positiva en cada partida de " + gasto.Concepto + ".");
                 importes = Repartir(gasto.ImporteMxn, bases);
             }
-            resultado.AddRange(destinos.Select((p, i) => new RenglonDistribucion(gasto.Id, concepto.Id, modo, p.PartidaId, p.ClienteId, bases[i], importes[i])));
+            var grupo = tipo == TipoExpediente.Importacion
+                ? GrupoGastoImportacion.Codigo(concepto.GrupoContable, proveedoresPersonaFisica?.Contains(gasto.ProveedorId) == true) : null;
+            resultado.AddRange(destinos.Select((p, i) => new RenglonDistribucion(gasto.Id, concepto.Id, modo, p.PartidaId, p.ClienteId, bases[i], importes[i], grupo)));
         }
         return resultado;
     }

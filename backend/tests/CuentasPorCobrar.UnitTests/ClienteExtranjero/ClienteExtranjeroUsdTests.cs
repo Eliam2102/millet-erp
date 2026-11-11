@@ -16,6 +16,8 @@ using Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
+using Millet.CuentasPorCobrar.UnitTests.AplicacionPagos;
+
 namespace Millet.CuentasPorCobrar.UnitTests.ClienteExtranjero;
 
 using LineaCreditoAggregate = Millet.CuentasPorCobrar.Domain.LineaCredito.LineaCredito;
@@ -229,7 +231,7 @@ public sealed class ClienteExtranjeroUsdTests
                 MotivoAjuste: "Comisión del banco del cliente"), default);
         creada.AjusteNoFiscal.Should().Be(-48m);
 
-        await new AutorizarAjustePropuestaHandler(db, publisher, new FakeUser(Autorizador), new FakeClock())
+        await new AutorizarAjustePropuestaHandler(db, publisher, new FakeUser(Autorizador), new FakeClock(), new SoporteFijo(true))
             .Handle(new AutorizarAjustePropuestaCommand(creada.Id, creada.Version), default);
         var movimiento = Guid.NewGuid();
         await new ResolverPropuestaTesoreriaHandler(db, new FakeClock()).Handle(

@@ -41,11 +41,11 @@ public sealed class TasasFiscalTests
         var f = CalculoFiscal.Calcular(a,c,2026,12,false,new Dictionary<DateOnly,decimal> { [new(2026,1,1)] = 100, [new(2026,7,1)] = 99 });
         Assert.Equal(10,f.MesesUso); Assert.Equal(1m,f.Factor);
     }
-    [Fact] public void Computo_33_contable_y_fiscal()
+    [Fact] public void Computo_30_contable_y_33_fiscal()
     {
         var semilla = CatalogoClasesMillet.Clases.Single(x => x.Clave == "156");
         var (a,c) = Crear("156",36000); c.Editar(c.Nombre,semilla.Tasa,null,null,null,null,true,depreciable:true,tasaConfirmada:true,tasaContable:semilla.TasaContable);
-        Assert.Equal(990,CalculoDepreciacion.Calcular(a,c,new(2026,2,1)).Importe);
+        Assert.Equal(900,CalculoDepreciacion.Calcular(a,c,new(2026,2,1)).Importe);
         var f = CalculoFiscal.Calcular(a,c,2026,12,false,new Dictionary<DateOnly,decimal>());
         Assert.Equal(10890,f.DeduccionHistorica); Assert.DoesNotContain("por confirmar", f.Observacion ?? "");
     }

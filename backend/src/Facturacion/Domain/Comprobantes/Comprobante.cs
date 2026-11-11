@@ -426,6 +426,23 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// master. En comprobantes históricos pre-F12 Nombre/LugarExpedicion vienen
     /// vacíos y <see cref="DatosFiscalesEmisor.Validar"/> lo rechaza.
     /// </summary>
+    /// <summary>
+    /// CCE121: al timbrar en una fecha distinta de la emisión (reintento o pedimento), el
+    /// TipoCambio del CFDI se toma del catálogo del día del CFDI, el mismo que el TipoCambioUSD
+    /// del complemento. Solo antes de timbrar (Borrador) y en moneda extranjera.
+    /// </summary>
+    public void ActualizarTipoCambioParaTimbrar(decimal tipoCambio)
+    {
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("TIPO_CAMBIO_INMUTABLE",
+                $"Solo se actualiza el tipo de cambio de un comprobante por timbrar (actual: {Estado}).");
+        if (Moneda == "MXN")
+            throw new BusinessRuleException("TIPO_CAMBIO_MXN", "Un comprobante en MXN no lleva tipo de cambio.");
+        if (tipoCambio <= 0)
+            throw new BusinessRuleException("TIPO_CAMBIO_VALOR_INVALIDO", "El tipo de cambio debe ser mayor a cero.");
+        TipoCambio = tipoCambio;
+    }
+
     public void ActualizarEmisorParaReintento(DatosFiscalesEmisor emisor)
     {
         if (Estado != EstadoTimbrado.TimbradoFallido)

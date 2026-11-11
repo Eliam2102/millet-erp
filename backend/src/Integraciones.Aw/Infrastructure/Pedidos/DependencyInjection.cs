@@ -74,7 +74,7 @@ public static class PedidosDependencyInjection
         services.AddScoped<IPlantaPinturaPedidosReader>(sp => new PinturasPedidosAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), postgres: false,
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
-            sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
+            sp.GetRequiredService<IClock>(), sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
 
         // Publicador de catálogos hacia Planta Pintura (script 16 v3).
         services.AddScoped<IPinturasCatalogosPublisher>(sp => new PinturasCatalogosAdapter(

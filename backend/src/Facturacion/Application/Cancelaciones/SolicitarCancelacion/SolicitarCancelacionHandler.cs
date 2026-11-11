@@ -32,8 +32,11 @@ public sealed class SolicitarCancelacionHandler(
             throw new BusinessRuleException(
                 "CANCELACION_YA_SOLICITADA", "El comprobante ya tiene una cancelación pendiente de autorización.");
 
+        // M-235: las firmas se fijan al solicitar, según el tipo de operación y el importe en MXN.
+        var firmas = await Firmas.FirmasCancelacion.RequeridasAsync(db, comprobante, cancellationToken);
         var solicitud = SolicitudCancelacion.Crear(
-            empresaId, comprobante.Id, command.MotivoSat, command.UuidSustituto, clock.UtcNow, user.UserId, user.UserName);
+            empresaId, comprobante.Id, command.MotivoSat, command.UuidSustituto, clock.UtcNow, user.UserId, user.UserName,
+            Firmas.FirmasCancelacion.ImporteMxn(comprobante), firmas);
 
         // PLATFORM-TODO(86e3txv0n): avisar al Contador General que hay una cancelación por autorizar cuando exista el aviso real.
         db.SolicitudesCancelacion.Add(solicitud);

@@ -31,6 +31,9 @@ public class Cxc06AjusteCobroTests
             Consultada = propuestaId;
             return Task.FromResult(ajuste);
         }
+
+        public Task<ReversaAjusteCobroContable?> ObtenerReversaAsync(Guid empresaId, Guid propuestaId, CancellationToken ct) =>
+            Task.FromResult<ReversaAjusteCobroContable?>(null);
     }
 
     [Fact]

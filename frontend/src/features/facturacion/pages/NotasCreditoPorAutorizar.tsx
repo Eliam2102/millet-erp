@@ -1,4 +1,4 @@
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, PaginacionTabla, TableSkeleton } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import type { NotaCreditoPorAutorizar } from '../api/useNotasCreditoAw';
 import {
   useAutorizarNotaCredito,
   useFirmarCreditoNotaCredito,
+  TAMANO_PAGINA_NC_POR_AUTORIZAR,
   useNotasCreditoPorAutorizar,
 } from '../api/useNotasCreditoAw';
 import { formatoImporte } from '../lib/repp-pendiente';
@@ -37,7 +38,8 @@ const claveMotivo = (motivo: string) =>
 
 /** 86e3wjt5r: NC de clientes que llegan de A+W; autorizarlas las timbra (propuesta hasta F6.4). */
 export function NotasCreditoPorAutorizar() {
-  const query = useNotasCreditoPorAutorizar();
+  const [offset, setOffset] = useState(0);
+  const query = useNotasCreditoPorAutorizar(offset);
   const autorizar = useAutorizarNotaCredito();
   const firmarCredito = useFirmarCreditoNotaCredito();
   const puedeAutorizar = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoAutorizar);
@@ -93,7 +95,9 @@ export function NotasCreditoPorAutorizar() {
     }
   }
 
-  const items = query.data ?? [];
+  const items = query.data?.items ?? [];
+  // Al autorizar la última nota de la última página, vuelve a la primera.
+  if (query.data && items.length === 0 && offset > 0) setOffset(0);
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink">
       <PageHeader
@@ -191,6 +195,13 @@ export function NotasCreditoPorAutorizar() {
           </Table>
         )}
       </div>
+      <PaginacionTabla
+        total={query.data?.total ?? items.length}
+        offset={offset}
+        limit={TAMANO_PAGINA_NC_POR_AUTORIZAR}
+        tamanos={[]}
+        onChange={setOffset}
+      />
       <AlertDialog
         open={confirmando !== null}
         onOpenChange={(abierto) => !abierto && setConfirmando(null)}

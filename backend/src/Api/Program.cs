@@ -706,6 +706,10 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoProp
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Periodos.ReaperturaAdjuntoPropietario>();
+// M-240: soporte (estado de cuenta o aviso del banco) del ajuste de un cobro corto en CxC.
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorCobrar.Application.AplicacionPagos.PropuestaAplicacionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Adjuntos.ISoporteAjusteCobroReadPort, Millet.Api.Infrastructure.Adapters.SoporteAjusteCobroReadAdapter>();
 // F6.9: evidencia del historial de CSD (renovación, sustitución, revocación).
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Infrastructure.Adapters.CertificadoCsdAdjuntoPropietario>();
 builder.Services.AddScoped<
@@ -727,6 +731,10 @@ builder.Services
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+// M-373: requisito condicional configurable por tipo de documento (Comercio exterior lo edita por este puerto).
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.ITipoDocumentoCondicionalPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TipoDocumentoCondicionalAdapter>();
 // Guarda de desligado A+W: Datos Maestros pregunta a Compras si hay línea de OC abierta con medida.
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
@@ -1352,9 +1360,8 @@ builder.Services
         Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.ContingenciasAlertaWorker>();
 
-// F7-PR2: worker de pedimentos del Sistema de Salidas (empareja Hoja de Salida ↔
-// pedimento vía ISalidasPedimentosReader [stub en dev] y aplica a las facturas
-// retenidas en PendientePedimento).
+// F7-PR2 / M-216: worker de pedimentos. Toma el pedimento del expediente de Comercio
+// exterior ligado a cada factura retenida en PendientePedimento y la libera.
 builder.Services
     .AddOptions<Millet.Facturacion.Infrastructure.Workers.PedimentoSalidasOptions>()
     .Bind(builder.Configuration.GetSection(

@@ -7,7 +7,7 @@ import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useSearch } from '@tanstack/react-router';
 import { Inbox } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 /**
  * <c>Master-detail de complementos de pago (REPP)</c> (FAC-UX-PR6) —
@@ -22,17 +22,9 @@ export interface ReppLayoutProps {
 
 export function ReppLayout({ idActivo, detalle }: ReppLayoutProps) {
   const search = useSearch({ strict: false }) as ReppSearch;
-  const query = useListarRepp(search.estado);
+  const query = useListarRepp(search.estado, undefined, { q: search.q?.trim() || undefined });
 
-  const items = useMemo(() => {
-    const todos = query.data?.items ?? [];
-    if (!search.q) return todos;
-    const needle = search.q.toLowerCase();
-    return todos.filter(
-      (r) =>
-        r.folio.toLowerCase().includes(needle) || r.receptorNombre.toLowerCase().includes(needle),
-    );
-  }, [query.data, search.q]);
+  const items = query.data?.items ?? [];
 
   return (
     <div className="flex flex-col gap-4   md:h-[calc(100vh-3.5rem)] md:flex-row">

@@ -1,12 +1,10 @@
 namespace Millet.Facturacion.Domain.Ports;
 
 /// <summary>
-/// Puerto de lectura de los emparejamientos Hoja de Salida ↔ pedimento del
-/// Sistema de Salidas (§3.bis.5, §9 diseño). El <c>PedimentoSalidasWorker</c> los
-/// consume para aplicar el pedimento a las facturas retenidas en
-/// <c>PendientePedimento</c>. Dueño real: <c>Integraciones.Origenes</c> (vía
-/// Hybrid Connection); en dev es stub vacío
-/// (<c>PLATFORM-TODO(&lt;SalidasPedimentos&gt;)</c>).
+/// Puerto de lectura de los pedimentos listos para las facturas retenidas en
+/// <c>PendientePedimento</c> (§3.bis.5). M-216: la fuente es el expediente de
+/// Comercio exterior (el Sistema de Salidas se absorbe en el ERP, D03). El
+/// <c>PedimentoSalidasWorker</c> los consume y aplica con <c>AplicarPedimentoCommand</c>.
 /// </summary>
 public interface ISalidasPedimentosReader
 {

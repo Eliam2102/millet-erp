@@ -50,7 +50,6 @@ public sealed class HitoExpediente : BaseEntity, IAuditable, IPerteneceAEmpresa,
         if (razon is not null) MotivoCambioCompromiso = razon;
     }
 
-    // PLATFORM-TODO(<CeCorregirHito>): una fecha real o una omisión no se puede corregir; por confirmar con Millet.
     internal void Completar(DateOnly fecha, Guid responsable, Guid? evidencia, string? motivo)
     {
         ExigirPendiente();
@@ -70,6 +69,24 @@ public sealed class HitoExpediente : BaseEntity, IAuditable, IPerteneceAEmpresa,
         Omitido = true;
         Motivo = razon;
         ResponsableUsuarioId = responsable;
+    }
+
+    public bool Resuelto => FechaReal is not null || Omitido;
+
+    /// <summary>Terminado después del compromiso: la incidencia (aviso) de atraso sigue vigente.</summary>
+    public bool TerminoConAtraso => !Omitido && FechaReal is DateOnly real && FechaCompromiso is DateOnly compromiso && real > compromiso;
+
+    /// <summary>
+    /// M-373: corrige la fecha real o la omisión de un hito ya resuelto. Quien corrige y su motivo quedan en
+    /// <see cref="CorreccionHitoExpediente"/>; aquí sólo cambia el valor vigente.
+    /// </summary>
+    internal void Corregir(DateOnly? fechaReal, bool omitir, string motivo)
+    {
+        if (!Resuelto)
+            throw new BusinessRuleException("CE_HITO_PENDIENTE", "El hito no tiene fecha real ni omisión; regístrelo en lugar de corregirlo.");
+        FechaReal = omitir ? null : fechaReal;
+        Omitido = omitir;
+        Motivo = motivo;
     }
 
     private static void ExigirResponsable(Guid responsable)

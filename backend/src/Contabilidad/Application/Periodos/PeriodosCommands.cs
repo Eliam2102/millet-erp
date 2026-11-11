@@ -14,7 +14,12 @@ namespace Millet.Contabilidad.Application.Periodos;
 public sealed record PeriodoContableResponse(
     Guid Id, Guid EjercicioId, int Anio, int Numero, string Nombre, DateOnly FechaInicio, DateOnly FechaFin, EstadoPeriodo Estado,
     bool EsAjuste, string? AbiertoPor, DateTimeOffset? AbiertoEn, string? CerradoPor, DateTimeOffset? CerradoEn,
-    string? ReabiertoPor, DateTimeOffset? ReabiertoEn, int Version);
+    string? ReabiertoPor, DateTimeOffset? ReabiertoEn, int Version, ReaperturaVigenteResponse? Reapertura = null);
+
+/// <summary>Alcance y vencimiento de la reapertura acotada vigente (M-213); <c>Vencida</c> con la hora del servidor.</summary>
+public sealed record ReaperturaVigenteResponse(
+    IReadOnlyList<string> TiposPoliza, IReadOnlyList<string> PrefijosCuenta, IReadOnlyList<string> Modulos, IReadOnlyList<Guid> UsuariosIds,
+    string EvidenciaReferencia, DateTimeOffset VenceEn, bool Vencida, string CreadaPor, Guid ReaperturaId);
 
 /// <summary><c>Version</c> es la del ejercicio: el <c>If-Match</c> de la apertura en lote. Cada periodo trae la suya.</summary>
 public sealed record EjercicioContableResponse(Guid Id, int Anio, int Version, IReadOnlyList<PeriodoContableResponse> Periodos);
@@ -33,14 +38,25 @@ internal static class PoliticaPeriodos
     // ponytail: el candado global prioriza integridad; dividir por empresa/ejercicio si el volumen exige más concurrencia.
     public const long LockPeriodos = 0x0D03_0001;
 
-    public static PeriodoContableResponse Response(PeriodoContable p) => new(p.Id, p.EjercicioId, p.Anio, p.Numero,
+    public static PeriodoContableResponse Response(PeriodoContable p, ReaperturaPeriodo? r = null, DateTimeOffset? ahora = null) => new(p.Id, p.EjercicioId, p.Anio, p.Numero,
         PeriodoContable.Nombre(p.Numero), p.FechaInicio, p.FechaFin, p.Estado, p.EsAjuste, p.AbiertoPor, p.AbiertoEn,
-        p.CerradoPor, p.CerradoEn, p.ReabiertoPor, p.ReabiertoEn, p.Version);
+        p.CerradoPor, p.CerradoEn, p.ReabiertoPor, p.ReabiertoEn, p.Version,
+        r is null || p.Estado != EstadoPeriodo.Abierto ? null
+            : new(r.TiposPoliza, r.PrefijosCuenta, r.Modulos, r.UsuariosIds, r.EvidenciaReferencia, r.VenceEn, r.Vencida(ahora ?? DateTimeOffset.UtcNow), r.CreadaPor, r.Id));
+
+    /// <summary>Reapertura vigente por periodo (a lo más una).</summary>
+    public static async Task<Dictionary<Guid, ReaperturaPeriodo>> VigentesAsync(ContabilidadDbContext db, IEnumerable<Guid> periodoIds, CancellationToken ct)
+    {
+        var ids = periodoIds.ToList();
+        var filas = await db.Reaperturas.AsNoTracking().Where(r => r.Vigente && ids.Contains(r.PeriodoId)).OrderBy(r => r.CreadaEn).ToListAsync(ct);
+        return filas.GroupBy(r => r.PeriodoId).ToDictionary(g => g.Key, g => g.Last());
+    }
 
     public static async Task<EjercicioContableResponse> ResponseAsync(ContabilidadDbContext db, EjercicioContable e, CancellationToken ct)
     {
         var periodos = await db.Periodos.AsNoTracking().Where(p => p.EjercicioId == e.Id).OrderBy(p => p.Numero).ToListAsync(ct);
-        return new(e.Id, e.Anio, e.Version, [.. periodos.Select(Response)]);
+        var vigentes = await VigentesAsync(db, periodos.Select(p => p.Id), ct);
+        return new(e.Id, e.Anio, e.Version, [.. periodos.Select(p => Response(p, vigentes.GetValueOrDefault(p.Id)))]);
     }
 
     public static async Task<PeriodoContable> PeriodoAsync(ContabilidadDbContext db, Guid id, int versionEsperada, CancellationToken ct)
@@ -80,8 +96,9 @@ public sealed class ListarEjerciciosHandler(ContabilidadDbContext db) : IRequest
         var ids = ejercicios.Select(e => e.Id).ToList();
         var periodos = (await db.Periodos.AsNoTracking().Where(p => ids.Contains(p.EjercicioId)).ToListAsync(cancellationToken))
             .ToLookup(p => p.EjercicioId);
+        var vigentes = await PoliticaPeriodos.VigentesAsync(db, periodos.SelectMany(g => g).Select(p => p.Id), cancellationToken);
         return [.. ejercicios.Select(e => new EjercicioContableResponse(e.Id, e.Anio, e.Version,
-            [.. periodos[e.Id].OrderBy(p => p.Numero).Select(PoliticaPeriodos.Response)]))];
+            [.. periodos[e.Id].OrderBy(p => p.Numero).Select(p => PoliticaPeriodos.Response(p, vigentes.GetValueOrDefault(p.Id)))]))];
     }
 }
 
@@ -225,6 +242,8 @@ public sealed class CerrarPeriodoHandler(ContabilidadDbContext db, ICurrentUserC
             var anteriores = await db.Periodos.AsNoTracking().Where(x => x.EjercicioId == p.EjercicioId && x.Numero < p.Numero).ToListAsync(ct);
             var usuarioNombre = PoliticaPeriodos.Usuario(usuario);
             AuditoriaPeriodos.Registrar(db, p, p.Cerrar(anteriores, request.Motivo, usuario.UserId, usuarioNombre, clock.UtcNow), usuario, correlacion);
+            // M-213: al cerrar el periodo la reapertura acotada vigente deja de aplicar.
+            foreach (var r in await db.Reaperturas.Where(x => x.PeriodoId == p.Id && x.Vigente).ToListAsync(ct)) r.Concluir(clock.UtcNow);
             // CON-12-a: foto del checklist con las excepciones y quién las autorizó.
             if (evaluacion is not null) db.CierresPeriodo.Add(Cierre.EvaluadorChecklistCierre.Registro(p, evaluacion, usuarioNombre, clock.UtcNow));
             // PLATFORM-TODO(<OutboxContabilidad>): PeriodoContableCerradoEvent cuando haya outbox y suscriptores (C1.2/C1.5).
@@ -240,14 +259,24 @@ public sealed class CerrarPeriodoHandler(ContabilidadDbContext db, ICurrentUserC
 /// Reabre un periodo cerrado (autorización de mayor nivel, permiso aparte). D4: el siguiente no debe estar cerrado.
 /// Reabrir Contabilidad NO reabre <c>almacen.periodos_cerrados</c> (D10/D18).
 /// </summary>
-public sealed record ReabrirPeriodoCommand(Guid PeriodoId, int VersionEsperada, string Motivo) : IRequest<PeriodoContableResponse>;
+public sealed record ReabrirPeriodoCommand(Guid PeriodoId, int VersionEsperada, string Motivo, AlcanceReaperturaRequest? Alcance = null)
+    : IRequest<PeriodoContableResponse>;
+
+/// <summary>
+/// Reapertura acotada (M-213): qué entra, quién registra, evidencia y vencimiento. Sin este bloque la reapertura es la de siempre
+/// (sin alcance ni vencimiento); la pantalla siempre lo envía.
+/// </summary>
+public sealed record AlcanceReaperturaRequest(
+    IReadOnlyList<string>? TiposPoliza, IReadOnlyList<string>? PrefijosCuenta, IReadOnlyList<string>? Modulos,
+    IReadOnlyList<Guid>? UsuariosIds, string? Evidencia, DateTimeOffset VenceEn);
 
 public sealed class ReabrirPeriodoValidator : AbstractValidator<ReabrirPeriodoCommand>
 {
     public ReabrirPeriodoValidator() => RuleFor(c => c.Motivo).MotivoObligatorio();
 }
 
-public sealed class ReabrirPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock, IAuditCorrelationContext correlacion)
+public sealed class ReabrirPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock, IAuditCorrelationContext correlacion,
+    Microsoft.Extensions.Options.IOptions<ReaperturaOpciones> opciones)
     : IRequestHandler<ReabrirPeriodoCommand, PeriodoContableResponse>
 {
     public async Task<PeriodoContableResponse> Handle(ReabrirPeriodoCommand request, CancellationToken cancellationToken)
@@ -259,9 +288,13 @@ public sealed class ReabrirPeriodoHandler(ContabilidadDbContext db, ICurrentUser
             var p = periodo;
             var siguiente = await db.Periodos.AsNoTracking().FirstOrDefaultAsync(x => x.EjercicioId == p.EjercicioId && x.Numero == p.Numero + 1, ct);
             AuditoriaPeriodos.Registrar(db, p, p.Reabrir(siguiente, request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow), usuario, correlacion);
+            if (request.Alcance is { } a)
+                db.Reaperturas.Add(new ReaperturaPeriodo(Guid.CreateVersion7(), p, a.TiposPoliza, a.PrefijosCuenta, a.Modulos, a.UsuariosIds,
+                    a.Evidencia, a.VenceEn, opciones.Value.MaximoDias, PoliticaPeriodos.Usuario(usuario), clock.UtcNow));
             // PLATFORM-TODO(<OutboxContabilidad>): PeriodoContableReabiertoEvent cuando haya outbox y suscriptores (C1.2/C1.5).
             await db.SaveChangesAsync(ct);
         }, cancellationToken);
-        return PoliticaPeriodos.Response(periodo!);
+        var vigente = await PoliticaPeriodos.VigentesAsync(db, [periodo!.Id], cancellationToken);
+        return PoliticaPeriodos.Response(periodo, vigente.GetValueOrDefault(periodo.Id), clock.UtcNow);
     }
 }

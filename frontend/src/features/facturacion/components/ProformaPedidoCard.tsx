@@ -2,8 +2,8 @@ import { Button } from '@/components/ui/button';
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { formatDateTime } from '@/lib/datetime';
 import { formatMoney } from '@/lib/money';
-import { textoVigenciaProforma } from '@/features/facturacion/lib/proforma-vigencia';
-import { Download, Eye } from 'lucide-react';
+import { textoConformidadProforma, textoVigenciaProforma } from '@/features/facturacion/lib/proforma-vigencia';
+import { CheckCircle2, Download, Eye } from 'lucide-react';
 
 /**
  * Tarjeta «Proforma» del detalle del pedido (U1.8a): última versión
@@ -16,12 +16,15 @@ export function ProformaPedidoCard({
   descargando,
   onVer,
   onDescargar,
+  onConformidad,
 }: {
   proforma: ProformaPedidoResponse | null | undefined;
   cargando: boolean;
   descargando: boolean;
   onVer: (proforma: ProformaPedidoResponse) => void;
   onDescargar: (proforma: ProformaPedidoResponse) => void;
+  /** M-234: abre «Registrar conformidad»; sin handler no se ofrece la acción. */
+  onConformidad?: (proforma: ProformaPedidoResponse) => void;
 }) {
   return (
     <section
@@ -54,11 +57,26 @@ export function ProformaPedidoCard({
               })}
             </span>{' '}
             · Sin valor fiscal
+            {proforma.conformidad ? (
+              <span className="block font-medium text-success-fg">{textoConformidadProforma(proforma)}</span>
+            ) : null}
           </p>
         )}
       </div>
       {proforma != null && (
         <div className="flex items-center gap-2">
+          {onConformidad && !proforma.conformidad && !proforma.vencida ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={`Registrar conformidad de la proforma ${proforma.folio}`}
+              onClick={() => onConformidad(proforma)}
+            >
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.8} />
+              Registrar conformidad
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"

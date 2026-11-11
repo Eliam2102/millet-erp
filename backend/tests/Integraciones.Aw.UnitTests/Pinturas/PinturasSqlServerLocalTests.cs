@@ -57,6 +57,7 @@ public sealed class PinturasSqlServerLocalTests
         private sealed class Nada : IDisposable { public void Dispose() { } }
     }
     private sealed class Reloj : IClock { public DateTimeOffset UtcNow => Ahora; }
+    private sealed class RelojReal(TimeSpan adelanto) : IClock { public DateTimeOffset UtcNow => DateTimeOffset.UtcNow + adelanto; }
 
     // Maestros del ERP: existe el cliente 900123 y el servicio de recubrimiento de la prueba; lo demás no existe.
     private sealed class Clientes : IClientesReadPort
@@ -84,7 +85,7 @@ public sealed class PinturasSqlServerLocalTests
 
     private sealed record Caso(PinturasPedidosAdapter Lector, FacturacionDbContext Db, ImportarPedidoPlantaPinturaHandler Handler, string Servicio);
 
-    private static async Task<Caso> CrearAsync()
+    private static async Task<Caso> CrearAsync(TimeSpan? adelanto = null)
     {
         // Catálogo de servicios: lo publica el ERP (SELECT/INSERT/UPDATE).
         var servicio = $"I139-S-{Guid.NewGuid():N}"[..20];
@@ -93,7 +94,7 @@ public sealed class PinturasSqlServerLocalTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new Empresas(null));
         var lector = new PinturasPedidosAdapter(new Fabrica(Erp), postgres: false, new SucursalFija(),
             Options.Create(new PinturasPedidosOptions { SucursalClave = "PIN", SqlQueryTimeoutSeconds = 15 }),
-            NullLogger<PinturasPedidosAdapter>.Instance);
+            new RelojReal(adelanto ?? TimeSpan.Zero), NullLogger<PinturasPedidosAdapter>.Instance);
         return new Caso(lector, db, new ImportarPedidoPlantaPinturaHandler(db, new Clientes(), new Productos(servicio), new Reloj()), servicio);
     }
 
@@ -191,6 +192,32 @@ public sealed class PinturasSqlServerLocalTests
         // Un segundo acuse (otra instancia del worker) no pisa el primero.
         await c.Lector.MarcarResultadoAsync(folio, ResultadoAcusePlantaPintura.Error, null, "tarde", Ahora.AddMinutes(1), default);
         (await AcuseAsync(folio)).Should().Be(acuse);
+    }
+
+    // Cabecera sin líneas (el portal falló a medias): con menos de 10 min sigue pendiente; después se acusa 2 con el motivo.
+    private static async Task<string> InsertarCabeceraSinLineasAsync()
+    {
+        var folio = $"I139-{Guid.NewGuid():N}"[..20];
+        await EjecutarAsync(Portal,
+            "INSERT INTO dbo.pinturas_pedido (folio_orden, fecha_pedido, cliente_clave, cliente_nombre, iva_porcentaje) " +
+            "VALUES (@f, @fecha, 900123, N'Aluminios SA', 16)", ("@f", folio), ("@fecha", FechaOrden.ToDateTime(TimeOnly.MinValue)));
+        return folio;
+    }
+
+    [PinturasSqlServerFact]
+    public async Task Jorge_10nov_cabecera_sin_lineas_reciente_sigue_pendiente_y_vencida_se_acusa_con_error()
+    {
+        var folio = await InsertarCabeceraSinLineasAsync();
+
+        (await LeerAsync(await CrearAsync(), folio)).Should().BeNull("sin líneas no se toma");
+        (await AcuseAsync(folio)).Resultado.Should().BeNull("todavía no pasan 10 minutos");
+
+        (await LeerAsync(await CrearAsync(TimeSpan.FromMinutes(11)), folio)).Should().BeNull();
+        var acuse = await AcuseAsync(folio);
+        acuse.Resultado.Should().Be(2);
+        acuse.Pedido.Should().BeNull();
+        acuse.Error.Should().StartWith("Orden sin renglones: ");
+        acuse.Fecha.Should().NotBeNull();
     }
 
     [PinturasSqlServerFact]

@@ -126,4 +126,16 @@ public sealed class EscaleraTipoCambioTests
 
         valores.Should().Equal(Oct(20));
     }
+
+    [Fact]
+    public void Cce121_una_factura_del_martes_10_nov_lleva_el_valor_del_DOF_del_lunes_9_que_es_el_fix_del_viernes_6()
+    {
+        // Art. 20 CFF: rige el TC publicado en el DOF el día hábil anterior a la operación.
+        // El SAT (CCE121) lo nombra «valor correspondiente al día 09/11/2026 obtenido del DOF».
+        var fix = new Dictionary<DateOnly, decimal> { [Nov(5)] = 18.5512m, [Nov(6)] = 18.6297m, [Nov(9)] = 18.7001m };
+
+        var aplicacion = EscaleraTipoCambio.Aplicar(fix, fix.Keys.ToHashSet(), Nov(9), Nov(10), Nov(10)).Single();
+
+        aplicacion.Should().Be(new AplicacionTipoCambio(Nov(10), Nov(6), 18.6297m));
+    }
 }

@@ -15,6 +15,15 @@ public sealed record ResolucionSaldo(string Tipo, decimal Importe, DateOnly Fech
     Guid EvidenciaId, Guid? AnticipoDestinoId, Guid UsuarioId);
 public sealed record ComprobacionAnterior(ImpuestosPedimento Impuestos, Guid PedimentoId, Guid ComprobanteId,
     DateOnly Fecha, Guid? UsuarioId, decimal GastosMxn, string Motivo, Guid CorregidoPor, IReadOnlyList<Guid>? GastoIds = null);
+/// <summary>M-327: solicitud de Comercio exterior para revertir una comprobación; espera la firma del Contador General.</summary>
+public sealed record SolicitudReversaComprobacion(Guid Id, string Motivo, Guid SolicitadoPor, DateTimeOffset SolicitadoEn);
+/// <summary>
+/// M-327: historial de la reversa (quién la pidió, cuándo, motivo y firma). <see cref="Autorizada"/> = se aplicó; si no, el Contador
+/// General no la autorizó (<see cref="MotivoRechazo"/>) y la comprobación sigue vigente. Conserva lo que se revirtió.
+/// </summary>
+public sealed record ReversaComprobacion(Guid SolicitudId, string Motivo, Guid SolicitadoPor, DateTimeOffset SolicitadoEn,
+    bool Autorizada, Guid FirmadoPor, DateTimeOffset FirmadoEn, string? MotivoRechazo, decimal SaldoAFavorMxn,
+    decimal GastosLiberadosMxn, ImpuestosPedimento? ImpuestosRevertidos, IReadOnlyList<Guid> GastoIds, DateOnly? FechaComprobacionRevertida);
 public sealed class AnticipoAgente : BaseEntity, IPerteneceAEmpresa, IAuditable, IBelongsToAggregate
 {
     public Guid EmpresaId { get; set; }
@@ -56,7 +65,7 @@ public sealed class AnticipoAgente : BaseEntity, IPerteneceAEmpresa, IAuditable,
     public decimal? Aplicado => IvaAplicado + IgiAplicado + PrvAplicado + GastosAplicadosMxn;
     public decimal? Diferencia => Anticipado - Aplicado;
     public decimal? Saldo => Diferencia - Resoluciones.Sum(r => r.Importe);
-    public string Estado => MotivoCancelacion is not null ? "Cancelado" : DevolucionPendienteId is not null ? "Devolución pendiente de depósito" : Aplicado is null ? SoporteCalculoId is null ? "Sin comprobar" : PagadoMxn >= Anticipado ? "Pagado" : PagadoMxn > 0 ? "Pago parcial" : PagosRevertidos.Count > 0 ? "Autorizado" : "Solicitado" : Saldo > 0 ? "Saldo a favor abierto" : Saldo < 0 ? "Por pagar al agente" : Resoluciones.Any(r => r.Tipo == "saldo-al-agente") ? "Saldo trasladado a la cuenta del agente" : DepositosRecibidos.Count > 0 ? "Saldado" : "Comprobado";
+    public string Estado => MotivoCancelacion is not null ? "Cancelado" : ReversaPendiente is not null ? "Reversa de comprobación por autorizar" : ComprobacionRevertida ? "Pendiente de comprobar" : DevolucionPendienteId is not null ? "Devolución pendiente de depósito" : Aplicado is null ? SoporteCalculoId is null ? "Sin comprobar" : PagadoMxn >= Anticipado ? "Pagado" : PagadoMxn > 0 ? "Pago parcial" : PagosRevertidos.Count > 0 ? "Autorizado" : "Solicitado" : Saldo > 0 ? "Saldo a favor abierto" : Saldo < 0 ? "Por pagar al agente" : Resoluciones.Any(r => r.Tipo == "saldo-al-agente") ? "Saldo trasladado a la cuenta del agente" : DepositosRecibidos.Count > 0 ? "Saldado" : "Comprobado";
     public List<ResolucionSaldo> Resoluciones { get; private set; } = [];
     private AnticipoAgente() { }
     internal AnticipoAgente(Guid id, Guid empresa, Guid expediente, Guid agente, string pedimento, ImpuestosPedimento impuestos,
@@ -126,6 +135,7 @@ public sealed class AnticipoAgente : BaseEntity, IPerteneceAEmpresa, IAuditable,
             g.ProveedorId != AgenteId || (g.AnticipoAgenteId is not null && g.AnticipoAgenteId != Id)) || nuevos.Select(g => g.Id).Distinct().Count() != nuevos.Count)
             throw new BusinessRuleException("CE_GASTO_AGENTE_INVALIDO", "Seleccione gastos únicos del mismo agente y expediente, sin aplicar a otro anticipo.");
         if (Resoluciones.Count > 0) throw new BusinessRuleException("CE_RESOLUCION_APROBADA", "No se puede corregir una comprobación con resolución aprobada.");
+        if (ReversaPendiente is not null) throw new BusinessRuleException("CE_REVERSA_PENDIENTE", "Hay una reversa de la comprobación por autorizar.");
         HistorialComprobaciones = [.. HistorialComprobaciones, new(new(IvaAplicado!.Value, IgiAplicado!.Value, PrvAplicado!.Value),
             PedimentoPagadoId!.Value, ComprobantePagoId!.Value, FechaComprobacion!.Value, ComprobadoPor, GastosAplicadosMxn, motivo.Trim(), usuario, gastos.Select(g => g.Id).ToArray())];
         RevisionComprobacion++;
@@ -137,6 +147,8 @@ public sealed class AnticipoAgente : BaseEntity, IPerteneceAEmpresa, IAuditable,
     }
     public void Comprobar(ImpuestosPedimento reales, Guid pedimento, Guid comprobante, DateOnly fecha, Guid? usuario = null)
     {
+        if (ComprobacionRevertida)
+            throw new BusinessRuleException("CE_ANTICIPO_REVERTIDO", "La comprobación se revirtió y el anticipo quedó como saldo a favor del agente en Cuentas por pagar; compénselo contra las facturas del agente.");
         if (SoporteCalculoId is not null && PagadoMxn != Anticipado)
             throw new BusinessRuleException("CE_ANTICIPO_SIN_PAGO", "Espere el pago completo de Tesorería antes de comprobar.");
         reales.Validar();
@@ -166,6 +178,8 @@ public sealed class AnticipoAgente : BaseEntity, IPerteneceAEmpresa, IAuditable,
     }
     public void Resolver(string tipo, decimal importe, DateOnly fecha, string referencia, Guid evidencia, Guid usuario, AnticipoAgente? destino = null, bool registroDevolucion = false)
     {
+        if (ReversaPendiente is not null)
+            throw new BusinessRuleException("CE_REVERSA_PENDIENTE", "Hay una reversa de la comprobación por autorizar.");
         if (DevolucionPendienteId is not null)
             throw new BusinessRuleException("CE_DEVOLUCION_PENDIENTE", "Espere el depósito de la devolución aprobada.");
         if (ComprobadoPor is null)
@@ -185,5 +199,79 @@ public sealed class AnticipoAgente : BaseEntity, IPerteneceAEmpresa, IAuditable,
         else if (!(tipo is "devolucion" or "saldo-al-agente" && Saldo > 0) && !(tipo == "pago-complementario" && Saldo < 0))
             throw new BusinessRuleException("CE_RESOLUCION_INVALIDA", "Use devolución para saldo a favor o pago complementario para deuda con el agente.");
         Resoluciones = [.. Resoluciones, new(tipo, Saldo < 0 ? -importe : importe, fecha, referencia.Trim(), evidencia, destino?.Id, usuario)];
+    }
+
+    // ---- M-327: reversa de un anticipo ya comprobado (Millet 10-nov-2026: la autoriza el Contador General) ----
+    public SolicitudReversaComprobacion? ReversaPendiente { get; private set; }
+    public List<ReversaComprobacion> ReversasComprobacion { get; private set; } = [];
+    /// <summary>La comprobación se revirtió: el anticipo quedó pendiente de comprobar y su importe pasó al saldo a favor del agente.</summary>
+    public bool ComprobacionRevertida => ReversasComprobacion.Any(r => r.Autorizada);
+    /// <summary>Saldo a favor del agente que dejó la reversa (se compensa contra sus facturas en Cuentas por pagar).</summary>
+    public decimal SaldoAFavorAgenteMxn => ReversasComprobacion.Where(r => r.Autorizada).Sum(r => r.SaldoAFavorMxn);
+
+    /// <summary>Comercio exterior pide revertir la comprobación, con motivo. No cambia saldos hasta la firma.</summary>
+    public SolicitudReversaComprobacion SolicitarReversaComprobacion(string motivo, Guid usuario, DateTimeOffset ahora)
+    {
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length > 500)
+            throw new BusinessRuleException("CE_REVERSA_MOTIVO_REQUERIDO", "Capture el motivo de la reversa (hasta 500 caracteres).");
+        if (usuario == Guid.Empty) throw new BusinessRuleException("CE_REVERSA_INVALIDA", "No se identificó a quien solicita.");
+        if (ReversaPendiente is not null) throw new BusinessRuleException("CE_REVERSA_PENDIENTE", "Ya hay una reversa de esta comprobación por autorizar.");
+        ExigirReversible();
+        ReversaPendiente = new(Guid.CreateVersion7(), motivo.Trim(), usuario, ahora);
+        return ReversaPendiente;
+    }
+
+    /// <summary>
+    /// El Contador General firma la reversa: el anticipo vuelve a «pendiente de comprobar», los gastos del agente se liberan y todo lo
+    /// anticipado queda como saldo a favor del agente. Quien la solicitó no la autoriza. Repetida sin solicitud pendiente no hace nada
+    /// (devuelve null): una reversa se aplica una sola vez.
+    /// </summary>
+    public ReversaComprobacion? AutorizarReversaComprobacion(Guid usuario, DateTimeOffset ahora, IReadOnlyCollection<GastoExpediente> gastosAplicados)
+    {
+        if (ReversaPendiente is null)
+        {
+            if (ComprobacionRevertida) return null;
+            throw new BusinessRuleException("CE_REVERSA_SIN_SOLICITUD", "No hay una reversa de la comprobación por autorizar.");
+        }
+        var solicitud = ReversaPendiente;
+        if (usuario == Guid.Empty || usuario == solicitud.SolicitadoPor)
+            throw new BusinessRuleException("CE_REVERSA_MISMA_PERSONA", "Quien solicitó la reversa no puede autorizarla.");
+        ExigirReversible();
+        if (gastosAplicados.Any(g => g.AnticipoAgenteId != Id))
+            throw new BusinessRuleException("CE_GASTO_AGENTE_INVALIDO", "Seleccione los gastos de esta comprobación.");
+        var saldo = Anticipado;
+        if (saldo <= 0) throw new BusinessRuleException("CE_REVERSA_INVALIDA", "El anticipo no tiene importe para trasladar al saldo del agente.");
+        var reversa = new ReversaComprobacion(solicitud.Id, solicitud.Motivo, solicitud.SolicitadoPor, solicitud.SolicitadoEn, true, usuario, ahora, null,
+            saldo, GastosAplicadosMxn, new(IvaAplicado!.Value, IgiAplicado!.Value, PrvAplicado!.Value), gastosAplicados.Select(g => g.Id).ToArray(), FechaComprobacion);
+        foreach (var gasto in gastosAplicados) gasto.Desaplicar();
+        IvaAplicado = null; IgiAplicado = null; PrvAplicado = null; GastosAplicadosMxn = 0;
+        PedimentoPagadoId = null; ComprobantePagoId = null; FechaComprobacion = null; ComprobadoPor = null;
+        RevisionComprobacion++;
+        ReversaPendiente = null;
+        ReversasComprobacion = [.. ReversasComprobacion, reversa];
+        return reversa;
+    }
+
+    /// <summary>El Contador General no autoriza la reversa (con motivo): la comprobación y los saldos no cambian.</summary>
+    public ReversaComprobacion RechazarReversaComprobacion(Guid usuario, DateTimeOffset ahora, string motivo)
+    {
+        var solicitud = ReversaPendiente ?? throw new BusinessRuleException("CE_REVERSA_SIN_SOLICITUD", "No hay una reversa de la comprobación por autorizar.");
+        if (usuario == Guid.Empty || usuario == solicitud.SolicitadoPor)
+            throw new BusinessRuleException("CE_REVERSA_MISMA_PERSONA", "Quien solicitó la reversa no puede autorizarla.");
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length > 500)
+            throw new BusinessRuleException("CE_REVERSA_MOTIVO_REQUERIDO", "Capture el motivo para no autorizar la reversa (hasta 500 caracteres).");
+        var registro = new ReversaComprobacion(solicitud.Id, solicitud.Motivo, solicitud.SolicitadoPor, solicitud.SolicitadoEn, false, usuario, ahora,
+            motivo.Trim(), 0, 0, null, [], FechaComprobacion);
+        ReversaPendiente = null;
+        ReversasComprobacion = [.. ReversasComprobacion, registro];
+        return registro;
+    }
+
+    private void ExigirReversible()
+    {
+        if (MotivoCancelacion is not null || Aplicado is null)
+            throw new BusinessRuleException("CE_REVERSA_SIN_COMPROBACION", "Sólo se revierte un anticipo ya comprobado.");
+        if (DevolucionPendienteId is not null || Resoluciones.Count > 0)
+            throw new BusinessRuleException("CE_REVERSA_CON_RESOLUCION", "El saldo de esta comprobación ya se resolvió (devolución, compensación o pago); no se puede revertir.");
     }
 }

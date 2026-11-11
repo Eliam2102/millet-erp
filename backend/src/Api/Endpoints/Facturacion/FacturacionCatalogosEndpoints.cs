@@ -38,6 +38,15 @@ public static class FacturacionCatalogosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // GET: TipoCambioUSD del CCE para una factura emitida hoy (catálogo, DOF del día hábil anterior).
+        group.MapGet("/catalogos/tipo-cambio-dof", async (
+            IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new TipoCambioDofQuery(), cancellationToken)))
+        .WithName("FacturacionTipoCambioDof")
+        .WithSummary("Tipo de cambio USD del DOF que rige la emisión de hoy (Complemento de Comercio Exterior)")
+        .Produces<TipoCambioDofResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         // GET: lookup de clientes para el selector de receptor (ADR-0045:
         // filtros excluyentes, RFC tiene precedencia).
         group.MapGet("/catalogos/clientes", async (

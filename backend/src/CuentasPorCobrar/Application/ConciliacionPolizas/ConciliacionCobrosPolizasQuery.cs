@@ -56,13 +56,19 @@ public sealed class ConciliacionCobrosPolizasHandler(CuentasPorCobrarDbContext d
         var desde = new DateTimeOffset(q.Desde.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).AddDays(-1);
         var hasta = new DateTimeOffset(q.Hasta.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).AddDays(2);
 
-        // 1. Cartera: pagos aplicados (no revertidos) por comprobante origen (REP o cobro de mostrador).
+        // 1. Cartera: pagos aplicados (no revertidos) por comprobante origen (REP o cobro de mostrador). M-240: la reversa de un ajuste
+        //    resta del pago de su REP (la póliza contraria resta lo mismo del abono a clientes).
         var movimientos = await (from m in db.MovimientosCartera.AsNoTracking()
                                  join f in db.FacturasCartera.AsNoTracking() on m.FacturaCarteraId equals f.Id
-                                 where m.Tipo == TipoMovimientoCartera.Pago && !m.Revertido
+                                 where (m.Tipo == TipoMovimientoCartera.Pago || m.Tipo == TipoMovimientoCartera.ReversaAjusteCobro) && !m.Revertido
                                        && m.FechaMovimiento >= desde && m.FechaMovimiento < hasta
                                        && (q.ClienteId == null || f.ClienteId == q.ClienteId)
-                                 select new { m.OrigenComprobanteId, m.Importe, m.FechaMovimiento, f.ClienteId, f.ReceptorNombre, f.Moneda })
+                                 select new
+                                 {
+                                     m.OrigenComprobanteId,
+                                     Importe = m.Tipo == TipoMovimientoCartera.ReversaAjusteCobro ? -m.Importe : m.Importe,
+                                     m.FechaMovimiento, f.ClienteId, f.ReceptorNombre, f.Moneda,
+                                 })
             .ToListAsync(ct);
         var cartera = movimientos
             .Where(m => FechaLocal(m.FechaMovimiento) >= q.Desde && FechaLocal(m.FechaMovimiento) <= q.Hasta)
