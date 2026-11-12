@@ -5,7 +5,7 @@ import type { EmitirFacturaPrefill } from '@/features/facturacion/components/emi
 export function prefillSustitucion(d: DatosSustitucionResponse): EmitirFacturaPrefill {
   return {
     // Con motivo 02/04 la nueva va sin relación: no se manda `sustituye`.
-    sustituye: d.llevaRelacion04
+    sustituye: d.llevaRelacion04 !== false
       ? { id: d.sustituyeComprobanteId, folio: d.sustituyeFolio, uuid: d.sustituyeUuid }
       : undefined,
     sucursalId: d.sucursalId,
