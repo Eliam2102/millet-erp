@@ -359,6 +359,8 @@ export interface CapturarFacturaConOcLinea {
 }
 
 export interface CapturarFacturaConOcCommand {
+  /** M-080: confirma el TC capturado cuando se aparta del catálogo más que la tolerancia (requiere permiso). */
+  confirmaTipoCambio?: boolean;
   recepcionId?: string | null;
   obra?: string | null;
   conceptoRetencion?: string | null;

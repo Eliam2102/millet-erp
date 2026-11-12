@@ -64,6 +64,8 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
 
         builder.Property(e => e.Moneda).HasMaxLength(3).IsRequired();
         builder.Property(e => e.TipoCambio).HasPrecision(18, 6);
+        builder.Property(e => e.TipoCambioCatalogo).HasPrecision(18, 6);
+        builder.Property(e => e.TipoCambioAutorizadoPor);
 
         // TES-PR8 [T-G11]: PUE/PPD copiado del CFDI ligado en la captura.
         builder.Property(e => e.MetodoPago).HasMaxLength(3);

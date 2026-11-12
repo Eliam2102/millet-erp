@@ -93,6 +93,16 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
     public string Moneda { get; private set; } = "MXN";
     public decimal? TipoCambio { get; private set; }
+    /// <summary>M-080: TC del catálogo a la fecha del documento cuando el capturado se apartó más que la tolerancia y se confirmó.</summary>
+    public decimal? TipoCambioCatalogo { get; private set; }
+    /// <summary>M-080: quién confirmó el TC capturado fuera de tolerancia.</summary>
+    public Guid? TipoCambioAutorizadoPor { get; private set; }
+
+    public void RegistrarTipoCambioConfirmado(decimal catalogo, Guid autorizadoPor)
+    {
+        TipoCambioCatalogo = catalogo;
+        TipoCambioAutorizadoPor = autorizadoPor;
+    }
 
     public decimal Subtotal { get; private set; }
     public decimal Descuentos { get; private set; }

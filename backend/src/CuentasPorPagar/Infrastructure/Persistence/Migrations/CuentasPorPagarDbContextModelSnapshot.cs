@@ -2071,6 +2071,15 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,6)")
                         .HasColumnName("tipo_cambio");
 
+                    b.Property<Guid?>("TipoCambioAutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tipo_cambio_autorizado_por");
+
+                    b.Property<decimal?>("TipoCambioCatalogo")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tipo_cambio_catalogo");
+
                     b.Property<short?>("ToleranciaTipo")
                         .HasColumnType("smallint")
                         .HasColumnName("tolerancia_tipo");

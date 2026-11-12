@@ -11,6 +11,7 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Domain.Ports.Compras;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
+using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +43,9 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
     // U-4 (ALM-costo-06): incidencia de la factura rechazada por tolerancia (opcional en pruebas unitarias).
     private readonly IIncidenciasPort? _incidencias;
     private readonly ICurrentUserContext? _currentUser;
+    private readonly Domain.Ports.Administracion.IToleranciaTipoCambioReadPort? _toleranciaTc;
+    private readonly ICurrentUserPermissions? _permisos;
+    private decimal? _tcCatalogoConfirmado;
     private readonly ILogger<CapturarFacturaConOcHandler>? _logger;
 
     public CapturarFacturaConOcHandler(
@@ -58,8 +62,12 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         Domain.Ports.Administracion.ITipoCambioReadPort tiposCambio,
         IIncidenciasPort? incidencias = null,
         ICurrentUserContext? currentUser = null,
-        ILogger<CapturarFacturaConOcHandler>? logger = null)
+        ILogger<CapturarFacturaConOcHandler>? logger = null,
+        Domain.Ports.Administracion.IToleranciaTipoCambioReadPort? toleranciaTc = null,
+        ICurrentUserPermissions? permisos = null)
     {
+        _toleranciaTc = toleranciaTc;
+        _permisos = permisos;
         _incidencias = incidencias;
         _currentUser = currentUser;
         _logger = logger;
@@ -197,8 +205,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         var xml = cfdi is null ? null : await LeerXmlAsync(cfdi, cancellationToken);
         if (xml is not null && !string.Equals(xml.UuidCfdi, command.UuidCfdi, StringComparison.OrdinalIgnoreCase))
             throw new BusinessRuleException("CFDI_UUID_DISTINTO", "El UUID capturado no coincide con el XML ligado.");
-        if (xml is not null && (xml.TipoCambio ?? 1) != (command.TipoCambio ?? 1))
-            throw new BusinessRuleException("CFDI_TIPO_CAMBIO_DISTINTO", "El tipo de cambio capturado debe coincidir con el XML ligado.");
+        // M-080: el TC del XML es solo la sugerencia; el que se captura (editable) manda dentro de la tolerancia de M-207.
         var tipoCambio = await ResolverTipoCambioAsync(command, cancellationToken);
         var uuidNormalizado = command.UuidCfdi?.Trim().ToUpperInvariant();
         if (!string.IsNullOrWhiteSpace(command.UuidCfdi))
@@ -372,6 +379,9 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
 
         _db.FacturasProveedor.Add(factura);
 
+        if (_tcCatalogoConfirmado is decimal tcCatalogo && _currentUser?.UserId is Guid autorizador)
+            factura.RegistrarTipoCambioConfirmado(tcCatalogo, autorizador);
+
         // 8) Publicar domain events ANTES de SaveChanges para que el
         //    OutboxSaveChangesInterceptor drene el buffer scoped a la
         //    tabla integration_events_outbox en la misma TX (atomicidad
@@ -504,10 +514,12 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
     }
 
     /// <summary>
-    /// C1.2 (ficha regla 3 y CA C1.2-b; plan de construcción: «una factura en USD usa el TC de su
-    /// fecha»): el pasivo en moneda extranjera se registra con el TC oficial del catálogo para la fecha
-    /// del documento. El TC del CFDI es dato fiscal del proveedor y no sustituye al del catálogo. Sin TC
-    /// registrado no se inventa uno: 422 <c>TIPO_CAMBIO_NO_REGISTRADO</c> (CA C1.2-c).
+    /// M-080 (sobre C1.2 y M-207): el pasivo en moneda extranjera usa el TC <b>capturado</b> (sugerido del XML y editable) y
+    /// la factura guarda ese. Si se aparta del catálogo de la fecha más que la tolerancia de M-207 (1 % por omisión), se
+    /// rechaza con 422 <c>TIPO_CAMBIO_REQUIERE_CONFIRMACION</c> hasta que alguien con
+    /// <c>contabilidad.tipo-cambio.autorizar-sustituto</c> lo confirme (403 si confirma sin el permiso). Sin TC capturado se
+    /// usa el catálogo; sin catálogo y sin captura, 422 <c>TIPO_CAMBIO_NO_REGISTRADO</c>. El motor de pólizas conserva su
+    /// propia validación y manda a Rechazos lo que siga fuera de tolerancia.
     /// </summary>
     private async Task<decimal?> ResolverTipoCambioAsync(
         CapturarFacturaConOcCommand command, CancellationToken cancellationToken)
@@ -515,10 +527,17 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         if (string.Equals(command.Moneda, "MXN", StringComparison.OrdinalIgnoreCase))
             return command.TipoCambio;
         var fecha = DateOnly.FromDateTime(command.FechaDocumento.DateTime);
-        return await _tiposCambio.ObtenerAsync(command.Moneda, "MXN", fecha, cancellationToken)
-            ?? throw new BusinessRuleException("TIPO_CAMBIO_NO_REGISTRADO",
+        var catalogo = await _tiposCambio.ObtenerAsync(command.Moneda, "MXN", fecha, cancellationToken);
+        if (command.TipoCambio is not > 0)
+            return catalogo ?? throw new BusinessRuleException("TIPO_CAMBIO_NO_REGISTRADO",
                 $"No hay tipo de cambio de {command.Moneda.ToUpperInvariant()} registrado para {fecha:yyyy-MM-dd}. " +
                 "Regístralo en Catálogos › Monedas antes de capturar la factura.");
+        var tolerancia = catalogo is > 0 && _toleranciaTc is not null ? await _toleranciaTc.ToleranciaPctAsync(cancellationToken) : 0m;
+        var permiso = command.ConfirmaTipoCambio && _permisos is not null
+            && await _permisos.TieneAsync(PermisosCanonicos.ContabilidadTipoCambioAutorizarSustituto, cancellationToken);
+        var decision = TipoCambioCapturaFactura.Decidir(command.TipoCambio.Value, catalogo, tolerancia, command.ConfirmaTipoCambio, permiso, fecha);
+        if (decision.Confirmado) _tcCatalogoConfirmado = catalogo;
+        return decision.Valor;
     }
 
     private async Task<Tolerancia> ResolverToleranciaAsync(ProveedorDto proveedor, CancellationToken cancellationToken)
