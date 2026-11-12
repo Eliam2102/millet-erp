@@ -38,7 +38,8 @@ public sealed record AwClienteOrigenFila(
     IReadOnlyList<AwCondicionCoincidencia> CondicionCoincidencias,
     bool AplicarFiscalesDeOrigen = false,
     string? Bonitaet = null,
-    string? RegimenFiscalOrigen = null);
+    string? RegimenFiscalOrigen = null,
+    string? ExterneKnr = null);
 
 /// <summary><c>SiguienteCursor</c> = último ID leído, o null si ya no hay más páginas.</summary>
 public sealed record AwClientesPagina(IReadOnlyList<AwClienteOrigenFila> Filas, string? SiguienteCursor);

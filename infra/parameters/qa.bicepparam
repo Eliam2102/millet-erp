@@ -57,8 +57,11 @@ param empresaInicialNombreComercial = 'Tiglass'
 // === Integración A+W: canal real listo, TODO APAGADO ===
 param glassAgentSpnClientId = '__PEDIR_A_ELIAM__'
 
-// Vacío = worker de ingesta de pedidos apagado (candado #2 del runbook).
-param awSolicitudesEmpresaId = ''
+// M-045b: empresa inicial (id fijo del bootstrap) = worker de ingesta encendido contra MILLET_INTEGRACION_DEV
+// (secreto operator-managed aw-integracion-connection-string). Vacío lo apaga (candado #2 del runbook).
+param awSolicitudesEmpresaId = '00000003-0000-0000-0000-000000000001'
+// M-184 / M-454: lector directo de notas de crédito de A+W (millet_erp_lector_aw, secreto aw-clientes-connection-string).
+param awNotasCreditoLecturaHabilitada = true
 
 // SQL Server de A+W: la HC usa el host sintético aw-sql-onprem (default de
 // hybridConnections.bicep); awOnPremHostname solo apunta el drop service
