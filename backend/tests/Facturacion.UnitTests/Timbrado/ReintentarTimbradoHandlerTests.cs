@@ -151,7 +151,7 @@ public sealed class ReintentarTimbradoHandlerTests
         var cce = Millet.Facturacion.Domain.Cce.ComplementoCce.Crear(fv.Id, "2", "FOB", tcDof, "TAX-USA-1", "USA",
             claveDePedimento: "A1", receptorDomicilioCalle: "123 Main St", receptorDomicilioEstado: "TX",
             receptorDomicilioCodigoPostal: "75001");
-        cce.AgregarLinea("8471300100", "06", 1500m, 2.5m, 3750m, true);
+        cce.AgregarLinea("8471300100", "01", 1500m, 2.5m, 3750m, true);
         fv.AdjuntarCce(cce);
         fv.MarcarTimbradoEnProceso();
         fv.MarcarTimbradoFallido("CCE121", "rechazo CCE121");

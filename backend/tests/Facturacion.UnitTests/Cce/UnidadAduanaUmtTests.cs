@@ -15,11 +15,11 @@ public sealed class UnidadAduanaUmtTests
     private const string Fraccion = "7610100100";
 
     [Fact]
-    public void La_umt_se_busca_por_los_primeros_8_digitos_del_catalogo_SAT()
+    public void La_umt_se_busca_por_la_fraccion_de_10_digitos_del_catalogo_vigente_del_SAT()
     {
         UmtFraccionArancelaria.Umt(Fraccion).Should().Be("01");
-        UmtFraccionArancelaria.Umt("76101001").Should().Be("01");
-        UmtFraccionArancelaria.Umt("8471300100").Should().Be("06");
+        UmtFraccionArancelaria.Umt("0101290200").Should().Be("06");
+        UmtFraccionArancelaria.Umt("76101001").Should().BeNull("sin NICO no hay base para rechazar");
         UmtFraccionArancelaria.Umt("0000000000").Should().BeNull("la fracción que el catálogo no trae no se valida");
         UmtFraccionArancelaria.Umt("ABC").Should().BeNull();
         UmtFraccionArancelaria.Umt(null).Should().BeNull();
@@ -48,9 +48,9 @@ public sealed class UnidadAduanaUmtTests
     [Fact]
     public void Con_varias_partidas_el_error_nombra_la_que_no_coincide()
     {
-        EmitirFacturaVentaCceLinea[] lineas = [new("7007199900", "01", 1, 1, 1, true), new(Fraccion, "01", 1, 1, 1, true)];
+        EmitirFacturaVentaCceLinea[] lineas = [new("7007119901", "01", 1, 1, 1, true), new(Fraccion, "01", 1, 1, 1, true)];
         var ex = Assert.Throws<BusinessRuleException>(() =>
-            DatosAduanalesFactura.Aplicar(lineas, [new(1, "7007199900", "01"), new(2, Fraccion, "06")]));
+            DatosAduanalesFactura.Aplicar(lineas, [new(1, "7007119901", "01"), new(2, Fraccion, "06")]));
         Assert.StartsWith("Partida 2:", ex.Message);
     }
 

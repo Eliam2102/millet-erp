@@ -414,7 +414,7 @@ public sealed class ContenedoresHttpTests
         return new(p.SucursalId, "XEXX010101000", p.ClienteNombre, "616", "42501", "S01", "USA", "MIL010101AAA", "601", "PPD", "99", "USD", 20, 1,
             Millet.Facturacion.Domain.Facturas.ComportamientoFiscal.ExportacionConCce, null, null, false,
             p.Lineas.Select(l => new EmitirFacturaVentaLinea(null, l.ClaveProdServSat!, l.ProductoDescripcion, l.ClaveUnidadSat!, l.Cantidad, l.Precio, 0, "02", 0, null, null)).ToArray(),
-            Cce: new("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "01", p.Lineas.Sum(l => l.Cantidad), 100, p.Total, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000"), PedidoFacturableId: p.Id, ClienteId: p.ClienteId);
+            Cce: new("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", p.Lineas.Sum(l => l.Cantidad), 100, p.Total, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000"), PedidoFacturableId: p.Id, ClienteId: p.ClienteId);
     }
     private static async Task<JsonElement> Body(HttpResponseMessage r) { using var d = JsonDocument.Parse(await r.Content.ReadAsStringAsync()); return d.RootElement.Clone(); }
     private static Task<HttpResponseMessage> Enviar(HttpClient c, HttpMethod method, string url, object? body = null, string? etag = null, string? key = null)
