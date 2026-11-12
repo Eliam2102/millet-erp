@@ -35,10 +35,11 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
                   WHERE e.referencia = m.referencia AND ue.primero < u.primero AND e.acuse_estado = 'ERROR'))
          ORDER BY u.primero
         """;
-    // Solo si sigue sin acuse: dos lectores del mismo renglón no se pisan.
+    // Solo si sigue sin acuse: dos lectores del mismo renglón no se pisan. acuse_fecha en hora local del servidor (Mérida, UTC-6),
+    // sin zona, como fecha y fecha_escrito (Jorge, 12-nov: así se comparan las fechas de un renglón).
     private const string SqlAcuse = """
         UPDATE dbo.alm_mensaje
-           SET acuse_estado = @estado, acuse_folio = @folio, acuse_texto = @texto, acuse_fecha = SYSUTCDATETIME()
+           SET acuse_estado = @estado, acuse_folio = @folio, acuse_texto = @texto, acuse_fecha = SYSDATETIME()
          WHERE id = @id AND acuse_estado IS NULL
         """;
 

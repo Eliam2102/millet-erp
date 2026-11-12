@@ -847,6 +847,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000006-0001-0000-0000-00000000000f"),
+                            Clave = "contabilidad.tipo-cambio.tolerancia-abs-mxn",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 12, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Diferencia máxima (MXN por unidad de moneda extranjera) entre el tipo de cambio capturado en una factura de proveedor y el del catálogo. Mayor requiere confirmación del Contador General. 0 la apaga y aplica la tolerancia porcentual.",
+                            Modulo = "contabilidad",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 11, 12, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "0.05",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000006-0001-0000-0000-00000000000a"),
                             Clave = "system.dias-festivos",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

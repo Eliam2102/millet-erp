@@ -8,11 +8,13 @@ export const estadosOtr = {
   1: { tono: 'warning', texto: 'Por vincular' },
   2: { tono: 'info', texto: 'Vinculado' },
   3: { tono: 'neutral', texto: 'Cancelado' },
+  4: { tono: 'neutral', texto: 'Histórico SAP' },
 } as const;
 export const estadosPartidaOtr = {
   1: { tono: 'warning', texto: 'Pendiente' },
   2: { tono: 'info', texto: 'Propuesta' },
   3: { tono: 'warning', texto: 'Requiere revisión' },
+  4: { tono: 'neutral', texto: 'Omitida' },
 } as const;
 export const estadosContenedor = {
   1: { tono: 'info', texto: 'Activo' },

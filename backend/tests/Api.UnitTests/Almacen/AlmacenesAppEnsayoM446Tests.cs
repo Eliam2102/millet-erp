@@ -74,6 +74,38 @@ public sealed class AlmacenesAppEnsayoM446Tests
     }
 
     [Fact]
+    public void REQUISICION_ENVIADA_v11_autorizacion_queda_en_la_descripcion_de_la_RQ()
+    {
+        // v11 (Jorge, 12-nov): enviar es autorizar; la app manda quién la envió y cuándo, con su zona.
+        var datos = JsonDocument.Parse("""
+            {"folio":"RQ-00000003","sucursal":"CONKAL","proveedor":{"claveAw":110},"comentario":"Urgente",
+             "autorizacion":{"usuario":"jperez","fecha":"2026-11-12T10:15:00-06:00"},
+             "lineas":[{"posicion":1,"articuloAw":100006,"ancho":1800,"alto":2100,"piezas":13}]}
+            """).RootElement;
+        var (solicitud, error) = AlmacenesAppRequisicionEnviada.Parsear(datos);
+        Assert.Null(error);
+        Assert.Equal("jperez", solicitud!.AutorizadaPor);
+        Assert.Equal(new DateTimeOffset(2026, 11, 12, 10, 15, 0, TimeSpan.FromHours(-6)), solicitud.AutorizadaEn);
+        Assert.Equal("Urgente · Autorizó en Almacenes: jperez, 2026-11-12 10:15",
+            Millet.Compras.Infrastructure.PublicAdapters.ComprasCrearRqAppAdapter.Descripcion(solicitud));
+    }
+
+    [Fact]
+    public void REQUISICION_ENVIADA_sin_autorizacion_sigue_entrando_y_si_viene_incompleta_es_ERROR()
+    {
+        // Las enviadas antes del 12-nov (las muestras) no traen autorizacion: entran igual, sin ese dato.
+        var (sinAutorizacion, error) = AlmacenesAppRequisicionEnviada.Parsear(DeTipo("REQUISICION_ENVIADA").First().GetProperty("datos"));
+        Assert.Null(error);
+        Assert.Null(sinAutorizacion!.AutorizadaPor);
+
+        var incompleta = JsonDocument.Parse("""
+            {"folio":"RQ-4","sucursal":"CONKAL","proveedor":{"claveAw":110},"autorizacion":{"fecha":"2026-11-12T10:15:00-06:00"},
+             "lineas":[{"posicion":1,"articuloAw":100006,"ancho":1800,"alto":2100,"piezas":1}]}
+            """).RootElement;
+        Assert.Contains("autorizacion", AlmacenesAppRequisicionEnviada.Parsear(incompleta).Item2);
+    }
+
+    [Fact]
     public void REQUISICION_ENVIADA_lleva_la_posicion_de_la_app_y_obraAw_si_no_hay_obra()
     {
         var datos = JsonDocument.Parse("""

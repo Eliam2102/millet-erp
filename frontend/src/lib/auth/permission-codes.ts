@@ -397,6 +397,9 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.aplicacion-pago.proponer',
   CuentasPorCobrarAplicacionPagoConfirmar:
     'cuentas_por_cobrar.aplicacion-pago.confirmar',
+  // M-326: autorizar o rechazar el redondeo (hasta $0.99) de un cobro; lo tiene el Gerente de Área.
+  CuentasPorCobrarAplicacionPagoAutorizarRedondeo:
+    'cuentas_por_cobrar.aplicacion-pago.autorizar-redondeo',
   // C7.2 (86e3kdxy6): administrar reglas de liberación por serie.
   CuentasPorCobrarReglasSerieGestionar: 'cuentas_por_cobrar.reglas-serie.gestionar',
   // C7.7 (86e3jvv4q): conciliar la cartera a demanda.

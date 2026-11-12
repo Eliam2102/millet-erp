@@ -279,7 +279,6 @@ public sealed record VentaTerminalLiquidada(Guid CobroMostradorId, Guid Sucursal
 // pago por IvaComision; abono a «COBROS T/C, T/D» por Bruto.
 // Ojo (86e3zcbjx): la comisión y su IVA ya los registra la póliza de la factura del banco
 // (comisión + IVA pagado contra el banco); al conectar esta póliza no deben ir dos veces.
-// PLATFORM-TODO(<PolizaLiquidacionTerminal>): Contabilidad aún no consume este evento.
 // B13: si una venta del mismo folio se empareja después, se publica otro evento con el mismo LiquidacionId
 // y solo el incremento (Bruto, Comision, IvaComision, Neto y Ventas de lo agregado). El consumidor suma; no deduplica por LiquidacionId.
 public sealed record TerminalLiquidacionRegistradaIntegrationEvent(

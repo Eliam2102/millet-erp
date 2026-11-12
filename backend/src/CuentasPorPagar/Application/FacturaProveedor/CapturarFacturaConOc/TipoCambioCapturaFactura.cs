@@ -8,17 +8,20 @@ public static class TipoCambioCapturaFactura
 {
     public readonly record struct Decision(decimal Valor, bool Confirmado);
 
-    public static Decision Decidir(decimal capturado, decimal? catalogo, decimal toleranciaPct, bool confirma, bool tienePermiso, DateOnly fecha)
+    public static Decision Decidir(decimal capturado, decimal? catalogo, decimal toleranciaPct, decimal toleranciaAbsMxn, bool confirma, bool tienePermiso, DateOnly fecha)
     {
-        if (catalogo is not > 0 || toleranciaPct <= 0)
+        if (catalogo is not > 0 || (toleranciaAbsMxn <= 0 && toleranciaPct <= 0))
             return new(capturado, false);
-        var pct = Math.Abs(capturado - catalogo.Value) / catalogo.Value * 100m;
-        if (pct <= toleranciaPct)
+        var dif = Math.Abs(capturado - catalogo.Value);
+        var pct = dif / catalogo.Value * 100m;
+        var dentro = toleranciaAbsMxn > 0 ? dif <= toleranciaAbsMxn : pct <= toleranciaPct;
+        if (dentro)
             return new(capturado, false);
+        var regla = toleranciaAbsMxn > 0 ? string.Create(CultureInfo.InvariantCulture, $"{toleranciaAbsMxn:0.####} MXN") : string.Create(CultureInfo.InvariantCulture, $"{toleranciaPct:0.##} %");
         if (!confirma)
             throw new BusinessRuleException("TIPO_CAMBIO_REQUIERE_CONFIRMACION",
                 string.Create(CultureInfo.InvariantCulture,
-                    $"El tipo de cambio capturado {capturado:0.0000} difiere {pct:0.00} % del catálogo ({catalogo.Value:0.0000}, {fecha:yyyy-MM-dd}); la tolerancia es {toleranciaPct:0.##} %. ")
+                    $"El tipo de cambio capturado {capturado:0.0000} difiere {dif:0.0000} MXN ({pct:0.00} %) del catálogo ({catalogo.Value:0.0000}, {fecha:yyyy-MM-dd}); la tolerancia es {regla}. ")
                 + "Confírmalo (requiere el permiso de autorizar tipo de cambio sustituto) o corrígelo.");
         if (!tienePermiso)
             throw new ForbiddenException("TIPO_CAMBIO_CONFIRMACION_SIN_PERMISO",
