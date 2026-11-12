@@ -24,10 +24,11 @@ public sealed class SqlAlmCargaInicialOrigen(IConfiguration configuration) : IAl
          WHERE carga_id = @carga AND acuse_estado IS NULL
          ORDER BY renglon
         """;
-    // Solo si sigue sin acuse: dos lectores del mismo renglón no se pisan.
+    // Solo si sigue sin acuse: dos lectores del mismo renglón no se pisan. acuse_fecha en hora local del servidor (Mérida, UTC-6),
+    // sin zona, como fecha y fecha_escrito (Jorge, 12-nov: así se comparan las fechas de un renglón).
     private const string SqlAcuse = """
         UPDATE dbo.alm_carga_inicial
-           SET acuse_estado = @estado, acuse_texto = @texto, acuse_fecha = SYSUTCDATETIME()
+           SET acuse_estado = @estado, acuse_texto = @texto, acuse_fecha = SYSDATETIME()
          WHERE carga_id = @carga AND renglon = @renglon AND acuse_estado IS NULL
         """;
 
