@@ -5,18 +5,34 @@ public sealed partial class Expediente
 {
     public void ConciliarRecepcion(Guid evento, Guid partida, decimal recibida, DateOnly fecha, DateOnly compromiso, Guid actor, DateTimeOffset ahora, string? asignacion = null)
     {
+        if (evento == Guid.Empty) throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "Se requiere el evento de recepción.");
+        AplicarRecepcion(evento, partida, recibida, fecha, compromiso, actor, ahora, asignacion);
+    }
+    public void ReconciliarRecepcion(Guid partida, decimal recibida, DateOnly fecha, DateOnly compromiso, Guid actor, DateTimeOffset ahora, string? asignacion = null)
+        => AplicarRecepcion(null, partida, recibida, fecha, compromiso, actor, ahora, asignacion);
+
+    private void AplicarRecepcion(Guid? evento, Guid partida, decimal recibida, DateOnly fecha, DateOnly compromiso, Guid actor, DateTimeOffset ahora, string? asignacion)
+    {
         ExigirAbierto();
         var p = _partidasImportacion.Single(x => x.Id == partida);
-        if (p.EventosRecepcion.Contains(evento)) return;
-        if (evento == Guid.Empty || recibida < 0 || decimal.Round(recibida, 6) != recibida || fecha == default || compromiso < fecha || actor == Guid.Empty)
-            throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La recepción requiere evento, cantidad, fecha y usuario válidos.");
+        if (evento is Guid id && p.EventosRecepcion.Contains(id)) return;
+        if (recibida < 0 || decimal.Round(recibida, 6) != recibida || fecha == default || compromiso < fecha || actor == Guid.Empty)
+            throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La recepción requiere cantidad, fecha y usuario válidos.");
         var pendientes = recibida;
         var partidas = PartidasRecepcion(p).OrderBy(x => x.Id).ToArray();
+        var cambio = false;
         foreach (var item in partidas)
         {
             var cantidad = item == partidas[^1] ? pendientes : Math.Min(pendientes, item.Cantidad);
+            cambio |= item.CantidadRecibida != cantidad;
             item.RegistrarRecepcion(evento, cantidad, fecha, compromiso); pendientes -= cantidad;
         }
+        var diferencia = recibida - partidas.Sum(x => x.Cantidad);
+        var incidencia = _incidencias.SingleOrDefault(i => i.Automatica && _partidasImportacion.Any(x => x.Id == i.PartidaId && x.OcLineaId == p.OcLineaId));
+        var corregirIncidencia = incidencia is null ? diferencia != 0 : incidencia.DiferenciaCantidad != Math.Abs(diferencia)
+            || (diferencia == 0 && incidencia.Pendiente)
+            || (diferencia != 0 && incidencia.Tipo != (diferencia < 0 ? TipoIncidencia.MercanciaFaltante : TipoIncidencia.MercanciaSobrante));
+        if (!cambio && !corregirIncidencia) return;
         RecalcularIncidenciaRecepcion(p, fecha, compromiso, actor, ahora, asignacion);
         RevisionContenido++;
     }
