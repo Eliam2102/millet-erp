@@ -36,6 +36,7 @@ public sealed partial class ListenersContabilidadTests
         Guid periodoId;
         using (var scope = factory.Services.CreateScope())
         {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
             var (anio, numero) = RegistroPolizas.Periodo(Hoy(), null);
             periodoId = await db.Periodos.Where(p => p.Anio == anio && p.Numero == numero).Select(p => p.Id).SingleAsync();
