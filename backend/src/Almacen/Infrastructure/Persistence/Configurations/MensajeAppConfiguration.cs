@@ -19,5 +19,6 @@ public sealed class MensajeAppConfiguration : IEntityTypeConfiguration<MensajeAp
         builder.Property(x => x.Folio).HasMaxLength(100);
         builder.Property(x => x.Error).HasMaxLength(1000);
         builder.Property(x => x.RecibidoAt).IsRequired();
+        builder.Property(x => x.MotivoRechazo).HasMaxLength(500);
     }
 }

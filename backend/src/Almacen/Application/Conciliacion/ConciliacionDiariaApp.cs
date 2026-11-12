@@ -16,6 +16,14 @@ namespace Millet.Almacen.Application.Conciliacion;
 /// <summary>Físico que reporta A+W o el conteo por hoja/medida/lote: hojas enteras si hay medida, unidad base si no.</summary>
 public sealed record FisicoLinea(Guid ArticuloId, Guid? ProductoAwVarianteId, string? Lote, decimal Fisico);
 
+/// <summary>M-225: mensaje de la app o consumo por composición del día que todavía no movió el saldo (en revisión, error o pendiente).</summary>
+public sealed record EventoPendienteDia(string Tipo, string Referencia, string Estado, string? Error, DateTimeOffset RecibidoAt);
+
+/// <summary>M-225: consumo de la mesa de corte (salida de consumo) o merma de proceso registrados ese día en la sucursal.</summary>
+public sealed record EventoMesaDia(string Tipo, string Referencia, Guid ArticuloId, decimal Cantidad, string? Mesa, string Estado);
+
+public sealed record EventosDelDia(IReadOnlyList<EventoPendienteDia> Pendientes, IReadOnlyList<EventoMesaDia> Mesa);
+
 /// <summary>
 /// A4.6: concilia la existencia teórica del ERP de un almacén contra el físico reportado, sin tolerancia. Faltante = salida no
 /// planificada (movimiento SNP que baja el saldo a lo físico, con el evento de salida para Contabilidad); sobrante = diferencia
@@ -27,7 +35,8 @@ public static class ConciliacionDiariaApp
     public static async Task<(ConciliacionDiaria Corrida, IReadOnlyList<DiferenciaConciliacion> Diferencias)> EjecutarAsync(
         AlmacenDbContext db, IIntegrationEventPublisher events, IVarianteVidrioReadPort variantes, IArticuloReadPort articulos,
         IPeriodoContableReadPort periodo, Guid empresaId, Guid usuarioId, Guid almacenId, DateOnly? fechaSolicitada, string fuente,
-        IReadOnlyList<FisicoLinea> lineas, CancellationToken ct)
+        IReadOnlyList<FisicoLinea> lineas, CancellationToken ct, bool confirmarPendientes = false,
+        IReadOnlyCollection<string>? clavesSucursal = null)
     {
         if (lineas.Count == 0)
             throw new BusinessRuleException("CONCILIACION_SIN_LINEAS", "Reporta al menos una línea de físico.");
@@ -44,6 +53,13 @@ public static class ConciliacionDiariaApp
             throw new BusinessRuleException("CONCILIACION_LINEA_DUPLICADA", "Hay dos líneas del mismo artículo, medida y lote.");
         var almacen = await db.Almacenes.FirstOrDefaultAsync(a => a.Id == almacenId, ct)
             ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{almacenId}'.");
+        // M-225: con mensajes de la app o consumos de ese día sin aplicar, el faltante podría ser un evento que todavía no entra.
+        // La corrida avisa y no baja nada hasta que el usuario confirma.
+        var pendientesDia = await PendientesDelDiaAsync(db, fecha, ct, clavesSucursal);
+        if (pendientesDia.Count > 0 && !confirmarPendientes)
+            throw new BusinessRuleException("CONCILIACION_EVENTOS_PENDIENTES",
+                $"Hay {pendientesDia.Count} mensaje(s) de la app o consumo(s) del {fecha:dd/MM/yyyy} sin aplicar (en revisión, con error o " +
+                "pendientes de autorizar). Revísalos antes de bajar un faltante, o confirma para conciliar de todos modos.");
 
         var ids = lineas.Select(l => l.ArticuloId).Distinct().ToArray();
         var maestro = await articulos.ObtenerPorIdsAsync(ids, ct);
@@ -63,6 +79,8 @@ public static class ConciliacionDiariaApp
                 $"SELECT 1 FROM almacen.saldos_inventario WHERE articulo_id = ANY({ids}) AND ubicacion_id = ANY({ubicaciones}) ORDER BY articulo_id, ubicacion_id, producto_aw_variante_id, lote FOR UPDATE", ct);
         }
         var saldos = await saldosQ.ToListAsync(ct);
+        // M-225: teórico al cierre del día elegido = saldo de hoy menos lo que se movió después de ese día (entradas restan, salidas suman).
+        var posteriores = fecha < hoy ? await NetoPosteriorAsync(db, almacenId, ids, fecha, ct) : [];
 
         var difs = new List<DiferenciaConciliacion>();
         var porSubalmacen = new Dictionary<Guid, List<LineaRevisionMov>>();
@@ -81,7 +99,8 @@ public static class ConciliacionDiariaApp
             }
             var filas = saldos.Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == lote)
                 .OrderByDescending(s => s.CantidadDisponible).ThenBy(s => s.UbicacionId).ToList();
-            var teoricoBase = filas.Sum(s => s.CantidadDisponible);
+            var teoricoHoy = filas.Sum(s => s.CantidadDisponible);
+            var teoricoBase = teoricoHoy - posteriores.GetValueOrDefault((l.ArticuloId, l.ProductoAwVarianteId, lote));
             var teorico = area is { } a ? Math.Round(teoricoBase / a, 4) : teoricoBase;
             if (teorico == l.Fisico) continue;
 
@@ -90,7 +109,7 @@ public static class ConciliacionDiariaApp
             if (l.Fisico < teorico)
             {
                 var resta = Math.Round((teorico - l.Fisico) * (area ?? 1m), 4);
-                resta = Math.Min(resta, teoricoBase);
+                resta = Math.Min(resta, teoricoHoy);
                 var um = maestro.GetValueOrDefault(l.ArticuloId)?.UnidadMedida ?? (area is null ? "PZA" : "M2");
                 var ancho = l.ProductoAwVarianteId is Guid v1 ? medidas.GetValueOrDefault(v1)?.AnchoMm : null;
                 var alto = l.ProductoAwVarianteId is Guid v2 ? medidas.GetValueOrDefault(v2)?.AltoMm : null;
@@ -136,5 +155,87 @@ public static class ConciliacionDiariaApp
         db.ConciliacionesDiarias.Add(corrida);
         db.DiferenciasConciliacion.AddRange(difs);
         return (corrida, difs);
+    }
+
+    /// <summary>Neto (entradas − salidas) de los movimientos registrados con fecha posterior a <paramref name="fecha"/> en el almacén.</summary>
+    public static async Task<Dictionary<(Guid, Guid?, string?), decimal>> NetoPosteriorAsync(AlmacenDbContext db, Guid almacenId,
+        Guid[] articulos, DateOnly fecha, CancellationToken ct)
+    {
+        var filas = await (from l in db.LineasMovimiento
+                           join m in db.Movimientos on l.MovimientoId equals m.Id
+                           join u in db.Ubicaciones on l.UbicacionId equals u.Id
+                           join sub in db.SubAlmacenes on u.SubAlmacenId equals sub.Id
+                           where sub.AlmacenId == almacenId && articulos.Contains(l.ArticuloId) && m.FechaMovimiento > fecha
+                               && (m.Estado == EstadoMovimiento.Registrado || m.Estado == EstadoMovimiento.Cancelado)
+                               && m.Tipo != TipoMovimiento.AjustePrecioFactura
+                               && sub.Tipo != TipoSubAlmacen.MaterialEnRevision && sub.Tipo != TipoSubAlmacen.Transitorio
+                           select new { l.ArticuloId, l.ProductoAwVarianteId, l.Lote, l.Cantidad, m.Tipo }).ToListAsync(ct);
+        return filas.GroupBy(f => (f.ArticuloId, f.ProductoAwVarianteId, (string?)f.Lote))
+            .ToDictionary(g => g.Key, g => g.Sum(f => f.Tipo.EsEntrada() ? f.Cantidad : -f.Cantidad));
+    }
+
+    /// <summary>M-225: mensajes de la app y consumos por composición recibidos ese día que no movieron saldo.</summary>
+    /// <param name="clavesSucursal">Claves de la sucursal del almacén (Clave y ClaveAw): solo cuentan los mensajes de esa sucursal
+    /// (<c>datos.sucursal</c>) y los consumos de su clave. Null = todas.</param>
+    public static async Task<IReadOnlyList<EventoPendienteDia>> PendientesDelDiaAsync(AlmacenDbContext db, DateOnly fecha, CancellationToken ct,
+        IReadOnlyCollection<string>? clavesSucursal = null)
+    {
+        var desde = FechaNegocio.InicioUtc(fecha);
+        var hasta = FechaNegocio.InicioUtc(fecha.AddDays(1));
+        var mensajes = await db.MensajesApp.AsNoTracking()
+            .Where(m => m.RecibidoAt >= desde && m.RecibidoAt < hasta && !m.Tipo.StartsWith("REQUISICION_")
+                && (m.Estado == AppAlmacenes.SalidaAppAlmacenes.EnRevision || m.Estado == "ERROR" || m.Estado == Domain.Idempotencia.MensajeApp.Pendiente))
+            .Select(m => new { m.Tipo, m.Referencia, m.MensajeId, m.Estado, m.Error, m.RecibidoAt, m.Payload }).ToListAsync(ct);
+        var consumos = await db.ConsumosComponenteAw.AsNoTracking()
+            .Where(c => c.RegistradoAt >= desde && c.RegistradoAt < hasta
+                && (c.Estado == Domain.Consumo.ConsumoComponenteAw.EnRevision || c.Estado == Domain.Consumo.ConsumoComponenteAw.Excepcion))
+            .Select(c => new { c.Auftnr, c.Pos, c.Estado, c.Error, c.RegistradoAt, c.ClaveSucursal })
+            .ToListAsync(ct);
+        bool DeLaSucursal(string? clave) => clavesSucursal is null
+            || (clave is not null && clavesSucursal.Contains(clave.Trim(), StringComparer.OrdinalIgnoreCase));
+        return
+        [
+            .. mensajes.Where(m => DeLaSucursal(SucursalDelPayload(m.Payload)))
+                .Select(m => new EventoPendienteDia(m.Tipo, m.Referencia ?? m.MensajeId, m.Estado, m.Error, m.RecibidoAt)),
+            .. consumos.Where(c => DeLaSucursal(c.ClaveSucursal))
+                .Select(c => new EventoPendienteDia(Domain.Consumo.ConsumoComponenteAw.Tipo, $"{c.Auftnr} pos {c.Pos}", c.Estado, c.Error, c.RegistradoAt)),
+        ];
+    }
+
+    private static string? SucursalDelPayload(string payload)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(payload);
+            return doc.RootElement.TryGetProperty("datos", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.Object
+                && d.TryGetProperty("sucursal", out var s) && s.ValueKind == System.Text.Json.JsonValueKind.String ? s.GetString() : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// M-225: lo que hay que ver antes de bajar un faltante: los consumos de la mesa de corte (salidas de consumo) y las mermas de proceso
+    /// de ese día en la sucursal del almacén, más lo que quedó sin aplicar. Sirve para encontrar un evento omitido o duplicado.
+    /// </summary>
+    public static async Task<EventosDelDia> EventosDelDiaAsync(AlmacenDbContext db, Guid almacenId, DateOnly fecha, CancellationToken ct,
+        IReadOnlyCollection<string>? clavesSucursal = null)
+    {
+        var almacen = await db.Almacenes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == almacenId, ct)
+            ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{almacenId}'.");
+        var consumos = await (from l in db.LineasMovimiento
+                              join m in db.Movimientos on l.MovimientoId equals m.Id
+                              join u in db.Ubicaciones on l.UbicacionId equals u.Id
+                              join sub in db.SubAlmacenes on u.SubAlmacenId equals sub.Id
+                              where sub.AlmacenId == almacenId && m.FechaMovimiento == fecha && m.Tipo == TipoMovimiento.SalidaConsumo
+                                  && m.Estado == EstadoMovimiento.Registrado
+                              select new EventoMesaDia("CONSUMO_MESA", m.Folio ?? "", l.ArticuloId, l.Cantidad, null, "REGISTRADO"))
+            .ToListAsync(ct);
+        var mermas = await db.MermasProceso.AsNoTracking()
+            .Where(x => x.SucursalId == almacen.SucursalId && x.Fecha == fecha)
+            .Select(x => new EventoMesaDia(x.Tipo, x.MensajeId ?? x.Id.ToString(), x.ArticuloId, x.M2, x.Mesa, x.Estado)).ToListAsync(ct);
+        return new EventosDelDia(await PendientesDelDiaAsync(db, fecha, ct, clavesSucursal), [.. consumos, .. mermas]);
     }
 }

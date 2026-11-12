@@ -50,6 +50,21 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
         SucursalId = sucursalDestinoId;
     }
 
+    /// <summary>Traspaso aclarado: la pieza que no llegó regresa al PT de su sucursal de origen (la conservó en tránsito).</summary>
+    public void RegresarAlOrigen()
+    {
+        if (Estado != EstadoPieza.EnTransito) throw new BusinessRuleException("PT_PIEZA_NO_EN_TRANSITO", $"La pieza {Etiqueta} no está en tránsito.");
+        Estado = EstadoPieza.EnPT;
+    }
+
+    /// <summary>Traspaso aclarado: se da por perdida o dañada. Queda en revisión en la sucursal destino para que Calidad la dictamine.</summary>
+    public void DarPorPerdida(Guid sucursalDestinoId)
+    {
+        if (Estado != EstadoPieza.EnTransito) throw new BusinessRuleException("PT_PIEZA_NO_EN_TRANSITO", $"La pieza {Etiqueta} no está en tránsito.");
+        Estado = EstadoPieza.EnRevision;
+        SucursalId = sucursalDestinoId;
+    }
+
     /// <summary>Entra al camión. La pieza que PT5.4 ya cargó se acepta tal cual.</summary>
     public void Cargar()
     {

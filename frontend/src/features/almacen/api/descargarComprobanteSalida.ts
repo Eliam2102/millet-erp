@@ -15,6 +15,11 @@ export async function descargarComprobanteRecepcion(recepcionId: string, folio: 
   await descargarComprobante(`/api/v1/almacen/recepciones/${recepcionId}/comprobante`, folio);
 }
 
+/** M-224: acta del conteo aplicado (<c>GET /conteos/{id}/acta</c>), mismo patrón. */
+export async function descargarActaConteo(conteoId: string): Promise<void> {
+  await descargarComprobante(`/api/v1/almacen/conteos/${conteoId}/acta`, `acta-conteo-${conteoId}`);
+}
+
 async function descargarComprobante(ruta: string, folio: string): Promise<void> {
   const response = await apiFetch(ruta);
   if (!response.ok) {

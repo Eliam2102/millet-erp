@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Infrastructure.Persistence;
-using Millet.SharedKernel.Application.Exceptions;
+using Millet.Almacen.Application.Incidencias;
+using Millet.SharedKernel.Application.Incidencias;
 
 namespace Millet.Almacen.Application.Recepciones;
 
@@ -17,7 +18,7 @@ internal static class RecepcionDuplicada
     /// <summary>Devuelve la remisión normalizada (recortada, en mayúsculas) y el motivo solo si de verdad hubo duplicado.</summary>
     public static async Task<(string? Remision, string? Motivo)> ValidarAsync(
         AlmacenDbContext db, Guid ordenCompraId, string? remision, Guid? cfdiRecibidoId, string? cfdiUuidFiscal,
-        string? motivo, CancellationToken ct)
+        string? motivo, CancellationToken ct, string? ocFolio = null, Guid? sucursalId = null)
     {
         remision = string.IsNullOrWhiteSpace(remision) ? null : remision.Trim().ToUpperInvariant();
         var uuid = string.IsNullOrWhiteSpace(cfdiUuidFiscal) ? null : cfdiUuidFiscal.Trim().ToUpperInvariant();
@@ -30,14 +31,19 @@ internal static class RecepcionDuplicada
                 && ((remision != null && m.Remision == remision)
                     || (cfdiRecibidoId != null && m.CfdiRecibidoId == cfdiRecibidoId)
                     || (uuid != null && m.CfdiUuidFiscal == uuid)))
-            .Select(m => new { m.Folio })
+            .Select(m => new { m.Folio, m.Remision, m.CfdiUuidFiscal })
             .FirstOrDefaultAsync(ct);
         if (previa is null) return (remision, null);
 
         motivo = motivo?.Trim();
         if (string.IsNullOrEmpty(motivo))
-            throw new BusinessRuleException("RECEPCION_YA_RECIBIDA",
-                $"Esta remisión o factura ya fue recibida en la orden (recepción {previa.Folio}). Para registrarla otra vez captura el motivo.");
+        {
+            // N-11: además del aviso, queda la incidencia de la OC (se resuelve con la siguiente recepción de la misma orden).
+            var mensaje = $"Esta remisión o factura ya fue recibida en la orden (recepción {previa.Folio}). Para registrarla otra vez captura el motivo.";
+            var referencia = remision != null && previa.Remision == remision ? $"remisión {remision}" : $"factura {uuid ?? previa.CfdiUuidFiscal ?? "del CFDI"}";
+            throw new IncidenciaRechazoException("RECEPCION_YA_RECIBIDA", mensaje,
+                IncidenciasAlmacen.ReferenciaDuplicada(ordenCompraId, ocFolio, previa.Folio ?? "(sin folio)", referencia, sucursalId, mensaje));
+        }
         return (remision, motivo);
     }
 }

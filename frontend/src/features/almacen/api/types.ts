@@ -1166,6 +1166,9 @@ export interface SaldoUbicacionItem {
   areaHojaM2?: number | null;
   /** S4b: lote de la fila; null = sin lote («apertura»). */
   lote?: string | null;
+  /** M-231: fila de saldo y su versión (long del servidor, por eso texto: excede los enteros seguros de JS). */
+  saldoId?: string | null;
+  version?: string | null;
 }
 
 // ─── Consulta jerárquica (PR6, ADR-0047) ────────────────────────────────────

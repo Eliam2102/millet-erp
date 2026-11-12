@@ -340,6 +340,20 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             : await _variantes.ObtenerPorIdsAsync(
                 conteo.Lineas.Where(l => l.ProductoAwVarianteId != null).Select(l => l.ProductoAwVarianteId!.Value).Distinct().ToArray(), cancellationToken);
 
+        // M-224: el ajuste se calcula contra el teórico congelado. Si el saldo de una fila contada se movió desde el snapshot (entre la
+        // aprobación y la aplicación hubo una entrada o salida), el ajuste dejaría un saldo distinto de lo contado: se detecta y se
+        // reporta antes de mover nada. Las filas se bloquean hasta el commit para que no se muevan durante la aplicación.
+        var contadas = conteo.Lineas.Where(l => l.CantidadVigente(recuentos) is not null).ToList();
+        var saldoAntes = await SaldosAsync(contadas, bloquear: true, cancellationToken);
+        var movidas = contadas.Where(l => saldoAntes.GetValueOrDefault(Llave(l)) != l.CantidadTeorica).ToList();
+        if (movidas.Count > 0)
+            throw new BusinessRuleException("CONTEO_SALDO_MOVIDO",
+                $"El saldo cambió desde que se tomó el conteo en {movidas.Count} partida(s): " + string.Join("; ", movidas.Take(10).Select(l =>
+                    $"{(arts.GetValueOrDefault(l.ArticuloId)?.Clave ?? l.ArticuloId.ToString())}{(l.Lote is null ? "" : $" lote {l.Lote}")}: " +
+                    $"teórico {l.CantidadTeorica:0.####}, saldo hoy {saldoAntes.GetValueOrDefault(Llave(l)):0.####}")) +
+                ". Recuenta esas partidas o rechaza el conteo y vuelve a iniciarlo.");
+        var folios = new Dictionary<Guid, string>();
+
         foreach (var linea in conteo.Lineas)
         {
             if (linea.CantidadVigente(recuentos) is not decimal real) continue;
@@ -385,6 +399,7 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             var folio = FolioMovimiento.Construir(tipo, anio, siguiente);
             movimiento.Registrar(folio, registradoPor);
             _db.Movimientos.Add(movimiento);
+            folios[linea.Id] = folio.Valor;
 
             payload.Add(new AjusteInventarioPayload(
                 MovimientoId: movId,
@@ -433,9 +448,39 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             CentroCostoId: centroCostoId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // M-224: conciliación final. En Postgres el trigger ya aplicó los ajustes al saldo: se relee y cada fila contada debe quedar en lo
+        // contado; si no, CONTEO_NO_CUADRA y la transacción no se confirma (el conteo sigue Aprobado). Sin trigger (pruebas en memoria)
+        // el resultante es el saldo previo más el ajuste.
+        var despues = _db.Database.IsNpgsql() ? await SaldosAsync(contadas, bloquear: false, cancellationToken) : null;
+        foreach (var l in contadas)
+        {
+            var real = l.CantidadVigente(recuentos)!.Value;
+            var resultante = despues?.GetValueOrDefault(Llave(l)) ?? saldoAntes.GetValueOrDefault(Llave(l)) + (real - l.CantidadTeorica);
+            l.AsentarConciliacion(real, resultante, folios.GetValueOrDefault(l.Id));
+        }
+        await _db.SaveChangesAsync(cancellationToken);
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
         return new AplicarConteoResponse(movimientosGenerados, Math.Round(montoNeto, 2));
+    }
+
+    private static (Guid, Guid, Guid?, string?) Llave(LineaConteo l) => (l.UbicacionId, l.ArticuloId, l.ProductoAwVarianteId, l.Lote);
+
+    /// <summary>M-224: <c>Cantidad</c> vigente de las filas de saldo de las líneas (0 si la fila ya no existe), opcionalmente bloqueadas.</summary>
+    private async Task<Dictionary<(Guid, Guid, Guid?, string?), decimal>> SaldosAsync(IReadOnlyList<LineaConteo> lineas, bool bloquear,
+        CancellationToken ct)
+    {
+        var ubicaciones = lineas.Select(l => l.UbicacionId).Distinct().ToArray();
+        var articulos = lineas.Select(l => l.ArticuloId).Distinct().ToArray();
+        if (bloquear && _db.Database.IsNpgsql() && ubicaciones.Length > 0)
+            await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM almacen.saldos_inventario WHERE articulo_id = ANY({articulos}) AND ubicacion_id = ANY({ubicaciones}) ORDER BY articulo_id, ubicacion_id, producto_aw_variante_id, lote FOR UPDATE", ct);
+        var filas = await _db.SaldosInventario.AsNoTracking()
+            .Where(s => ubicaciones.Contains(s.UbicacionId) && articulos.Contains(s.ArticuloId))
+            .Select(s => new { s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote, s.Cantidad }).ToListAsync(ct);
+        return filas.GroupBy(s => (s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Cantidad));
     }
 
     /// <summary>Evento del ajuste por conteo y campo de su línea de cargo con centro (el sobrante usa el mismo rol).</summary>

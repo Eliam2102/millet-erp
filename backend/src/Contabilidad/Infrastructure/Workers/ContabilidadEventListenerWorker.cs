@@ -261,7 +261,7 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
 }
 
 /// <summary>
-/// PCV (86e3ke10b) · <c>producto-terminado-events</c>: entrega confirmada de PT (costo de ventas).
+/// PCV (86e3ke10b) · <c>producto-terminado-events</c>: entrega confirmada de PT (costo de ventas) y traspasos entre sucursales (M-249: salida y entrada contra la cuenta puente).
 /// Registrado como HostedService en <c>Program.cs</c> sobre <c>contabilidad-producto-terminado-sub</c> (M-046).
 /// </summary>
 public sealed class ProductoTerminadoContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
@@ -274,5 +274,6 @@ public sealed class ProductoTerminadoContabilidadListenerWorker(ServiceBusClient
     protected override string PrefijoModulo => "producto_terminado.";
     public override IReadOnlySet<string> TiposContables => Tipos;
 
-    private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet([NormalizadorEventos.EntregaPtConfirmada], StringComparer.Ordinal);
+    private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
+        [NormalizadorEventos.EntregaPtConfirmada, NormalizadorEventos.TraspasoPtSalidaAutorizada, NormalizadorEventos.TraspasoPtEntradaRegistrada], StringComparer.Ordinal);
 }

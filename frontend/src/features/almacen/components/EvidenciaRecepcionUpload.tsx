@@ -18,12 +18,15 @@ export function EvidenciaRecepcionUpload({
   onChange,
   error,
   etiqueta,
+  urlSubida,
 }: {
   /** Nombre del archivo ya subido, o null si todavía no hay. */
   nombre: string | null | undefined;
   onChange: (valor: { blobRef: string; nombre: string } | null) => void;
   error?: string;
   etiqueta: string;
+  /** Endpoint de subida si no es el de la recepción (p. ej. la evidencia de una rotura). */
+  urlSubida?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const idempotencyKey = useFormIdempotencyKey();
@@ -38,7 +41,7 @@ export function EvidenciaRecepcionUpload({
       return;
     }
     try {
-      const r = await subir.mutateAsync({ archivo, idempotencyKey });
+      const r = await subir.mutateAsync({ archivo, idempotencyKey, url: urlSubida });
       onChange({ blobRef: r.blobRef, nombre: r.nombreArchivo });
     } catch (err) {
       if (esApiError(err)) toast.error(errorUsuario(err), { description: codigoSoporte(err) });

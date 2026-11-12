@@ -1058,6 +1058,9 @@ builder.Services.AddScoped<
     Millet.SharedKernel.Application.Correo.IUsuarioCorreoAvisosPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioCorreoAvisosAdapter>();
 
+// M-249: aviso a la sucursal destino de un traspaso de PT por recibir.
+builder.Services.AddScoped<Millet.ProductoTerminado.Application.Ports.IAvisoTraspasoPort, Millet.Api.Infrastructure.Adapters.AvisoTraspasoCorreoAdapter>();
+
 // ADR-0047 PR5.C: resuelve el usuario de servicio del reorden (creador/requisitante +
 // empresa de las RQ automáticas). Adapter hospedado en Identidad (dueño del dato).
 builder.Services.AddScoped<

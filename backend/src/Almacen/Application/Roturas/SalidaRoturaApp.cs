@@ -15,7 +15,8 @@ using Millet.SharedKernel.Application.UnidadesMedida;
 
 namespace Millet.Almacen.Application.Roturas;
 
-public sealed record CapturarRoturaApp(Guid UbicacionId, Guid ArticuloId, decimal Cantidad, DateOnly Fecha, string MotivoCodigo, string? Comentario);
+public sealed record CapturarRoturaApp(Guid UbicacionId, Guid ArticuloId, decimal Cantidad, DateOnly Fecha, string MotivoCodigo, string? Comentario,
+    string? EvidenciaBlobRef = null);
 
 /// <summary>
 /// ALM-03: captura y decisión de la salida por rotura. Capturar no mueve el saldo; autorizar crea el movimiento
@@ -41,7 +42,7 @@ public static class SalidaRoturaApp
             throw new BusinessRuleException("ROTURA_SIN_EXISTENCIA", "El artículo no tiene existencia disponible (sin medida) en esa ubicación.");
 
         var rotura = new SalidaRotura(empresaId, sucursalId, ubicacion.SubAlmacenId, c.UbicacionId, c.ArticuloId, c.Cantidad,
-            articulo.UnidadMedida, c.Fecha, c.MotivoCodigo, c.Comentario, usuarioId);
+            articulo.UnidadMedida, c.Fecha, c.MotivoCodigo, c.Comentario, usuarioId, c.EvidenciaBlobRef);
         db.SalidasRotura.Add(rotura);
         return rotura;
     }
