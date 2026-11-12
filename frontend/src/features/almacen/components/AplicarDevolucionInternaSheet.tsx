@@ -40,12 +40,11 @@ export interface AplicarDevolucionInternaSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** Valores que acepta el backend (A15: «Dañado» va a material en revisión). */
 const ESTADOS_MATERIAL = [
-  'Sobrante',
-  'Sin uso',
-  'Defectuoso',
-  'Para revisión',
-  'Mal entregado',
+  { valor: 'Integro', texto: 'Íntegro' },
+  { valor: 'UsadoParcial', texto: 'Usado parcialmente' },
+  { valor: 'Danado', texto: 'Dañado' },
 ] as const;
 
 /**
@@ -89,7 +88,7 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
       salidaOrigenId: '',
       subAlmacenDestinoId: '',
       fechaMovimiento: hoyIso,
-      estadoMaterial: 'Sobrante',
+      estadoMaterial: 'Integro',
       motivo: '',
       observaciones: null,
       lineas: [{ lineaSalidaOrigenId: '', cantidadADevolver: 1, ubicacionId: '' }],
@@ -251,8 +250,8 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
                       </SelectTrigger>
                       <SelectContent>
                         {ESTADOS_MATERIAL.map((e) => (
-                          <SelectItem key={e} value={e}>
-                            {e}
+                          <SelectItem key={e.valor} value={e.valor}>
+                            {e.texto}
                           </SelectItem>
                         ))}
                       </SelectContent>

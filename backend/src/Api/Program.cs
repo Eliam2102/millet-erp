@@ -1907,6 +1907,7 @@ Millet.Api.Endpoints.Almacen.TamboresLineaEndpoints.MapTamboresLineaEndpoints(ap
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
 Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
 Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
+Millet.Api.Endpoints.Almacen.CorreccionesConsumoEndpoints.MapCorreccionesConsumoEndpoints(app);
 Millet.Api.Endpoints.Almacen.OrigenCapturaMpEndpoints.MapOrigenCapturaMpEndpoints(app);
 Millet.Api.Endpoints.Almacen.ConciliacionDiariaEndpoints.MapConciliacionDiariaEndpoints(app);
 
