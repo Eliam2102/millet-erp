@@ -204,7 +204,7 @@ public static partial class NormalizadorEventos
 
     /// <summary>
     /// Cuenta por motivo de la salida manual de la app (Fernando Alejos, 10-nov-2026): FALTANTE → Ajuste (AJUSTE_INVENTARIO, 504.25.02.00),
-    /// MUESTRA → Muestra (PRODUCCION_EN_PROCESO, 115.03.00.00), PRESTAMO → Prestamo (traspaso entre sucursales; INVENTARIO_EN_PRESTAMO),
+    /// MUESTRA → Muestra (PRODUCCION_EN_PROCESO, 115.03.00.00), PRESTAMO → Prestamo (traspaso entre sucursales, no préstamo; INVENTARIO_POR_TRASPASO = 115.05.01.00),
     /// CONSUMO_INTERNO → Consumo (con su centro de costo). Sin clave o con otra (CANCELA_ENTRADA…) manda la causa, como antes.
     /// </summary>
     public static string CampoSalidaInventario(string? causa, string? motivoClave) => (motivoClave ?? string.Empty).Trim().ToUpperInvariant() switch
@@ -250,7 +250,7 @@ public static partial class NormalizadorEventos
     /// <summary>
     /// Entrada manual de la app (Fernando Alejos, 10-nov-2026), al costo promedio del ERP. Cargo inventario por línea (por grupo del artículo;
     /// INVENTARIO_PT en la devolución de venta) contra: SOBRANTE y SIN_COMPRA → MERMA (504.25.02.00); DEVOLUCION_VENTA → COSTO_DE_VENTAS
-    /// (revierte el costo con que salió; la NC es de Facturación); REGRESO_PRESTAMO → INVENTARIO_EN_PRESTAMO (traspaso entre sucursales).
+    /// (revierte el costo con que salió; la NC es de Facturación); REGRESO_PRESTAMO → INVENTARIO_POR_TRASPASO (entrada del traspaso entre sucursales; el puente queda en cero).
     /// Clave desconocida: sin líneas ni importes, y el motor la rechaza; Almacén no publica claves sin póliza.
     /// </summary>
     private static EventoContable EntradaInventario(Guid eventoId, string payload)
