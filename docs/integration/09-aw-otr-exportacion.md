@@ -176,7 +176,7 @@ A+W las acusara. Se retiró: A+W no lee esa tabla. La tabla `comercio_exterior.o
 conserva sólo como historial y ya no crece. Si Millet necesita ver el booking en OTR, iría como un
 tipo nuevo en `aw_retorno`, que aplica el servicio de Windows de TI (fuera de alcance hoy).
 
-La bandeja del lanzador contiene sólo los envíos por vincular.
+La bandeja del lanzador inicia en Por vincular y permite consultar también Vinculados y Cancelados.
 
 ## Encendido, Demo y operación
 
@@ -225,6 +225,8 @@ responsables de recuperación y firma I13.4: **Por confirmar con Millet y Jorge*
 ### Revalidar una equivalencia de sucursal en un envío ya leído
 
 La consulta de la bandeja sin expediente devuelve los tres estados OTR; conserva el aislamiento por empresa y sucursal. Las pestañas filtran esos estados en el cliente. Con `expedienteId`, sólo devuelve los envíos de ese expediente y exige acceso a su sucursal.
+
+`GET /api/v1/comercio-exterior/otr/bandeja` es la lectura ligera del lanzador: devuelve sólo cabeceras, versiones ERP/A+W, estado, motivo y datos de cliente/entrega/contenedor. No carga ni transfiere partidas o conflictos históricos, tampoco las líneas dentro del contenido de origen. Conserva el permiso de lectura y los mismos filtros de empresa/sucursal que la consulta completa. La consulta `GET /otr?expedienteId=...` conserva el detalle completo y sus controles de acceso; vinculación y revalidación siguen enviando la versión ERP de la cabecera mediante `If-Match`. Publicar la API antes del frontend que consume la ruta nueva.
 
 `POST /api/v1/comercio-exterior/otr/{id}/revalidar-sucursal` vuelve a resolver la clave A+W guardada contra el catálogo de sucursales activas. Usa el permiso de gestión OTR, el alcance corporativo de gestión para el registro sin sucursal, `Idempotency-Key` y `If-Match` con la **versión ERP**, no la marca de tiempo A+W. También comprueba el acceso de gestión a la sucursal resuelta.
 

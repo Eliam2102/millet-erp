@@ -55,6 +55,14 @@ export interface OtrEnvio {
   }[];
 }
 const BASE = '/api/v1/comercio-exterior/otr';
+export type OtrFila = Pick<OtrEnvio,
+  'id' | 'idOrigen' | 'version' | 'versionAplicada' | 'sucursalId' | 'estado' | 'motivoVinculacion' | 'contenido'>;
+export function useOtrBandeja() {
+  return useQuery({
+    queryKey: [...ceKeys.all, 'otr-bandeja'],
+    queryFn: async ({ signal }) => (await apiRequest<OtrFila[]>(`${BASE}/bandeja`, { signal })).data,
+  });
+}
 export function useOtrEnvios(expedienteId?: string) {
   return useQuery({
     queryKey: [...ceKeys.all, 'otr', expedienteId],
@@ -80,7 +88,7 @@ export function useOtrAccion() {
   const keyFor = useBodyScopedIdempotencyKey();
   const conflict = useConflictDialog();
   return useMutation({
-    mutationFn: ({ envio, ruta, body }: { envio: OtrEnvio; ruta: string; body?: unknown }) =>
+    mutationFn: ({ envio, ruta, body }: { envio: Pick<OtrEnvio, 'id' | 'version'>; ruta: string; body?: unknown }) =>
       apiRequest<OtrEnvio>(`${BASE}/${envio.id}/${ruta}`, {
         method: 'POST',
         body,
