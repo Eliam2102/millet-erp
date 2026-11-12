@@ -112,3 +112,10 @@ public static class PackingListBlobEndpoints
             new SubirPackingListResponse(blobRef, archivo.FileName, archivo.Length, contentType));
     }
 }
+
+/// <summary>Respuesta del upload de packing list.</summary>
+public sealed record SubirPackingListResponse(
+    string BlobRef,
+    string NombreArchivo,
+    long TamanoBytes,
+    string ContentType);
