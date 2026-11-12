@@ -9,14 +9,14 @@ public sealed class OrdenesServicioReadAdapter(ComprasDbContext db, IProveedorRe
     public async Task<OrdenServicioLectura?> ObtenerAsync(Guid empresaId, Guid id, CancellationToken ct)
     {
         var ordenes = await db.OrdenesCompra.AsNoTracking().Include(o => o.Lineas).Include(o => o.Adjuntos)
-            .Where(o => o.Id == id && o.EmpresaId == empresaId && EstadosVinculables.Contains(o.Estado) && o.Lineas.Any(l => l.EsServicio)).ToListAsync(ct);
+            .Where(o => o.Id == id && o.EmpresaId == empresaId && (EstadosVinculables.Contains(o.Estado) || (o.EsServicioComercioExterior && o.Estado == EstadoOrdenCompra.EnAutorizacionDireccion)) && o.Lineas.Any(l => l.EsServicio)).ToListAsync(ct);
         return (await MapearAsync(ordenes, ct)).SingleOrDefault();
     }
     public async Task<IReadOnlyList<OrdenServicioLectura>> BuscarAsync(Guid empresaId, Guid sucursalId, Guid? proveedorId, string? texto, CancellationToken ct)
     {
         return await MapearAsync(await CrearConsulta(db, empresaId, sucursalId, proveedorId, texto).ToListAsync(ct), ct);
     }
-    // Sin regla explícita en la especificación: se exige OC autorizada (mismo criterio que la recepción de Almacén).
+    // Servicios CE permiten capturar el pasivo después de N1; las demás órdenes conservan autorización completa.
     // Cerrada se conserva porque ya pasó por autorización; Borrador, en autorización, Rechazada y cancelada/por cancelar quedan fuera.
     private static readonly EstadoOrdenCompra[] EstadosVinculables = [EstadoOrdenCompra.Autorizada, EstadoOrdenCompra.Cerrada];
     internal static IQueryable<OrdenCompra> CrearConsulta(ComprasDbContext db, Guid empresaId, Guid sucursalId, Guid? proveedorId, string? texto)
@@ -24,7 +24,7 @@ public sealed class OrdenesServicioReadAdapter(ComprasDbContext db, IProveedorRe
         // Folio es un value object: el patrón se compara en SQL antes de aplicar los filtros de EF.
         var origen = string.IsNullOrWhiteSpace(texto) ? db.OrdenesCompra : db.OrdenesCompra.FromSqlInterpolated($"SELECT * FROM compras.ordenes_compra WHERE folio ILIKE {"%" + texto.Trim() + "%"} OR observaciones ILIKE {"%" + texto.Trim() + "%"} OR id IN (SELECT orden_compra_id FROM compras.orden_compra_lineas WHERE descripcion_extendida ILIKE {"%" + texto.Trim() + "%"})");
         var query = origen.AsNoTracking().Include(o => o.Lineas).Include(o => o.Adjuntos)
-            .Where(o => o.EmpresaId == empresaId && o.SucursalDestinoId == sucursalId && EstadosVinculables.Contains(o.Estado) && o.Lineas.Any(l => l.EsServicio));
+            .Where(o => o.EmpresaId == empresaId && o.SucursalDestinoId == sucursalId && (EstadosVinculables.Contains(o.Estado) || (o.EsServicioComercioExterior && o.Estado == EstadoOrdenCompra.EnAutorizacionDireccion)) && o.Lineas.Any(l => l.EsServicio));
         if (proveedorId is Guid proveedor) query = query.Where(o => o.ProveedorId == proveedor);
         return query.OrderByDescending(o => o.CreatedAt).ThenBy(o => o.Id).Take(50);
     }

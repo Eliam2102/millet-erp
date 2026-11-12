@@ -350,10 +350,14 @@ export const MOTIVO_AUTOR_OC =
  * <c>EnAutorizJefeCompras</c>.</para>
  */
 export function accionAprobarNivel1(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'compradorTitularId'>,
+  oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'compradorTitularId' | 'esServicioComercioExterior'>,
   permisos: readonly string[],
   currentUserId?: string,
 ): AccionDisponible {
+  if (oc.esServicioComercioExterior && oc.estado === EstadoOrdenCompra.EnAutorizacionJefeCompras
+    && permisos.includes(PermisosCanonicos.ComprasOrdenesAutorizarNivel1)
+    && !permisos.includes(PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1))
+    return DISABLED('Requiere la facultad de primera firma de Comercio Exterior.');
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesAutorizarNivel1],
@@ -370,10 +374,14 @@ export function accionAprobarNivel1(
  * <c>EnAutorizacionDireccion</c>. Permiso: <c>autorizar.nivel2</c>.
  */
 export function accionAprobarNivel2(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'compradorTitularId'>,
+  oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'compradorTitularId' | 'esServicioComercioExterior'>,
   permisos: readonly string[],
   currentUserId?: string,
 ): AccionDisponible {
+  if (oc.esServicioComercioExterior && oc.estado === EstadoOrdenCompra.EnAutorizacionDireccion
+    && permisos.includes(PermisosCanonicos.ComprasOrdenesAutorizarNivel2)
+    && !permisos.includes(PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2))
+    return DISABLED('Requiere la facultad de segunda firma de Dirección Comercial.');
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesAutorizarNivel2],
@@ -391,9 +399,15 @@ export function accionAprobarNivel2(
  * (cualquier autorizador puede rechazar en su nivel).
  */
 export function accionRechazar(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
+  oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'esServicioComercioExterior'>,
   permisos: readonly string[],
 ): AccionDisponible {
+  if (oc.esServicioComercioExterior && (oc.estado === EstadoOrdenCompra.EnAutorizacionJefeCompras || oc.estado === EstadoOrdenCompra.EnAutorizacionDireccion)) {
+    const nivel1 = oc.estado === EstadoOrdenCompra.EnAutorizacionJefeCompras;
+    if (!permisos.includes(nivel1 ? PermisosCanonicos.ComprasOrdenesAutorizarNivel1 : PermisosCanonicos.ComprasOrdenesAutorizarNivel2)) return OCULTO;
+    if (!permisos.includes(nivel1 ? PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1 : PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2))
+      return DISABLED('Requiere la facultad de firma correspondiente al servicio de comercio exterior.');
+  }
   return gatePermisos(
     permisos,
     [

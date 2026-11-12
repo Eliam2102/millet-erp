@@ -101,6 +101,7 @@ public sealed record OrdenCompraResponse(
     decimal GastosAdicionales,
     decimal Redondeo)
 {
+    public bool EsServicioComercioExterior { get; init; }
     public string? UsoCfdiClave { get; init; }
     public string? UsoCfdiDescripcion { get; init; }
     public string? MetodoPago { get; init; }

@@ -773,6 +773,13 @@ export function SheetNuevaOC({
             </FormCampo>
           </FormGrid>
 
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-line-control bg-surface-card p-3">
+            <input type="checkbox" {...form.register('esServicioComercioExterior')} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--mt-primary)]" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-ink">Servicio de comercio exterior</span>
+              <span className="block text-xs text-ink-muted">Capture sólo partidas de servicio. La primera firma de Comercio Exterior permite registrar la deuda; la segunda de Dirección Comercial permite programar su pago.</span>
+            </span>
+          </label>
           <label
             className={cn(
               'flex cursor-pointer items-start gap-2.5 rounded-md border border-line-control bg-surface-card p-3',

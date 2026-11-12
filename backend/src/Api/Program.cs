@@ -1141,6 +1141,7 @@ builder.Services.AddProductoTerminadoModule();
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IAnticipoCeCancelacionPort, Millet.Api.Infrastructure.Adapters.PasivoComercioExteriorReadAdapter>();
 builder.Services.AddScoped<Millet.Tesoreria.Application.PublicPorts.IAutorizacionPagoCeReadPort, Millet.Tesoreria.Infrastructure.PublicAdapters.AutorizacionPagoCeReadAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IComprobacionAnticipoCeReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.ComprobacionAnticipoCeReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Application.PublicPorts.IFacturaServicioCeReadPort, Millet.Api.Infrastructure.Adapters.FacturaServicioCeReadAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IPagosFacturaCeReadPort, Millet.Api.Infrastructure.Adapters.PagosFacturaCeReadAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
 // 86e3xt2q8: Caja elige la factura mensual del banco del buzón de CFDI recibidos de CxP (solo lectura).

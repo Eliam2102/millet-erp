@@ -135,6 +135,12 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
             case "cerrar-fisico":
             case "cerrar-documental":
             case "cerrar-financiero":
+                if (request.Accion is "cerrar" or "cerrar-financiero")
+                {
+                    var pagosPendientes = await servicio.MotivosPagoServiciosAsync(e, cancellationToken);
+                    if (pagosPendientes.Count > 0)
+                        throw new BusinessRuleException("CE_SERVICIOS_PENDIENTES", string.Join(" ", pagosPendientes));
+                }
                 var requisitosCierre = await catalogos.RequisitosAsync(e.Tipo, cancellationToken);
                 var adjuntosCierre = await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken);
                 var recibidas = (await compras.ObtenerVariasAsync(e.OrdenesCompraIds, cancellationToken)).SelectMany(o => o.Partidas ?? []).ToDictionary(p => p.Id, p => p.CantidadRecibida);

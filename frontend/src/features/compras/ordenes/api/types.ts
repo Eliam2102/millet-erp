@@ -450,6 +450,7 @@ export interface OrdenCompraDetalleResponse {
   observaciones: string | null;
   sinRequisicionPrevia: boolean;
   esImportacion: boolean;
+  esServicioComercioExterior?: boolean;
   cotizacionExcepcionada: boolean;
   /** ISO 8601 UTC. */
   fechaDocumento: string;
