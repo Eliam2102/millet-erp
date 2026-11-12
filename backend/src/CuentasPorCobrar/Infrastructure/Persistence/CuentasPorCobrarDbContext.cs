@@ -67,6 +67,8 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
 
     /// <summary>Gestiones de cobranza — historial auditable append-only (§3.1, CXC-PR5).</summary>
     public DbSet<SeguimientoCobranza> SeguimientosCobranza => Set<SeguimientoCobranza>();
+    public DbSet<FichaCobranza> FichasCobranza => Set<FichaCobranza>();
+    public DbSet<FichaCobranzaEvento> FichaCobranzaEventos => Set<FichaCobranzaEvento>();
 
     /// <summary>Propuestas de aplicación de pago — matching depósito↔facturas (§3.1, CXC-PR7).</summary>
     public DbSet<PropuestaAplicacionPago> PropuestasAplicacionPago => Set<PropuestaAplicacionPago>();
@@ -109,6 +111,8 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new ReglaFirmaExcepcionCreditoConfiguration());
         modelBuilder.ApplyConfiguration(new CorreccionLiberacionConfiguration());
         modelBuilder.ApplyConfiguration(new SeguimientoCobranzaConfiguration());
+        modelBuilder.ApplyConfiguration(new FichaCobranzaConfiguration());
+        modelBuilder.ApplyConfiguration(new FichaCobranzaEventoConfiguration());
         modelBuilder.ApplyConfiguration(new PropuestaAplicacionPagoConfiguration());
         modelBuilder.ApplyConfiguration(new PropuestaAplicacionFacturaConfiguration());
         modelBuilder.ApplyConfiguration(new AlertaCarteraConfiguration());
