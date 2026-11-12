@@ -116,7 +116,9 @@ public static class SalidaAppAlmacenes
                     $"SELECT 1 FROM almacen.saldos_inventario WHERE articulo_id = {articuloId} AND ubicacion_id = ANY({ubicaciones}) ORDER BY articulo_id, ubicacion_id, producto_aw_variante_id, lote FOR UPDATE", ct);
             }
 
-            var saldos = await saldosQ.OrderByDescending(x => x.CantidadDisponible).ThenBy(x => x.UbicacionId).ToListAsync(ct);
+            // Lote más antiguo primero (Fernando 10-nov: el ERP también indica el lote; supuesto P-093): la existencia
+            // heredada sin lote sale antes y luego por antigüedad del saldo (Id = Guid v7, en orden de creación).
+            var saldos = await saldosQ.OrderBy(x => x.Lote != null).ThenBy(x => x.Id).ToListAsync(ct);
             var disponible = saldos.Sum(x => x.CantidadDisponible);
             var pedida = grp.Sum(x => x.Cantidad);
             if (disponible < pedida)
@@ -137,7 +139,7 @@ public static class SalidaAppAlmacenes
             var lista = restante[(s.ArticuloId, s.ProductoAwVarianteId, Ubicacion(s))];
             var lote = LineaMovimiento.NormalizarLote(s.Lote);
             var resta = s.Cantidad;
-            // Primero el lote del mensaje (si lo trae); el orden estable conserva «el saldo más grande primero» dentro de cada bloque.
+            // Primero el lote del mensaje (si lo trae); el orden estable conserva «el lote más antiguo primero» dentro de cada bloque.
             foreach (var i in Enumerable.Range(0, lista.Count).OrderByDescending(i => lote is not null && lista[i].Saldo.Lote == lote))
             {
                 if (resta <= 0) break;

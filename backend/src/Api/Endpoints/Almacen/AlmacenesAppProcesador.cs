@@ -21,7 +21,8 @@ public sealed class AlmacenesAppProcesador(
     AlmacenDbContext db, IComprasCrearRqAppPort rqApp, IAppSalidaResolverPort salidaResolver,
     IUsuarioServicioReadPort usuarioServicio, SalidaAppAlmacenesGuardado salidasGuardado,
     MermaProcesoAppGuardado mermasGuardado, IDimensionesSalidaInventarioPort dimensiones,
-    IOptions<AlmMensajeOptions> opciones) : IProcesadorMensajeApp
+    IOptions<AlmMensajeOptions> opciones,
+    Millet.Contabilidad.Application.Ports.ICentroCostoContabilidadPort? centros = null) : IProcesadorMensajeApp
 {
     /// <summary>
     /// Tipos que, rechazados (ERROR/EN_REVISION), se reevalúan al llegar el reenvío del mismo mensajeId. La bandeja de
@@ -67,12 +68,29 @@ public sealed class AlmacenesAppProcesador(
         if (previo is null)
         {
             var referencia = Str(root, "referencia");
+            // M-335: si el ERP sigue capturando este evento de materia prima, el mensaje de la app se rechaza con motivo claro.
+            // La requisición no se guarda (como sus demás ERROR): el reenvío se vuelve a evaluar.
+            if (await Millet.Almacen.Application.AppAlmacenes.OrigenCapturaMpReglas.RechazoDeMensajeAsync(db, tipo, ct) is { } rechazo)
+                return tipo.StartsWith("REQUISICION_", StringComparison.Ordinal)
+                    ? new AcuseApp(mensajeId, "ERROR", null, rechazo)
+                    : await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, rechazo, ct);
             string estado; string? folio, error;
             if (AlmacenesAppSalida.Tipos.ContainsKey(tipo))
             {
+                // v9: cancelar una entrada cerrada que es una recepción del ERP la revierte como la pantalla (mismo costo y cuentas), no como
+                // un ajuste negativo. Si el ERP no tiene esa recepción, sigue como salida manual.
+                if (AlmacenesAppSalida.CancelacionEntrada(datos, tipo) is { } cancelacion
+                    && await usuarioServicio.ObtenerReordenAsync(ct) is { Activo: true } servicio
+                    && await salidasGuardado.CancelarEntradaAsync(mensajeId, tipo, referencia, root.GetRawText(),
+                        servicio.EmpresaId, servicio.Id, cancelacion.Entrada, cancelacion.Motivo, ct) is { } c)
+                {
+                    if (!c.Duplicado) return new AcuseApp(mensajeId, c.Estado, c.Folio, c.Error);
+                    previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+                    return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
+                }
                 // Las salidas mueven existencia: movimiento y MensajeApp se confirman juntos en el guardado.
                 var (resuelta, errorSalida) = await AlmacenesAppSalida.ManejarAsync(tipo, datos, salidaResolver, usuarioServicio, ct,
-                    dimensiones, opciones.Value.ExigirAreaEquipo);
+                    dimensiones, opciones.Value.ExigirAreaEquipo, opciones.Value.CentroAlmacen);
                 // Un ERROR de datos (artículo/medida/sucursal sin dar de alta, campo inválido) no descuenta nada y queda en la
                 // bandeja de excepciones (A4.3-a) con folio de revisión; la app lo corrige y reprocesa el mismo mensajeId.
                 if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorSalida, ct);
@@ -140,7 +158,8 @@ public sealed class AlmacenesAppProcesador(
                 // Punto de enchufe de handlers: un case por tipo.
                 (estado, folio, error) = tipo switch
                 {
-                    "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct),
+                    "REQUISICION_ENVIADA" => await AlmacenesAppRequisicionEnviada.ManejarAsync(datos, rqApp, ct,
+                        await EquipoAlmacenAsync(Str(datos, "sucursal"), ct)),
                     AlmacenesAppRequisicionEnviada.Cancelada or AlmacenesAppRequisicionEnviada.Reducida =>
                         await AlmacenesAppRequisicionEnviada.ManejarAvisoAsync(tipo, datos, rqApp, ct),
                     _ => ("ERROR", (string?)null, (string?)"tipo aún no soportado"),
@@ -165,6 +184,20 @@ public sealed class AlmacenesAppProcesador(
 
         // Mismo folio (y error, si lo hubo) que la primera vez; nada nuevo se crea.
         return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
+    }
+
+    /// <summary>
+    /// Jorge (TI), 11-nov: lo que pide la app es del área de Almacén. La RQ de la app lleva en sus líneas el equipo (Dim3) configurado
+    /// para la sucursal (<see cref="AlmMensajeOptions.CentroAlmacen"/>), que la OC exige. Sin configuración o sin equipo vigente: null
+    /// (la RQ nace como antes y Compras elige el centro al armar la OC).
+    /// </summary>
+    private async Task<Guid?> EquipoAlmacenAsync(string? sucursal, CancellationToken ct)
+    {
+        if (centros is null || string.IsNullOrWhiteSpace(sucursal)
+            || AlmacenesAppSalida.CentroAlmacen(opciones.Value.CentroAlmacen, sucursal, null, null) is not { Equipo: { } equipo })
+            return null;
+        var nodos = await centros.BuscarAsync(Millet.Contabilidad.Domain.DimensionContable.Dim3, equipo, null, false, 50, ct);
+        return nodos.FirstOrDefault(n => n.ActivoEnCadena && string.Equals(n.Clave.Trim(), equipo, StringComparison.OrdinalIgnoreCase))?.Id;
     }
 
     /// <summary>ERROR de datos: queda en la bandeja con folio de revisión y no mueve saldo.</summary>

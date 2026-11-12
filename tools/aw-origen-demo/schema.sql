@@ -199,6 +199,19 @@ CREATE TABLE IF NOT EXISTS dbo.vw_erp_pedido_componente (
     importe         numeric
 );
 
+-- Albaranes de A+W por posición (vista vw_erp_albaran_pos del script 20); el lote de PT es numero_pedido-numero_posicion.
+CREATE TABLE IF NOT EXISTS dbo.vw_erp_albaran_pos (
+    numero_pedido    text    NOT NULL,
+    numero_posicion  integer NOT NULL,
+    pedido_albaran   text    NOT NULL,
+    posicion_albaran integer NOT NULL,
+    piezas           numeric(28, 8) NOT NULL,
+    albaran_folio    integer NOT NULL,
+    albaran_fecha    date    NOT NULL,
+    estatus_pedido   integer,
+    PRIMARY KEY (albaran_folio, pedido_albaran, posicion_albaran)
+);
+
 -- Limpieza de A+W ('<indf>' y vacíos → NULL), como dbo.fn_limpia / fn_solo_alfanumerico de 03_create_views.sql.
 CREATE OR REPLACE VIEW dbo.vw_erp_cliente AS
 SELECT id::text                                                                           AS cliente_ref,

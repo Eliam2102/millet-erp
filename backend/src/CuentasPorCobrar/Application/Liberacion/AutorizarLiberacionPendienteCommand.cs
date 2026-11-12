@@ -120,7 +120,9 @@ public sealed class AutorizarLiberacionPendienteHandler
                     ExcesoCredito.ExigirNivel(pendiente.Moneda, credito.Disponible, pendiente.MontoPedido, deDireccion);
                     resultado = ResultadoLiberacion.LiberadoConOverride;
                     regla = ReglaAplicadaLiberacion.Override;
-                    autorizacion = AutorizacionCredito.Crear(
+                    // M-239: la excepción queda con su condición y el monto del exceso que cubre. Esta vía mantiene el
+                    // nivel único de M-085 (arriba del tope firma Dirección; la pendiente es la solicitud).
+                    autorizacion = AutorizacionCredito.CrearExcepcional(
                         empresaId: empresaId,
                         supervisorUsuarioId: usuarioId,
                         beneficiarioUsuarioId: pendiente.DecididoPor,
@@ -128,6 +130,11 @@ public sealed class AutorizarLiberacionPendienteHandler
                         clienteOPedidoRef: pendiente.PedidoRef,
                         ahora: ahora,
                         vigencia: Vigencia,
+                        vigenciaMaxima: Vigencia,
+                        condicion: CondicionExcepcionCredito.CoberturaParcial,
+                        montoAutorizado: ExcesoCredito.Calcular(credito.Disponible, pendiente.MontoPedido),
+                        moneda: pendiente.Moneda,
+                        firmasRequeridas: 1,
                         autorizadaPorDireccion: deDireccion);
                     break;
             }

@@ -32,6 +32,8 @@ import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { AvisoCobrarEnCaja } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { ConformidadProformaDialog } from '@/features/facturacion/components/ConformidadProformaDialog';
+import { TramosTrasladoCard } from '@/features/facturacion/components/TramosTrasladoCard';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
 import { SalidasPedido } from '@/features/facturacion/components/SalidasPedido';
 import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
@@ -68,7 +70,7 @@ export function DetallePedido() {
   const comprobantes = usePedidoComprobantes(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
@@ -122,6 +124,8 @@ function Contenido({
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
   const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
+  const puedeLeerCartaPorte = useHasPermission(PermisosCanonicos.FacturacionCartaPorteLeer);
+  const puedeEmitirCartaPorte = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
   const facturable = p.estado === 'Importado';
   // FAC-08: un pedido con salidas parciales se factura por salida, no completo.
   const salidas = usePedidoSalidas(p.id, puedeLeerFacturas);
@@ -138,6 +142,8 @@ function Contenido({
   const [descargandoProforma, setDescargandoProforma] = useState(false);
   // Proforma abierta en el visor (null = cerrado).
   const [proformaEnVisor, setProformaEnVisor] = useState<ProformaPedidoResponse | null>(null);
+  // M-234: proforma a la que se le registra la conformidad del cliente (null = cerrado).
+  const [proformaConformidad, setProformaConformidad] = useState<ProformaPedidoResponse | null>(null);
 
   async function descargarProforma(proforma: ProformaPedidoResponse) {
     setDescargandoProforma(true);
@@ -211,7 +217,7 @@ function Contenido({
 
   if (modoEmision) {
     return (
-      <div className="space-y-5">
+      <div className="@container min-w-0 space-y-5">
         <div className="flex flex-wrap items-center gap-3">
           <PageHeader
             mono
@@ -306,7 +312,7 @@ function Contenido({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {emitida && <AvisoCobrarEnCaja comprobanteId={emitida.id} folio={emitida.folio} />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -402,7 +408,7 @@ function Contenido({
         </section>
       )}
 
-      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
         {/* FAC-ING-PR3: el backend ya devuelve el nombre del catálogo. */}
         <Dato label="Canal de venta">{p.canalVenta}</Dato>
         <Dato label="Comportamiento fiscal">
@@ -430,8 +436,15 @@ function Contenido({
           descargando={descargandoProforma}
           onVer={setProformaEnVisor}
           onDescargar={(pf) => void descargarProforma(pf)}
+          onConformidad={puedeEmitir ? setProformaConformidad : undefined}
         />
       )}
+      {puedeLeerCartaPorte && p.id ? <TramosTrasladoCard pedidoId={p.id} puedeEmitir={puedeEmitirCartaPorte} /> : null}
+      <ConformidadProformaDialog
+        pedidoId={p.id}
+        proforma={proformaConformidad}
+        onCerrar={() => setProformaConformidad(null)}
+      />
       <VisorProformaDialog
         proforma={proformaEnVisor}
         descargando={descargandoProforma}
@@ -626,9 +639,9 @@ function redondear2(v: number): number {
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dd className="text-sm [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }

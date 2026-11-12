@@ -35,5 +35,6 @@ public sealed class DocumentoExpediente : BaseEntity, IAuditable, IPerteneceAEmp
         ResponsableUsuarioId = actor;
     }
 
+    internal void Retirar(string motivo) { Motivo = motivo; Reemplazar(); }
     internal void Reemplazar() => Estado = EstadoDocumento.Reemplazada;
 }

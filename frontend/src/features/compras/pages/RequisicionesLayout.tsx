@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -98,44 +99,47 @@ export function RequisicionesLayout({ idActivo, detalle }: RequisicionesLayoutPr
   }
 
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      {/* ── Master (lista) ────────────────────────────── */}
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:shrink-0 md:overflow-hidden',
-          // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
-          idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
-          // Mobile drill-down: cuando hay un id activo, ocultamos la
-          // lista. Sin id, lista full-width.
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de requisiciones"
-        data-print="hidden"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <PageHeader titulo="Bandeja de requisiciones" />
-          {canCrear && (
-            <Button size="sm" onClick={() => nuevaRequisicion.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nueva
-            </Button>
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista="requisiciones"
+      lista={
+        <aside
+          className={cn(
+            'flex min-h-0 flex-col gap-3 md:shrink-0 md:overflow-hidden',
+            // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
+            idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
+            // Mobile drill-down: cuando hay un id activo, ocultamos la
+            // lista. Sin id, lista full-width.
+            idActivo != null ? 'hidden md:flex' : 'flex',
           )}
-        </div>
+          aria-label="Lista de requisiciones"
+          data-print="hidden"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <PageHeader titulo="Bandeja de requisiciones" />
+            {canCrear && (
+              <Button size="sm" onClick={() => nuevaRequisicion.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nueva
+              </Button>
+            )}
+          </div>
 
-        <FiltrosBandeja search={search} onChange={setSearch} />
+          <FiltrosBandeja search={search} onChange={setSearch} />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          <RenderListaContent
-            query={requisicionesQuery}
-            items={itemsFiltrados}
-            idActivo={idActivo}
-            search={search}
-            canCrear={canCrear}
-            onAbrirNueva={() => nuevaRequisicion.abrir()}
-          />
-        </div>
-      </aside>
-
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            <RenderListaContent
+              query={requisicionesQuery}
+              items={itemsFiltrados}
+              idActivo={idActivo}
+              search={search}
+              canCrear={canCrear}
+              onAbrirNueva={() => nuevaRequisicion.abrir()}
+            />
+          </div>
+        </aside>
+      }
+    >
       {/* ── Detail panel ──────────────────────────────── */}
       <section
         className={cn(
@@ -148,7 +152,7 @@ export function RequisicionesLayout({ idActivo, detalle }: RequisicionesLayoutPr
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

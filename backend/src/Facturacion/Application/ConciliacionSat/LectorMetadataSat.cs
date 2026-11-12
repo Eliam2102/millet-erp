@@ -18,9 +18,12 @@ public static class LectorMetadataSat
     private static readonly string[] Requeridas = ["Uuid", "RfcEmisor", "RfcReceptor", "FechaEmision", "Monto", "EfectoComprobante", "Estatus"];
     private static readonly string[] FormatosFecha = ["yyyy-MM-dd HH:mm:ss", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-dd", "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy"];
     private const int MaximoErroresMostrados = 5;
+    public const int TamanoMaximoBytes = 20 * 1024 * 1024;
 
     public static IReadOnlyList<CfdiSatMetadata> Leer(byte[] contenido)
     {
+        if (contenido.Length > TamanoMaximoBytes)
+            throw ArchivoGrande();
         var texto = Texto(contenido);
         var lineas = texto.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
         var inicio = lineas.FindIndex(l => !string.IsNullOrWhiteSpace(l));
@@ -83,18 +86,35 @@ public static class LectorMetadataSat
     /// <summary>Texto del archivo; si es ZIP (paquete de la descarga masiva) toma el primer .txt.</summary>
     private static string Texto(byte[] contenido)
     {
-        if (contenido.Length >= 4 && contenido[0] == 'P' && contenido[1] == 'K')
+        if (contenido.Length < 4 || contenido[0] != 'P' || contenido[1] != 'K')
+            return Decodificar(contenido);
+
+        try
         {
             using var zip = new ZipArchive(new MemoryStream(contenido), ZipArchiveMode.Read);
             var txt = zip.Entries.FirstOrDefault(e => e.FullName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
                 ?? throw new BusinessRuleException("CONCILIACION_SAT_ZIP_SIN_TXT", "El ZIP no trae el archivo .txt de metadatos del SAT.");
-            using var s = txt.Open();
-            using var m = new MemoryStream();
-            s.CopyTo(m);
-            return Decodificar(m.ToArray());
+            if (txt.Length > TamanoMaximoBytes)
+                throw ArchivoGrande();
+
+            using var entrada = txt.Open();
+            var datos = new byte[(int)txt.Length];
+            entrada.ReadExactly(datos);
+            if (entrada.ReadByte() != -1)
+                throw ZipInvalido();
+            return Decodificar(datos);
         }
-        return Decodificar(contenido);
+        catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException)
+        {
+            throw ZipInvalido();
+        }
     }
+
+    private static BusinessRuleException ArchivoGrande() =>
+        new("CONCILIACION_SAT_ARCHIVO_GRANDE", "El archivo del SAT no debe pasar de 20 MB, incluso después de descomprimirlo.");
+
+    private static BusinessRuleException ZipInvalido() =>
+        new("CONCILIACION_SAT_ZIP_INVALIDO", "El ZIP de metadatos no se puede leer. Descárgalo de nuevo.");
 
     /// <summary>UTF-8 (con o sin BOM); si no es UTF-8 válido, Latin-1 (descargas viejas del portal).</summary>
     private static string Decodificar(byte[] bytes)

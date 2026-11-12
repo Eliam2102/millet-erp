@@ -94,6 +94,8 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Cartas Porte 3.1 — subtipo Traslado/Ingreso (F8).</summary>
     public DbSet<CartaPorte> CartasPorte => Set<CartaPorte>();
+    public DbSet<TramoTraslado> TramosTraslado => Set<TramoTraslado>();
+    public DbSet<CorreccionTramo> CorreccionesTramo => Set<CorreccionTramo>();
 
     /// <summary>Catálogo de vehículos para Carta Porte (F8).</summary>
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
@@ -112,6 +114,7 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Proformas versionadas de pedidos facturables, sin valor fiscal (U1.8a).</summary>
     public DbSet<ProformaPedido> ProformasPedido => Set<ProformaPedido>();
+    public DbSet<ProformaConformidad> ProformasConformidad => Set<ProformaConformidad>();
 
     /// <summary>Bitácora de envíos de CFDI al correo del cliente (F2-PR2).</summary>
     public DbSet<BitacoraEnvioCorreo> BitacorasEnvioCorreo => Set<BitacoraEnvioCorreo>();
@@ -207,12 +210,15 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new OperadorConfiguration());
         modelBuilder.ApplyConfiguration(new CartaPorteConfiguration());
         modelBuilder.ApplyConfiguration(new CartaPorteMercanciaConfiguration());
+        modelBuilder.ApplyConfiguration(new TramoTrasladoConfiguration());
+        modelBuilder.ApplyConfiguration(new CorreccionTramoConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionVentaActivoConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableLineaConfiguration());
         modelBuilder.ApplyConfiguration(new SalidaFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new SalidaFacturableLineaConfiguration());
         modelBuilder.ApplyConfiguration(new ProformaPedidoConfiguration());
+        modelBuilder.ApplyConfiguration(new ProformaConformidadConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
         modelBuilder.ApplyConfiguration(new ContingenciaTimbradoConfiguration());

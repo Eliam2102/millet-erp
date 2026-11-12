@@ -57,7 +57,8 @@ public static class AlmacenesAppSalida
     public static async Task<(Resuelta? Salida, string? Error)> ManejarAsync(
         string tipo, JsonElement datos, IAppSalidaResolverPort resolver,
         IUsuarioServicioReadPort usuarioServicio, CancellationToken ct,
-        IDimensionesSalidaInventarioPort? dimensiones = null, bool exigirAreaEquipo = false)
+        IDimensionesSalidaInventarioPort? dimensiones = null, bool exigirAreaEquipo = false,
+        IReadOnlyDictionary<string, string>? centrosAlmacen = null)
     {
         if (datos.ValueKind != JsonValueKind.Object) return (null, "datos debe ser un objeto.");
         // A+W manda PESOSMX (distingue mayúsculas); el ERP solo lleva inventario en pesos.
@@ -129,6 +130,15 @@ public static class AlmacenesAppSalida
 
         if (!TryClave(datos, "area", out var area)) return (null, "datos.area debe ser texto o numérico.");
         if (!TryClave(datos, "equipo", out var equipo)) return (null, "datos.equipo debe ser texto o numérico.");
+        // Jorge (TI), 11-nov: la rotura y la salida manual no son de ninguna mesa; son del área de Almacén. El centro sale de la
+        // configuración por sucursal, almacén y motivo (CentroAlmacen), solo si el mensaje no trae área ni equipo.
+        var deConfiguracion = false;
+        if (area is null && equipo is null && tipo is "ROTURA" or "SALIDA_MANUAL"
+            && CentroAlmacen(centrosAlmacen, sucursal, Llave(almacenes[0])?.Tipo, Texto(datos, "motivoClave")) is { } cfg)
+        {
+            (area, equipo) = cfg;
+            deConfiguracion = true;
+        }
         Guid? centro = null;
         var tipoMov = tipo switch
         {
@@ -143,9 +153,11 @@ public static class AlmacenesAppSalida
             var causa = SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(tipoMov);
             var d = await dimensiones.ResolverAsync(new SolicitudDimensionesSalida(sp.EmpresaId, resuelto.SucursalId, causa,
                 DateOnly.FromDateTime(DateTime.UtcNow), area, equipo), ct);
-            if (d.Error is not null) return (null, d.Error);
+            // El centro por omisión es configuración del ERP, no dato de la app: si no resuelve (catálogo o ubicación de la sucursal
+            // sin cargar), la salida sigue sin centro como antes y su póliza va a Rechazos; no se frena el mensaje.
+            if (d.Error is not null && !deConfiguracion) return (null, d.Error);
             if (d.Faltante is not null && exigirAreaEquipo) return (null, d.Faltante);
-            centro = d.CentroCostoId;
+            centro = d.Error is null ? d.CentroCostoId : null;
         }
 
         var motivo = $"App Almacenes {tipo} {Texto(datos, "movimiento")}".TrimEnd();
@@ -214,9 +226,40 @@ public static class AlmacenesAppSalida
     }
 
     /// <summary>
+    /// SALIDA_MANUAL que cancela una entrada cerrada (v9): <c>origen.tipo = CANCELACION_ENTRADA</c>. Devuelve el folio de la entrada
+    /// (<c>origen.entrada</c>, EN-…) y el <c>origen.motivo</c> libre; null si el mensaje no es esa cancelación.
+    /// </summary>
+    public static (string Entrada, string? Motivo)? CancelacionEntrada(JsonElement datos, string tipo) =>
+        tipo == "SALIDA_MANUAL" && datos.ValueKind == JsonValueKind.Object && Origen(datos, tipo) is { Tipo: "CANCELACION_ENTRADA" } o
+            ? (o.Referencia, Texto(datos.GetProperty("origen"), "motivo"))
+            : null;
+
+    /// <summary>
     /// Llave del almacén de un renglón (M-446): <c>almacenGeneral.tipo</c> + <c>almacenGeneral.linea</c> (vacía en herraje). Sin
     /// tipo → null (el ERP resuelve como antes, por sucursal). El id del almacén general es dato acompañante y no se usa.
     /// </summary>
+    /// <summary>
+    /// Área/equipo por omisión de la rotura y la salida manual. Llaves de la más a la menos específica:
+    /// <c>SUCURSAL|TIPO_ALMACEN|MOTIVO</c>, <c>SUCURSAL|MOTIVO</c>, <c>SUCURSAL|TIPO_ALMACEN</c>, <c>SUCURSAL</c>; valor <c>AREA/EQUIPO</c>
+    /// (el equipo es opcional). Sin coincidencia → null (sigue como hoy: la póliza queda en Rechazos si la cuenta los exige).
+    /// </summary>
+    public static (string? Area, string? Equipo)? CentroAlmacen(
+        IReadOnlyDictionary<string, string>? mapa, string sucursal, string? tipoAlmacen, string? motivoClave)
+    {
+        if (mapa is null || mapa.Count == 0) return null;
+        static string N(string? v) => (v ?? "").Trim().ToUpperInvariant();
+        var (s, t, m) = (N(sucursal), N(tipoAlmacen), N(motivoClave));
+        string[] llaves = [$"{s}|{t}|{m}", $"{s}|{m}", $"{s}|{t}", s];
+        foreach (var llave in llaves)
+        {
+            var valor = mapa.FirstOrDefault(kv => N(kv.Key) == llave).Value;
+            if (string.IsNullOrWhiteSpace(valor)) continue;
+            var partes = valor.Split('/', 2, StringSplitOptions.TrimEntries);
+            return (partes[0].Length > 0 ? partes[0] : null, partes.Length > 1 && partes[1].Length > 0 ? partes[1] : null);
+        }
+        return null;
+    }
+
     internal static LlaveAlmacenApp? Llave(JsonElement contenedor, string propiedad = "almacenGeneral") =>
         contenedor.TryGetProperty(propiedad, out var ag) && ag.ValueKind == JsonValueKind.Object
         && Texto(ag, "tipo") is { } tipo && !string.IsNullOrWhiteSpace(tipo)

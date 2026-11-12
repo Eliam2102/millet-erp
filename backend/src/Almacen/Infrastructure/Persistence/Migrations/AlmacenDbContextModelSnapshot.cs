@@ -160,6 +160,57 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.AppAlmacenes.OrigenCapturaMp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CambiadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cambiado_at");
+
+                    b.Property<Guid>("CambiadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cambiado_por");
+
+                    b.Property<string>("Evento")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("evento");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("origen");
+
+                    b.Property<string>("OrigenAnterior")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("origen_anterior");
+
+                    b.HasKey("Id")
+                        .HasName("pk_origen_captura_mp");
+
+                    b.HasIndex("Evento", "CambiadoAt")
+                        .HasDatabaseName("ix_origen_captura_mp_evento_cambiado_at");
+
+                    b.ToTable("origen_captura_mp", "almacen", t =>
+                        {
+                            t.HasCheckConstraint("ck_origen_captura_mp_evento", "evento IN ('recepcion','consumo','merma','requisicion')");
+
+                            t.HasCheckConstraint("ck_origen_captura_mp_origen", "origen IN ('ERP','APP')");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.Avisos.AvisoAlmacen", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2738,7 +2789,6 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnName("numero_bl");
 
                     b.Property<string>("NumeroContenedor")
-                        .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("numero_contenedor");

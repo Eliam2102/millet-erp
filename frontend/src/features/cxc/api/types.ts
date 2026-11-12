@@ -192,9 +192,23 @@ export const EstadoAutorizacionCredito = {
   Usada: 2,
   /** Cancelada por el supervisor antes de usarse. */
   Cancelada: 3,
+  /** M-239: por su monto espera la segunda firma de Dirección; no se puede usar. */
+  PendienteSegundaFirma: 4,
 } as const satisfies Record<string, number>;
 export type EstadoAutorizacionCredito =
   (typeof EstadoAutorizacionCredito)[keyof typeof EstadoAutorizacionCredito];
+
+/** M-239: condición excepcional que registra la solicitud. Mirror de <c>CondicionExcepcionCredito</c>. */
+export const CondicionExcepcionCredito = {
+  /** El crédito cubre 50–99 % del pedido; la excepción cubre el exceso. */
+  CoberturaParcial: 1,
+  /** Serie que nunca libera sola; la excepción cubre el importe del pedido. */
+  SerieNuncaLibera: 2,
+  /** Cliente bloqueado por vencimiento; la excepción cubre el importe del pedido. */
+  BloqueoPorVencimiento: 3,
+} as const satisfies Record<string, number>;
+export type CondicionExcepcionCredito =
+  (typeof CondicionExcepcionCredito)[keyof typeof CondicionExcepcionCredito];
 
 /** Mirror de backend <c>DecisionLiberacionResponse</c> (inmutable). */
 export interface DecisionLiberacionResponse {
@@ -220,6 +234,55 @@ export interface DecisionLiberacionResponse {
   resolucionId?: string | null;
   /** C7.3: motivo del gerente de CxC que autorizó o rechazó la pendiente. */
   motivo?: string | null;
+  /** M-238: decisión que reevaluó esta retención (null = sigue sin reevaluar). */
+  reevaluadaPorId?: string | null;
+  /** M-238: retención que esta decisión reevaluó (null = no salió de una corrección). */
+  reevaluaDecisionId?: string | null;
+}
+
+/** M-238: dato que se corrigió para volver a evaluar un pedido retenido. Mirror de <c>TipoCorreccionLiberacion</c>. */
+export const TipoCorreccionLiberacion = {
+  /** El pedido estaba ligado a un cliente equivocado. */
+  Cliente: 1,
+  /** Se corrigió la condición del cliente (línea, plazo o bloqueo). */
+  Condicion: 2,
+  /** Un cobro o movimiento mal aplicado se corrigió en cartera. */
+  SaldoAplicado: 3,
+} as const satisfies Record<string, number>;
+export type TipoCorreccionLiberacion =
+  (typeof TipoCorreccionLiberacion)[keyof typeof TipoCorreccionLiberacion];
+
+/** M-238: body de POST /liberaciones/{id}/corregir-reevaluar. */
+export interface CorregirReevaluarLiberacionBody {
+  tipo: TipoCorreccionLiberacion;
+  detalle: string;
+  /** Solo en la corrección de cliente. */
+  clienteIdCorregido?: string | null;
+}
+
+/** M-238: corrección que liga la evaluación de antes con la de después. */
+export interface CorreccionLiberacionResponse {
+  id: string;
+  pedidoRef: string;
+  decisionRetenidaId: string;
+  decisionReevaluadaId: string;
+  tipo: TipoCorreccionLiberacion;
+  detalle: string;
+  corregidaPor: string;
+  corregidaEn: string;
+}
+
+/** M-238: las dos evaluaciones (antes y después) y la corrección que las liga. */
+export interface ReevaluacionLiberacionResponse {
+  anterior: DecisionLiberacionResponse;
+  nueva: DecisionLiberacionResponse;
+  correccion: CorreccionLiberacionResponse;
+}
+
+/** M-238: una evaluación del historial del pedido y, si salió de una corrección, esa corrección. */
+export interface EvaluacionPedidoItem {
+  decision: DecisionLiberacionResponse;
+  correccion: CorreccionLiberacionResponse | null;
 }
 
 /** Body de POST /liberaciones/{id}/autorizar (C7.3). */
@@ -260,6 +323,15 @@ export interface AutorizacionCreditoResponse {
   estado: EstadoAutorizacionCredito;
   decisionLiberacionId: string | null;
   version: number;
+  /** M-239: condición y monto que cubre la excepción (null en autorizaciones anteriores = sin tope). */
+  condicion?: CondicionExcepcionCredito | null;
+  montoAutorizado?: number | null;
+  moneda?: string;
+  /** M-239: firmas que pide por su monto (la segunda es de Dirección). */
+  firmasRequeridas?: number;
+  autorizadaPorDireccion?: boolean;
+  segundaFirmaPorId?: string | null;
+  segundaFirmaEn?: string | null;
 }
 
 /** Payload de creación (mirror de <c>CrearAutorizacionCreditoCommand</c>). */
@@ -267,8 +339,27 @@ export interface CrearAutorizacionCreditoCommand {
   beneficiarioUsuarioId: string;
   motivo: string;
   clienteOPedidoRef: string;
-  /** 1..24 (default backend 24). */
-  vigenciaHoras: number;
+  /** M-239: condición excepcional y monto que cubre; el monto limita lo que se libera. */
+  condicion: CondicionExcepcionCredito;
+  montoAutorizado: number;
+  moneda: string;
+  /** M-239: null = la vigencia por omisión de la configuración. */
+  vigenciaHoras?: number | null;
+}
+
+/** M-239: regla de firmas por monto (arriba del umbral en MXN se pide la segunda firma). */
+export interface ReglaFirmaExcepcionCredito {
+  umbralMxn: number;
+  firmasRequeridas: number;
+}
+
+/** M-239: vigencia y firmas por monto de las excepciones de crédito. */
+export interface ConfiguracionExcepcionCredito {
+  vigenciaPorOmisionHoras: number;
+  vigenciaMaximaHoras: number;
+  reglas: ReglaFirmaExcepcionCredito[];
+  /** true = no hay reglas guardadas y se aplica la de M-085 (50,000). */
+  reglasPorOmision: boolean;
 }
 
 // ─── Cobranza (Domain.Cobranza, CXC-PR5) ──────────────────────────────
@@ -463,6 +554,8 @@ export type EstadoPropuestaAplicacion =
 export const TipoAjusteCobro = {
   ComisionBancaria: 1,
   DiferenciaMenor: 2,
+  /** M-326: lo asigna el sistema a un faltante de hasta $0.99; no se elige a mano. */
+  Redondeo: 3,
 } as const satisfies Record<string, number>;
 export type TipoAjusteCobro = (typeof TipoAjusteCobro)[keyof typeof TipoAjusteCobro];
 
@@ -593,6 +686,8 @@ export const TipoAlertaCartera = {
   AutoBloqueoVencimiento: 3,
   /** Pedido a contra entrega que el chofer no liquidó en caja el día de la salida (PT5.7). */
   ContraEntregaNoLiquidada: 4,
+  /** M-372: el banco devolvió un cheque del cliente (aviso de Tesorería). */
+  ChequeRebotado: 5,
 } as const satisfies Record<string, number>;
 export type TipoAlertaCartera =
   (typeof TipoAlertaCartera)[keyof typeof TipoAlertaCartera];

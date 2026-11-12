@@ -121,7 +121,7 @@ public sealed class AutorizacionCreditoConfiguration : IEntityTypeConfiguration<
     {
         builder.ToTable("autorizacion_credito", t =>
         {
-            t.HasCheckConstraint("ck_autorizacion_credito_estado", "estado IN (1, 2, 3)");
+            t.HasCheckConstraint("ck_autorizacion_credito_estado", "estado IN (1, 2, 3, 4)");
             t.HasCheckConstraint(
                 "ck_autorizacion_credito_no_autoconsumo",
                 "supervisor_usuario_id != beneficiario_usuario_id");
@@ -144,9 +144,64 @@ public sealed class AutorizacionCreditoConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.DecisionLiberacionId);
         // M-085: autorización otorgada por Dirección (exceso arriba del tope de Crédito y Cobranza).
         builder.Property(e => e.AutorizadaPorDireccion).HasDefaultValue(false);
+        // M-239: condición y monto de la excepción, firmas por monto y segunda firma de Dirección.
+        builder.Property(e => e.Condicion).HasConversion<short?>();
+        builder.Property(e => e.MontoAutorizado).HasPrecision(18, 2);
+        builder.Property(e => e.Moneda).HasMaxLength(3).HasDefaultValue("MXN").IsRequired();
+        builder.Property(e => e.FirmasRequeridas).HasDefaultValue((short)1).IsRequired();
+        builder.Property(e => e.SegundaFirmaPorId);
+        builder.Property(e => e.SegundaFirmaEn);
 
         // Bandeja de vigentes por beneficiario.
         builder.HasIndex(e => new { e.BeneficiarioUsuarioId, e.Estado })
             .HasDatabaseName("ix_autorizacion_credito_beneficiario_estado");
+    }
+}
+
+/// <summary>M-239: tabla <c>cuentas_por_cobrar.regla_firma_excepcion_credito</c>; vacía = regla de M-085.</summary>
+public sealed class ReglaFirmaExcepcionCreditoConfiguration : IEntityTypeConfiguration<ReglaFirmaExcepcionCredito>
+{
+    public void Configure(EntityTypeBuilder<ReglaFirmaExcepcionCredito> builder)
+    {
+        builder.ToTable("regla_firma_excepcion_credito", t =>
+        {
+            t.HasCheckConstraint("ck_regla_firma_excepcion_credito_firmas", "firmas_requeridas IN (1, 2)");
+            t.HasCheckConstraint("ck_regla_firma_excepcion_credito_umbral", "umbral_mxn >= 0");
+        });
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.UmbralMxn).HasPrecision(18, 2).IsRequired();
+        builder.Property(e => e.FirmasRequeridas).IsRequired();
+        builder.HasIndex(e => new { e.EmpresaId, e.UmbralMxn }).IsUnique()
+            .HasDatabaseName("ux_regla_firma_excepcion_credito");
+    }
+}
+
+/// <summary>M-238: tabla <c>cuentas_por_cobrar.correccion_liberacion</c> (rastro de corregir y reevaluar una retención).</summary>
+public sealed class CorreccionLiberacionConfiguration : IEntityTypeConfiguration<CorreccionLiberacion>
+{
+    public void Configure(EntityTypeBuilder<CorreccionLiberacion> builder)
+    {
+        builder.ToTable("correccion_liberacion", t =>
+        {
+            t.HasCheckConstraint("ck_correccion_liberacion_tipo", "tipo IN (1, 2, 3)");
+            t.HasCheckConstraint("ck_correccion_liberacion_distintas", "decision_retenida_id != decision_reevaluada_id");
+        });
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.PedidoRef).HasMaxLength(80).IsRequired();
+        builder.Property(e => e.DecisionRetenidaId).IsRequired();
+        builder.Property(e => e.DecisionReevaluadaId).IsRequired();
+        builder.Property(e => e.Tipo).HasConversion<short>().IsRequired();
+        builder.Property(e => e.Detalle).HasMaxLength(254).IsRequired();
+        builder.Property(e => e.CorregidaPor).IsRequired();
+        builder.Property(e => e.CorregidaEn).IsRequired();
+
+        // Una retención se reevalúa una sola vez (la carrera → 23505 → 409).
+        builder.HasIndex(e => e.DecisionRetenidaId).IsUnique().HasDatabaseName("ux_correccion_liberacion_retenida");
+        builder.HasIndex(e => e.DecisionReevaluadaId).HasDatabaseName("ix_correccion_liberacion_reevaluada");
+        builder.HasIndex(e => e.PedidoRef).HasDatabaseName("ix_correccion_liberacion_pedido");
     }
 }

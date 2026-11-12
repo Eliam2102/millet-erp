@@ -9,12 +9,12 @@ public sealed class RecepcionImportacion : BaseEntity, IPerteneceAEmpresa, IAudi
     public Guid RecepcionId { get; private set; }
     public string NumeroPedimento { get; private set; } = null!;
     public string NumeroBl { get; private set; } = null!;
-    public string NumeroContenedor { get; private set; } = null!;
+    public string? NumeroContenedor { get; private set; }
     public string Aduana { get; private set; } = null!;
     public string ClavePedimento { get; private set; } = null!;
     public List<RecepcionImportacionPartida> Partidas { get; private set; } = [];
     private RecepcionImportacion() { }
-    public RecepcionImportacion(Guid empresa, Guid oc, string pedimento, string bl, string contenedor, string aduana, string clave,
+    public RecepcionImportacion(Guid empresa, Guid oc, string pedimento, string bl, string? contenedor, string aduana, string clave,
         List<RecepcionImportacionPartida> partidas) : base(Guid.CreateVersion7())
     {
         EmpresaId = empresa; OrdenCompraId = oc; NumeroPedimento = pedimento; NumeroBl = bl;

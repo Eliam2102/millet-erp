@@ -1,6 +1,8 @@
+import { PanelLeft } from 'lucide-react';
 import { FinanzasPanel } from '../components/FinanzasPanel';
 import {
   Table,
+  TableContainer,
   TableHeader,
   TableRow,
   TableHead,
@@ -56,6 +58,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
   const cerrar = useHasPermission(P.ComercioExteriorExpedientesAprobarCierre);
   const cancelar = useHasPermission(P.ComercioExteriorExpedientesCancelar);
   const accion = useAccionExpediente(id);
+  const [listaVisible, setListaVisible] = useState(false);
   const [edicion, setEdicion] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState('');
@@ -79,88 +82,111 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
     );
   const abierto = data.expediente.estado === 1;
   return (
-    <div className="flex h-full min-h-0 gap-5 text-sm">
-      <aside
-        className="hidden w-80 shrink-0 overflow-auto border-r border-line bg-surface-card lg:block"
-        data-print="hidden"
+    <div className="flex min-w-0 flex-col gap-4 text-sm xl:flex-row xl:items-start">
+      {listaVisible && (
+        <aside
+          id="ce-lista-expedientes"
+          aria-label="Lista de expedientes"
+          className="max-h-64 w-full shrink-0 overflow-auto rounded-lg bg-surface-card shadow-card-flat xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:w-80"
+          data-print="hidden"
+        >
+          <div className="border-b border-line-divider p-4">
+            <Link to="/comercio-exterior/expedientes" className="text-brand">
+              Todos los expedientes
+            </Link>
+          </div>
+          {lista.data?.items.map((e) => (
+            <Link
+              key={e.id}
+              to="/comercio-exterior/expedientes/$id"
+              params={{ id: e.id }}
+              aria-current={e.id === id ? 'page' : undefined}
+              className={`block border-b border-line-row px-3.5 py-3 ${e.id === id ? 'bg-surface-selected shadow-list-selected' : ''}`}
+            >
+              <span className="font-mono text-xs text-brand">{e.folio}</span>
+              <span className="mt-1 block [overflow-wrap:anywhere]">{e.referencia}</span>
+            </Link>
+          ))}
+        </aside>
+      )}
+      <section
+        aria-label="Detalle del expediente"
+        className="@container flex min-w-0 w-full flex-1 flex-col gap-4"
       >
-        <div className="border-b border-line-divider p-4">
-          <Link to="/comercio-exterior/expedientes" className="text-brand">
-            Todos los expedientes
-          </Link>
-        </div>
-        {lista.data?.items.map((e) => (
-          <Link
-            key={e.id}
-            to="/comercio-exterior/expedientes/$id"
-            params={{ id: e.id }}
-            className={`block border-b border-line-row px-3.5 py-3 ${e.id === id ? 'bg-surface-selected shadow-list-selected' : ''}`}
+        <div className="flex flex-wrap items-center justify-between gap-3" data-print="hidden">
+          <Button
+            variant="outline"
+            aria-expanded={listaVisible}
+            aria-controls="ce-lista-expedientes"
+            onClick={() => setListaVisible(!listaVisible)}
           >
-            <span className="font-mono text-xs text-brand">{e.folio}</span>
-            <span className="mt-1 block truncate">{e.referencia}</span>
-          </Link>
-        ))}
-      </aside>
-      <main className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto">
-        <Breadcrumbs
-          items={[
-            { label: 'Comercio Exterior' },
-            { label: 'Expedientes', to: '/comercio-exterior/expedientes' },
-            { label: data.expediente.folio },
-          ]}
-        />
-        <PageHeader
-          mono
-          titulo={data.expediente.folio}
-          descripcion={data.expediente.referencia}
-          estado={
-            <>
-              {' '}
-              <EstadoExpedienteBadge estado={data.expediente.estado} />
-              <Badge variant="warning">{incidenciasPendientes.length} incidencias pendientes</Badge>
-              {data.expediente.revisionPendiente && (
-                <Badge variant="warning">Revisión pendiente</Badge>
-              )}
-            </>
-          }
-          acciones={
-            <>
-              {' '}
-              {editar && abierto && (
-                <Button variant="outline" onClick={() => setEdicion(!edicion)}>
-                  Editar datos
-                </Button>
-              )}
-              {cerrar && abierto && (
-                <Button
-                  variant="outline"
-                  disabled={
-                    cierresPendientes.length > 0 ||
-                    incidenciasPendientes.length > 0 ||
-                    accion.isPending
-                  }
-                  title={
-                    incidenciasPendientes.length > 0
-                      ? incidenciasPendientes.map((i) => i.motivo).join('; ')
-                      : cierresPendientes.length > 0
-                        ? `Registre antes: ${cierresPendientes.join(', ')}.`
-                        : undefined
-                  }
-                  onClick={() => {
-                    void accion.mutateAsync({ accion: 'cerrar' }).catch(() => {});
-                  }}
-                >
-                  Aprobar cierre (Gerencia)
-                </Button>
-              )}
-              {cancelar && abierto && (
-                <Button variant="ghost" onClick={() => setCancelando(!cancelando)}>
-                  Cancelar expediente
-                </Button>
-              )}
-            </>
-          }
-        />
+            <PanelLeft className="size-3.5" aria-hidden="true" />
+            {listaVisible ? 'Ocultar expedientes' : 'Mostrar expedientes'}
+          </Button>
+          <Breadcrumbs
+            items={[
+              { label: 'Comercio Exterior' },
+              { label: 'Expedientes', to: '/comercio-exterior/expedientes' },
+              { label: data.expediente.folio },
+            ]}
+          />
+        </div>
+        <div className="min-w-0 [&_h1]:break-all [&_p]:[overflow-wrap:anywhere]">
+          <PageHeader
+            mono
+            titulo={data.expediente.folio}
+            descripcion={data.expediente.referencia}
+            estado={
+              <>
+                {' '}
+                <EstadoExpedienteBadge estado={data.expediente.estado} />
+                <Badge variant="warning">
+                  {incidenciasPendientes.length} incidencias pendientes
+                </Badge>
+                {data.expediente.revisionPendiente && (
+                  <Badge variant="warning">Revisión pendiente</Badge>
+                )}
+              </>
+            }
+            acciones={
+              <>
+                {' '}
+                {editar && abierto && (
+                  <Button variant="outline" onClick={() => setEdicion(!edicion)}>
+                    Editar datos
+                  </Button>
+                )}
+                {cerrar && abierto && (
+                  <Button
+                    variant="outline"
+                    disabled={
+                      cierresPendientes.length > 0 ||
+                      incidenciasPendientes.length > 0 ||
+                      accion.isPending
+                    }
+                    title={
+                      incidenciasPendientes.length > 0
+                        ? incidenciasPendientes.map((i) => i.motivo).join('; ')
+                        : cierresPendientes.length > 0
+                          ? `Registre antes: ${cierresPendientes.join(', ')}.`
+                          : undefined
+                    }
+                    onClick={() => {
+                      void accion.mutateAsync({ accion: 'cerrar' }).catch(() => {});
+                    }}
+                  >
+                    Aprobar cierre (Gerencia)
+                  </Button>
+                )}
+                {cancelar && abierto && (
+                  <Button variant="ghost" onClick={() => setCancelando(!cancelando)}>
+                    Cancelar expediente
+                  </Button>
+                )}
+              </>
+            }
+          />
+        </div>
         {cancelando && (
           <form
             className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
@@ -217,86 +243,147 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             onClose={() => setEdicion(false)}
           />
         )}
-        <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat xl:grid-cols-4">
-          {[
-            ['Tipo', data.expediente.tipo === 1 ? 'Importación' : 'Exportación'],
-            ['Sucursal', data.expediente.sucursalNombre],
-            ['Incoterm', data.incotermCodigo],
-            ['Moneda', data.expediente.moneda],
-            ['Origen', data.ocFolio ?? 'Solicitud de contenedor'],
-            ['Responsable', data.expediente.responsableNombre],
-            ['Documentación', data.estadoDocumental],
-            ['Físico', data.estadoFisico],
-            ['Financiero', textoFinanciero(data.estadoFinanciero)],
-            ['TC', data.tc === null ? 'Sin TC capturado' : String(data.tc)],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-xs text-ink-muted">{label}</dt>
-              <dd className="mt-1 font-medium">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        <Tabs defaultValue="resumen">
-          <TabsList>
-            <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="participantes">Participantes</TabsTrigger>
-            <TabsTrigger value="documentos">Documentos</TabsTrigger>
-            <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
-            <TabsTrigger value="hitos">Hitos</TabsTrigger>
-            {data.expediente.tipo === 2 && (
-              <>
-                <TabsTrigger value="otr">A+W OTR</TabsTrigger>
-              </>
-            )}
-            <TabsTrigger value="contenedores">Contenedores</TabsTrigger>
-            <TabsTrigger value="gastos">Gastos</TabsTrigger>
-            <TabsTrigger value="anticipos">Anticipo al agente</TabsTrigger>
-            <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
-          </TabsList>
+        <div className="grid min-w-0 gap-4 @3xl:grid-cols-[3fr_2fr]">
+          <section
+            aria-label="Datos de la operación"
+            className="min-w-0 rounded-lg bg-surface-card p-4 shadow-card-flat"
+          >
+            <h2 className="mb-3 font-semibold">Datos de la operación</h2>
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-3 @sm:grid-cols-2 @xl:grid-cols-3">
+              {[
+                ['Tipo', data.expediente.tipo === 1 ? 'Importación' : 'Exportación'],
+                ['Sucursal', data.expediente.sucursalNombre],
+                ['Responsable', data.expediente.responsableNombre],
+                ['Incoterm', data.incotermCodigo],
+                ['Moneda', data.expediente.moneda],
+                ['TC', data.tc === null ? 'Sin TC capturado' : String(data.tc)],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <dt className="text-xs text-ink-muted">{label}</dt>
+                  <dd className="mt-1 font-medium [overflow-wrap:anywhere]">{value}</dd>
+                </div>
+              ))}
+              <div className="min-w-0 @sm:col-span-2 @xl:col-span-3">
+                <dt className="text-xs text-ink-muted">Origen</dt>
+                <dd className="mt-1 font-medium [overflow-wrap:anywhere]">
+                  {data.ordenesCompra?.map((o) => o.folio).join(', ') ||
+                    data.ocFolio ||
+                    'Solicitud de contenedor'}
+                </dd>
+              </div>
+            </dl>
+          </section>
+          <section
+            aria-label="Seguimiento del expediente"
+            className="min-w-0 rounded-lg bg-surface-card p-4 shadow-card-flat"
+          >
+            <h2 className="mb-3 font-semibold">Seguimiento del expediente</h2>
+            <dl className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-1">
+              {[
+                ['Documentación', data.estadoDocumental],
+                ['Físico', data.estadoFisico],
+                ['Financiero', textoFinanciero(data.estadoFinanciero)],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="min-w-0 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line-divider pb-2"
+                >
+                  <dt className="text-xs text-ink-muted">{label}</dt>
+                  <dd className="font-medium [overflow-wrap:anywhere]">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </div>
+        {!!data.recepcionesImportacion?.length && (
+          <section
+            className="space-y-2 rounded-lg bg-surface-card p-4 shadow-card-flat"
+            aria-label="Recepciones de importación"
+          >
+            <h2 className="font-semibold">Recepciones y claves de pedimento</h2>
+            <ul>
+              {data.recepcionesImportacion.map(({ ocId, ocFolio, recepcion: r }) => (
+                <li key={`${ocId}-${r.recepcionId}`}>
+                  {ocFolio} · {r.clavePedimento} · {r.numeroPedimento} · BL o guía: {r.numeroBl} ·
+                  Contenedor: {r.numeroContenedor ?? 'No aplica'}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <Tabs defaultValue="resumen" className="min-w-0">
+          <div className="overflow-x-auto">
+            <TabsList
+              aria-label="Secciones del expediente"
+              className="w-max min-w-full flex-nowrap"
+            >
+              <TabsTrigger value="resumen">Resumen</TabsTrigger>
+              <TabsTrigger value="participantes">Participantes</TabsTrigger>
+              <TabsTrigger value="documentos">Documentos</TabsTrigger>
+              <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
+              <TabsTrigger value="hitos">Hitos</TabsTrigger>
+              {data.expediente.tipo === 2 && (
+                <>
+                  <TabsTrigger value="otr">A+W OTR</TabsTrigger>
+                </>
+              )}
+              <TabsTrigger value="contenedores">Contenedores</TabsTrigger>
+              <TabsTrigger value="gastos">Gastos</TabsTrigger>
+              <TabsTrigger value="anticipos">Anticipo al agente</TabsTrigger>
+              <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
+            </TabsList>
+          </div>
           <TabsContent value="resumen" className="space-y-4">
             <CierresPanel data={data} />
             <FacturasPanel data={data} />
             <h2 className="text-md font-semibold">Datos de la operación</h2>
             {data.motivoCancelacion && <p>Cancelación: {data.motivoCancelacion}</p>}
             {(data.ocId || data.informacionImportacion) && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Orden de compra</TableHead>
-                    <TableHead>País de origen</TableHead>
-                    <TableHead>Contenedor</TableHead>
-                    <TableHead>Ruta</TableHead>
-                    <TableHead>Pedimento</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-mono text-xs">
-                      {data.ocFolio ?? 'Sin número'}
-                    </TableCell>
-                    <TableCell>
-                      {data.informacionImportacion?.paisOrigen ?? (
-                        <span className="text-ink-muted">Sin país de origen</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroContenedor ?? (
-                        <span className="text-ink-muted">Sin número</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {data.informacionImportacion?.codigoRuta ?? (
-                        <span className="text-ink-muted">Sin ruta</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroPedimento ?? (
-                        <span className="text-ink-muted">Sin número</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <TableContainer
+                maxHeightClassName=""
+                role="region"
+                aria-label="Datos de importación"
+                tabIndex={0}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Orden de compra</TableHead>
+                      <TableHead>País de origen</TableHead>
+                      <TableHead>Contenedor</TableHead>
+                      <TableHead>Ruta</TableHead>
+                      <TableHead>Pedimento</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-mono text-xs">
+                        {data.ocFolio ?? 'Sin número'}
+                      </TableCell>
+                      <TableCell>
+                        {data.informacionImportacion?.paisOrigen ?? (
+                          <span className="text-ink-muted">Sin país de origen</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {data.informacionImportacion?.numeroContenedor ?? (
+                          <span className="text-ink-muted">Sin número</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {data.informacionImportacion?.codigoRuta ?? (
+                          <span className="text-ink-muted">Sin ruta</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {data.informacionImportacion?.numeroPedimento ?? (
+                          <span className="text-ink-muted">Sin número</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
             {data.fechaTc && (
               <p>
@@ -338,7 +425,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <Bitacora id={id} />
           </TabsContent>
         </Tabs>
-      </main>
+      </section>
     </div>
   );
 }

@@ -174,10 +174,12 @@ public sealed record LecturaPedidoAw(
     DatosPedidoAw? Datos,
     MotivoExcepcion Motivo,
     string? Detalle,
-    bool EsperaConfiguracion)
+    bool EsperaConfiguracion,
+    DiferenciaCampoIngesta? Diferencia = null)
 {
     public static LecturaPedidoAw Ok(DatosPedidoAw datos) => new(datos, MotivoExcepcion.Otro, null, false);
-    public static LecturaPedidoAw DatosInvalidos(MotivoExcepcion motivo, string detalle) => new(null, motivo, detalle, false);
+    public static LecturaPedidoAw DatosInvalidos(MotivoExcepcion motivo, string detalle, DiferenciaCampoIngesta? diferencia = null) =>
+        new(null, motivo, detalle, false, diferencia);
     public static LecturaPedidoAw EsperaConfig(MotivoExcepcion motivo, string detalle) => new(null, motivo, detalle, true);
 }
 

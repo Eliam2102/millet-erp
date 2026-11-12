@@ -503,6 +503,12 @@ builder.Services
     .Bind(builder.Configuration.GetSection(Millet.Almacen.Application.AppAlmacenes.AlmMensajeOptions.SectionName));
 builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeLector>();
 builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmCargaInicialLector>(); // M-283, apagado por omisión
+// M-283: alarma de mensajes sin acuse (aviso por correo al jefe de Almacén) y su contador en el tablero de integraciones.
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.IAvisoMensajesSinAcuse,
+    Millet.Almacen.Infrastructure.Notificaciones.CorreoAvisoMensajesSinAcuse>();
+builder.Services.AddSingleton<Millet.Almacen.Application.AppAlmacenes.AlmMensajeAlarma>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion,
+    Millet.Almacen.Infrastructure.PublicAdapters.AlmMensajeFuenteTablero>();
 builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.AlmMensajeWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
@@ -706,6 +712,7 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoProp
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Periodos.ReaperturaAdjuntoPropietario>();
 // M-240: soporte (estado de cuenta o aviso del banco) del ajuste de un cobro corto en CxC.
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorCobrar.Application.AplicacionPagos.PropuestaAplicacionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Adjuntos.ISoporteAjusteCobroReadPort, Millet.Api.Infrastructure.Adapters.SoporteAjusteCobroReadAdapter>();
@@ -720,6 +727,11 @@ builder.Services.AddScoped<Millet.Compartido.Application.Cargas.Lotes.LotesCarga
 // M-166: tipo de carga contabilidad.saldos-iniciales (apertura contable) para el lote común.
 Millet.Api.Infrastructure.Adapters.CargasContabilidadRegistro.AddCargasContabilidad(builder.Services);
 builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
+// M-236: responsable por omisión de las incidencias de la conciliación programada de cartera.
+builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Conciliacion.IResponsableConciliacionReadPort, Millet.Api.Infrastructure.Adapters.ResponsableConciliacionCarteraAdapter>();
+// M-236: historial de cierres manuales (mismo adaptador; no obliga a otros módulos a implementarlo).
+builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasHistorialPort>(sp =>
+    (Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter)sp.GetRequiredService<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort>());
 builder.Services.AddScoped<Millet.Compartido.Application.Incidencias.IIncidenciaUsuariosReadPort, Millet.Api.Infrastructure.Adapters.IncidenciaUsuariosReadAdapter>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compartido.Application.Incidencias.IncidenciaAdjuntoPropietario>();
 builder.Services
@@ -1894,6 +1906,7 @@ Millet.Api.Endpoints.Almacen.TamboresLineaEndpoints.MapTamboresLineaEndpoints(ap
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
 Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
 Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
+Millet.Api.Endpoints.Almacen.OrigenCapturaMpEndpoints.MapOrigenCapturaMpEndpoints(app);
 Millet.Api.Endpoints.Almacen.ConciliacionDiariaEndpoints.MapConciliacionDiariaEndpoints(app);
 
 // === Almacén — Recepciones Variante A (F2-PR2) + Saldos materializados ===
@@ -2193,6 +2206,7 @@ Millet.Api.Endpoints.Tesoreria.ReportesEndpoints.MapTesoreriaReportesEndpoints(a
 
 // === Tesorería — Conciliación bancaria, emparejamiento multinivel, alta y acta (T9.2, 86e3ke6ne) ===
 Millet.Api.Endpoints.Tesoreria.ConciliacionesEndpoints.MapTesoreriaConciliacionesEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.ChequesEndpoints.MapTesoreriaChequesEndpoints(app);
 
 // === SignalR hubs (CollaborationHub Sprint 1, ADR-0001 + ADR-0012 Capa 2) ===
 // /hubs/compras: canal de colaboración del módulo. Auth requerida — el

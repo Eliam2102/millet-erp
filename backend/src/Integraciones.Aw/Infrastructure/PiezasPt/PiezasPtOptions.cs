@@ -20,6 +20,16 @@ public sealed class PiezasPtOptions
     public DateTime? Desde { get; set; }
     /// <summary>A4.8: descuento de componentes (argón, separador, PVB) por composición de cada pieza terminada. Apagado por omisión.</summary>
     public bool ConsumoComponentesHabilitado { get; set; }
+    /// <summary>
+    /// Fernando Alejos, 10-nov: insulado y laminado descuentan inventario al dar salida del almacén (cargo a costo por insumos);
+    /// el consumo por composición queda solo como estadístico. <c>false</c> (por omisión) = se calcula y guarda la cantidad sin
+    /// crear salida; <c>true</c> = la siguiente etapa, cuando Millet active la afectación a costo por consumo.
+    /// </summary>
+    public bool ConsumoComponentesAfectaInventario { get; set; }
     /// <summary>PT5.10: lectura de pedidos internos Serie 9000 para descargar el inventario del taller. Apagado por omisión.</summary>
     public bool Serie9000Habilitada { get; set; }
+    /// <summary>Descuento de PT por albaranes de A+W (vista <c>vw_erp_albaran_pos</c>, script 20). Apagado por omisión.</summary>
+    public bool AlbaranAwHabilitado { get; set; }
+    /// <summary>Días hacia atrás de albaranes que se releen en cada ciclo (la aplicación en PT es idempotente).</summary>
+    public int AlbaranAwVentanaDias { get; set; } = 7;
 }

@@ -34,6 +34,7 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
   const [datos, setDatos] = useState<CrearExpediente>({
     tipo: 1,
     ocId: null,
+    ocIds: [],
     sucursalId: sucursal,
     referencia: '',
     incotermId: null,
@@ -50,6 +51,8 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
   const [busquedaOc, setBusquedaOc] = useState('');
   const qOc = useDebouncedValue(busquedaOc, 300);
   const [ocLabel, setOcLabel] = useState('');
+  const [proveedorId, setProveedorId] = useState<string | undefined>();
+  const [foliosOc, setFoliosOc] = useState<Record<string, string>>({});
   const ocs = useOrdenesImportacion(datos.tipo === 1, qOc);
   const canEditar = useHasPermission(P.ComercioExteriorExpedientesEditar);
   const usuarios = useHasPermission(P.IdentidadUsuariosLeer);
@@ -100,6 +103,7 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
                     update({
                       tipo: Number(e.target.value) as 1 | 2,
                       ocId: null,
+                      ocIds: [],
                       incotermId: null,
                       moneda: null,
                     })
@@ -133,8 +137,11 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
                         onChange={(id) => {
                           const oc = ocs.data?.find((x) => x.id === id);
                           setOcLabel(oc?.folio ?? '');
+                          setProveedorId(oc?.proveedorId);
+                          if (oc) setFoliosOc({ [oc.id]: oc.folio });
                           update({
                             ocId: id,
+                            ocIds: id ? [id] : [],
                             sucursalId: oc?.sucursalId ?? null,
                             moneda: oc?.moneda ?? null,
                             incotermId: oc?.informacionImportacion?.incotermId ?? null,
@@ -149,6 +156,56 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
                         emptyListText="Sin órdenes de importación disponibles."
                       />
                     </FormCampo>
+                    {datos.ocId && (
+                      <FormCampo span={12} className="space-y-1.5">
+                        <Label>Agregar otra OC de la misma operación</Label>
+                        <CatalogoEagerCombobox
+                          items={(ocs.data ?? []).filter(
+                            (o) =>
+                              !(datos.ocIds ?? []).includes(o.id) &&
+                              o.moneda === datos.moneda &&
+                              o.sucursalId === datos.sucursalId &&
+                              (!proveedorId || o.proveedorId === proveedorId),
+                          )}
+                          value={null}
+                          onChange={(id) => {
+                            if (id) {
+                              const oc = (ocs.data ?? []).find((o) => o.id === id);
+                              if (oc) setFoliosOc((prev) => ({ ...prev, [id]: oc.folio }));
+                              update({ ocIds: [...(datos.ocIds ?? [datos.ocId!]), id] });
+                            }
+                          }}
+                          itemToLabel={(o) => o.folio}
+                          renderTrigger={(o) => o.folio}
+                          renderItem={(o) => o.folio}
+                          ariaLabel="Agregar OC de importación"
+                          placeholder="Agregar OC"
+                          emptyListText="Sin otras órdenes disponibles."
+                        />
+                        <ul>
+                          {(datos.ocIds ?? []).map((id, i) => (
+                            <li key={id}>
+                              {id === datos.ocId ? ocLabel : (foliosOc[id] ?? 'OC seleccionada')}
+                              {i > 0 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    update({ ocIds: datos.ocIds?.filter((ocId) => ocId !== id) })
+                                  }
+                                >
+                                  Quitar OC
+                                </Button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-xs text-ink-muted">
+                          Todas las OC deben corresponder al mismo proveedor, moneda y sucursal.
+                        </p>
+                      </FormCampo>
+                    )}
                     <p className="col-span-12 text-xs text-ink-muted">
                       La sucursal, moneda e Incoterm se proponen desde la OC.
                     </p>
@@ -183,6 +240,56 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
                         onChange={(id) => update({ sucursalId: id })}
                       />
                     </FormCampo>
+                    {datos.ocId && (
+                      <FormCampo span={12} className="space-y-1.5">
+                        <Label>Agregar otra OC de la misma operación</Label>
+                        <CatalogoEagerCombobox
+                          items={(ocs.data ?? []).filter(
+                            (o) =>
+                              !(datos.ocIds ?? []).includes(o.id) &&
+                              o.moneda === datos.moneda &&
+                              o.sucursalId === datos.sucursalId &&
+                              (!proveedorId || o.proveedorId === proveedorId),
+                          )}
+                          value={null}
+                          onChange={(id) => {
+                            if (id) {
+                              const oc = (ocs.data ?? []).find((o) => o.id === id);
+                              if (oc) setFoliosOc((prev) => ({ ...prev, [id]: oc.folio }));
+                              update({ ocIds: [...(datos.ocIds ?? [datos.ocId!]), id] });
+                            }
+                          }}
+                          itemToLabel={(o) => o.folio}
+                          renderTrigger={(o) => o.folio}
+                          renderItem={(o) => o.folio}
+                          ariaLabel="Agregar OC de importación"
+                          placeholder="Agregar OC"
+                          emptyListText="Sin otras órdenes disponibles."
+                        />
+                        <ul>
+                          {(datos.ocIds ?? []).map((id, i) => (
+                            <li key={id}>
+                              {id === datos.ocId ? ocLabel : (foliosOc[id] ?? 'OC seleccionada')}
+                              {i > 0 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    update({ ocIds: datos.ocIds?.filter((ocId) => ocId !== id) })
+                                  }
+                                >
+                                  Quitar OC
+                                </Button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-xs text-ink-muted">
+                          Todas las OC deben corresponder al mismo proveedor, moneda y sucursal.
+                        </p>
+                      </FormCampo>
+                    )}
                     <p className="col-span-12 text-xs text-ink-muted">
                       Incoterm propuesto: DDP. Vincule los clientes y asigne los pedidos en la
                       pestaña Contenedores.

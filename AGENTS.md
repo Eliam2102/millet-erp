@@ -14,3 +14,6 @@ Pruebas de integración y PR: sigue `docs/qa/gate-integracion.md`.
 - Al crear o cambiar una entrada, contrasta los límites y reglas del proceso con la UI y el servidor. Cubre la solicitud directa, la carga masiva y el portal si escriben el mismo dato.
 - Conserva la consulta de registros históricos. Aplica las reglas nuevas al dato que se crea o modifica. Reutiliza los validadores y `ProblemDetails` y prueba el rechazo antes de persistir.
 - En documentos, comprueba el contenido con el validador del tipo antes de guardar. Si el trámite exige revisión documental, registra su resultado por versión, con actor, fecha y motivo. La validez del formato y la aprobación del documento son estados distintos.
+
+## Base operativa Millet
+Referencia única: `/Users/eliamcv/Documents/vilo/BASE DE CONCIMIENTO DE VIDRIOS/Obsidian ERP Millet`. Consultar Inicio, Cobertura y fichas pertinentes; registrar evidencias de cierre sin duplicar la bóveda.

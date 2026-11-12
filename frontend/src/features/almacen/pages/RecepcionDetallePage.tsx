@@ -70,7 +70,7 @@ export function RecepcionDetallePage() {
   const lineasEnRevision = query.data?.lineas.filter((l) => l.enRevision).length ?? 0;
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/recepciones" search={{}}>
@@ -144,7 +144,7 @@ export function RecepcionDetallePage() {
             mono
           />
 
-          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat [overflow-wrap:anywhere] @sm:grid-cols-2 @3xl:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
@@ -198,7 +198,7 @@ export function RecepcionDetallePage() {
               <>
                 <Campo label="Pedimento" valor={query.data.importacion.numeroPedimento} mono />
                 <Campo label="BL / guía aérea" valor={query.data.importacion.numeroBl} mono />
-                <Campo label="Contenedor" valor={query.data.importacion.numeroContenedor} mono />
+                <Campo label="Contenedor" valor={query.data.importacion.numeroContenedor ?? 'No aplica'} mono />
                 <Campo
                   label="Aduana"
                   valor={[query.data.importacion.aduana, query.data.importacion.aduanaNombre]
@@ -234,7 +234,7 @@ export function RecepcionDetallePage() {
               >
                 Bitácora
               </h2>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+              <dl className="grid grid-cols-1 gap-4 @sm:grid-cols-2 @3xl:grid-cols-4">
                 {query.data.registradoPorNombre && (
                   <Campo label="Registró" valor={query.data.registradoPorNombre} />
                 )}

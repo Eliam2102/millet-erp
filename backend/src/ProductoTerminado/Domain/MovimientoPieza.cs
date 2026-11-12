@@ -68,6 +68,16 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static MovimientoPieza PasoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, tipo, anterior, $"{albaranId}/{ocurridoAt.UtcTicks}", ocurridoAt, usuario);
 
+    /// <summary>
+    /// Salida por un albarán de A+W (el albarán vive en A+W): se llama después de embarcar; referencia =
+    /// <c>aw-albaran:{pedidoAlbaran}:{folio}</c>, con el pedido de A+W que lleva el albarán para no depender de que
+    /// <c>NR_LIEFERSCHEIN</c> sea único en todo A+W.
+    /// </summary>
+    public static MovimientoPieza SalidaAlbaranAw(PiezaPt pieza, EstadoPieza anterior, string pedidoAlbaran, int folio, DateTimeOffset ocurridoAt)
+        => new(pieza, TipoMovimientoPieza.Salida, anterior, ReferenciaAlbaranAw(pedidoAlbaran, folio), ocurridoAt, "sistema");
+
+    public static string ReferenciaAlbaranAw(string pedidoAlbaran, int folio) => $"aw-albaran:{pedidoAlbaran.Trim()}:{folio}";
+
     /// <summary>Reversa de la salida de una pieza por cancelación de albarán (PT5.8 / §11).</summary>
     public static MovimientoPieza SalidaCancelada(PiezaPt pieza, EstadoPieza anterior, Guid albaranId, string motivo, DateTimeOffset ocurridoAt, string usuario)
     {

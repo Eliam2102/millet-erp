@@ -77,7 +77,8 @@ internal static class LiquidacionMapeo
     }
 }
 
-public sealed class LiquidarRutaPtHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion, ICurrentEmpresaContext empresa, IClock clock)
+public sealed class LiquidarRutaPtHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion, ICurrentEmpresaContext empresa, IClock clock,
+    IIntegrationEventPublisher eventos)
     : IRequestHandler<LiquidarRutaPtCommand, LiquidacionDto>
 {
     public async Task<LiquidacionDto> Handle(LiquidarRutaPtCommand c, CancellationToken cancellationToken)
@@ -109,6 +110,12 @@ public sealed class LiquidarRutaPtHandler(ProductoTerminadoDbContext db, PtAcces
         {
             await RegistrarCobrosEnCajaAsync(liq, s, albaranes, cancellationToken);
             foreach (var alb in albaranes.Values) alb.MarcarLiquidado(clock.UtcNow);
+            var ahora = clock.UtcNow;
+            var ids = albaranes.Values.Select(a => a.PedidoPtId).Distinct().ToList();
+            foreach (var pedido in await db.PedidosPt.Where(p => ids.Contains(p.Id)).ToListAsync(cancellationToken))
+                if (pedido.Confirmar72(ahora))
+                    await eventos.PublishAsync(new PedidoEnRutaEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, s.Folio,
+                        albaranes.Values.First(a => a.PedidoPtId == pedido.Id).Folio, s.CartaPorteFolio), cancellationToken);
         }
         await db.SaveChangesAsync(cancellationToken);
         return await LiquidacionMapeo.ADtoAsync(db, pedidosPort, facturacion, empresaId, s, liq, cancellationToken);

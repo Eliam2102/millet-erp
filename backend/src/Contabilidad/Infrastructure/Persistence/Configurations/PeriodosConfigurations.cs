@@ -43,3 +43,24 @@ public sealed class PeriodoContableConfiguration : IEntityTypeConfiguration<Peri
         builder.HasOne<EjercicioContable>().WithMany().HasForeignKey(x => x.EjercicioId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+/// <summary><c>contabilidad.reaperturas_periodo</c> (M-213): alcance, evidencia y vencimiento de cada reapertura acotada.</summary>
+public sealed class ReaperturaPeriodoConfiguration : IEntityTypeConfiguration<ReaperturaPeriodo>
+{
+    public void Configure(EntityTypeBuilder<ReaperturaPeriodo> builder)
+    {
+        builder.ToTable("reaperturas_periodo");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.TiposPoliza).HasColumnType("text[]").IsRequired();
+        builder.Property(x => x.PrefijosCuenta).HasColumnType("text[]").IsRequired();
+        builder.Property(x => x.Modulos).HasColumnType("text[]").IsRequired();
+        builder.Property(x => x.UsuariosIds).HasColumnType("uuid[]").IsRequired();
+        builder.Property(x => x.EvidenciaReferencia).HasMaxLength(ReaperturaPeriodo.EvidenciaMaximo).IsRequired();
+        builder.Property(x => x.CreadaPor).HasMaxLength(256).IsRequired();
+        builder.Ignore(x => x.TieneAlcance);
+        builder.HasIndex(x => new { x.EmpresaId, x.Anio, x.Numero }).HasFilter("vigente").HasDatabaseName("ix_reaperturas_periodo_vigente");
+        builder.HasIndex(x => new { x.Vigente, x.VenceEn }).HasDatabaseName("ix_reaperturas_periodo_vence");
+        builder.HasOne<PeriodoContable>().WithMany().HasForeignKey(x => x.PeriodoId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

@@ -141,7 +141,9 @@ public sealed class FinanzasServicio(ComercioExteriorDbContext db, ExpedienteSer
     {
         if (e.Tipo == TipoExpediente.Importacion)
         {
-            var recibidas = await recepciones.ListarAsync(e.EmpresaId, e.SucursalId, e.OcId!.Value, ct);
+            List<RecepcionCostoLectura> recibidas = [];
+            foreach (var ocId in e.OrdenesCompraIds)
+                recibidas.AddRange(await recepciones.ListarAsync(e.EmpresaId, e.SucursalId, ocId, ct));
             return recibidas.Select(r =>
             {
                 var b = e.PartidasCosto.SingleOrDefault(p => p.Id == r.PartidaId);

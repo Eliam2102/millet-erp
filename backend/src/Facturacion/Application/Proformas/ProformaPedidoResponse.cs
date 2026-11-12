@@ -19,15 +19,36 @@ public sealed record ProformaPedidoResponse(
     ProformaCfdi Contenido,
     IReadOnlyList<string> Avisos,
     DateOnly? VigenteHasta = null,
-    bool Vencida = false)
+    bool Vencida = false,
+    ProformaConformidadResponse? Conformidad = null)
 {
-    public static ProformaPedidoResponse Desde(ProformaPedido p, DateTimeOffset? ahoraUtc = null)
+    public static ProformaPedidoResponse Desde(
+        ProformaPedido p, DateTimeOffset? ahoraUtc = null, ProformaConformidad? conformidad = null)
     {
         ArgumentNullException.ThrowIfNull(p);
         var hoy = Timbrado.CfdiEmisionBuilder.DiaFiscal(ahoraUtc ?? DateTimeOffset.UtcNow);
         return new(p.Id, p.PedidoFacturableId, p.Folio, p.NumeroVersion, p.GeneradaEn, p.GeneradaPorNombre,
             p.NumeroPedido, ProformaJson.LeerContenido(p.ContenidoJson), ProformaJson.LeerAvisos(p.AvisosJson),
-            p.VigenteHasta, p.VencidaEl(hoy));
+            p.VigenteHasta, p.VencidaEl(hoy),
+            conformidad is null ? null : ProformaConformidadResponse.Desde(conformidad));
+    }
+}
+
+/// <summary>M-234: conformidad del cliente con una versión de la proforma.</summary>
+public sealed record ProformaConformidadResponse(
+    Guid Id,
+    Guid ProformaId,
+    string Quien,
+    DateOnly Fecha,
+    string Medio,
+    string? Notas,
+    string? RegistradaPor,
+    DateTimeOffset RegistradaEn)
+{
+    public static ProformaConformidadResponse Desde(ProformaConformidad c)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        return new(c.Id, c.ProformaPedidoId, c.Quien, c.Fecha, c.Medio.ToString(), c.Notas, c.RegistradaPorNombre, c.RegistradaEn);
     }
 }
 

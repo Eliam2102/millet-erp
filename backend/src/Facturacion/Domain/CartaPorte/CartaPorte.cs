@@ -135,4 +135,66 @@ public sealed class CartaPorte : Comprobante
         _mercancias.Add(mercancia);
         return mercancia;
     }
+
+    /// <summary>Datos del tramo que se pueden corregir (solo los informados cambian).</summary>
+    public sealed record CorreccionDatos(
+        string? Origen = null, string? Destino = null, decimal? DistanciaKm = null,
+        string? OrigenCodigoPostal = null, string? OrigenEstado = null,
+        string? DestinoCodigoPostal = null, string? DestinoEstado = null,
+        Guid? VehiculoId = null, Guid? OperadorId = null,
+        DateTimeOffset? FechaSalida = null, DateTimeOffset? FechaLlegadaEstimada = null);
+
+    /// <summary>
+    /// M-354: corrige los datos de un tramo observado (timbrado fallido) antes de reemitir. Una Carta Porte timbrada es
+    /// inmutable. Devuelve los campos que realmente cambiaron (para la bitácora); los que no cambian se ignoran.
+    /// </summary>
+    public IReadOnlyList<CambioTramo> CorregirDatosTramo(CorreccionDatos d, string? vehiculoAnterior, string? vehiculoNuevo, string? operadorAnterior, string? operadorNuevo)
+    {
+        if (Estado != EstadoTimbrado.TimbradoFallido)
+            throw new BusinessRuleException("CARTA_PORTE_NO_CORREGIBLE",
+                $"Solo se corrige una Carta Porte observada (timbrado fallido); estado actual: {Estado}.");
+        if (d.Origen is not null && string.IsNullOrWhiteSpace(d.Origen) || d.Destino is not null && string.IsNullOrWhiteSpace(d.Destino))
+            throw new BusinessRuleException("CARTA_PORTE_TRAMO_INVALIDO", "El origen y el destino del tramo son obligatorios.");
+        if (d.DistanciaKm is < 0)
+            throw new BusinessRuleException("CARTA_PORTE_TRAMO_INVALIDO", "La distancia no puede ser negativa.");
+
+        var cambios = new List<CambioTramo>();
+        string? Texto(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        void Cambiar<T>(string campo, T? nuevo, T actual, Action<T> aplicar, Func<T, string?> formato) where T : struct
+        {
+            if (nuevo is not { } n || EqualityComparer<T>.Default.Equals(n, actual))
+                return;
+            cambios.Add(new CambioTramo(campo, formato(actual), formato(n)));
+            aplicar(n);
+        }
+        void CambiarTexto(string campo, string? nuevo, string? actual, Action<string> aplicar)
+        {
+            var n = Texto(nuevo);
+            if (n is null || string.Equals(n, actual, StringComparison.Ordinal))
+                return;
+            cambios.Add(new CambioTramo(campo, actual, n));
+            aplicar(n);
+        }
+
+        CambiarTexto("origen", d.Origen, Origen, v => Origen = v);
+        CambiarTexto("destino", d.Destino, Destino, v => Destino = v);
+        CambiarTexto("origen.codigoPostal", d.OrigenCodigoPostal, OrigenCodigoPostal, v => OrigenCodigoPostal = v);
+        CambiarTexto("origen.estado", d.OrigenEstado, OrigenEstado, v => OrigenEstado = v);
+        CambiarTexto("destino.codigoPostal", d.DestinoCodigoPostal, DestinoCodigoPostal, v => DestinoCodigoPostal = v);
+        CambiarTexto("destino.estado", d.DestinoEstado, DestinoEstado, v => DestinoEstado = v);
+        Cambiar("distanciaKm", d.DistanciaKm, DistanciaKm, v => DistanciaKm = v, v => v.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Cambiar("fechaSalida", d.FechaSalida?.ToUniversalTime(), FechaSalida, v => FechaSalida = v, v => v.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        Cambiar("fechaLlegadaEstimada", d.FechaLlegadaEstimada?.ToUniversalTime(), FechaLlegadaEstimada, v => FechaLlegadaEstimada = v, v => v.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        if (d.VehiculoId is Guid vid && vid != Guid.Empty && vid != VehiculoId)
+        {
+            cambios.Add(new CambioTramo("vehiculo", vehiculoAnterior ?? VehiculoId.ToString(), vehiculoNuevo ?? vid.ToString()));
+            VehiculoId = vid;
+        }
+        if (d.OperadorId is Guid oid && oid != Guid.Empty && oid != OperadorId)
+        {
+            cambios.Add(new CambioTramo("operador", operadorAnterior ?? OperadorId.ToString(), operadorNuevo ?? oid.ToString()));
+            OperadorId = oid;
+        }
+        return cambios;
+    }
 }

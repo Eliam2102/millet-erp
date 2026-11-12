@@ -1,15 +1,28 @@
-# 11 · Pinturas ↔ ERP: tablas en `MILLET_INTEGRACION` (script 16 v3)
+# 11 · Pinturas ↔ ERP: tablas en `MILLET_INTEGRACION` (script 16 v4)
 
-Estado: **propuesta para visto bueno de TI de Millet**; el script no se ha ejecutado en ninguna base de Millet. Se validó solo en un SQL Server 2022 local desechable (crea todo, repite sin error, permisos comprobados con los dos usuarios).
+Estado: la **v3** ya la aplicó TI de Millet en `MILLET_INTEGRACION_DEV` (tablas creadas, vacías). La **v4** (trazabilidad de empleados) es **propuesta para visto bueno de TI** y se aplica encima de la v3 sin borrar nada. La v3 se validó solo en un SQL Server 2022 local desechable (crea todo, repite sin error, permisos comprobados con los dos usuarios).
 Script: `docs/operacion/aw-integracion-scripts/16_create_pinturas.sql`. Demo en Postgres: `tools/aw-origen-demo/pinturas.sql`.
 Fuentes: respuestas de TI del 30-oct y 1-nov (hilo «Correcciones y script de Pinturas»), acuerdo del 28-oct, revisión de Jorge Toache a la v2 (10-nov).
 
 ## Flujo
 
 - El ERP **publica** cuatro catálogos (`pinturas_cliente`, `pinturas_servicio`, `pinturas_obra`, `pinturas_empleado`); el portal solo los lee. Publicación en segundos, baja lógica con `activo = 0`.
-- El portal **inserta** la orden en dos tablas, en **una sola transacción**: la cabecera en `pinturas_pedido` (`folio_orden` único, `fecha_pedido`, cliente, obra, comentarios, IVA, moneda) y el detalle en `pinturas_pedido_linea` (una fila por línea: servicio, m2, precio por m2 y piezas si las hay). El ERP la lee cada 10 s (`PlantaPinturaImportWorker`), arma **una línea de venta por cada línea** y escribe el acuse en la cabecera. Una cabecera sin líneas no se toma.
+- El portal **inserta** la orden en dos tablas, en **una sola transacción**: la cabecera en `pinturas_pedido` (`folio_orden` único, `fecha_pedido`, cliente, obra, comentarios, IVA, moneda) y el detalle en `pinturas_pedido_linea` (una fila por línea: servicio, m2, precio por m2 y piezas si las hay). El ERP la lee cada 10 s (`PlantaPinturaImportWorker`), arma **una línea de venta por cada línea** y escribe el acuse en la cabecera. Una cabecera sin líneas no se toma; si sigue sin líneas después de `IntegracionesAw:Pinturas:MinutosCabeceraSinLineas` (10 min por omisión), el ERP la acusa con `erp_resultado = 2` y `erp_error` «Orden sin renglones: …» (Jorge Toache, 10-nov: el folio es único y el portal no edita ni borra, así que sin acuse quedaría invisible). Pinturas la captura de nuevo con otro folio.
 - **Sin reenvío:** una orden transmitida queda cerrada. Si el ERP la rechaza, se captura una orden nueva con folio nuevo (hay que recapturar el presupuesto; Pinturas lo aceptó el 1-nov como «documentos muertos»). Que el portal no pueda actualizar es una garantía de base de datos, no solo de convención.
 - **Acuse de rechazo:** `erp_resultado = 2` y `erp_error` con el campo (columna de `pinturas_pedido`) y el valor que no cuadró, por ejemplo `cliente_clave='900123': no existe en el ERP` o `iva_porcentaje=8: no coincide con la tasa del servicio 'SER95224' (16)`. Lo arma `ImportarPedidoPlantaPinturaHandler`.
+
+## Contrato v4 (trazabilidad de empleados, 10-nov)
+
+Jorge Toache (10-nov): los usuarios del portal ya están ligados a empleados de A+W, pero hoy capturista y vendedor viajan con valores fijos. Millet decidió que sí quiere saber quién capturó y quién vendió cada orden.
+
+| Objeto | Cambio |
+|---|---|
+| `pinturas_pedido.empleado_captura_clave` | Nueva, `nvarchar(50) NOT NULL`: clave del empleado del usuario del portal que transmite la orden (la misma de `pinturas_empleado.clave`) |
+| `pinturas_pedido.vendedor_clave` | Nueva, `nvarchar(50) NULL`: clave del vendedor de la orden, si la tiene |
+| Aplicación | Idempotente sobre la v3: `IF COL_LENGTH(...) IS NULL ALTER TABLE ... ADD`. La `NOT NULL` entra con un default temporal que se quita enseguida; el portal siempre debe mandar la clave |
+| Permisos | Sin cambio: el portal conserva `INSERT` en la cabecera (incluye las columnas nuevas) y el ERP su `SELECT` |
+
+En el ERP: la ingesta valida ambas claves contra el catálogo de empleados (el mismo que publica `pinturas_empleado`, activos o de baja). Clave desconocida = `erp_resultado = 2` con `empleado_captura_clave=<clave>: no existe en el ERP` (o `vendedor_clave=…`); capturista vacío también se rechaza. Las claves se guardan en el pedido de venta (`pedido_facturable.empleado_captura_clave` y `vendedor_clave`) y salen en el detalle del pedido.
 
 ## Contrato v3 (revisión de Jorge, 10-nov)
 
@@ -47,7 +60,7 @@ El índice filtrado de pendientes exige `QUOTED_IDENTIFIER ON`. sqlcmd lo abre e
 - Configuración `IntegracionesAw:Pinturas`: `SucursalClave` (la tabla no trae sucursal; vacía = no lee), `ComportamientoFiscal` (por omisión `MostradorInmediato`, a validar) y `SqlQueryTimeoutSeconds`. El worker conserva sus candados (`Facturacion:Workers:PlantaPinturaImport`: `EmpresaId`, `Disabled`).
 - Mapeo: `cliente_clave` (int) se busca como texto en `Cliente.ReferenciaExterna`; `servicio_clave` en la referencia del producto; `iva_porcentaje` 16 → 0.16; versión fija 1 (sin reenvío); `ObraId` solo si la obra viene de A+W (`pinturas_obra.referencia_aw`); la orden completa (cabecera y líneas, con piezas) queda como payload crudo.
 - Sigue pendiente (sin tarea): contacto y celular en el cliente del ERP, catálogo de obras, y el retorno de estado/UUID a Pinturas (por confirmar con TI; la tabla no tiene columnas para eso).
-- `pinturas_empleado`: el ERP lo publica (`PinturasCatalogosExtractor` toma todos los empleados de Administración) pero **nada en el ERP lo lee**: la orden no trae empleado ni vendedor y el pedido de venta no tiene ese campo. Se conserva hasta que Millet decida si la orden debe llevar quién la capturó o vendió.
+- `pinturas_empleado`: el ERP lo publica (`PinturasCatalogosExtractor` toma todos los empleados de Administración) y desde la v4 valida contra ese mismo catálogo `empleado_captura_clave` y `vendedor_clave` de la orden (`IEmpleadosReadPort`); el pedido de venta guarda ambas claves.
 
 ## Preguntas abiertas (campos configurables, sin decidir)
 
@@ -57,4 +70,4 @@ El índice filtrado de pendientes exige `QUOTED_IDENTIFIER ON`. sqlcmd lo abre e
 4. Cuáles de los 263 servicios restantes del grupo 158 se marcan y la carga de los 85 con sus claves.
 5. Longitudes (`folio_orden`, claves de servicio/obra/empleado en `nvarchar(50)`) contra `Pinturas_NEW`.
 6. Pendiente de otra línea: el registro que Pinturas escribe en el Portal de Salidas no está en este script. Sigue mientras el portal opere; antes de apagarlo se define con Pinturas qué datos necesita el ERP para la salida y la Carta Porte.
-7. Si la orden debe llevar empleado (capturista o vendedor) y para qué se usaría en el ERP.
+7. ~~Si la orden debe llevar empleado (capturista o vendedor).~~ Resuelta el 10-nov: sí, por trazabilidad (v4).

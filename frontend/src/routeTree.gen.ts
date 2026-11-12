@@ -35,6 +35,7 @@ import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/c
 import { Route as AppAlmacenConciliacionRouteImport } from './routes/_app/almacen/conciliacion';
 import { Route as AppAlmacenConsumosRevisionRouteImport } from './routes/_app/almacen/consumos-revision';
 import { Route as AppAlmacenMensajesAppRouteImport } from './routes/_app/almacen/mensajes-app';
+import { Route as AppAlmacenOrigenCapturaRouteImport } from './routes/_app/almacen/origen-captura';
 import { Route as AppAlmacenMermasRouteImport } from './routes/_app/almacen/mermas';
 import { Route as AppAlmacenNormasConsumoRouteImport } from './routes/_app/almacen/normas-consumo';
 import { Route as AppAlmacenTamboresLineaRouteImport } from './routes/_app/almacen/tambores-linea';
@@ -216,6 +217,7 @@ import { Route as AppTesoreriaCuentasIndexRouteImport } from './routes/_app/teso
 import { Route as AppTesoreriaDepositosIndexRouteImport } from './routes/_app/tesoreria/depositos/index';
 import { Route as AppTesoreriaDevolucionesIndexRouteImport } from './routes/_app/tesoreria/devoluciones/index';
 import { Route as AppTesoreriaDevolucionesIdRouteImport } from './routes/_app/tesoreria/devoluciones/$id';
+import { Route as AppTesoreriaChequesIndexRouteImport } from './routes/_app/tesoreria/cheques/index';
 import { Route as AppTesoreriaDiferenciasCorteIndexRouteImport } from './routes/_app/tesoreria/diferencias-corte/index';
 import { Route as AppTesoreriaFoliosTransferenciaIndexRouteImport } from './routes/_app/tesoreria/folios-transferencia/index';
 import { Route as AppTesoreriaMovimientosIndexRouteImport } from './routes/_app/tesoreria/movimientos/index';
@@ -399,6 +401,12 @@ const AppAlmacenMensajesAppRoute =
   AppAlmacenMensajesAppRouteImport.update({
     id: '/almacen/mensajes-app',
     path: '/almacen/mensajes-app',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenOrigenCapturaRoute =
+  AppAlmacenOrigenCapturaRouteImport.update({
+    id: '/almacen/origen-captura',
+    path: '/almacen/origen-captura',
     getParentRoute: () => AppRoute,
   } as any);
 const AppAlmacenMermasRoute = AppAlmacenMermasRouteImport.update({
@@ -1397,6 +1405,12 @@ const AppTesoreriaDevolucionesIdRoute =
     path: '/tesoreria/devoluciones/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppTesoreriaChequesIndexRoute =
+  AppTesoreriaChequesIndexRouteImport.update({
+    id: '/tesoreria/cheques/',
+    path: '/tesoreria/cheques/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaDiferenciasCorteIndexRoute =
   AppTesoreriaDiferenciasCorteIndexRouteImport.update({
     id: '/tesoreria/diferencias-corte/',
@@ -1696,6 +1710,7 @@ export interface FileRoutesByFullPath {
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -1882,6 +1897,7 @@ export interface FileRoutesByFullPath {
   '/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
   '/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
+  '/tesoreria/cheques/': typeof AppTesoreriaChequesIndexRoute;
   '/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
@@ -1950,6 +1966,7 @@ export interface FileRoutesByTo {
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -2136,6 +2153,7 @@ export interface FileRoutesByTo {
   '/tesoreria/cuentas': typeof AppTesoreriaCuentasIndexRoute;
   '/tesoreria/depositos': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones': typeof AppTesoreriaDevolucionesIndexRoute;
+  '/tesoreria/cheques': typeof AppTesoreriaChequesIndexRoute;
   '/tesoreria/diferencias-corte': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/tesoreria/folios-transferencia': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos': typeof AppTesoreriaMovimientosIndexRoute;
@@ -2206,6 +2224,7 @@ export interface FileRoutesById {
   '/_app/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/_app/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/_app/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/_app/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/_app/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/_app/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/_app/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -2392,6 +2411,7 @@ export interface FileRoutesById {
   '/_app/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
   '/_app/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/_app/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
+  '/_app/tesoreria/cheques/': typeof AppTesoreriaChequesIndexRoute;
   '/_app/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/_app/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/_app/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
@@ -2462,6 +2482,7 @@ export interface FileRouteTypes {
     | '/almacen/conciliacion'
     | '/almacen/consumos-revision'
     | '/almacen/mensajes-app'
+    | '/almacen/origen-captura'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
     | '/almacen/tambores-linea'
@@ -2648,6 +2669,7 @@ export interface FileRouteTypes {
     | '/tesoreria/cuentas/'
     | '/tesoreria/depositos/'
     | '/tesoreria/devoluciones/'
+    | '/tesoreria/cheques/'
     | '/tesoreria/diferencias-corte/'
     | '/tesoreria/folios-transferencia/'
     | '/tesoreria/movimientos/'
@@ -2716,6 +2738,7 @@ export interface FileRouteTypes {
     | '/almacen/conciliacion'
     | '/almacen/consumos-revision'
     | '/almacen/mensajes-app'
+    | '/almacen/origen-captura'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
     | '/almacen/tambores-linea'
@@ -2902,6 +2925,7 @@ export interface FileRouteTypes {
     | '/tesoreria/cuentas'
     | '/tesoreria/depositos'
     | '/tesoreria/devoluciones'
+    | '/tesoreria/cheques'
     | '/tesoreria/diferencias-corte'
     | '/tesoreria/folios-transferencia'
     | '/tesoreria/movimientos'
@@ -2971,6 +2995,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/conciliacion'
     | '/_app/almacen/consumos-revision'
     | '/_app/almacen/mensajes-app'
+    | '/_app/almacen/origen-captura'
     | '/_app/almacen/mermas'
     | '/_app/almacen/normas-consumo'
     | '/_app/almacen/tambores-linea'
@@ -3157,6 +3182,7 @@ export interface FileRouteTypes {
     | '/_app/tesoreria/cuentas/'
     | '/_app/tesoreria/depositos/'
     | '/_app/tesoreria/devoluciones/'
+    | '/_app/tesoreria/cheques/'
     | '/_app/tesoreria/diferencias-corte/'
     | '/_app/tesoreria/folios-transferencia/'
     | '/_app/tesoreria/movimientos/'
@@ -3390,6 +3416,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/mensajes-app';
       fullPath: '/almacen/mensajes-app';
       preLoaderRoute: typeof AppAlmacenMensajesAppRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/origen-captura': {
+      id: '/_app/almacen/origen-captura';
+      path: '/almacen/origen-captura';
+      fullPath: '/almacen/origen-captura';
+      preLoaderRoute: typeof AppAlmacenOrigenCapturaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/mermas': {
@@ -4659,6 +4692,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaDevolucionesIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/tesoreria/cheques/': {
+      id: '/_app/tesoreria/cheques/';
+      path: '/tesoreria/cheques';
+      fullPath: '/tesoreria/cheques/';
+      preLoaderRoute: typeof AppTesoreriaChequesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/tesoreria/diferencias-corte/': {
       id: '/_app/tesoreria/diferencias-corte/';
       path: '/tesoreria/diferencias-corte';
@@ -5023,6 +5063,7 @@ interface AppRouteChildren {
   AppAlmacenConciliacionRoute: typeof AppAlmacenConciliacionRoute;
   AppAlmacenConsumosRevisionRoute: typeof AppAlmacenConsumosRevisionRoute;
   AppAlmacenMensajesAppRoute: typeof AppAlmacenMensajesAppRoute;
+  AppAlmacenOrigenCapturaRoute: typeof AppAlmacenOrigenCapturaRoute;
   AppAlmacenMermasRoute: typeof AppAlmacenMermasRoute;
   AppAlmacenNormasConsumoRoute: typeof AppAlmacenNormasConsumoRoute;
   AppAlmacenTamboresLineaRoute: typeof AppAlmacenTamboresLineaRoute;
@@ -5209,6 +5250,7 @@ interface AppRouteChildren {
   AppTesoreriaCuentasIndexRoute: typeof AppTesoreriaCuentasIndexRoute;
   AppTesoreriaDepositosIndexRoute: typeof AppTesoreriaDepositosIndexRoute;
   AppTesoreriaDevolucionesIndexRoute: typeof AppTesoreriaDevolucionesIndexRoute;
+  AppTesoreriaChequesIndexRoute: typeof AppTesoreriaChequesIndexRoute;
   AppTesoreriaDiferenciasCorteIndexRoute: typeof AppTesoreriaDiferenciasCorteIndexRoute;
   AppTesoreriaFoliosTransferenciaIndexRoute: typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   AppTesoreriaMovimientosIndexRoute: typeof AppTesoreriaMovimientosIndexRoute;
@@ -5276,6 +5318,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenConciliacionRoute: AppAlmacenConciliacionRoute,
   AppAlmacenConsumosRevisionRoute: AppAlmacenConsumosRevisionRoute,
   AppAlmacenMensajesAppRoute: AppAlmacenMensajesAppRoute,
+  AppAlmacenOrigenCapturaRoute: AppAlmacenOrigenCapturaRoute,
   AppAlmacenMermasRoute: AppAlmacenMermasRoute,
   AppAlmacenNormasConsumoRoute: AppAlmacenNormasConsumoRoute,
   AppAlmacenTamboresLineaRoute: AppAlmacenTamboresLineaRoute,
@@ -5487,6 +5530,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppTesoreriaCuentasIndexRoute: AppTesoreriaCuentasIndexRoute,
   AppTesoreriaDepositosIndexRoute: AppTesoreriaDepositosIndexRoute,
   AppTesoreriaDevolucionesIndexRoute: AppTesoreriaDevolucionesIndexRoute,
+  AppTesoreriaChequesIndexRoute:
+    AppTesoreriaChequesIndexRoute,
   AppTesoreriaDiferenciasCorteIndexRoute:
     AppTesoreriaDiferenciasCorteIndexRoute,
   AppTesoreriaFoliosTransferenciaIndexRoute:

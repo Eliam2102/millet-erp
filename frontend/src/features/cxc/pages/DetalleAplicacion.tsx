@@ -40,6 +40,7 @@ import { esApiError } from '@/lib/api';
 const ETIQUETA_TIPO_AJUSTE: Record<TipoAjusteCobro, string> = {
   [TipoAjusteCobro.ComisionBancaria]: 'Comisión bancaria',
   [TipoAjusteCobro.DiferenciaMenor]: 'Diferencia menor en cobro',
+  [TipoAjusteCobro.Redondeo]: 'Redondeo (hasta $0.99)',
 };
 
 export function DetalleAplicacion() {
@@ -47,7 +48,7 @@ export function DetalleAplicacion() {
   const query = usePropuestaAplicacion(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la propuesta"
@@ -73,7 +74,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
   const sumaAplicada = p.facturas.reduce((a, f) => a + f.importeAplicado, 0);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* ── Sub-topbar §6.5 ─────────────────────────────────────── */}
       <div data-print="hidden">
         <PageHeader
@@ -102,14 +103,14 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className="@container min-w-0 space-y-5">
         {/* ── Depósito ─────────────────────────────────────────── */}
         <section className="rounded-md border bg-surface-card p-4" aria-label="Depósito">
           <h3 className="text-sm font-medium">Depósito</h3>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
+          <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 @sm:grid-cols-2 @3xl:grid-cols-4 text-sm">
             <div>
               <dt className="text-xs text-ink-muted">Cliente</dt>
-              <dd className="truncate">{cliente?.razonSocial || <span className="text-ink-muted">—</span>}</dd>
+              <dd className="[overflow-wrap:anywhere]">{cliente?.razonSocial || <span className="text-ink-muted">—</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Monto</dt>
@@ -119,7 +120,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Aviso de pago</dt>
-              <dd className="truncate text-xs">{p.remittanceRef || <span className="text-ink-muted">Sin referencia</span>}</dd>
+              <dd className="text-xs [overflow-wrap:anywhere]">{p.remittanceRef || <span className="text-ink-muted">Sin referencia</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Ajuste no fiscal</dt>
@@ -287,7 +288,7 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
           </div>
         )}
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4">
+      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 @sm:grid-cols-2 @3xl:grid-cols-4">
         <div>
           <dt className="text-xs text-ink-muted">Importe aplicado</dt>
           <dd className="font-mono tabular-nums">

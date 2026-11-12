@@ -3,7 +3,7 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Domain;
 
-public enum ModalidadTransporte { Maritimo = 1, Terrestre = 2, Aereo = 3 }
+public enum ModalidadTransporte { Maritimo = 1, Terrestre = 2, Aereo = 3, Paqueteria = 4 }
 
 public sealed class PartidaImportacion : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelongsToAggregate
 {
@@ -19,8 +19,11 @@ public sealed class PartidaImportacion : BaseEntity, IAuditable, IPerteneceAEmpr
     public DateOnly? FechaRecepcion { get; private set; }
     public DateOnly? CompromisoRecepcion { get; private set; }
     public Guid[] EventosRecepcion { get; private set; } = [];
-    internal void RegistrarRecepcion(Guid evento, decimal cantidad, DateOnly fecha, DateOnly compromiso)
-    { CantidadRecibida = cantidad; FechaRecepcion = fecha; CompromisoRecepcion = compromiso; EventosRecepcion = [.. EventosRecepcion, evento]; }
+    internal void RegistrarRecepcion(Guid? evento, decimal cantidad, DateOnly fecha, DateOnly compromiso)
+    {
+        if (CantidadRecibida != cantidad) { CantidadRecibida = cantidad; FechaRecepcion = fecha; CompromisoRecepcion = compromiso; }
+        if (evento is Guid id) EventosRecepcion = [.. EventosRecepcion, id];
+    }
     public Guid RegistradoPorId { get; private set; }
     internal void AjustarCantidad(decimal nueva) => Cantidad = nueva;
     private PartidaImportacion() { }
@@ -72,6 +75,7 @@ public sealed partial class Expediente
             ModalidadTransporte.Maritimo => TipoParticipante.Naviera,
             ModalidadTransporte.Terrestre => TipoParticipante.TransportistaTerrestre,
             ModalidadTransporte.Aereo => TipoParticipante.Aerolinea,
+            ModalidadTransporte.Paqueteria => TipoParticipante.TransportistaTerrestre,
             _ => throw new BusinessRuleException("CE_MODALIDAD_REQUERIDA", "Seleccione la modalidad de transporte del contenedor antes de embarcar.")
         };
         if (!_participantes.Any(p => p.Tipo == tipo))

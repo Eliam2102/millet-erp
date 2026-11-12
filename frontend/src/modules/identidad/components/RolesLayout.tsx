@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { KeyRound, Plus } from 'lucide-react';
@@ -41,41 +42,45 @@ export function RolesLayout({ idActivo, detalle }: RolesLayoutProps) {
   const items = useMemo(() => rolesQuery.data?.items ?? [], [rolesQuery.data]);
 
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de roles"
-        data-print="hidden"
-      >
-        <PageHeader
-          titulo={<>Roles</>}
-          descripcion={<></>}
-          acciones={
-            <>
-              {canCrear && (
-                <Button size="sm" onClick={() => nuevoRol.abrir()}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Nuevo
-                </Button>
-              )}
-            </>
-          }
-        />
-
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          <RenderLista
-            query={rolesQuery}
-            items={items}
-            idActivo={idActivo}
-            canCrear={canCrear}
-            onAbrirNuevo={() => nuevoRol.abrir()}
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista={'roles'}
+      lista={
+        <aside
+          className={cn(
+            'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+            idActivo != null ? 'hidden md:flex' : 'flex',
+          )}
+          aria-label="Lista de roles"
+          data-print="hidden"
+        >
+          <PageHeader
+            titulo={<>Roles</>}
+            descripcion={<></>}
+            acciones={
+              <>
+                {canCrear && (
+                  <Button size="sm" onClick={() => nuevoRol.abrir()}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Nuevo
+                  </Button>
+                )}
+              </>
+            }
           />
-        </div>
-      </aside>
 
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            <RenderLista
+              query={rolesQuery}
+              items={items}
+              idActivo={idActivo}
+              canCrear={canCrear}
+              onAbrirNuevo={() => nuevoRol.abrir()}
+            />
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
           'min-w-0 flex-1 md:overflow-y-auto',
@@ -85,7 +90,7 @@ export function RolesLayout({ idActivo, detalle }: RolesLayoutProps) {
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

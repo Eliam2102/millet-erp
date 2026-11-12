@@ -16,6 +16,8 @@ public sealed class ConsumoComponenteAw : IPerteneceAEmpresa
     public const string Excepcion = "EXCEPCION";
     /// <summary>M-172: el artículo se consume por tambor a línea (se descontó al surtirlo); no se descuenta por pieza.</summary>
     public const string PorTambor = "POR_TAMBOR";
+    /// <summary>Fernando 10-nov: consumo calculado con la norma solo para estadística; el inventario baja con la salida del almacén.</summary>
+    public const string Estadistico = "ESTADISTICO";
     public const string Tipo = "CONSUMO_COMPONENTE";
 
     public Guid Id { get; private set; }

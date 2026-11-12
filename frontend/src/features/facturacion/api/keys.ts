@@ -57,6 +57,10 @@ export const facturacionKeys = {
   pedidoSalidas: (id: string) =>
     [...facturacionKeys.pedidos(), 'byId', id, 'salidas'] as const,
   // U1.8a: última proforma (sin valor fiscal) del pedido.
+  pedidoTramos: (id: string) =>
+    [...facturacionKeys.pedidos(), 'byId', id, 'tramos'] as const,
+  cartaPorteCorrecciones: (id: string) =>
+    [...facturacionKeys.all, 'carta-porte', 'byId', id, 'correcciones'] as const,
   pedidoUltimaProforma: (id: string) =>
     [...facturacionKeys.pedidos(), 'byId', id, 'proforma-ultima'] as const,
   pedidosExcepciones: () =>

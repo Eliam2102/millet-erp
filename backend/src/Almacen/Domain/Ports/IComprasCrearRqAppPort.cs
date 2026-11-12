@@ -35,7 +35,11 @@ public sealed record AvisoRqAppResultado(string? Folio, string? Error);
 
 public sealed record CrearRqAppSolicitud(
     string FolioExterno, string SucursalCodigo, int ProveedorClaveAw,
-    DateOnly? FechaRequerida, string? Comentario, IReadOnlyList<LineaRqApp> Lineas);
+    DateOnly? FechaRequerida, string? Comentario, IReadOnlyList<LineaRqApp> Lineas)
+{
+    /// <summary>Equipo (Dim3) de Almacén que llevan las líneas (Jorge, 11-nov: lo que pide la app es del área de Almacén).</summary>
+    public Guid? CentroCostoId { get; init; }
+}
 
 /// <summary><c>Posicion</c> (v9): la de la app; REQUISICION_REDUCIDA se refiere a ella. Medidas en mm enteros (ver el parseo).</summary>
 public sealed record LineaRqApp(string ArticuloAw, int Piezas, int? AnchoMm, int? AltoMm, string? Obra, int? Posicion = null);

@@ -101,7 +101,8 @@ public sealed class GeneradorRecurrentes(ContabilidadDbContext db, RegistroPoliz
         await registro.EnTransaccionAsync(async t =>
         {
             var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(x => x.Id == p.TipoOperacionId, t);
-            await registro.VerificarPeriodoAsync(anio, mes, OrigenPoliza.Manual, t, p.EmpresaId);
+            await registro.VerificarPeriodoAsync(anio, mes, OrigenPoliza.Manual, t, p.EmpresaId,
+                await registro.ContextoAsync(tipo.Clave, p.CreadaPorId, null, p.Partidas.Select(x => x.CuentaId), t));
             var partidas = await registro.ValidarPartidasAsync([.. p.Partidas.Select(Request)], tipo.Id, fecha, OrigenMovimiento.Manual, t);
             poliza = Poliza.CrearManual(Guid.CreateVersion7(), tipo, fecha, anio, mes, $"{p.Concepto} ({PeriodoContable.Nombre(mes)} {anio})", null,
                 partidas.Partidas, p.CreadaPorId, p.CreadaPor);
@@ -144,7 +145,8 @@ public sealed class GeneradorRecurrentes(ContabilidadDbContext db, RegistroPoliz
         {
             var original = await db.Polizas.Include(x => x.Partidas).FirstAsync(x => x.Id == originalId, t);
             var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(x => x.Id == original.TipoOperacionId, t);
-            await registro.VerificarPeriodoAsync(fecha.Year, fecha.Month, original.Origen, t, p.EmpresaId);
+            await registro.VerificarPeriodoAsync(fecha.Year, fecha.Month, original.Origen, t, p.EmpresaId,
+                await registro.ContextoAsync(tipo.Clave, p.ActivadaPorId, null, original.Partidas.Select(x => x.CuentaId), t));
             var numero = await registro.ReservarNumeroAsync(tipo.Id, fecha.Year, t, p.EmpresaId);
             reversa = original.Revertir(Guid.CreateVersion7(), tipo, fecha, fecha.Year, fecha.Month, numero, p.ActivadaPorId,
                 p.ActivadaPor ?? UsuarioGenerador, clock.UtcNow);

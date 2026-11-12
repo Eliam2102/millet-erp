@@ -20,6 +20,7 @@ public static partial class NormalizadorEventos
     public const string AjusteInventarioAplicado = "almacen.ajuste_inventario.aplicado.v1";
     public const string SalidaRequisicionRegistrada = "almacen.salida_requisicion.registrada.v1";
     public const string SalidaInventarioRegistrada = "almacen.salida_inventario.registrada.v1";
+    public const string EntradaInventarioRegistrada = "almacen.entrada_inventario.registrada.v1";
     public const string SalidaRoturaRegistrada = "almacen.salida_rotura.registrada.v1";
     public const string DevolucionInternaAplicada = "almacen.devolucion_interna.aplicada.v1";
     public const string DevolucionProveedorRegistrada = "almacen.oc_devolucion.registrada.v1";
@@ -45,6 +46,7 @@ public static partial class NormalizadorEventos
     public static readonly (string Modulo, string Tipo) DocAjuste = ("almacen", "ajuste_inventario");
     public static readonly (string Modulo, string Tipo) DocSalida = ("almacen", "salida_requisicion");
     public static readonly (string Modulo, string Tipo) DocSalidaInventario = ("almacen", "salida_inventario");
+    public static readonly (string Modulo, string Tipo) DocEntradaInventario = ("almacen", "entrada_inventario");
     public static readonly (string Modulo, string Tipo) DocDevolucionInterna = ("almacen", "devolucion_interna");
     public static readonly (string Modulo, string Tipo) DocDevolucionProveedor = ("almacen", "devolucion_proveedor");
     public static readonly (string Modulo, string Tipo) DocFacturaProveedor = ("cuentas_por_pagar", "factura_proveedor");
@@ -110,6 +112,7 @@ public static partial class NormalizadorEventos
         AjusteInventarioAplicado => Ajuste(eventoId, payload),
         SalidaRequisicionRegistrada => Salida(eventoId, payload),
         SalidaInventarioRegistrada => SalidaInventario(eventoId, payload),
+        EntradaInventarioRegistrada => EntradaInventario(eventoId, payload),
         SalidaRoturaRegistrada => SalidaRotura(eventoId, payload),
         NotaCreditoProveedorRegistrada => NotaProveedor(tipo, eventoId, payload, DocNotaCreditoProveedor, TipoDocumentoPuente.NotaCredito),
         NotaCargoAutorizada => NotaProveedor(tipo, eventoId, payload, DocNotaCargo, TipoDocumentoPuente.NotaCargo),
@@ -200,6 +203,20 @@ public static partial class NormalizadorEventos
     };
 
     /// <summary>
+    /// Cuenta por motivo de la salida manual de la app (Fernando Alejos, 10-nov-2026): FALTANTE → Ajuste (AJUSTE_INVENTARIO, 504.25.02.00),
+    /// MUESTRA → Muestra (PRODUCCION_EN_PROCESO, 115.03.00.00), PRESTAMO → Prestamo (traspaso entre sucursales; INVENTARIO_EN_PRESTAMO),
+    /// CONSUMO_INTERNO → Consumo (con su centro de costo). Sin clave o con otra (CANCELA_ENTRADA…) manda la causa, como antes.
+    /// </summary>
+    public static string CampoSalidaInventario(string? causa, string? motivoClave) => (motivoClave ?? string.Empty).Trim().ToUpperInvariant() switch
+    {
+        "FALTANTE" => "Ajuste",
+        "MUESTRA" => "Muestra",
+        "PRESTAMO" => "Prestamo",
+        "CONSUMO_INTERNO" => "Consumo",
+        _ => CampoSalidaInventario(causa),
+    };
+
+    /// <summary>
     /// G-1 (86e3yxpb3): salida de inventario sin requisición (consumo, rotura, salida manual, baja por daño). Misma póliza que #14 (cargo
     /// CONSUMO · abono INVENTARIO por línea). El centro de costo es el de cada línea o, si no, el del evento (equipo que ya capturó el vale); vacío si ninguno lo trae.
     /// </summary>
@@ -210,17 +227,51 @@ public static partial class NormalizadorEventos
         // U-2 (86e3yxngq): la plantilla v2 carga según la causa (consumo → CONSUMO, rotura o daño → MERMA, salida manual o no
         // planificada → AJUSTE_INVENTARIO). La v1 (#445) solo lee Subtotal.
         var total = lineas.Sum(l => l.Importe);
-        var campo = CampoSalidaInventario(s.Causa);
+        var campo = CampoSalidaInventario(s.Causa, s.MotivoClave);
         var merma = campo == "Merma";
         var ajuste = campo == "Ajuste";
+        var muestra = campo == "Muestra";
+        var prestamo = campo == "Prestamo";
         return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
             s.SucursalId, importes: new()
             {
                 ["Subtotal"] = total,
-                ["Consumo"] = merma || ajuste ? 0m : total,
+                ["Consumo"] = merma || ajuste || muestra || prestamo ? 0m : total,
                 ["Merma"] = merma ? total : 0m,
                 ["Ajuste"] = ajuste ? total : 0m,
+                ["Muestra"] = muestra ? total : 0m,
+                ["Prestamo"] = prestamo ? total : 0m,
             }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
+    }
+
+    /// <summary>Grupo de las líneas de una entrada de producto terminado (devolución de venta): cargo INVENTARIO_PT en vez de INVENTARIO.</summary>
+    public const string GrupoInventarioPt = "PT";
+
+    /// <summary>
+    /// Entrada manual de la app (Fernando Alejos, 10-nov-2026), al costo promedio del ERP. Cargo inventario por línea (por grupo del artículo;
+    /// INVENTARIO_PT en la devolución de venta) contra: SOBRANTE y SIN_COMPRA → MERMA (504.25.02.00); DEVOLUCION_VENTA → COSTO_DE_VENTAS
+    /// (revierte el costo con que salió; la NC es de Facturación); REGRESO_PRESTAMO → INVENTARIO_EN_PRESTAMO (traspaso entre sucursales).
+    /// Clave desconocida: sin líneas ni importes, y el motor la rechaza; Almacén no publica claves sin póliza.
+    /// </summary>
+    private static EventoContable EntradaInventario(Guid eventoId, string payload)
+    {
+        var s = Leer<EntradaInventarioContrato>(payload);
+        var clave = (s.MotivoClave ?? string.Empty).Trim().ToUpperInvariant();
+        var conocida = clave is "SOBRANTE" or "SIN_COMPRA" or "DEVOLUCION_VENTA" or "REGRESO_PRESTAMO";
+        var pt = clave == "DEVOLUCION_VENTA";
+        var lineas = !conocida ? [] : (s.Lineas ?? []).Select(l => new LineaEventoContable(null, l.MontoMxn, null, false,
+            ArticuloId: l.ArticuloId, Grupo: pt ? GrupoInventarioPt : null)).ToList();
+        var total = lineas.Sum(l => l.Importe);
+        return Mxn(EntradaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocEntradaInventario, s.MovimientoId, s.FolioMovimiento),
+            s.SucursalId, importes: new()
+            {
+                // Inventario e InventarioPt: solo si una línea de su grupo no existe (el motor los lee entonces); siempre cero.
+                ["Inventario"] = 0m,
+                ["InventarioPt"] = 0m,
+                ["Merma"] = clave is "SOBRANTE" or "SIN_COMPRA" ? total : 0m,
+                ["CostoVentas"] = pt ? total : 0m,
+                ["Prestamo"] = clave == "REGRESO_PRESTAMO" ? total : 0m,
+            }, lineas: lineas, payload: payload);
     }
 
     /// <summary>
@@ -316,7 +367,7 @@ public static partial class NormalizadorEventos
             new Dictionary<string, decimal?>
             {
                 ["Total"] = p.Monto, ["Aplicado"] = p.Monto + ajuste, ["Ajuste"] = ajuste,
-                ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m,
+                ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m, ["AjusteRedondeo"] = 0m,
             },
             [], payload,
             FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null,
@@ -472,9 +523,12 @@ public static partial class NormalizadorEventos
         IReadOnlyList<LineaSalidaContrato>? Lineas, Guid? SucursalId);
 
     private sealed record SalidaInventarioContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
-        IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId, Guid? CentroCostoId, string? Causa = null);
+        IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId, Guid? CentroCostoId, string? Causa = null, string? MotivoClave = null);
 
     private sealed record LineaSalidaInventarioContrato(Guid ArticuloId, decimal MontoMxn, Guid? CentroCostoId);
+
+    private sealed record EntradaInventarioContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,
+        string? MotivoClave, IReadOnlyList<LineaSalidaInventarioContrato>? Lineas, Guid? SucursalId);
 
     /// <summary>Espejo de <c>almacen.salida_rotura.registrada.v1</c> (ALM-03) con solo lo que usa la póliza de merma (86e3zf04y).</summary>
     private sealed record SalidaRoturaContrato(Guid EmpresaId, Guid MovimientoId, string? FolioMovimiento, DateOnly FechaMovimiento,

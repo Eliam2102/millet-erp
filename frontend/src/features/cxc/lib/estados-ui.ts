@@ -80,6 +80,10 @@ export const ESTADOS_UI = {
       tono: 'neutral',
       texto: ETIQUETA_ESTADO_AUTORIZACION[EstadoAutorizacionCredito.Cancelada],
     },
+    [EstadoAutorizacionCredito.PendienteSegundaFirma]: {
+      tono: 'warning',
+      texto: ETIQUETA_ESTADO_AUTORIZACION[EstadoAutorizacionCredito.PendienteSegundaFirma],
+    },
   },
   cobranza: {
     [ResultadoCobranza.PromesaPago]: {
@@ -115,6 +119,10 @@ export const ESTADOS_UI = {
     [TipoAlertaCartera.ContraEntregaNoLiquidada]: {
       tono: 'danger',
       texto: ETIQUETA_TIPO_ALERTA[TipoAlertaCartera.ContraEntregaNoLiquidada],
+    },
+    [TipoAlertaCartera.ChequeRebotado]: {
+      tono: 'danger',
+      texto: ETIQUETA_TIPO_ALERTA[TipoAlertaCartera.ChequeRebotado],
     },
   },
   anticipo: {

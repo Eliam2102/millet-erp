@@ -5,7 +5,12 @@ import type {
   AutorizarLiberacionPendienteBody,
   AutorizacionCreditoResponse,
   BeneficiarioCreditoResponse,
+  ConfiguracionExcepcionCredito,
+  CorregirReevaluarLiberacionBody,
   CrearAutorizacionCreditoCommand,
+  EvaluacionPedidoItem,
+  ReevaluacionLiberacionResponse,
+  ReglaFirmaExcepcionCredito,
   DecidirLiberacionCommand,
   DecisionLiberacionResponse,
   PagedResponse,
@@ -270,6 +275,94 @@ export function useCancelarAutorizacionCredito() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cxcKeys.autorizaciones() });
+    },
+  });
+}
+
+/** M-239: vigencia por omisión/máxima y firmas por monto de las excepciones de crédito. */
+export function useConfiguracionExcepcionCredito(enabled = true) {
+  return useQuery<ConfiguracionExcepcionCredito>({
+    enabled,
+    queryKey: [...cxcKeys.autorizaciones(), 'configuracion'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ConfiguracionExcepcionCredito>(`${BASE_AUT}/configuracion`, { signal });
+      return data;
+    },
+  });
+}
+
+/** M-239: reemplaza las reglas de firmas por monto (Dirección). Vacío = vuelve a la regla de M-085. */
+export function useGuardarReglasFirmaExcepcion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { reglas: ReglaFirmaExcepcionCredito[]; idempotencyKey: string }) => {
+      const { data } = await apiRequest<ConfiguracionExcepcionCredito>(`${BASE_AUT}/reglas-firma`, {
+        method: 'PUT',
+        body: { reglas: args.reglas },
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.autorizaciones() });
+    },
+  });
+}
+
+/** M-239: segunda firma (Dirección) de una excepción pendiente por su monto. */
+export function useFirmarAutorizacionCredito() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; versionEsperada: number; idempotencyKey: string }) => {
+      const { data } = await apiRequest<AutorizacionCreditoResponse>(`${BASE_AUT}/${args.id}/firmar`, {
+        method: 'POST',
+        idempotencyKey: args.idempotencyKey,
+        headers: { 'X-Expected-Version': String(args.versionEsperada) },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.autorizaciones() });
+    },
+  });
+}
+
+/**
+ * <c>useCorregirReevaluarLiberacion()</c> — M-238: corrige el dato que retuvo un pedido y vuelve a evaluar la
+ * liberación. El backend crea una decisión nueva con la misma cascada y deja el rastro de antes y después. 409 si la
+ * retención ya se reevaluó o la superó otra decisión.
+ */
+export function useCorregirReevaluarLiberacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      decisionId: string;
+      body: CorregirReevaluarLiberacionBody;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<ReevaluacionLiberacionResponse>(
+        `${BASE}/${args.decisionId}/corregir-reevaluar`,
+        { method: 'POST', body: args.body, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.liberaciones() });
+    },
+  });
+}
+
+/** M-238: todas las evaluaciones de un pedido, con las correcciones que las ligan. */
+export function useHistorialLiberacionPedido(pedidoRef: string | null) {
+  return useQuery<EvaluacionPedidoItem[]>({
+    enabled: pedidoRef != null,
+    queryKey: [...cxcKeys.liberaciones(), 'historial', pedidoRef],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<EvaluacionPedidoItem[]>(
+        `${BASE}/pedidos/${encodeURIComponent(pedidoRef ?? '')}/historial`,
+        { signal },
+      );
+      return data;
     },
   });
 }

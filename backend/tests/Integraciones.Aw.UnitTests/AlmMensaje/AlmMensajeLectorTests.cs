@@ -38,6 +38,11 @@ public sealed class AlmMensajeLectorTests
         }
     }
 
+    private sealed class AvisoNulo : IAvisoMensajesSinAcuse
+    {
+        public Task AvisarAsync(int cantidad, TimeSpan masAntiguo, CancellationToken ct) => Task.CompletedTask;
+    }
+
     private sealed record Banco(SimuladoAlmMensajeOrigen Origen, Procesador Proc, AlmMensajeLector Lector);
 
     private static Banco Crear(int maxIntentos = 3)
@@ -218,6 +223,7 @@ public sealed class AlmMensajeLectorTests
         var worker = new AlmMensajeWorker(
             new AlmMensajeLector(b.Origen, sp.GetRequiredService<IServiceScopeFactory>(), opciones, NullLogger<AlmMensajeLector>.Instance),
             new AlmCargaInicialLector(carga, sp.GetRequiredService<IServiceScopeFactory>(), opciones, NullLogger<AlmCargaInicialLector>.Instance),
+            new AlmMensajeAlarma(b.Origen, new AvisoNulo(), opciones, NullLogger<AlmMensajeAlarma>.Instance),
             opciones, NullLogger<AlmMensajeWorker>.Instance);
 
         await worker.StartAsync(default);

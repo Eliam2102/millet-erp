@@ -2,6 +2,7 @@ import {
   CanalCobranza,
   ComportamientoSerie,
   EstadoAutorizacionCredito,
+  CondicionExcepcionCredito,
   EstadoLineaCredito,
   EstadoPropuestaAplicacion,
   OrigenLineaCredito,
@@ -9,6 +10,7 @@ import {
   ResultadoCobranza,
   ResultadoLiberacion,
   TipoAlertaCartera,
+  TipoCorreccionLiberacion,
 } from '@/features/cxc/api/types';
 
 /**
@@ -62,6 +64,13 @@ export const ETIQUETA_ESTADO_AUTORIZACION: Record<EstadoAutorizacionCredito, str
   [EstadoAutorizacionCredito.Autorizada]: 'Vigente',
   [EstadoAutorizacionCredito.Usada]: 'Usada',
   [EstadoAutorizacionCredito.Cancelada]: 'Cancelada',
+  [EstadoAutorizacionCredito.PendienteSegundaFirma]: 'Pendiente de 2.ª firma',
+};
+
+export const ETIQUETA_CONDICION_EXCEPCION: Record<CondicionExcepcionCredito, string> = {
+  [CondicionExcepcionCredito.CoberturaParcial]: 'Cobertura parcial (exceso)',
+  [CondicionExcepcionCredito.SerieNuncaLibera]: 'Serie que no libera sola',
+  [CondicionExcepcionCredito.BloqueoPorVencimiento]: 'Bloqueo por vencimiento',
 };
 
 export const ETIQUETA_CANAL_COBRANZA: Record<CanalCobranza, string> = {
@@ -88,6 +97,7 @@ export const ETIQUETA_TIPO_ALERTA: Record<TipoAlertaCartera, string> = {
   [TipoAlertaCartera.ExcesoCredito]: 'Exceso de crédito',
   [TipoAlertaCartera.AutoBloqueoVencimiento]: 'Auto-bloqueo por vencimiento',
   [TipoAlertaCartera.ContraEntregaNoLiquidada]: 'Contra entrega sin liquidar',
+  [TipoAlertaCartera.ChequeRebotado]: 'Cheque rebotado',
 };
 
 /** Formato de moneda sin conversión: cada monto con su divisa (§5). */
@@ -97,3 +107,10 @@ export function formatoMonto(monto: number, moneda: string): string {
     maximumFractionDigits: 2,
   })} ${moneda}`;
 }
+
+/** M-238: etiqueta del dato que se corrigió al reevaluar un pedido retenido. */
+export const ETIQUETA_TIPO_CORRECCION: Record<TipoCorreccionLiberacion, string> = {
+  [TipoCorreccionLiberacion.Cliente]: 'Cliente del pedido',
+  [TipoCorreccionLiberacion.Condicion]: 'Condición del cliente (línea, plazo o bloqueo)',
+  [TipoCorreccionLiberacion.SaldoAplicado]: 'Saldo o cobro mal aplicado',
+};
