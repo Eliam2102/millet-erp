@@ -104,14 +104,14 @@ internal static class ReglasHoja
             if (!ReglasSalidaPt.TieneFactura(facturas.Where(f => f.PedidoFacturableId == pedido.PedidoFacturableId)
                     .Select(f => (f.PendientePedimento, f.Exportacion, f.FechaTimbrado is { } t ? FechaContable.HoyLocal(t) : (DateOnly?)null)), hoy))
                 sinFactura.Add(clave);
-            if (!EsReparto(pedido) && !(autorizadas.TryGetValue(pedido.Id, out var ok) && a.Piezas.All(p => ok.Contains(p.PiezaId))) && ReglasSalidaPt.EsParcial(pedido.Posiciones.Select(x => (x.PiezasEsperadas, a.Piezas.Count(p => posicionDe[p.PiezaId] == x.Posicion),
+            if (!(autorizadas.TryGetValue(pedido.Id, out var ok) && a.Piezas.All(p => ok.Contains(p.PiezaId))) && ReglasSalidaPt.EsParcial(pedido.Posiciones.Select(x => (x.PiezasEsperadas, a.Piezas.Count(p => posicionDe[p.PiezaId] == x.Posicion),
                     salieron.Where(y => y.PedidoPtId == pedido.Id && y.Posicion == x.Posicion).Sum(y => y.Piezas)))))
                 parciales.Add(clave);
         }
         return (sinFactura, parciales);
     }
 
-    /// <summary>Guadalupe, 11-nov: REPARTO no espera todas las piezas; sale como parcial con lo que ya está en 69, sin solicitud.</summary>
+    /// <summary>Guadalupe, 11-nov: REPARTO no espera todas las piezas; sale como parcial con lo que ya está en 69 y la parcialidad la autoriza Crédito y Cobranza en la hoja, como cualquier otra.</summary>
     public static bool EsReparto(PedidoPt p) => string.Equals(p.CondicionPagoOrigen?.Trim(), "REPARTO", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Lo requerido que la autorización no cubre (si la carga cambió después de autorizar, ya no lo cubre).</summary>
