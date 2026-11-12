@@ -10,7 +10,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
+import { motivoLineaOtr, motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
 import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -131,9 +131,7 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
                   <Badge variant={estadosPartidaOtr[l.estado].tono}>
                     {estadosPartidaOtr[l.estado].texto}
                   </Badge>
-                  {l.motivo && <p className="text-xs text-ink-muted">{l.motivo === 'CE_OTR_PEDIDO_INEXISTENTE'
-                    ? 'El pedido no está registrado. Revisa el número de pedido en A+W.'
-                    : 'La partida requiere revisión. Comprueba sus datos con A+W antes de vincularla.'}</p>}
+                  {l.motivo && <p className="text-xs text-ink-muted">{motivoLineaOtr(l.motivo)}</p>}
                 </TableCell>
               </TableRow>
             ))}

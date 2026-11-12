@@ -455,14 +455,18 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         decimal descuento,
         bool requierePedimento,
         string? bomJson = null,
-        decimal? tasaIva = null)
+        decimal? tasaIva = null,
+        int? posicion = null)
     {
         AsegurarEditable("agregar línea");
+        // posicion: la ingesta A+W conserva la posición de origen aunque omita líneas en cero (OTR enlaza por posición).
+        if (posicion is int p && _lineas.Any(l => l.Posicion == p))
+            throw new BusinessRuleException("PEDIDO_LINEA_POSICION_DUPLICADA", $"La posición {p} ya existe en el pedido.");
 
         var linea = new PedidoFacturableLinea(
             id: Guid.CreateVersion7(),
             pedidoFacturableId: Id,
-            posicion: _lineas.Count + 1,
+            posicion: posicion ?? _lineas.Count + 1,
             productoId: productoId,
             productoDescripcion: productoDescripcion,
             claveProdServSat: claveProdServSat,
