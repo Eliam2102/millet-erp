@@ -8,7 +8,7 @@ export function IndicadoresOc({ oc }: { oc: OrdenPendienteAutorizacion }) {
       <RecurrenteBadge esRecurrente={oc.esRecurrente} />
       <span>
         {[
-          oc.requiereNivel2 ? 'Falta N2' : 'Solo N1',
+          oc.esServicioComercioExterior ? 'Servicio CE · dos firmas' : oc.requiereNivel2 ? 'Falta N2' : 'Solo N1',
           oc.proveedorConocido && 'Proveedor conocido',
           oc.esMenorCuantia && 'Menor cuantía',
         ]

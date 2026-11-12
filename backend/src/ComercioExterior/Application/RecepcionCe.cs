@@ -19,11 +19,12 @@ public sealed class RecibirRecepcionCeHandler(ComercioExteriorDbContext db, Conc
             throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La recepción no contiene empresa, orden de compra, fecha o partidas válidas.");
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         var grupos = d.Lineas.Where(l => l.LineaOcId != null).GroupBy(l => l.LineaOcId!.Value).ToArray();
+        // Las devoluciones no llevan acumulado; siempre se consulta el vigente en el puerto de Almacén.
         foreach (var grupo in grupos)
         {
             var valores = grupo.Select(l => l.CantidadRecibidaAcumulada).Distinct().ToArray();
-            if (valores.Length != 1 || valores[0] is not decimal acumulado || acumulado < 0 || decimal.Round(acumulado, 6) != acumulado)
-                throw new BusinessRuleException("CE_RECEPCION_ACUMULADO_REQUERIDO", "Almacén debe indicar una cantidad acumulada única por partida de OC.");
+            if (valores.Length != 1 || (valores[0] is decimal acumulado && (acumulado < 0 || decimal.Round(acumulado, 6) != acumulado)))
+                throw new BusinessRuleException("CE_RECEPCION_ACUMULADO_REQUERIDO", "Si Almacén indica un acumulado, debe ser único, no negativo y con hasta seis decimales por partida de OC.");
         }
         await conciliacion.AplicarAsync(d.EmpresaId, [d.OrdenCompraId], grupos.Select(g => g.Key).ToArray(),
             request.EventoId, d.FechaMovimiento, d.RegistradoPorId, clock.UtcNow, cancellationToken);

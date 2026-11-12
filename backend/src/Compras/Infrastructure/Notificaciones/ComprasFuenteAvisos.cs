@@ -33,12 +33,14 @@ public sealed class ComprasFuenteAvisos(ComprasDbContext db, ICurrentUserPermiss
                 (leer || asociadas.Contains(o.SucursalDestinoId)));
             var n1 = await permisos.TieneAsync(PermisosCanonicos.ComprasOrdenesAutorizarNivel1, ct);
             var n2 = await permisos.TieneAsync(PermisosCanonicos.ComprasOrdenesAutorizarNivel2, ct);
-            var firmar = PendientesAutorizacionLectura.OrdenesAccionables(query, contexto.UsuarioId, n1, n2);
+            var ceN1 = await permisos.TieneAsync(PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1, ct);
+            var ceN2 = await permisos.TieneAsync(PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2, ct);
+            var firmar = PendientesAutorizacionLectura.OrdenesAccionables(query, contexto.UsuarioId, n1, n2, ceN1, ceN2);
             foreach (var oc in await firmar.ToListAsync(ct))
             {
                 var paso = oc.Estado == EstadoOrdenCompra.EnAutorizacionJefeCompras ? "autorizar-n1" : "autorizar-n2";
                 avisos.Add(Oc(oc, paso, oc.CicloAutorizacion.ToString(CultureInfo.InvariantCulture),
-                    "Orden de compra por autorizar", paso == "autorizar-n1" ? "Requiere firma de Compras." : "Requiere firma de Dirección.", oc.CreatedAt));
+                    "Orden de compra por autorizar", oc.EsServicioComercioExterior ? (paso == "autorizar-n1" ? "Requiere primera firma de Comercio Exterior." : "Requiere segunda firma de Dirección Comercial.") : (paso == "autorizar-n1" ? "Requiere firma de Compras." : "Requiere firma de Dirección."), oc.CreatedAt));
             }
             if (n2)
                 foreach (var oc in await PendientesAutorizacionLectura.CancelacionesAccionables(query, contexto.UsuarioId)

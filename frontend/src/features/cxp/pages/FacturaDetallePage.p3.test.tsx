@@ -8,7 +8,7 @@ import { esContado } from '../lib/es-contado';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
 
-const escenario = vi.hoisted(() => ({ cancelada: false, contado: false }));
+const escenario = vi.hoisted(() => ({ cancelada: false, contado: false, ce: false, n2: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
   useSearch: () => ({}),
@@ -24,6 +24,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 vi.mock('@/features/cxp/api/useFacturas', () => ({
+  useEditarCabeceraFactura: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useAutorizarFactura: () => ({ isPending: false, mutate: vi.fn() }),
   useMarcarRetencionesRevisadas: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useFactura: () => ({
@@ -35,7 +36,9 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
       sucursalId: 'sucursal',
       folioProveedor: 'P3-FICTICIA',
       serieProveedor: null,
-      estado: escenario.cancelada ? EstadoPasivo.Cancelada : EstadoPasivo.Autorizada,
+      estado: escenario.cancelada ? EstadoPasivo.Cancelada : escenario.ce ? EstadoPasivo.Capturada : EstadoPasivo.Autorizada,
+      esServicioComercioExterior: escenario.ce,
+      servicioCeSegundaFirma: escenario.n2,
       fechaDocumento: '2026-10-09T18:00:00Z',
       fechaContabilizacion: '2026-10-09',
       fechaVencimiento: escenario.contado ? '2026-10-09' : '2026-11-09',
@@ -85,6 +88,7 @@ vi.mock('@/features/cxp/components/AdjuntarEvidenciaSheet', () => ({
 vi.mock('@/features/cxp/components/EvidenciasList', () => ({ EvidenciasList: () => null }));
 
 beforeEach(() => {
+  escenario.ce = false; escenario.n2 = false;
   mswServer.use(
     http.get('*/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
       HttpResponse.json([]),
@@ -140,4 +144,15 @@ describe('P3: detalle fiscal y recepción', () => {
     expect(screen.getByText(/Precio distinto en la línea 1/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Autorizar' })).not.toBeInTheDocument();
   });
+});
+
+
+it('pasivo CE espera a Dirección Comercial antes de enviarlo a Tesorería', () => {
+  escenario.ce = true; escenario.cancelada = false; escenario.n2 = false;
+  const { unmount } = render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+  expect(screen.getByRole('button', { name: 'Enviar a Tesorería' })).toBeDisabled();
+  expect(screen.getByText(/segunda firma de Dirección Comercial/)).toBeInTheDocument();
+  unmount(); escenario.n2 = true;
+  render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+  expect(screen.getByRole('button', { name: 'Enviar a Tesorería' })).toBeEnabled();
 });

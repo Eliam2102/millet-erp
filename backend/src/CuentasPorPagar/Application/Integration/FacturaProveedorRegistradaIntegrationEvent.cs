@@ -42,7 +42,8 @@ public sealed record FacturaProveedorRegistradaIntegrationEvent(
     // 86e3zcbjw: concepto fiscal de retención (HONORARIOS_PF, FLETES, SERVICIOS…); Contabilidad lo usa para la cuenta de cada retención.
     string? ConceptoRetencion = null,
     // M-209 (aditivo): base e IVA por tratamiento (TASA16, TASA8, TASA0, EXENTO, NOOBJETO) de los conceptos del CFDI.
-    IReadOnlyList<ImpuestoTrasladoPayload>? Impuestos = null)
+    IReadOnlyList<ImpuestoTrasladoPayload>? Impuestos = null,
+    bool EsServicioComercioExterior = false)
     : IntegrationEvent("cuentas_por_pagar.factura.registrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>M-209: base e IVA trasladado de un tratamiento del CFDI (TASA16, TASA8, TASA0, EXENTO, NOOBJETO).</summary>

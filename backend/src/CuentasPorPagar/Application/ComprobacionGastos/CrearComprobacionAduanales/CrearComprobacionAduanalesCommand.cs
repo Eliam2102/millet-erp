@@ -117,6 +117,8 @@ public sealed class CrearComprobacionAduanalesHandler
         // estar capturadas, no autorizadas / no canceladas.
         foreach (var f in facturas)
         {
+            if (f.EsServicioComercioExterior)
+                throw new BusinessRuleException("CE_SERVICIO_FIRMAS_EN_OC", "Las dos firmas de este servicio se registran en la orden de compra. Libere la factura a Tesorería después de la segunda firma; no cree otra comprobación.");
             if (f.ProveedorId != command.ProveedorId)
                 throw new BusinessRuleException(
                     "COMP_FACTURA_PROVEEDOR_MISMATCH",

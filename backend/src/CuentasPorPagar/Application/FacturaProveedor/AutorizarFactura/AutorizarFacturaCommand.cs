@@ -40,14 +40,15 @@ public sealed class AutorizarFacturaHandler : IRequestHandler<AutorizarFacturaCo
     private readonly ICurrentUserContext _currentUser;
     private readonly IMediator _mediator;
     private readonly IClock _clock;
+    private readonly Domain.Ports.Compras.IComprasOcReadPort? _compras;
 
     public AutorizarFacturaHandler(
         CuentasPorPagarDbContext db,
         ICurrentUserContext currentUser,
         IMediator mediator,
-        IClock clock)
+        IClock clock, Domain.Ports.Compras.IComprasOcReadPort? compras = null)
     {
-        _db = db; _currentUser = currentUser; _mediator = mediator; _clock = clock;
+        _db = db; _currentUser = currentUser; _mediator = mediator; _clock = clock; _compras = compras;
     }
 
     public async Task<AutorizarFacturaResponse> Handle(AutorizarFacturaCommand command, CancellationToken cancellationToken)
@@ -91,7 +92,14 @@ public sealed class AutorizarFacturaHandler : IRequestHandler<AutorizarFacturaCo
         }
 
         var ahora = _clock.UtcNow;
-        factura.Autorizar(_currentUser.UserId, ahora);
+        var segundaFirma = false;
+        if (factura.EsServicioComercioExterior)
+        {
+            var oc = _compras is null || factura.OrdenCompraId is not Guid ocId ? null : await _compras.ObtenerAsync(ocId, cancellationToken);
+            segundaFirma = oc is { EsServicioComercioExterior: true, ServicioCeNivel1Autorizado: true, ServicioCeNivel2Autorizado: true }
+                && oc.EmpresaId == factura.EmpresaId && oc.Estado is "Autorizada" or "Cerrada";
+        }
+        factura.Autorizar(_currentUser.UserId, ahora, segundaFirma);
 
         await _mediator.Publish(new FacturaProveedorAutorizadaDomainEvent(
             EmpresaId: factura.EmpresaId,

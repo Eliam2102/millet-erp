@@ -223,6 +223,7 @@ export function FacturaDetallePage() {
                     onClick={() => setAutorizarAbierto(true)}
                     disabled={
                       autorizar.isPending ||
+                      (query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma) ||
                       retencionesPendientes ||
                       query.data.estado === EstadoPasivo.EnRevision
                     }
@@ -234,7 +235,9 @@ export function FacturaDetallePage() {
                           : undefined
                     }
                     title={
-                      query.data.estado === EstadoPasivo.EnRevision
+                      query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma
+                        ? 'Falta la segunda firma de Dirección Comercial en la orden de servicio.'
+                        : query.data.estado === EstadoPasivo.EnRevision
                         ? MOTIVO_AUTORIZAR_EN_REVISION
                         : retencionesPendientes
                           ? 'Fiscal debe revisar las retenciones antes de autorizar.'
@@ -242,8 +245,11 @@ export function FacturaDetallePage() {
                     }
                   >
                     <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
-                    Autorizar
+                    {query.data.esServicioComercioExterior ? 'Enviar a Tesorería' : 'Autorizar'}
                   </Button>
+                  {query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma && (
+                    <span className="self-center text-xs text-ink-muted">Falta la segunda firma de Dirección Comercial en la orden de servicio.</span>
+                  )}
                   {query.data.estado === EstadoPasivo.EnRevision && (
                     <span
                       id="motivo-autorizar-revision"
@@ -518,10 +524,10 @@ export function FacturaDetallePage() {
           <ConfirmarAccionDialog
             open={autorizarAbierto}
             onOpenChange={setAutorizarAbierto}
-            titulo="Autorizar factura para pago"
+            titulo={query.data.esServicioComercioExterior ? "Enviar servicio a Tesorería" : "Autorizar factura para pago"}
             resumen={
               <>
-                Autorizas la factura{' '}
+                {query.data.esServicioComercioExterior ? 'Envías a Tesorería la factura' : 'Autorizas la factura'}{' '}
                 {query.data.serieProveedor ? `${query.data.serieProveedor}-` : ''}
                 {query.data.folioProveedor ?? 'sin folio'}
                 {query.data.proveedorNombre?.trim()
@@ -531,7 +537,7 @@ export function FacturaDetallePage() {
                 Pasa a Tesorería como pasivo listo para pago.
               </>
             }
-            verbo="Autorizar para pago"
+            verbo={query.data.esServicioComercioExterior ? "Enviar a Tesorería" : "Autorizar para pago"}
             tono="primario"
             pendiente={autorizar.isPending}
             onConfirmar={handleAutorizar}

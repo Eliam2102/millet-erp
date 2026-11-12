@@ -5423,6 +5423,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000e-0010-0000-0000-000000000001"),
+                            Accion = "autorizar-nivel1",
+                            Codigo = "comercio_exterior.servicios.autorizar-nivel1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Primera firma de servicios de Comercio Exterior para permitir registro de pasivo",
+                            Modulo = "comercio_exterior",
+                            Recurso = "servicios",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0010-0000-0000-000000000002"),
+                            Accion = "autorizar-nivel2",
+                            Codigo = "comercio_exterior.servicios.autorizar-nivel2",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Segunda firma de servicios de Comercio Exterior por Dirección Comercial para habilitar programación de pago",
+                            Modulo = "comercio_exterior",
+                            Recurso = "servicios",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0006-0000-0000-000000000005"),
                             Accion = "revertir-comprobacion-autorizar",
                             Codigo = "comercio_exterior.anticipos.revertir-comprobacion-autorizar",

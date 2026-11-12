@@ -39,6 +39,9 @@ public sealed class PasivoComercioExteriorReadAdapter(
             where a.Id == facturaProveedorId select (TipoExpediente?)e.Tipo).FirstOrDefaultAsync(cancellationToken);
         if (tipoAnticipo is not null) return tipoAnticipo == TipoExpediente.Importacion
             ? TipoOperacionComercioExterior.Importacion : TipoOperacionComercioExterior.Exportacion;
+        // El servicio CE ya obtiene sus dos firmas en la OC; CxP valida su vigencia antes de liberar y pagar.
+        if (ordenCompraId is Guid servicio && await compras.OrdenesCompra.AsNoTracking().AnyAsync(o => o.Id == servicio && o.EsServicioComercioExterior, cancellationToken))
+            return null;
         var tipo = await (from g in ce.Set<GastoExpediente>().AsNoTracking()
                           join e in ce.Expedientes.AsNoTracking() on g.ExpedienteId equals e.Id
                           where g.FacturaProveedorId == facturaProveedorId && e.Estado == EstadoExpediente.Abierto

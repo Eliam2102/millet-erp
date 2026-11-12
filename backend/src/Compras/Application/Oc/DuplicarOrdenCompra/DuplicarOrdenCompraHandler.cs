@@ -137,6 +137,7 @@ public sealed class DuplicarOrdenCompraHandler
             tipoCambio: origen.TipoCambio,
             sinRequisicionPrevia: origen.SinRequisicionPrevia,
             esImportacion: origen.EsImportacion,
+            esServicioComercioExterior: origen.EsServicioComercioExterior,
             cotizacionExcepcionada: false,
             observaciones: origen.Observaciones,
             motivoSinRequisicion: motivoSinRq,
