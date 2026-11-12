@@ -137,6 +137,14 @@ export interface TrazabilidadMpFiltros {
   subAlmacenId?: string;
 }
 
+export interface ConsumoInsumosLineaFiltros {
+  desde: string; // YYYY-MM-DD
+  hasta: string;
+  sucursalId?: string;
+  centroCostoId?: string;
+  articuloId?: string;
+}
+
 export interface KardexFiltros {
   articuloId: string;
   desde: string; // YYYY-MM-DD
@@ -281,6 +289,8 @@ export const almacenKeys = {
     [...almacenKeys.reportes(), 'alfak', filtros] as const,
   reporteTrazabilidadMp: (filtros: TrazabilidadMpFiltros) =>
     [...almacenKeys.reportes(), 'trazabilidad-mp', filtros] as const,
+  reporteConsumoInsumosLinea: (filtros: ConsumoInsumosLineaFiltros) =>
+    [...almacenKeys.reportes(), 'consumo-insumos-linea', filtros] as const,
   reporteKardex: (filtros: KardexFiltros) =>
     [...almacenKeys.reportes(), 'kardex', filtros] as const,
   reporteCuadreInventario: (anio: number, mes: number) =>

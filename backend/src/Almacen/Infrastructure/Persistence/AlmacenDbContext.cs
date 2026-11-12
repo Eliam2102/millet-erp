@@ -120,6 +120,9 @@ public class AlmacenDbContext : BaseDbContext
     public DbSet<Domain.Mermas.MermaProceso> MermasProceso => Set<Domain.Mermas.MermaProceso>();
     public DbSet<Domain.Roturas.SalidaRotura> SalidasRotura => Set<Domain.Roturas.SalidaRotura>();
 
+    /// <summary>M-334/M-331: correcciones de consumo que autoriza Costos.</summary>
+    public DbSet<Domain.Correcciones.CorreccionConsumo> CorreccionesConsumo => Set<Domain.Correcciones.CorreccionConsumo>();
+
     /// <summary>A4.6: corridas de la conciliación diaria contra A+W y sus diferencias (salidas no planificadas).</summary>
     public DbSet<Domain.Conciliacion.ConciliacionDiaria> ConciliacionesDiarias => Set<Domain.Conciliacion.ConciliacionDiaria>();
     public DbSet<Domain.Conciliacion.DiferenciaConciliacion> DiferenciasConciliacion => Set<Domain.Conciliacion.DiferenciaConciliacion>();
@@ -410,6 +413,29 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.EquipoClave).HasMaxLength(40);
             b.Property(x => x.EvidenciaBlobRef).HasMaxLength(500).IsRequired();
             b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
+        });
+        modelBuilder.Entity<Domain.Correcciones.CorreccionConsumo>(b =>
+        {
+            b.ToTable("correcciones_consumo");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.FolioSalida).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Motivo).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Observaciones).HasMaxLength(500);
+            b.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            b.Property(x => x.MotivoRechazo).HasMaxLength(500);
+            b.Property(x => x.FolioDevolucion).HasMaxLength(30);
+            b.Ignore(x => x.EstadoMaterial);
+            b.OwnsMany(x => x.Lineas, l =>
+            {
+                l.ToJson("lineas");
+                l.Property(x => x.Cantidad).HasPrecision(14, 4);
+            });
+            b.HasIndex(x => new { x.EmpresaId, x.Estado });
+            // M-334: una sola corrección pendiente por salida (no se crea dos veces).
+            b.HasIndex(x => x.SalidaOrigenId).IsUnique().HasFilter("estado = 'PENDIENTE'")
+                .HasDatabaseName("ux_correcciones_consumo_salida_pendiente");
         });
         modelBuilder.Entity<Domain.Conciliacion.ConciliacionDiaria>(b =>
         {

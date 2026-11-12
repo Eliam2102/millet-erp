@@ -15,6 +15,7 @@ using Millet.Compras.Application.Eliminar;
 using Millet.Compras.Application.EnviarAAutorizacion;
 using Millet.Compras.Application.Listar;
 using Millet.Compras.Application.Motivos;
+using Millet.Compras.Application.NecesidadRqApp;
 using Millet.Compras.Application.ObtenerRequisicionPorId;
 using Millet.Compras.Application.PreviewCubrimiento;
 using Millet.Compras.Application.Devolver;
@@ -177,6 +178,32 @@ public static class RequisicionesEndpoints
             "cantidades son estimación sujeta a disponibilidad: el stock es " +
             "móvil. Requiere `compras.requisiciones.leer`.")
         .Produces<PreviewCubrimientoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // M-332: necesidad de una RQ de la app de Almacenes (necesidad, disponible, convertido a OC, pendiente). Solo lectura.
+        group.MapGet("/{id:guid}/necesidad-app", async (
+            Guid id,
+            IMediator mediator,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
+            CancellationToken cancellationToken) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
+            return Results.Ok(await mediator.Send(new NecesidadRqAppQuery(id), cancellationToken));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLeer)
+        .WithName("ObtenerNecesidadRqApp")
+        .WithSummary("Necesidad de una RQ de la app de Almacenes (M-332)")
+        .WithDescription(
+            "Por línea: necesidad, disponible hoy en la sucursal, convertido a OC (no cancelada) y pendiente. " +
+            "`aplica=false` si la RQ no viene de la app. Requiere `compras.requisiciones.leer`.")
+        .Produces<NecesidadRqAppResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);

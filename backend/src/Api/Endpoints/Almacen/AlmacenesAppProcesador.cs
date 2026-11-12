@@ -44,6 +44,14 @@ public sealed class AlmacenesAppProcesador(
         return null;
     }
 
+    /// <summary>
+    /// M-333: fecha del hecho = la del sobre (<c>fecha</c>), en la hora local con que la escribe la app (p. ej.
+    /// <c>2026-11-09T17:28:59-06:00</c> → 9-nov). Sin fecha o ilegible: null (el movimiento toma la de hoy).
+    /// </summary>
+    public static DateOnly? FechaDelHecho(JsonElement root) =>
+        DateTimeOffset.TryParse(Str(root, "fecha"), System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var f) ? DateOnly.FromDateTime(f.DateTime) : null;
+
     private static string? Str(JsonElement root, string n) =>
         root.ValueKind == JsonValueKind.Object && root.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String
             ? v.GetString() : null;
@@ -102,7 +110,7 @@ public sealed class AlmacenesAppProcesador(
                     return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
                 }
                 var g = await salidasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
-                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct, resuelta.Origen);
+                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct, resuelta.Origen, FechaDelHecho(root));
                 if (g.Estado == "ERROR") return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
                 if (!g.Duplicado)
                     // Sin existencia (5-nov): ya no se acepta en silencio. El mensaje quedó EN_REVISION con su folio de

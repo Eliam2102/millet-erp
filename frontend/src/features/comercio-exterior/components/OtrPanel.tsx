@@ -246,7 +246,7 @@ function Conflicto({
     </div>
   );
 }
-export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose: () => void }) {
+export function VincularOtrSheet({ envio, onClose }: { envio: Pick<OtrEnvio, 'id' | 'idOrigen' | 'version' | 'contenido'>; onClose: () => void }) {
   const candidatos = useOtrCandidatos(envio.id);
   const accion = useOtrAccion();
   const [expediente, setExpediente] = useState('');

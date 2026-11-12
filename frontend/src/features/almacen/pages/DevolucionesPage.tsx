@@ -46,6 +46,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { NuevaDevolucionProveedorSheet } from '@/features/almacen/components/NuevaDevolucionProveedorSheet';
+import { CorreccionesPendientesCostos } from '@/features/almacen/components/CorreccionesPendientesCostos';
 import { AplicarDevolucionInternaSheet } from '@/features/almacen/components/AplicarDevolucionInternaSheet';
 import { MatRevSheet, type MatRevModo } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
@@ -152,6 +153,8 @@ export function DevolucionesPage() {
           </>
         }
       />
+
+      <CorreccionesPendientesCostos />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {TABS_ESTADO.filter((tab) =>

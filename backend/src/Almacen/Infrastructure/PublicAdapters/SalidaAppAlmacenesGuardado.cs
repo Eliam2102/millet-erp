@@ -40,9 +40,10 @@ public sealed class SalidaAppAlmacenesGuardado
     /// </summary>
     public Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarAsync(
         string mensajeId, string tipo, string? referencia, string payload,
-        Guid empresaId, Guid usuarioId, IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null) =>
+        Guid empresaId, Guid usuarioId, IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null,
+        DateOnly? fecha = null) =>
         GuardarAsync(mensajeId, tipo, referencia, payload,
-            () => SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct, origen), ct);
+            () => SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct, origen, fecha, _entrada.Periodo), ct);
 
     /// <summary>
     /// ENTRADA_ALMACEN (M-159) y ENTRADA_MANUAL (v9, <paramref name="tipoMovimiento"/> = AjustePositivo): mismo guardado atómico

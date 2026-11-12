@@ -1288,6 +1288,19 @@ export interface AlfakHistorialFila {
   hojasFinal?: number | null;
 }
 
+/** M-339: consumo de insumos por línea (centro de costo) y artículo, a costo. */
+export interface ConsumoInsumosLineaFila {
+  centroCostoId: string | null;
+  linea: string;
+  articuloId: string;
+  articuloClave: string;
+  articuloDescripcion: string;
+  unidad: string;
+  cantidad: number;
+  costoUnitarioPromedioMxn: number;
+  costoTotalMxn: number;
+}
+
 /** F1-MP-09: línea del kardex de un artículo/lote; saldo y valorSaldo son corridos (incluyen el saldo inicial). */
 export interface TrazabilidadMpFila {
   fecha: string;

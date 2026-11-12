@@ -3351,6 +3351,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000008-0013-0000-0000-000000000001"),
+                            Accion = "autorizar",
+                            Codigo = "almacen.correcciones-consumo.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar una corrección de consumo (Costos, distinto de quien la solicitó); se aplica en el mes corriente",
+                            Modulo = "almacen",
+                            Recurso = "correcciones-consumo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000008-1a01-0000-0000-000000000001"),
                             Accion = "revisar-acta",
                             Codigo = "almacen.cierre.revisar-acta",
@@ -6860,6 +6874,12 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("idioma_ui");
+
+                    b.Property<bool>("SonidoAvisosHabilitado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("sonido_avisos_habilitado");
 
                     b.Property<string>("TemaUI")
                         .IsRequired()

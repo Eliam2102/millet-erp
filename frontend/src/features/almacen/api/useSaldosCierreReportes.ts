@@ -5,6 +5,7 @@ import {
   type AlfakHistorialFiltros,
   type TrazabilidadMpFiltros,
   type KardexFiltros,
+  type ConsumoInsumosLineaFiltros,
   type HijosJerarquiaParams,
   type ListarSaldosFiltros,
   type MpCnkFiltros,
@@ -13,6 +14,7 @@ import type {
   AlfakHistorialFila,
   TrazabilidadMpFila,
   KardexFila,
+  ConsumoInsumosLineaFila,
   CuadreInventarioFila,
   EjecutarCierreMensualCommand,
   EjecutarCierreMensualResponse,
@@ -230,6 +232,25 @@ export function useReporteTrazabilidadMp(filtros: TrazabilidadMpFiltros) {
       return data;
     },
     enabled: !!filtros.articuloId && !!filtros.desde && !!filtros.hasta,
+  });
+}
+
+/** M-339: consumo de insumos por línea y artículo, a costo, en un periodo. */
+export function useReporteConsumoInsumosLinea(filtros: ConsumoInsumosLineaFiltros) {
+  return useQuery({
+    queryKey: almacenKeys.reporteConsumoInsumosLinea(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+      if (filtros.sucursalId) params.set('sucursalId', filtros.sucursalId);
+      if (filtros.centroCostoId) params.set('centroCostoId', filtros.centroCostoId);
+      if (filtros.articuloId) params.set('articuloId', filtros.articuloId);
+      const { data } = await apiRequest<ReporteResponse<ConsumoInsumosLineaFila>>(
+        `/api/v1/almacen/reportes/consumo-insumos-linea?${params}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!filtros.desde && !!filtros.hasta,
   });
 }
 
