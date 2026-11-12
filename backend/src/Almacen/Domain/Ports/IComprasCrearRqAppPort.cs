@@ -39,6 +39,13 @@ public sealed record CrearRqAppSolicitud(
 {
     /// <summary>Equipo (Dim3) de Almacén que llevan las líneas (Jorge, 11-nov: lo que pide la app es del área de Almacén).</summary>
     public Guid? CentroCostoId { get; init; }
+
+    /// <summary>
+    /// v11 (<c>datos.autorizacion</c>): usuario de Almacenes que envió la requisición y momento del envío, con su zona. En la app enviar
+    /// es autorizar (Jorge, 12-nov). Solo lo traen las requisiciones enviadas desde el 12-nov; las anteriores llegan sin él.
+    /// </summary>
+    public string? AutorizadaPor { get; init; }
+    public DateTimeOffset? AutorizadaEn { get; init; }
 }
 
 /// <summary><c>Posicion</c> (v9): la de la app; REQUISICION_REDUCIDA se refiere a ella. Medidas en mm enteros (ver el parseo).</summary>

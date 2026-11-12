@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Millet.Administracion.Domain;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -37,8 +38,9 @@ public sealed class CostoPromedioLector(AlmacenDbContext almacen, CompartidoDbCo
             .ToListAsync(ct);
         var lista = await almacen.AlmacenesApp.AsNoTracking().Where(a => a.Activo)
             .Select(a => new { a.SucursalId, a.TipoAlmacen, a.Linea, a.UbicacionId }).ToListAsync(ct);
-        var sucursales = await maestros.Sucursales.AsNoTracking()
-            .Select(x => new { x.Id, Clave = x.ClaveAw ?? x.Clave }).ToDictionaryAsync(x => x.Id, x => x.Clave, ct);
+        // La clave principal de A+W (la primera de la lista: «CONKAL,PERIFERICO,OBRAS» → CONKAL); sin clave A+W, la del ERP.
+        var sucursales = (await maestros.Sucursales.AsNoTracking().Select(x => new { x.Id, x.ClaveAw, x.Clave }).ToListAsync(ct))
+            .ToDictionary(x => x.Id, x => Sucursal.ClavesAw(x.ClaveAw) is { Count: > 0 } aw ? aw[0] : x.Clave);
         var variantes = await maestros.ProductosAwVariantes.AsNoTracking()
             .Select(v => new { v.Id, v.AnchoMm, v.AltoMm }).ToDictionaryAsync(v => v.Id, ct);
 
