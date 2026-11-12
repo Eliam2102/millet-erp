@@ -20,6 +20,19 @@ public sealed class P20RecepcionTests
     }
     private static void Recibir(Expediente e, decimal recibida, Guid? evento = null) => e.ConciliarRecepcion(evento ?? Guid.NewGuid(), e.PartidasImportacion.Single().Id, recibida, Viernes, Viernes.AddDays(4), Capturista, Ahora);
     [Theory]
+    [InlineData(9)]
+    [InlineData(10)]
+    public void Otro_aviso_con_el_mismo_neto_no_repite_historia_ni_invalida_revision(decimal cantidad)
+    {
+        var e = Crear(); Recibir(e, cantidad);
+        var revision = e.RevisionContenido;
+        var historial = e.Incidencias.Sum(i => i.Historial.Count);
+        Recibir(e, cantidad);
+        Assert.Equal(revision, e.RevisionContenido);
+        Assert.Equal(historial, e.Incidencias.Sum(i => i.Historial.Count));
+        Assert.Equal(2, e.PartidasImportacion.Single().EventosRecepcion.Length);
+    }
+    [Theory]
     [InlineData(9, TipoIncidencia.MercanciaFaltante)]
     [InlineData(11, TipoIncidencia.MercanciaSobrante)]
     public void Diferencia_crea_incidencia_con_responsable_y_bloqueo(decimal recibida, TipoIncidencia tipo)
