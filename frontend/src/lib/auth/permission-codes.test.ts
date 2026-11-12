@@ -212,6 +212,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_pagar.facturas.capturar',
   'cuentas_por_pagar.facturas.editar',
   'cuentas_por_pagar.facturas.cancelar',
+  'cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada',
   'cuentas_por_pagar.facturas.enviar-revision',
   'cuentas_por_pagar.facturas.liberar-revision',
   'cuentas_por_pagar.facturas.autorizar',
