@@ -14,7 +14,7 @@
 ## Phase 3: US1 · Cantidades consistentes
 Independent test: avisos invertidos/empatados/repetidos no revierten neto; disminución válida sí.
 - [x] T005 [US1] Extender consulta neta por línea, unidad de OC y redondeo4 existente en backend/src/Almacen/Application/PublicPorts/IRecepcionesImportacionReadPort.cs y su adapter RecepcionesImportacionReadAdapter.cs.
-- [ ] T006 [US1] Cubrir neto, canceladas/devoluciones/AF y conversiones en backend/tests/Almacen.UnitTests/Recepciones/; ajustar constructor directo existente.
+- [x] T006 [US1] Cubrir neto, canceladas/devoluciones/AF y conversiones en backend/tests/Almacen.UnitTests/Recepciones/; ajustar constructor directo existente.
 - [x] T007 [US1] Compartir reparto actual bajo candados CE antes de leer Almacén en backend/src/ComercioExterior/Application/ConciliacionRecepcionServicio.cs y RecepcionCe.cs; rechazar línea ausente y acumulados inválidos.
 - [x] T008 [US1] Conservar eventos reales y no duplicar historia/revisión sin cambios en backend/src/ComercioExterior/Domain/ExpedienteRecepcion.cs y ExpedienteImportacion.cs.
 - [ ] T009 [US1] Probar reparto entre guías/expedientes, cancelados/cerrados, duplicados, empates y disminuciones en backend/tests/ComercioExterior.UnitTests/P20RecepcionTests.cs y Api.IntegrationTests/ComercioExterior/.
@@ -50,3 +50,6 @@ archivo y migraciones/pases nunca en paralelo. No se añaden agentes de implemen
 ## Implementation strategy
 MVP=US1 resuelve el fallo de acumulado; entrega completa exige US2+US3 y evidencia QA.
 No marcar terminado un task por haber intentado ejecutarlo; registrar fallo/pending si no pasa.
+
+## Phase 7: Convergence
+- [x] T020 Corregir la búsqueda de incidencia automática por línea completa, incluida la partida histórica de una guía cancelada, y demostrar con regresión que el mismo neto/diferencia no repite historia ni revisión; FR-002 / US1-AC2 / plan: historial estable (partial, HIGH).

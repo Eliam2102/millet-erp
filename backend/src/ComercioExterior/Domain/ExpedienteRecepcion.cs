@@ -28,7 +28,7 @@ public sealed partial class Expediente
             item.RegistrarRecepcion(evento, cantidad, fecha, compromiso); pendientes -= cantidad;
         }
         var diferencia = recibida - partidas.Sum(x => x.Cantidad);
-        var incidencia = _incidencias.SingleOrDefault(i => i.Automatica && partidas.Any(x => x.Id == i.PartidaId));
+        var incidencia = _incidencias.SingleOrDefault(i => i.Automatica && _partidasImportacion.Any(x => x.Id == i.PartidaId && x.OcLineaId == p.OcLineaId));
         var corregirIncidencia = incidencia is null ? diferencia != 0 : incidencia.DiferenciaCantidad != Math.Abs(diferencia)
             || (diferencia == 0 && incidencia.Pendiente)
             || (diferencia != 0 && incidencia.Tipo != (diferencia < 0 ? TipoIncidencia.MercanciaFaltante : TipoIncidencia.MercanciaSobrante));
