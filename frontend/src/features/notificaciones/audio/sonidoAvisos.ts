@@ -18,11 +18,11 @@ export function crearSonidoAvisos(contexto: string) {
     const volumen = audio.createGain();
     oscilador.frequency.value = 660;
     volumen.gain.setValueAtTime(0.08, audio.currentTime);
-    volumen.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.18);
+    volumen.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 1.4);
     oscilador.connect(volumen);
     volumen.connect(audio.destination);
     oscilador.start();
-    oscilador.stop(audio.currentTime + 0.2);
+    oscilador.stop(audio.currentTime + 1.5);
   };
   return {
     soportado,
@@ -30,7 +30,6 @@ export function crearSonidoAvisos(contexto: string) {
     establecerHabilitado(valor: boolean) { if (valor && !habilitado) inicial = true; habilitado = valor; },
     recuperar() { inicial = true; },
     async probar() {
-      inicial = true;
       if (!soportado()) throw new Error('Este navegador no permite coordinar el sonido entre pestañas. Los avisos visuales siguen activos.');
       // Comprobar almacenamiento antes de habilitar audio automático.
       localStorage.getItem(key);
