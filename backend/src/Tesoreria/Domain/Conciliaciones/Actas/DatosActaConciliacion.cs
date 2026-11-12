@@ -7,7 +7,9 @@ public sealed record DatosPartidaTransito(
     decimal Monto,
     string Sentido,
     string Tipo,
-    string Responsable);
+    string Responsable,
+    string? Causa = null,
+    DateOnly? FechaPrevista = null);
 
 public sealed record DatosActaConciliacion(
     Guid ConciliacionId,

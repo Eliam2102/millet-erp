@@ -53,7 +53,8 @@ public sealed record RegistrarPagoProveedorCommand(
     // T9.1-B: corrida de pagos que origina el pago (liga la aplicación con la corrida).
     Guid? CorridaId = null,
     // TES-09: TC que aplicó el banco (solo moneda distinta de MXN); null = el del catálogo K10.6 a la fecha valor.
-    decimal? TipoCambioPago = null) : IRequest<PagoProveedorResponse>;
+    decimal? TipoCambioPago = null,
+    string? MotivoTipoCambio = null) : IRequest<PagoProveedorResponse>;
 
 public sealed class RegistrarPagoProveedorValidator : AbstractValidator<RegistrarPagoProveedorCommand>
 {
@@ -76,6 +77,9 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
             .WithMessage("No se puede aplicar dos veces a la misma factura en el mismo pago.");
         RuleFor(c => c.TipoCambioPago).Must(TipoCambioDelPago.EsValido)
             .WithMessage("El TC del pago debe ser mayor a cero y con 6 decimales como máximo.");
+        // M-265b (Laura Cerón, 10-nov): el TC es editable, pero capturarlo a mano pide el motivo y queda en el movimiento.
+        RuleFor(c => c.MotivoTipoCambio).NotEmpty().When(c => c.TipoCambioPago is not null)
+            .WithMessage("Indica por qué capturas el tipo de cambio a mano.").MaximumLength(300);
     }
 }
 
@@ -257,7 +261,7 @@ public sealed class RegistrarPagoProveedorHandler
             creadoPor: usuarioId,
             ahora: ahora,
             destino: destino);
-        var tipoCambioPago = await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken);
+        var tipoCambioPago = await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken, command.MotivoTipoCambio);
         _db.MovimientosBancarios.Add(movimiento);
 
         var aplicaciones = new List<AplicacionPagoProveedor>(command.Aplicaciones.Count);

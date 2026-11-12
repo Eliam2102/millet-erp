@@ -46,12 +46,16 @@ public static class OrigenDependencyInjection
         {
             const string cadena = AwClientesOptions.ConnectionStringName;
             var cs = configuration.GetConnectionString(cadena);
-            if (!string.IsNullOrWhiteSpace(cs)
-                && !cs.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
+            var conCadena = !string.IsNullOrWhiteSpace(cs)
+                && !cs.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase);
+            // M-454: encendido sin cadena ya no se omite en silencio: el tablero de integraciones lo marca en error.
+            services.AddScoped<SharedKernel.Application.Integration.Tablero.IFuenteTableroIntegracion>(sp =>
+                new NotasCreditoAwFuenteTablero(conCadena, sp.GetRequiredService<ILogger<NotasCreditoAwFuenteTablero>>()));
+            if (conCadena)
             {
                 services.AddSingleton<AwNotasCreditoVistas>();
                 services.AddScoped<IAwNotasCreditoPort>(sp => new AwNotasCreditoDirectoPort(
-                    new AwNotasCreditoLectorAdapter(() => new SqlConnection(AwSqlTls.Validar(cs, cadena)), lectura),
+                    new AwNotasCreditoLectorAdapter(() => new SqlConnection(AwSqlTls.Validar(cs!, cadena)), lectura),
                     lectura, sp.GetRequiredService<AwNotasCreditoVistas>()));
             }
         }

@@ -60,7 +60,7 @@ export function ReporteConciliacionAuxiliaresPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="@container min-w-0 flex flex-col gap-5">
       <PageHeader
         titulo={
           <>
@@ -106,7 +106,7 @@ export function ReporteConciliacionAuxiliaresPage() {
       </div>
 
       {resumen.isLoading ? (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid min-w-0 gap-4 @3xl:grid-cols-2 @6xl:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-44 rounded-lg" />
           ))}
@@ -121,7 +121,7 @@ export function ReporteConciliacionAuxiliaresPage() {
             Al {fechaCorta(resumen.data.corte)} ·{' '}
             {resumen.data.todoCuadra ? 'Todos los controles cuadran.' : 'Hay controles por revisar.'}
           </p>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid min-w-0 gap-4 @3xl:grid-cols-2 @6xl:grid-cols-3">
             {resumen.data.controles.map((c) => (
               <TarjetaControl
                 key={c.control}
@@ -165,19 +165,19 @@ function TarjetaControl({
     <article
       aria-labelledby={`conc-${c.control}`}
       className={cn(
-        'flex flex-col gap-3 rounded-lg bg-surface-card px-5 py-4 shadow-card',
+        '@container flex min-w-0 flex-col gap-3 rounded-lg bg-surface-card px-5 py-4 shadow-card',
         c.estado === 'Diferencia' && 'ring-1 ring-danger-ring',
         seleccionado && 'ring-2 ring-brand',
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id={`conc-${c.control}`} className="text-lg font-semibold text-ink">
           {c.etiqueta}
         </h2>
         <Badge variant={tono}>{c.estadoEtiqueta}</Badge>
       </div>
 
-      <dl className="grid grid-cols-3 gap-x-4 gap-y-2">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 @md:grid-cols-3">
         <Dato etiqueta="Contable" valor={importe(c.saldoContable)} />
         <Dato etiqueta="Auxiliar" valor={importe(c.saldoAuxiliar)} />
         <Dato
@@ -242,9 +242,9 @@ function TarjetaControl({
 
 function Dato({ etiqueta, valor, alerta }: { etiqueta: string; valor: string; alerta?: boolean }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex min-w-0 flex-col gap-0.5">
       <dt className="text-xs text-ink-muted">{etiqueta}</dt>
-      <dd className={cn('text-sm font-medium tabular-nums', alerta ? 'text-danger-fg' : 'text-ink')}>
+      <dd className={cn('text-sm font-medium tabular-nums [overflow-wrap:anywhere]', alerta ? 'text-danger-fg' : 'text-ink')}>
         {valor}
       </dd>
     </div>

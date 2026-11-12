@@ -13,6 +13,7 @@ using Millet.Facturacion.Application.Pedidos.Queries;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 using Millet.Facturacion.Application.Proformas;
 using Millet.Facturacion.Application.Proformas.CompararProformaPedido;
+using Millet.Facturacion.Application.Proformas.EmitirFacturaDesdeProforma;
 using Millet.Facturacion.Application.Proformas.GenerarProformaPedido;
 using Millet.Facturacion.Application.Proformas.Queries;
 using Millet.Facturacion.Application.Proformas.RegistrarConformidadProforma;
@@ -204,6 +205,14 @@ public static class PedidosFacturablesEndpoints
         .WithSummary("Bandeja de excepciones de importación A+W/Planta Pintura")
         .Produces<BandejaExcepcionesImportacionResponse>(StatusCodes.Status200OK);
 
+        // GET: M-233 — envíos de A+W en curso o de resultado incierto (sin acuse en aw_solicitud_pedido).
+        group.MapGet("/envios-inciertos", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new EnviosAwInciertosQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("EnviosAwInciertos")
+        .WithSummary("Envíos de A+W en curso o de resultado incierto")
+        .Produces<IReadOnlyList<EnvioAwInciertoItem>>(StatusCodes.Status200OK);
+
         // POST: resuelve una excepción de importación (F3-PR1b).
         group.MapPost("/excepciones/{id:guid}/resolver", async (
             Guid id,
@@ -313,6 +322,25 @@ public static class PedidosFacturablesEndpoints
         .WithSummary("Registra la conformidad del cliente con una versión de la proforma")
         .Produces<ProformaConformidadResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-340: factura desde la versión aprobada de la proforma, sin recaptura. Se bloquea sin conformidad o si el pedido
+        // cambió después de aprobar (la conformidad queda invalidada); mutación → Idempotency-Key (ADR-0020).
+        group.MapPost("/{id:guid}/proformas/{proformaId:guid}/facturar", async (
+            Guid id,
+            Guid proformaId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new EmitirFacturaDesdeProformaCommand(id, proformaId), cancellationToken);
+            return Results.Created($"/api/v1/facturacion/facturas/{response.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("EmitirFacturaDesdeProforma")
+        .WithSummary("Emite la factura del pedido desde la versión aprobada de su proforma")
+        .Produces<Millet.Facturacion.Application.Facturas.EmitirFacturaVenta.EmitirFacturaVentaResponse>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 

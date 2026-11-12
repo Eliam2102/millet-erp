@@ -11,7 +11,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 /// compartido de sucursales; la clave A+W de una sucursal puede traer alias separados por coma. Solo machea sucursales activas: ingestar hacia
 /// una sucursal desactivada debe caer a la bandeja, no pasar en silencio.
 /// </summary>
-public sealed class SucursalPorClaveAwResolver : ISucursalPorClaveAwResolver
+public sealed class SucursalPorClaveAwResolver : ISucursalPorClaveAwResolver, Millet.ComercioExterior.Application.Ports.ISucursalOtrReadPort
 {
     private readonly CompartidoDbContext _db;
 

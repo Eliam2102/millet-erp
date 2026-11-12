@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -177,4 +177,33 @@ describe('<RequisicionesLayout> — smoke', () => {
       .closest('a');
     expect(activo).toHaveAttribute('aria-current', 'page');
   });
+});
+
+
+it('permite plegar la lista de requisiciones sin perder la captura del detalle', () => {
+  mswServer.use(
+    http.get('*/api/v1/compras/requisiciones', () =>
+      HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
+    ),
+  );
+  render(
+    <RequisicionesLayout
+      idActivo="rq-1"
+      detalle={<input aria-label="Dato de prueba" defaultValue="" />}
+    />,
+    { wrapper: createQueryWrapper() },
+  );
+  const dato = screen.getByLabelText('Dato de prueba');
+  fireEvent.change(dato, { target: { value: 'Captura conservada' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar requisiciones' }));
+  expect(screen.getByRole('button', { name: 'Ocultar requisiciones' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Ocultar requisiciones' }));
+  expect(screen.getByRole('button', { name: 'Mostrar requisiciones' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  expect(dato).toHaveValue('Captura conservada');
 });

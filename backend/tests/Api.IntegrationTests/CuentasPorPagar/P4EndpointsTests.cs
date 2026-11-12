@@ -147,7 +147,10 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory)
         await db.PagosProveedorLocal.Where(n=>db.FacturasProveedor.Where(f=>f.ProveedorId==p.Proveedor).Select(f=>f.Id).Contains(n.FacturaProveedorId)).ExecuteDeleteAsync();
         await db.NotasCargo.Where(n=>n.ProveedorId==p.Proveedor).ExecuteDeleteAsync();await db.NotasCreditoProveedor.Where(n=>n.ProveedorId==p.Proveedor).ExecuteDeleteAsync();await db.AnticiposProveedor.Where(n=>n.ProveedorId==p.Proveedor).ExecuteDeleteAsync();await db.FacturasProveedor.Where(n=>n.ProveedorId==p.Proveedor).ExecuteDeleteAsync();
         await db.ConfiguracionesAnticipoProveedor.Where(n=>n.ProveedorId==p.Proveedor).ExecuteDeleteAsync();
-        var eventos=await db.OutboxEntries.ToListAsync();db.OutboxEntries.RemoveRange(eventos.Where(e=>e.Payload.Contains(p.Proveedor.ToString(),StringComparison.Ordinal)));await db.SaveChangesAsync();Sobre.Value=null;
+        // El publicador puede cambiar la versión del evento mientras se limpia la prueba.
+        var eventos=await db.OutboxEntries.AsNoTracking().ToListAsync();
+        var ids=eventos.Where(e=>e.Payload.Contains(p.Proveedor.ToString(),StringComparison.Ordinal)).Select(e=>e.Id).ToArray();
+        await db.OutboxEntries.Where(e=>ids.Contains(e.Id)).ExecuteDeleteAsync();Sobre.Value=null;
     }
     private sealed class Puertos:Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort,IProveedorReadPort,IPeriodoContablePort,IDependenciaRevisoraReadPort,Millet.Tesoreria.Domain.Ports.IPeriodoContablePort
     {

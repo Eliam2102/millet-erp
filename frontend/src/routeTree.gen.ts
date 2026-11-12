@@ -114,6 +114,7 @@ import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_
 import { Route as AppAlmacenReportesKardexRouteImport } from './routes/_app/almacen/reportes/kardex';
 import { Route as AppAlmacenReportesMpCnkRouteImport } from './routes/_app/almacen/reportes/mp-cnk';
 import { Route as AppAlmacenReportesTrazabilidadMpRouteImport } from './routes/_app/almacen/reportes/trazabilidad-mp';
+import { Route as AppAlmacenReportesConsumoInsumosLineaRouteImport } from './routes/_app/almacen/reportes/consumo-insumos-linea';
 import { Route as AppAlmacenSalidasIndexRouteImport } from './routes/_app/almacen/salidas/index';
 import { Route as AppAlmacenSalidasIdRouteImport } from './routes/_app/almacen/salidas/$id';
 import { Route as AppComercioExteriorExpedientesIndexRouteImport } from './routes/_app/comercio-exterior/expedientes/index';
@@ -217,6 +218,7 @@ import { Route as AppTesoreriaCuentasIndexRouteImport } from './routes/_app/teso
 import { Route as AppTesoreriaDepositosIndexRouteImport } from './routes/_app/tesoreria/depositos/index';
 import { Route as AppTesoreriaDevolucionesIndexRouteImport } from './routes/_app/tesoreria/devoluciones/index';
 import { Route as AppTesoreriaDevolucionesIdRouteImport } from './routes/_app/tesoreria/devoluciones/$id';
+import { Route as AppTesoreriaChequesIndexRouteImport } from './routes/_app/tesoreria/cheques/index';
 import { Route as AppTesoreriaDiferenciasCorteIndexRouteImport } from './routes/_app/tesoreria/diferencias-corte/index';
 import { Route as AppTesoreriaFoliosTransferenciaIndexRouteImport } from './routes/_app/tesoreria/folios-transferencia/index';
 import { Route as AppTesoreriaMovimientosIndexRouteImport } from './routes/_app/tesoreria/movimientos/index';
@@ -827,6 +829,12 @@ const AppAlmacenReportesTrazabilidadMpRoute =
     path: '/almacen/reportes/trazabilidad-mp',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAlmacenReportesConsumoInsumosLineaRoute =
+  AppAlmacenReportesConsumoInsumosLineaRouteImport.update({
+    id: '/almacen/reportes/consumo-insumos-linea',
+    path: '/almacen/reportes/consumo-insumos-linea',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenSalidasIndexRoute = AppAlmacenSalidasIndexRouteImport.update({
   id: '/almacen/salidas/',
   path: '/almacen/salidas/',
@@ -1404,6 +1412,12 @@ const AppTesoreriaDevolucionesIdRoute =
     path: '/tesoreria/devoluciones/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppTesoreriaChequesIndexRoute =
+  AppTesoreriaChequesIndexRouteImport.update({
+    id: '/tesoreria/cheques/',
+    path: '/tesoreria/cheques/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaDiferenciasCorteIndexRoute =
   AppTesoreriaDiferenciasCorteIndexRouteImport.update({
     id: '/tesoreria/diferencias-corte/',
@@ -1767,6 +1781,7 @@ export interface FileRoutesByFullPath {
   '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
+  '/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -1890,6 +1905,7 @@ export interface FileRoutesByFullPath {
   '/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
   '/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
+  '/tesoreria/cheques/': typeof AppTesoreriaChequesIndexRoute;
   '/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
@@ -2022,6 +2038,7 @@ export interface FileRoutesByTo {
   '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
+  '/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -2145,6 +2162,7 @@ export interface FileRoutesByTo {
   '/tesoreria/cuentas': typeof AppTesoreriaCuentasIndexRoute;
   '/tesoreria/depositos': typeof AppTesoreriaDepositosIndexRoute;
   '/tesoreria/devoluciones': typeof AppTesoreriaDevolucionesIndexRoute;
+  '/tesoreria/cheques': typeof AppTesoreriaChequesIndexRoute;
   '/tesoreria/diferencias-corte': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/tesoreria/folios-transferencia': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/tesoreria/movimientos': typeof AppTesoreriaMovimientosIndexRoute;
@@ -2279,6 +2297,7 @@ export interface FileRoutesById {
   '/_app/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/_app/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/_app/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
+  '/_app/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/_app/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/_app/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/_app/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -2402,6 +2421,7 @@ export interface FileRoutesById {
   '/_app/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
   '/_app/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
   '/_app/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
+  '/_app/tesoreria/cheques/': typeof AppTesoreriaChequesIndexRoute;
   '/_app/tesoreria/diferencias-corte/': typeof AppTesoreriaDiferenciasCorteIndexRoute;
   '/_app/tesoreria/folios-transferencia/': typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   '/_app/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
@@ -2536,6 +2556,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
+    | '/almacen/reportes/consumo-insumos-linea'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
@@ -2659,6 +2680,7 @@ export interface FileRouteTypes {
     | '/tesoreria/cuentas/'
     | '/tesoreria/depositos/'
     | '/tesoreria/devoluciones/'
+    | '/tesoreria/cheques/'
     | '/tesoreria/diferencias-corte/'
     | '/tesoreria/folios-transferencia/'
     | '/tesoreria/movimientos/'
@@ -2791,6 +2813,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
+    | '/almacen/reportes/consumo-insumos-linea'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
@@ -2914,6 +2937,7 @@ export interface FileRouteTypes {
     | '/tesoreria/cuentas'
     | '/tesoreria/depositos'
     | '/tesoreria/devoluciones'
+    | '/tesoreria/cheques'
     | '/tesoreria/diferencias-corte'
     | '/tesoreria/folios-transferencia'
     | '/tesoreria/movimientos'
@@ -3047,6 +3071,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/reportes/kardex'
     | '/_app/almacen/reportes/mp-cnk'
     | '/_app/almacen/reportes/trazabilidad-mp'
+    | '/_app/almacen/reportes/consumo-insumos-linea'
     | '/_app/almacen/salidas/$id'
     | '/_app/comercio-exterior/expedientes/$id'
     | '/_app/compras/admin/aprobadores'
@@ -3170,6 +3195,7 @@ export interface FileRouteTypes {
     | '/_app/tesoreria/cuentas/'
     | '/_app/tesoreria/depositos/'
     | '/_app/tesoreria/devoluciones/'
+    | '/_app/tesoreria/cheques/'
     | '/_app/tesoreria/diferencias-corte/'
     | '/_app/tesoreria/folios-transferencia/'
     | '/_app/tesoreria/movimientos/'
@@ -3958,6 +3984,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlmacenReportesTrazabilidadMpRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/almacen/reportes/consumo-insumos-linea': {
+      id: '/_app/almacen/reportes/consumo-insumos-linea';
+      path: '/almacen/reportes/consumo-insumos-linea';
+      fullPath: '/almacen/reportes/consumo-insumos-linea';
+      preLoaderRoute: typeof AppAlmacenReportesConsumoInsumosLineaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/almacen/salidas/': {
       id: '/_app/almacen/salidas/';
       path: '/almacen/salidas';
@@ -4679,6 +4712,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaDevolucionesIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/tesoreria/cheques/': {
+      id: '/_app/tesoreria/cheques/';
+      path: '/tesoreria/cheques';
+      fullPath: '/tesoreria/cheques/';
+      preLoaderRoute: typeof AppTesoreriaChequesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/tesoreria/diferencias-corte/': {
       id: '/_app/tesoreria/diferencias-corte/';
       path: '/tesoreria/diferencias-corte';
@@ -5107,6 +5147,7 @@ interface AppRouteChildren {
   AppAlmacenReportesKardexRoute: typeof AppAlmacenReportesKardexRoute;
   AppAlmacenReportesMpCnkRoute: typeof AppAlmacenReportesMpCnkRoute;
   AppAlmacenReportesTrazabilidadMpRoute: typeof AppAlmacenReportesTrazabilidadMpRoute;
+  AppAlmacenReportesConsumoInsumosLineaRoute: typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   AppAlmacenSalidasIdRoute: typeof AppAlmacenSalidasIdRoute;
   AppComercioExteriorExpedientesIdRoute: typeof AppComercioExteriorExpedientesIdRoute;
   AppComprasAdminAprobadoresRoute: typeof AppComprasAdminAprobadoresRoute;
@@ -5230,6 +5271,7 @@ interface AppRouteChildren {
   AppTesoreriaCuentasIndexRoute: typeof AppTesoreriaCuentasIndexRoute;
   AppTesoreriaDepositosIndexRoute: typeof AppTesoreriaDepositosIndexRoute;
   AppTesoreriaDevolucionesIndexRoute: typeof AppTesoreriaDevolucionesIndexRoute;
+  AppTesoreriaChequesIndexRoute: typeof AppTesoreriaChequesIndexRoute;
   AppTesoreriaDiferenciasCorteIndexRoute: typeof AppTesoreriaDiferenciasCorteIndexRoute;
   AppTesoreriaFoliosTransferenciaIndexRoute: typeof AppTesoreriaFoliosTransferenciaIndexRoute;
   AppTesoreriaMovimientosIndexRoute: typeof AppTesoreriaMovimientosIndexRoute;
@@ -5361,6 +5403,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenReportesKardexRoute: AppAlmacenReportesKardexRoute,
   AppAlmacenReportesMpCnkRoute: AppAlmacenReportesMpCnkRoute,
   AppAlmacenReportesTrazabilidadMpRoute: AppAlmacenReportesTrazabilidadMpRoute,
+  AppAlmacenReportesConsumoInsumosLineaRoute: AppAlmacenReportesConsumoInsumosLineaRoute,
   AppAlmacenSalidasIdRoute: AppAlmacenSalidasIdRoute,
   AppComercioExteriorExpedientesIdRoute: AppComercioExteriorExpedientesIdRoute,
   AppComprasAdminAprobadoresRoute: AppComprasAdminAprobadoresRoute,
@@ -5509,6 +5552,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppTesoreriaCuentasIndexRoute: AppTesoreriaCuentasIndexRoute,
   AppTesoreriaDepositosIndexRoute: AppTesoreriaDepositosIndexRoute,
   AppTesoreriaDevolucionesIndexRoute: AppTesoreriaDevolucionesIndexRoute,
+  AppTesoreriaChequesIndexRoute:
+    AppTesoreriaChequesIndexRoute,
   AppTesoreriaDiferenciasCorteIndexRoute:
     AppTesoreriaDiferenciasCorteIndexRoute,
   AppTesoreriaFoliosTransferenciaIndexRoute:

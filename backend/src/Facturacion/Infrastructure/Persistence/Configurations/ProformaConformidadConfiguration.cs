@@ -26,6 +26,10 @@ public sealed class ProformaConformidadConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.RegistradaPorUsuarioId);
         builder.Property(e => e.RegistradaPorNombre).HasMaxLength(200);
         builder.Property(e => e.RegistradaEn).IsRequired();
+        // M-340: conformidad invalidada porque el pedido cambió después de aprobar la versión.
+        builder.Property(e => e.InvalidadaEn);
+        builder.Property(e => e.InvalidadaMotivo).HasMaxLength(1000);
+        builder.Ignore(e => e.Invalidada);
 
         builder.HasIndex(e => e.ProformaPedidoId)
             .IsUnique()

@@ -74,6 +74,9 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
             filas.Add(new Dictionary<string, object?>
             {
                 ["fecha"] = f.FechaTimbrado,
+                ["factura_cartera_id"] = f.Id,
+                ["vencimiento"] = f.FechaVencimiento,
+                ["plazo_dias"] = f.PlazoDias,
                 ["tipo"] = "Factura",
                 ["referencia"] = f.Folio,
                 ["moneda"] = f.Moneda,
@@ -90,6 +93,8 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
             filas.Add(new Dictionary<string, object?>
             {
                 ["fecha"] = m.FechaMovimiento,
+                ["factura_cartera_id"] = m.FacturaCarteraId,
+                ["movimiento_id"] = m.Id,
                 ["tipo"] = m.Tipo switch
                 {
                     TipoMovimientoCartera.Pago => "Pago",
@@ -105,6 +110,31 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
                 ["abono"] = m.Tipo == TipoMovimientoCartera.ReversaAjusteCobro ? null : m.Importe,
                 ["saldo_documento"] = null,
                 ["estado"] = null,
+            });
+        }
+
+        // M-237: correcciones de plazo y reversas de movimiento, con quién, por qué y el antes/después. El movimiento revertido deja
+        // de contar arriba; aquí queda su rastro. Las solicitudes pendientes o rechazadas no cambian la cartera pero también se ven.
+        var correcciones = await _db.CorreccionesCartera.AsNoTracking()
+            .Where(c => facturaIds.Contains(c.FacturaCarteraId))
+            .OrderBy(c => c.SolicitadaEn)
+            .ToListAsync(cancellationToken);
+        foreach (var c in correcciones)
+        {
+            var (folio, moneda) = folioPorFactura[c.FacturaCarteraId];
+            filas.Add(new Dictionary<string, object?>
+            {
+                ["fecha"] = c.DecididaEn ?? c.SolicitadaEn,
+                ["factura_cartera_id"] = c.FacturaCarteraId,
+                ["correccion_id"] = c.Id,
+                ["tipo"] = c.Tipo == TipoCorreccionCartera.Plazo ? "Corrección de plazo" : "Reversa de movimiento",
+                ["referencia"] = folio,
+                ["moneda"] = moneda,
+                ["cargo"] = null,
+                ["abono"] = null,
+                ["saldo_documento"] = null,
+                ["estado"] = c.Estado.ToString(),
+                ["detalle"] = DetalleCorreccion(c),
             });
         }
 
@@ -154,8 +184,22 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
                 new("abono",           "Abono",       TipoColumnaReporte.Moneda,    AlineacionColumna.Derecha),
                 new("saldo_documento", "Saldo doc.",  TipoColumnaReporte.Moneda,    AlineacionColumna.Derecha),
                 new("estado",          "Estado",      TipoColumnaReporte.Texto,     AlineacionColumna.Centro),
+                new("detalle",         "Detalle",     TipoColumnaReporte.Texto,     AlineacionColumna.Izquierda),
             ],
             Filas: ordenadas,
             Totales: totales);
+    }
+
+    private static string DetalleCorreccion(Domain.Cartera.CorreccionCartera c)
+    {
+        var quien = c.SolicitadaPorNombre ?? "usuario";
+        var antesDespues = c.Tipo == TipoCorreccionCartera.Plazo
+            ? $"Plazo {c.PlazoAnteriorDias} → {c.PlazoNuevoDias} días; vence {c.VencimientoAnterior:yyyy-MM-dd} → {c.VencimientoNuevo:yyyy-MM-dd}"
+            : $"{c.MovimientoTipo} de {c.MovimientoImporte:N2}";
+        var decision = c.Tipo == TipoCorreccionCartera.ReversaMovimiento && c.DecididaEn is not null
+            ? $" · {(c.Estado == EstadoCorreccionCartera.Aplicada ? "autorizó" : "rechazó")} {c.DecididaPorNombre ?? "usuario"}"
+              + (c.MotivoDecision is null ? "" : $" ({c.MotivoDecision})")
+            : "";
+        return $"{antesDespues} · por {quien} · motivo: {c.Motivo}{decision}";
     }
 }

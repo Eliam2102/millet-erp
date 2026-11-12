@@ -259,6 +259,7 @@ public sealed class IdentidadDbContext : BaseDbContext
         pref.Property(x => x.IdiomaUI).HasMaxLength(10).IsRequired();
         pref.Property(x => x.ZonaHoraria).HasMaxLength(50);
         pref.Property(x => x.TemaUI).HasMaxLength(20).IsRequired();
+        pref.Property(x => x.SonidoAvisosHabilitado).HasDefaultValue(false);
 
         pref.HasOne<Usuario>()
             .WithOne()

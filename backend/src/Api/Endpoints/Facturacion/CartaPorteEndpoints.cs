@@ -4,9 +4,12 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Facturacion.Application.CartaPorte.Catalogos;
+using Millet.Facturacion.Application.CartaPorte.CorregirCartaPorte;
 using Millet.Facturacion.Application.CartaPorte.CrearSiguienteTramo;
 using Millet.Facturacion.Application.CartaPorte.EmitirCartaPorte;
 using Millet.Facturacion.Application.CartaPorte.Queries;
+using Millet.Facturacion.Application.CartaPorte.Tramos;
+using Millet.Facturacion.Domain.CartaPorte;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Ports;
@@ -197,8 +200,92 @@ public static class CartaPorteEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // M-354: corrige una Carta Porte observada (timbrado fallido) con rastro; después se reemite con «Reintentar».
+        group.MapPost("/{id:guid}/corregir", async (Guid id, CorregirCartaPorteRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            var cambios = await mediator.Send(new CorregirCartaPorteCommand(
+                id, body.Motivo, body.ActualizarEmisor, body.Origen, body.Destino, body.DistanciaKm,
+                body.OrigenCodigoPostal, body.OrigenEstado, body.DestinoCodigoPostal, body.DestinoEstado,
+                body.VehiculoId, body.OperadorId, body.FechaSalida, body.FechaLlegadaEstimada), ct);
+            return Results.Ok(cambios);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(emitir)
+        .WithName("CorregirCartaPorte")
+        .WithSummary("Corrige el emisor o los datos de un tramo observado, con rastro, antes de reemitir")
+        .Produces<IReadOnlyList<CorreccionTramoResponse>>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapGet("/{id:guid}/correcciones", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CorreccionesCartaPorteQuery(id), ct)))
+        .RequireAuthorization(leer)
+        .WithName("CorreccionesCartaPorte")
+        .WithSummary("Bitácora de correcciones de una Carta Porte")
+        .Produces<IReadOnlyList<CorreccionTramoResponse>>(StatusCodes.Status200OK);
+
+        // M-354: tramos del traslado de un pedido, con su modalidad (alcance por sucursal del pedido, ADR-0051).
+        var tramos = app.MapGroup("/api/v1/facturacion/pedidos-facturables/{pedidoId:guid}/tramos").WithTags("Facturacion");
+
+        tramos.MapGet("/", async (Guid pedidoId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarTramosPedidoQuery(pedidoId), ct)))
+        .RequireAuthorization(leer)
+        .WithName("ListarTramosPedido")
+        .WithSummary("Tramos del traslado del pedido con su modalidad")
+        .Produces<IReadOnlyList<TramoTrasladoResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        tramos.MapPost("/", async (Guid pedidoId, CrearTramoRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            var response = await mediator.Send(new CrearTramoTrasladoCommand(
+                pedidoId, body.Modalidad, body.Origen, body.Destino, body.DistanciaKm, body.OrigenCodigoPostal,
+                body.OrigenEstado, body.DestinoCodigoPostal, body.DestinoEstado, body.FechaSalida), ct);
+            return Results.Created($"/api/v1/facturacion/pedidos-facturables/{pedidoId}/tramos", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(emitir)
+        .WithName("CrearTramoTraslado")
+        .WithSummary("Agrega un tramo al traslado del pedido (vehículo propio o transportista tercero)")
+        .Produces<TramoTrasladoResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        tramos.MapPost("/{tramoId:guid}/documento-tercero", async (
+            Guid pedidoId, Guid tramoId, DocumentoTerceroRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            var response = await mediator.Send(new RegistrarDocumentoTerceroCommand(
+                pedidoId, tramoId, body.TerceroNombre, body.DocumentoTipo, body.TerceroRfc, body.Folio, body.Uuid, body.Fecha), ct);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(emitir)
+        .WithName("RegistrarDocumentoTercero")
+        .WithSummary("Registra el documento del transportista tercero que ampara el tramo (no emite Carta Porte)")
+        .Produces<TramoTrasladoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
+
+    /// <summary>M-354: body de corrección de una Carta Porte observada (solo cambian los campos informados).</summary>
+    public sealed record CorregirCartaPorteRequest(
+        string Motivo, bool ActualizarEmisor = false, string? Origen = null, string? Destino = null, decimal? DistanciaKm = null,
+        string? OrigenCodigoPostal = null, string? OrigenEstado = null, string? DestinoCodigoPostal = null, string? DestinoEstado = null,
+        Guid? VehiculoId = null, Guid? OperadorId = null, DateTimeOffset? FechaSalida = null, DateTimeOffset? FechaLlegadaEstimada = null);
+
+    /// <summary>M-354: body de un tramo nuevo; <c>Modalidad</c> viaja como texto (VehiculoPropio | TransportistaTercero).</summary>
+    public sealed record CrearTramoRequest(
+        [property: System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ModalidadTramo>))] ModalidadTramo Modalidad,
+        string Origen, string? Destino = null, decimal? DistanciaKm = null, string? OrigenCodigoPostal = null,
+        string? OrigenEstado = null, string? DestinoCodigoPostal = null, string? DestinoEstado = null, DateTimeOffset? FechaSalida = null);
+
+    /// <summary>M-354: documento del transportista tercero que ampara el tramo.</summary>
+    public sealed record DocumentoTerceroRequest(
+        string TerceroNombre, string DocumentoTipo, string? TerceroRfc = null, string? Folio = null, string? Uuid = null, DateOnly? Fecha = null);
 
     /// <summary>Body del siguiente tramo (el id de la previa viene en la ruta).</summary>
     public sealed record SiguienteTramoRequest(

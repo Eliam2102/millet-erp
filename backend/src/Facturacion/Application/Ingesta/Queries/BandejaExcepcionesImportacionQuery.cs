@@ -18,7 +18,10 @@ public sealed record ExcepcionImportacionItem(
     string Motivo,
     string? Detalle,
     bool Resuelto,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? Campo = null,
+    string? ValorRecibido = null,
+    string? ValorEsperado = null);
 
 public sealed class BandejaExcepcionesImportacionHandler
     : IRequestHandler<BandejaExcepcionesImportacionQuery, BandejaExcepcionesImportacionResponse>
@@ -44,12 +47,13 @@ public sealed class BandejaExcepcionesImportacionHandler
         var pagina = await q
             .OrderByDescending(e => e.CreatedAt)
             .ThenBy(e => e.Id)
-            .Select(e => new { e.Id, e.Origen, e.PedidoRef, e.Motivo, e.Detalle, e.Resuelto, e.CreatedAt })
+            .Select(e => new { e.Id, e.Origen, e.PedidoRef, e.Motivo, e.Detalle, e.Resuelto, e.CreatedAt, e.Campo, e.ValorRecibido, e.ValorEsperado })
             .ToPaginaAsync(query.Offset, query.Limit, cancellationToken);
 
         var items = pagina.Items
             .Select(r => new ExcepcionImportacionItem(
-                r.Id, r.Origen.ToString(), r.PedidoRef, r.Motivo.ToString(), r.Detalle, r.Resuelto, r.CreatedAt))
+                r.Id, r.Origen.ToString(), r.PedidoRef, r.Motivo.ToString(), r.Detalle, r.Resuelto, r.CreatedAt,
+                r.Campo, r.ValorRecibido, r.ValorEsperado))
             .ToList();
         return new BandejaExcepcionesImportacionResponse(items, pagina.Total);
     }

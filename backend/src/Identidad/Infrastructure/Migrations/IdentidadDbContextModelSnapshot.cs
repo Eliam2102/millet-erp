@@ -2301,6 +2301,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000007-0001-0000-0000-000000000008"),
+                            Accion = "aceptar-cancelacion-pagada",
+                            Codigo = "cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Aceptar la cancelación de un CFDI de proveedor cuya factura ya tiene pagos (Contador General; requiere el CFDI sustituto)",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "cfdi",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000007-0002-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "cuentas_por_pagar.notas-credito.leer",
@@ -3351,6 +3365,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000008-0013-0000-0000-000000000001"),
+                            Accion = "autorizar",
+                            Codigo = "almacen.correcciones-consumo.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar una corrección de consumo (Costos, distinto de quien la solicitó); se aplica en el mes corriente",
+                            Modulo = "almacen",
+                            Recurso = "correcciones-consumo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000008-1a01-0000-0000-000000000001"),
                             Accion = "revisar-acta",
                             Codigo = "almacen.cierre.revisar-acta",
@@ -4317,6 +4345,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000b-0001-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "tesoreria.cuentas.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar el alta o cambio de una cuenta bancaria propia; no puede autorizarlo quien lo solicitó",
+                            Modulo = "tesoreria",
+                            Recurso = "cuentas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0002-0000-0000-000000000001"),
                             Accion = "ver",
                             Codigo = "tesoreria.movimientos.ver",
@@ -4589,6 +4631,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Cerrar conciliaciones con saldo cuadrado y generar acta (RN-7)",
+                            Modulo = "tesoreria",
+                            Recurso = "conciliacion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-0008-0000-0000-000000000003"),
+                            Accion = "revisar",
+                            Codigo = "tesoreria.conciliacion.revisar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dar el visto bueno de Contabilidad a una conciliación firmada o devolverla a Tesorería; no puede darlo quien firmó",
+                            Modulo = "tesoreria",
+                            Recurso = "conciliacion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-0008-0000-0000-000000000004"),
+                            Accion = "reabrir",
+                            Codigo = "tesoreria.conciliacion.reabrir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Reabrir una conciliación bancaria cerrada con motivo (Contadora General)",
+                            Modulo = "tesoreria",
+                            Recurso = "conciliacion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-0008-0000-0000-000000000005"),
+                            Accion = "autorizar-transito",
+                            Codigo = "tesoreria.conciliacion.autorizar-transito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar una partida en tránsito de la conciliación bancaria (Director de Planeación Financiera)",
                             Modulo = "tesoreria",
                             Recurso = "conciliacion",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -6804,6 +6888,12 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("idioma_ui");
+
+                    b.Property<bool>("SonidoAvisosHabilitado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("sonido_avisos_habilitado");
 
                     b.Property<string>("TemaUI")
                         .IsRequired()

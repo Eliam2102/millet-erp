@@ -70,7 +70,8 @@ public sealed class ConciliacionAuxiliarDetalleValidator : AbstractValidator<Con
 /// <summary>Cálculo de CON-09, compartido por el reporte y por el puerto de resumen que consumirá el cierre (CON-12).</summary>
 public sealed class CalculadoraConciliacionAuxiliares(
     ContabilidadDbContext db, IAuxiliarProveedoresReadPort proveedores, ISaldoCarteraAlCorteReadPort cartera,
-    ISaldosBancariosAlCorteReadPort bancos, ITerceroContabilidadPort terceros)
+    ISaldosBancariosAlCorteReadPort bancos, ITerceroContabilidadPort terceros,
+    Millet.Contabilidad.Application.Ports.ITipoCambioContabilidadReadPort? tiposCambio = null)
 {
     public const string RolClientes = "CLIENTES", RolProveedores = "PROVEEDORES", RolBancos = "BANCOS";
     private const string EventoFacturaProveedor = "cuentas_por_pagar.factura.registrada.v1";
@@ -246,19 +247,47 @@ public sealed class CalculadoraConciliacionAuxiliares(
         if (ids.Count > 0)
         {
             var porCuentaBancaria = await PartidasAlCorte(corte, ids, sucursalId)
-                .GroupBy(d => d.CuentaBancariaId).Select(g => new { g.Key, Neto = g.Sum(d => d.Cargo - d.Abono) }).ToListAsync(ct);
+                .GroupBy(d => d.CuentaBancariaId).Select(g => new
+                {
+                    g.Key, Neto = g.Sum(d => d.Cargo - d.Abono),
+                    // N-06: neto en la divisa de la partida (importe original con el signo del cargo o abono).
+                    NetoDivisa = g.Sum(d => d.ImporteOriginal == null ? 0m : d.Cargo > 0 ? d.ImporteOriginal.Value : -d.ImporteOriginal.Value),
+                }).ToListAsync(ct);
             contable = porCuentaBancaria.Sum(x => x.Neto);
             var neto = porCuentaBancaria.Where(x => x.Key != null).ToDictionary(x => x.Key!.Value, x => x.Neto);
             var mxn = libros.Where(b => b.Moneda == Poliza.MonedaNacional).ToList();
-            foreach (var b in libros.Where(b => b.Moneda != Poliza.MonedaNacional))
-                notas.Add($"{b.Banco} {Ultimos4(b.NumeroCuenta)} está en {b.Moneda}: sus libros no se convierten; se compara solo lo MXN.");
+            var netoDivisa = porCuentaBancaria.Where(x => x.Key != null).ToDictionary(x => x.Key!.Value, x => x.NetoDivisa);
+            // N-06 (M-200): cuentas en divisa. Libros de Tesorería en divisa contra (a) pólizas en divisa y (b) pólizas en pesos
+            // contra divisa × TC del corte (catálogo FIX → DOF, regla de Laura del 23-oct). Sin TC al corte no se inventa valor.
+            var extranjeras = new List<(SaldoBancoAlCorte Banco, decimal Tc)>();
+            foreach (var b in libros.Where(b => b.Moneda != Poliza.MonedaNacional && b.SaldoLibros is not null))
+            {
+                var tc = tiposCambio is null ? null : await tiposCambio.ValorEnMxnAsync(b.Moneda, corte, ct);
+                if (tc is null) notas.Add($"{b.Banco} {Ultimos4(b.NumeroCuenta)} está en {b.Moneda}: sin tipo de cambio al corte; no se compara.");
+                else extranjeras.Add((b, tc.Value));
+            }
             foreach (var b in mxn.Where(b => b.SaldoLibros is null))
                 notas.Add($"{b.Banco} {Ultimos4(b.NumeroCuenta)}: el corte es anterior a su saldo inicial; no tiene libros a esa fecha.");
             if (sucursalId is null)
             {
-                auxiliar = mxn.Sum(b => b.SaldoLibros ?? 0m);
-                var contableMxn = neto.Where(x => mxn.Any(b => b.CuentaBancariaId == x.Key)).Sum(x => x.Value)
+                auxiliar = mxn.Sum(b => b.SaldoLibros ?? 0m) + extranjeras.Sum(e => Math.Round(e.Banco.SaldoLibros!.Value * e.Tc, 2));
+                var contableMxn = neto.Where(x => mxn.Any(b => b.CuentaBancariaId == x.Key) || extranjeras.Any(e => e.Banco.CuentaBancariaId == x.Key)).Sum(x => x.Value)
                     + porCuentaBancaria.Where(x => x.Key == null).Sum(x => x.Neto);
+                foreach (var (b, tc) in extranjeras)
+                {
+                    var libro = b.SaldoLibros!.Value;
+                    var divisa = netoDivisa.GetValueOrDefault(b.CuentaBancariaId);
+                    if (Math.Abs(divisa - libro) > ComparadorAuxiliares.Tolerancia)
+                        filas.Add(new(TipoDiferenciaAuxiliar.CuentaBancaria, ComparadorAuxiliares.Etiqueta(TipoDiferenciaAuxiliar.CuentaBancaria),
+                            b.CuentaBancariaId, Ultimos4(b.NumeroCuenta), b.Banco, null, null, null, b.Moneda, libro, divisa, divisa - libro,
+                            $"El saldo en {b.Moneda} de Tesorería y el de las pólizas de la cuenta bancaria no coinciden."));
+                    var pesosLibro = Math.Round(libro * tc, 2);
+                    var pesosPoliza = neto.GetValueOrDefault(b.CuentaBancariaId);
+                    if (Math.Abs(pesosPoliza - pesosLibro) > ComparadorAuxiliares.Tolerancia)
+                        filas.Add(new(TipoDiferenciaAuxiliar.CuentaBancaria, ComparadorAuxiliares.Etiqueta(TipoDiferenciaAuxiliar.CuentaBancaria),
+                            b.CuentaBancariaId, Ultimos4(b.NumeroCuenta), b.Banco, null, null, null, Poliza.MonedaNacional, pesosLibro, pesosPoliza, pesosPoliza - pesosLibro,
+                            $"Las pólizas en pesos no coinciden con {libro:N2} {b.Moneda} al tipo de cambio del corte ({tc:N4}): falta la revaluación o hay una póliza con otro tipo de cambio."));
+                }
                 contable = contableMxn;
                 foreach (var b in mxn.Where(b => b.SaldoLibros is not null))
                 {

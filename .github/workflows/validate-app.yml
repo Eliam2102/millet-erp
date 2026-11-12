@@ -59,6 +59,11 @@ on:
       - main
       - develop
 
+# Conserva sólo la ejecución más reciente de cada PR, sin cancelar otros PRs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write

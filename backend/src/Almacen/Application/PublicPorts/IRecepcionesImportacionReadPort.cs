@@ -5,4 +5,6 @@ public sealed record RecepcionImportacionLectura(Guid RecepcionId, string Numero
 public interface IRecepcionesImportacionReadPort
 {
     Task<IReadOnlyList<RecepcionImportacionLectura>> ObtenerPorOcAsync(Guid ocId, CancellationToken ct);
+    /// <summary>Neto vigente en unidad de OC: excluye anulaciones y resta devoluciones.</summary>
+    Task<IReadOnlyDictionary<Guid, decimal>> ObtenerCantidadesRecibidasAsync(Guid ocId, CancellationToken ct);
 }
