@@ -16,7 +16,7 @@ interface CampoProps {
 
 export function Campo({ label, valor, mono }: CampoProps) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className={cn('text-sm [overflow-wrap:anywhere]', mono && 'break-all font-mono text-xs')}>{valor}</dd>
     </div>
@@ -34,16 +34,16 @@ interface ImporteProps {
 
 export function Importe({ label, v, m, strong, grande }: ImporteProps) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd
-        className={
+        className={cn('min-w-0 [overflow-wrap:anywhere]',
           grande
             ? 'text-3xl font-semibold tabular-nums'
             : strong
               ? 'text-base font-semibold'
               : 'text-sm'
-        }
+        )}
       >
         <MoneyDisplay amount={v} currency={m} />
       </dd>
