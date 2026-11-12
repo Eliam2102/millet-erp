@@ -68,7 +68,7 @@ public class TrasladoPosicionTests
     {
         var (db, saldo, rackB, _) = Db();
 
-        var act = () => Trasladar(db, new(saldo.Id, TrasladoPosicionApp.Version(saldo.UltimaActualizacionAt) - 1, 3, rackB, null));
+        var act = () => Trasladar(db, new(saldo.Id, "0", 3, rackB, null));
 
         (await act.Should().ThrowAsync<ConflictException>()).Which.Code.Should().Be("TRASLADO_SALDO_CAMBIO");
         db.ChangeTracker.Entries<MovimientoInventario>().Should().BeEmpty();

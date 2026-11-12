@@ -14,7 +14,7 @@ namespace Millet.Almacen.Application.Saldos;
 /// <param name="SaldoId">Fila de saldo de origen (hoja/medida/lote en su posición).</param>
 /// <param name="Version">Marca del saldo que vio la pantalla (<see cref="TrasladoPosicionApp.Version"/>); si cambió, se pide recargar.</param>
 /// <param name="Cantidad">Hojas enteras si la fila tiene medida; si no, en la unidad del artículo.</param>
-public sealed record TrasladarPosicion(Guid SaldoId, long Version, decimal Cantidad, Guid UbicacionDestinoId, string? Motivo);
+public sealed record TrasladarPosicion(Guid SaldoId, string Version, decimal Cantidad, Guid UbicacionDestinoId, string? Motivo);
 
 public sealed record TrasladoPosicionResultado(Guid MovimientoId, string Folio, string? FolioEntrada);
 
@@ -28,8 +28,9 @@ public sealed record TrasladoPosicionResultado(Guid MovimientoId, string Folio, 
 /// </summary>
 public static class TrasladoPosicionApp
 {
-    /// <summary>Marca de versión de un saldo: cambia con cada movimiento que lo toca.</summary>
-    public static long Version(DateTimeOffset ultimaActualizacionAt) => ultimaActualizacionAt.UtcTicks;
+    /// <summary>Marca de versión de un saldo: cambia con cada movimiento que lo toca. Texto (no número): los ticks no caben exactos en JS.</summary>
+    public static string Version(DateTimeOffset ultimaActualizacionAt) =>
+        ultimaActualizacionAt.UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     public static async Task<TrasladoPosicionResultado> RegistrarAsync(AlmacenDbContext db, IVarianteVidrioReadPort variantes,
         IArticuloReadPort articulos, IPeriodoContableReadPort periodo, Guid empresaId, Guid usuarioId, TrasladarPosicion c, CancellationToken ct)

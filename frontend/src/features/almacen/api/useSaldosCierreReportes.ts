@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest, ApiError } from '@/lib/api';
-import { apiFetch } from '@/lib/auth/api-client';
+import { apiRequest } from '@/lib/api';
 import {
   almacenKeys,
   type AlfakHistorialFiltros,
@@ -299,20 +298,15 @@ export function usePosicionesTraslado(articuloId: string | null | undefined) {
     queryKey: [...almacenKeys.saldos(), 'posiciones-traslado', articuloId ?? ''] as const,
     enabled: !!articuloId,
     queryFn: async ({ signal }) => {
-      const response = await apiFetch(`/api/v1/almacen/saldos/por-ubicacion?${buildQuery({ articuloId })}`, { signal });
-      if (!response.ok) {
-        const problem = await response.json().catch(() => ({ type: 'about:blank', title: response.statusText, status: response.status }));
-        throw new ApiError(problem, response.status);
-      }
-      const texto = (await response.text()).replace(/"version":\s*(\d+)/g, '"version":"$1"');
-      return JSON.parse(texto) as SaldoUbicacionItem[];
+      const { data } = await apiRequest<SaldoUbicacionItem[]>(`/api/v1/almacen/saldos/por-ubicacion?${buildQuery({ articuloId })}`, { signal });
+      return data;
     },
   });
 }
 
 export interface TrasladarPosicionCommand {
   saldoId: string;
-  /** Texto con los dígitos exactos de `version` (ver `usePosicionesTraslado`). */
+  /** Marca del saldo que vio la pantalla (texto: el backend la manda como string). */
   version: string;
   cantidad: number;
   ubicacionDestinoId: string;
@@ -323,10 +317,7 @@ export function useTrasladarPosicion() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: { command: TrasladarPosicionCommand; idempotencyKey: string }) => {
-      const { version, ...resto } = args.command;
-      if (!/^\d+$/.test(version)) throw new Error('Versión de saldo inválida.');
-      // La versión viaja como número exacto: JSON.stringify no puede emitir un long sin perder dígitos.
-      const body = JSON.stringify({ ...resto, version: '__V__' }).replace('"__V__"', version);
+      const body = JSON.stringify(args.command);
       const { data } = await apiRequest<{ movimientoId: string; folio: string; folioEntrada: string | null }>(
         '/api/v1/almacen/saldos/traslados-posicion',
         { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, idempotencyKey: args.idempotencyKey },

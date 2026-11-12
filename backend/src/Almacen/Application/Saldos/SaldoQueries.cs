@@ -242,7 +242,7 @@ public sealed record SaldoUbicacionItem(
     // S4b: lote de la fila (null = sin lote / apertura) para que la salida lo elija.
     string? Lote = null,
     // M-231: fila de saldo y su versión, para el traslado entre posiciones (detecta que otro usuario ya la movió).
-    Guid? SaldoId = null, long? Version = null, DateTimeOffset? ActualizadoAt = null);
+    Guid? SaldoId = null, string? Version = null, DateTimeOffset? ActualizadoAt = null);
 
 public sealed record SaldosPorUbicacionQuery(
     Guid ArticuloId,
