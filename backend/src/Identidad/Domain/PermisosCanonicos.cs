@@ -356,6 +356,8 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarFacturasCapturar                = "cuentas_por_pagar.facturas.capturar";
     public const string CuentasPorPagarFacturasEditar                  = "cuentas_por_pagar.facturas.editar";
     public const string CuentasPorPagarFacturasCancelar                = "cuentas_por_pagar.facturas.cancelar";
+    /// <summary>M-096: aceptar la cancelación de un CFDI cuya factura ya tiene pagos (Contador General).</summary>
+    public const string CuentasPorPagarCfdiAceptarCancelacionPagada    = "cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada";
     public const string CuentasPorPagarFacturasEnviarRevision          = "cuentas_por_pagar.facturas.enviar-revision";
     public const string CuentasPorPagarFacturasLiberarRevision         = "cuentas_por_pagar.facturas.liberar-revision";
     public const string CuentasPorPagarFacturasAutorizar               = "cuentas_por_pagar.facturas.autorizar";
@@ -881,6 +883,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0001-0000-0000-000000000005"), CuentasPorPagarFacturasEnviarRevision,       "Enviar factura a revisión por dependencia"),
         (Guid.Parse("00000007-0001-0000-0000-000000000006"), CuentasPorPagarFacturasLiberarRevision,      "Liberar factura desde revisión (responsable del área)"),
         (Guid.Parse("00000007-0001-0000-0000-000000000007"), CuentasPorPagarFacturasAutorizar,            "Autorizar factura manualmente (override, raro)"),
+        (Guid.Parse("00000007-0001-0000-0000-000000000008"), CuentasPorPagarCfdiAceptarCancelacionPagada, "Aceptar la cancelación de un CFDI de proveedor cuya factura ya tiene pagos (Contador General; requiere el CFDI sustituto)"),
         (Guid.Parse("00000007-0002-0000-0000-000000000001"), CuentasPorPagarNotasCreditoLeer,             "Consultar notas de crédito del proveedor"),
         (Guid.Parse("00000007-0002-0000-0000-000000000002"), CuentasPorPagarNotasCreditoCapturar,         "Capturar notas de crédito del proveedor"),
         (Guid.Parse("00000007-0003-0000-0000-000000000001"), CuentasPorPagarNotasCargoLeer,               "Consultar notas de cargo internas"),

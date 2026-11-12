@@ -270,6 +270,7 @@ public static class CfdisEndpoints
             Guid id, Guid solicitudId,
             [FromForm] bool aceptar,
             [FromForm] string comentario,
+            [FromForm] Guid? sustitutoCfdiId,
             IFormFile? archivo,
             IMediator mediator,
             IEvidenciaBlobStorage blob,
@@ -287,7 +288,7 @@ public static class CfdisEndpoints
             }
 
             return Results.Ok(await mediator.Send(
-                new DecidirSolicitudCancelacionCommand(id, solicitudId, aceptar, comentario, blobRef, archivo?.FileName),
+                new DecidirSolicitudCancelacionCommand(id, solicitudId, aceptar, comentario, blobRef, archivo?.FileName, sustitutoCfdiId),
                 cancellationToken));
         })
         .DisableAntiforgery()
@@ -297,6 +298,8 @@ public static class CfdisEndpoints
         .WithSummary("Acepta o rechaza una solicitud de cancelación (multipart: aceptar, comentario, archivo opcional)")
         .WithDescription(
             "Aceptar o rechazar solo guarda la decisión y su evidencia; no cambia el CFDI ni el pasivo. " +
+            "Si la factura ya tiene pagos (también parciales), aceptar exige `sustitutoCfdiId` (CFDI ya ingresado, relacionado tipo 04 " +
+            "con el cancelado) y el permiso cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada (Contador General). " +
             "Si se acepta y el SAT luego reporta el CFDI cancelado, la sincronización cancela la factura " +
             "(o la manda a revisión). `comentario` es obligatorio; `archivo` opcional.")
         .Accepts<IFormFile>("multipart/form-data")
