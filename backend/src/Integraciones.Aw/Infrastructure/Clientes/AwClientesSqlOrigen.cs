@@ -25,15 +25,19 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
         k.DATUM, k.TRANSACTION_TIME, z.BEZ, z.NUMMER, z.BRUTTOTAGE, k.BONITAET, b.FREMD_KEY
         """;
 
+    // M-294 (Jorge, 11-nov): Tax ID del cliente extranjero = KU_KUNDEN.EXTERNE_KNR (nombrada «EXTERNE_KN» en el correo;
+    // la columna real lleva R). Solo en SQL Server: el origen demo en Postgres no la tiene y queda sin Tax ID.
+    internal const string ColumnaTaxId = ", k.EXTERNE_KNR";
+
     // El TOP va en la tabla derivada para que el lote cuente clientes y no filas del join con el catálogo.
     // KA_BONITAET.BEZ es PK: el join del régimen no multiplica filas.
     public const string SqlPagina =
-        "SELECT " + Columnas + """
+        "SELECT " + Columnas + ColumnaTaxId + """
 
           FROM (SELECT TOP (@n) ID, MANDANT, NAME1, NAME2, NAME3, STRASSE, ORT, PLZ, PROVINZ, LAND,
                        UST_ID, STEUERNUMMER, TLF1, TLF2, MAIL, ZAHLBED, WAEHRUNG,
                        KREDIT_LIMIT, KREDIT_LIMIT1, KREDIT_LIMIT_NET, KZ_STATUS, KZ_GESPERRT,
-                       DATUM, TRANSACTION_TIME, BONITAET
+                       DATUM, TRANSACTION_TIME, BONITAET, EXTERNE_KNR
                   FROM SYSADM.KU_KUNDEN WHERE ID > @cursor ORDER BY ID) AS k
           LEFT JOIN SYSADM.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
           LEFT JOIN SYSADM.KA_BONITAET AS b ON b.BEZ = k.BONITAET
@@ -41,12 +45,12 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
         """;
 
     public const string SqlReferencia =
-        "SELECT " + Columnas + """
+        "SELECT " + Columnas + ColumnaTaxId + """
 
           FROM (SELECT TOP (1) ID, MANDANT, NAME1, NAME2, NAME3, STRASSE, ORT, PLZ, PROVINZ, LAND,
                        UST_ID, STEUERNUMMER, TLF1, TLF2, MAIL, ZAHLBED, WAEHRUNG,
                        KREDIT_LIMIT, KREDIT_LIMIT1, KREDIT_LIMIT_NET, KZ_STATUS, KZ_GESPERRT,
-                       DATUM, TRANSACTION_TIME, BONITAET
+                       DATUM, TRANSACTION_TIME, BONITAET, EXTERNE_KNR
                   FROM SYSADM.KU_KUNDEN WHERE ID = @cursor ORDER BY ID) AS k
           LEFT JOIN SYSADM.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
           LEFT JOIN SYSADM.KA_BONITAET AS b ON b.BEZ = k.BONITAET
@@ -105,7 +109,7 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
                 if (resultado.Count == 0 || resultado[^1].Id != id)
                 {
                     actual = [];
-                    resultado.Add(ConRegimen(r, Fila(r, actual)));
+                    resultado.Add(ConTaxId(r, ConRegimen(r, Fila(r, actual))));
                 }
                 if (!r.IsDBNull(24)) // BEZ presente = hay coincidencia (NUMMER/BRUTTOTAGE pueden ser nulos)
                     actual!.Add(new(Int(r, 25), Int(r, 26)));
@@ -133,6 +137,10 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
         Bonitaet = SqlPlumbing.GetStringOrNull(r, 27),
         RegimenFiscalOrigen = SqlPlumbing.GetStringOrNull(r, 28),
     };
+
+    /// <summary>Columna 29 (<c>EXTERNE_KNR</c>) cuando la consulta la trae.</summary>
+    internal static AwClienteOrigenFila ConTaxId(DbDataReader r, AwClienteOrigenFila fila) =>
+        r.FieldCount > 29 ? fila with { ExterneKnr = SqlPlumbing.GetStringOrNull(r, 29) } : fila;
 
     private static int? Int(DbDataReader r, int i) => r.IsDBNull(i) ? null : r.GetInt32(i);
 }

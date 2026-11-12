@@ -32,10 +32,10 @@ export function IntegracionesFiscalPage() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex min-w-0 flex-col gap-4 xl:flex-row">
       {/* Aside master */}
       <aside
-        className="w-80 shrink-0 overflow-y-auto border-r bg-muted/30"
+        className="max-h-64 w-full shrink-0 overflow-y-auto border-r bg-muted/30 xl:max-h-none xl:w-80"
         data-print="hidden"
       >
         <header className="border-b p-3">
@@ -81,7 +81,7 @@ export function IntegracionesFiscalPage() {
       </aside>
 
       {/* Detalle */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto">
         {selectedEmpresaId == null ? (
           <p className="p-6 text-sm text-muted-foreground">
             Selecciona una empresa para ver / editar su configuración del PAC.

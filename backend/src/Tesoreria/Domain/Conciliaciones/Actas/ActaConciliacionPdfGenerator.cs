@@ -96,6 +96,8 @@ public static class ActaConciliacionPdfGenerator
                                 cols.RelativeColumn(2);
                                 cols.ConstantColumn(80);
                                 cols.RelativeColumn(2);
+                                cols.RelativeColumn(3);
+                                cols.ConstantColumn(60);
                             });
 
                             tabla.Header(h =>
@@ -105,6 +107,8 @@ public static class ActaConciliacionPdfGenerator
                                 h.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text("Tipo").Bold().FontSize(8);
                                 h.Cell().Background(Colors.Grey.Lighten3).Padding(3).AlignRight().Text("Importe").Bold().FontSize(8);
                                 h.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text("Responsable").Bold().FontSize(8);
+                                h.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text("Causa").Bold().FontSize(8);
+                                h.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text("Se resuelve").Bold().FontSize(8);
                             });
 
                             foreach (var p in d.PartidasTransito)
@@ -114,6 +118,8 @@ public static class ActaConciliacionPdfGenerator
                                 tabla.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(p.Tipo).FontSize(8);
                                 tabla.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).AlignRight().Text(p.Monto.ToString("C2", CulturaEs)).FontSize(8);
                                 tabla.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(p.Responsable).FontSize(8);
+                                tabla.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(p.Causa ?? "").FontSize(8);
+                                tabla.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(p.FechaPrevista?.ToString("dd/MM/yyyy") ?? "").FontSize(8);
                             }
                         });
                     });

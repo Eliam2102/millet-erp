@@ -19,6 +19,7 @@ import type {
   BeneficiarioTipo,
   SoporteFicha,
   CuentaSaldoResponse,
+  SolicitudCuentaResponse,
   ClienteRefDto,
   CorridaResponse,
   CorridaResumenResponse,
@@ -51,6 +52,7 @@ import type {
   MarcarPartidaTransitoInput,
   CerrarConciliacionInput,
   ReabrirConciliacionInput,
+  PartidaTransitoTipo,
   LayoutCorridaResponse,
 } from './types';
 
@@ -109,7 +111,8 @@ export function useCrearCuentaBancaria() {
       };
       idempotencyKey: string;
     }) => {
-      const { data } = await apiRequest<CuentaSaldoResponse>(`${BASE}/cuentas`, {
+      // M-199: responde 202 con la solicitud; la cuenta nace al autorizarla.
+      const { data } = await apiRequest<SolicitudCuentaResponse>(`${BASE}/cuentas`, {
         method: 'POST',
         body: args.command,
         idempotencyKey: args.idempotencyKey,
@@ -147,13 +150,70 @@ export function useActualizarCuentaBancaria() {
       versionEsperada: number;
       idempotencyKey: string;
     }) => {
-      const { data } = await apiRequest<CuentaSaldoResponse>(
+      const { data } = await apiRequest<SolicitudCuentaResponse>(
         `${BASE}/cuentas/${args.cuentaId}`,
         {
           method: 'PUT',
           body: args.body,
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.cuentasAll() });
+    },
+  });
+}
+
+/** M-199 · bandeja de solicitudes de cuenta (por omisión las pendientes). */
+export function useSolicitudesCuenta(estado: number | undefined = 1, enabled = true) {
+  return useQuery<SolicitudCuentaResponse[]>({
+    queryKey: tesoreriaKeys.cuentasSolicitudes(estado),
+    enabled,
+    queryFn: async ({ signal }) => {
+      const qs = estado == null ? '' : `?estado=${estado}`;
+      const { data } = await apiRequest<SolicitudCuentaResponse[]>(
+        `${BASE}/cuentas/solicitudes${qs}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** M-199 · historial de versiones aprobadas de una cuenta. */
+export function useHistorialCuenta(cuentaId: string | null) {
+  return useQuery<SolicitudCuentaResponse[]>({
+    queryKey: tesoreriaKeys.cuentaHistorial(cuentaId ?? ''),
+    enabled: cuentaId != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<SolicitudCuentaResponse[]>(
+        `${BASE}/cuentas/${cuentaId}/historial`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** M-199 · autorizar o rechazar una solicitud (permiso <c>tesoreria.cuentas.autorizar</c>). */
+export function useResolverSolicitudCuenta() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      accion: 'aprobar' | 'rechazar';
+      motivo?: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<SolicitudCuentaResponse>(
+        `${BASE}/cuentas/solicitudes/${args.id}/${args.accion}`,
+        {
+          method: 'POST',
+          idempotencyKey: args.idempotencyKey,
+          ...(args.accion === 'rechazar' ? { body: { motivo: args.motivo } } : {}),
         },
       );
       return data;
@@ -310,6 +370,8 @@ export function useRegistrarPagoACuenta() {
         conceptoId?: string;
         /** TES-09: TC que aplicó el banco (solo moneda distinta de MXN). */
         tipoCambioPago?: number;
+        /** M-265b: obligatorio cuando se manda `tipoCambioPago`. */
+        motivoTipoCambio?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -500,6 +562,9 @@ export function useRegistrarMovimientoIngreso() {
         beneficiarioRef?: string;
         /** 86e3tfdve: CtaOrdenante del REP; solo patrón general del SAT. */
         cuentaOrdenante?: string;
+        /** M-201: confirma un ingreso igual a otro vivo; exige `motivoDuplicado` (10 a 400 caracteres). */
+        confirmarDuplicado?: boolean;
+        motivoDuplicado?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -732,6 +797,8 @@ export function useRegistrarPago() {
         cuentaProveedorId?: string;
         /** TES-09: TC que aplicó el banco (solo moneda distinta de MXN). */
         tipoCambioPago?: number;
+        /** M-265b: obligatorio cuando se manda `tipoCambioPago`. */
+        motivoTipoCambio?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -1165,6 +1232,34 @@ export function useCrearCorrida() {
 
 type TransicionCorrida = { id: string; versionEsperada: number; idempotencyKey: string };
 
+/** M-264 · importe a pagar de una factura de una corrida en borrador (pago parcial). */
+export function useAjustarImporteCorrida() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      facturaProveedorId: string;
+      importe: number;
+      versionEsperada: number;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<CorridaResponse>(
+        `${BASE}/corridas/${args.id}/pasivos/${args.facturaProveedorId}/importe`,
+        {
+          method: 'PUT',
+          body: { importe: args.importe },
+          idempotencyKey: args.idempotencyKey,
+          headers: { 'X-Expected-Version': String(args.versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.corridas() });
+    },
+  });
+}
+
 function useTransicionCorrida<TArgs extends TransicionCorrida>(
   construir: (args: TArgs) => { path: string; body?: unknown },
 ) {
@@ -1478,6 +1573,84 @@ export function useReabrirConciliacion() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(variables.id) });
+    },
+  });
+}
+
+/** M-201 · deja en tránsito un movimiento de libros (cheque no cobrado o depósito del último día del mes). */
+export function useMarcarMovimientoTransito() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      movimientoBancarioId: string;
+      tipo: PartidaTransitoTipo;
+      causa: string;
+      fechaPrevistaResolucion: string;
+    }) => {
+      const { id, ...body } = args;
+      await apiRequest<unknown>(`${BASE}/conciliaciones/${id}/movimientos-transito`, {
+        method: 'POST',
+        body,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(id) });
+    },
+  });
+}
+
+/** M-201 · quita un movimiento de libros de las partidas en tránsito. */
+export function useQuitarMovimientoTransito() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; movimientoId: string }) => {
+      await apiRequest<void>(
+        `${BASE}/conciliaciones/${args.id}/movimientos-transito/${args.movimientoId}`,
+        { method: 'DELETE', idempotencyKey: crypto.randomUUID() },
+      );
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(id) });
+    },
+  });
+}
+
+/** M-202 · Contabilidad da el visto bueno a una conciliación firmada por Tesorería. */
+export function useDarVistoBuenoConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, { id: string }>({
+    mutationFn: async ({ id }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(
+        `${BASE}/conciliaciones/${id}/visto-bueno`,
+        { method: 'POST', idempotencyKey: crypto.randomUUID() },
+      );
+      return data;
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(id) });
+    },
+  });
+}
+
+/** M-202 · Contabilidad devuelve la conciliación a Tesorería con motivo. */
+export function useDevolverConciliacion() {
+  const queryClient = useQueryClient();
+  return useMutation<ConciliacionResumenResponse, unknown, ReabrirConciliacionInput>({
+    mutationFn: async ({ id, motivo }) => {
+      const { data } = await apiRequest<ConciliacionResumenResponse>(
+        `${BASE}/conciliaciones/${id}/devolver`,
+        { method: 'POST', body: { motivo }, idempotencyKey: crypto.randomUUID() },
+      );
+      return data;
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliaciones() });
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.conciliacion(id) });
     },
   });
 }

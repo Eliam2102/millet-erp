@@ -26,7 +26,9 @@ public sealed class FlujoEfectivoReporteValidator : AbstractValidator<FlujoEfect
     }
 }
 
-public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock clock, Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort? nombres = null)
+public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock clock, Millet.Tesoreria.Domain.Ports.ICorteNombresReadPort? nombres = null,
+    Millet.Contabilidad.Application.PublicPorts.ICuentaContableReadPort? cuentasContables = null,
+    Millet.Contabilidad.Application.PublicPorts.ISaldosContablesReadPort? saldosContables = null)
     : IRequestHandler<FlujoEfectivoReporteQuery, ReporteJsonResponse>
 {
     public async Task<ReporteJsonResponse> Handle(FlujoEfectivoReporteQuery query, CancellationToken cancellationToken)
@@ -65,10 +67,10 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
             foreach (var grupo in periodo.GroupBy(a => a.ConceptoId).OrderBy(g => g.Key))
             {
                 var concepto = grupo.Key is Guid id ? conceptos.GetValueOrDefault(id) : null;
-                // M-203: el traspaso entre cuentas propias no es ingreso ni egreso; solo mueve el saldo de cada cuenta (abajo, en `neto`).
-                if (concepto?.ClasificacionFlujo == ClasificacionFlujo.TraspasoInterno) continue;
+                // Javier Canché (9 y 11-nov): los traspasos entre cuentas propias SÍ entran al flujo, en su propio renglón.
                 var clasificacion = concepto?.ClasificacionFlujo switch
                 {
+                    ClasificacionFlujo.TraspasoInterno => "Traspasos entre cuentas propias",
                     ClasificacionFlujo.Operacion => "Operación", ClasificacionFlujo.Inversion => "Inversión",
                     ClasificacionFlujo.Financiamiento => "Financiamiento", _ => "Sin clasificar",
                 };
@@ -78,6 +80,7 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
             }
             var neto = periodo.Sum(a => a.Sentido == SentidoMovimiento.Ingreso ? a.Total : -a.Total);
             filas.Add(Fila("saldoFinal", "Saldo final", "Saldo al cierre del período", null, null, inicial + neto));
+            filas.Add(await CuadreAsync(cuenta, cuentaNombre, inicial + neto, query.Hasta, cancellationToken));
         }
         // Totales como filas para conservar separación por moneda también en PDF y Excel.
         foreach (var moneda in cuentas.Select(c => c.Moneda).Distinct())
@@ -103,7 +106,55 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
              new("ingresos", "Ingresos", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
              new("egresos", "Egresos", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
              new("neto", "Saldo / neto", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
+             new("conciliado", "Saldo conciliado", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
+             new("contable", "Saldo contable", TipoColumnaReporte.Moneda, AlineacionColumna.Derecha),
              new("rastro", "Rastro de reclasificación", TipoColumnaReporte.Texto, AlineacionColumna.Izquierda)], filas, null);
+    }
+
+    /// <summary>
+    /// N-05 (TES-10-05): saldo final del flujo contra el extracto de la conciliación cerrada del mes (solo si «Al» es fin de mes) y contra
+    /// el saldo de la cuenta contable de la cuenta bancaria. En divisa no se compara contra Contabilidad (lleva pesos; lo cubre CON-09).
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, object?>> CuadreAsync(CuentaBancaria cuenta, string nombre, decimal saldoFinal, DateOnly hasta, CancellationToken ct)
+    {
+        var notas = new List<string>();
+        decimal? conciliado = null, contable = null;
+        if (hasta.Day == DateTime.DaysInMonth(hasta.Year, hasta.Month))
+        {
+            var c = await db.Conciliaciones.AsNoTracking().FirstOrDefaultAsync(x => x.CuentaBancariaId == cuenta.Id
+                && x.PeriodoAnio == hasta.Year && x.PeriodoMes == hasta.Month && x.Estado == Domain.Conciliaciones.EstadoConciliacion.Cerrada, ct);
+            if (c is null) notas.Add("Sin conciliación cerrada del mes");
+            else
+            {
+                // Saldo conciliado = extracto + movimientos de libros en tránsito − líneas del banco en tránsito (aún no en libros).
+                var lineasTransito = await db.ExtractoLineas.AsNoTracking().Where(l => l.ConciliacionId == c.Id && l.PartidaTransito).ToListAsync(ct);
+                conciliado = c.SaldoExtracto + c.TransitoLibros
+                    - lineasTransito.Sum(l => l.Sentido == SentidoMovimiento.Ingreso ? l.Monto : -l.Monto);
+                var n = c.PartidasLibro.Count + lineasTransito.Count;
+                if (n > 0) notas.Add($"{n} partida(s) en tránsito");
+            }
+        }
+        else notas.Add("El cuadre con la conciliación se hace al fin de mes");
+
+        if (cuenta.Moneda != "MXN") notas.Add($"En {cuenta.Moneda}: Contabilidad la compara en Conciliación de auxiliares");
+        else if (string.IsNullOrWhiteSpace(cuenta.CuentaContableRef)) notas.Add("Cuenta bancaria sin cuenta contable");
+        else if (cuentasContables is not null && saldosContables is not null)
+        {
+            var v = await cuentasContables.ValidarParaMovimientoAsync(cuenta.CuentaContableRef,
+                Millet.Contabilidad.Domain.OrigenMovimiento.Automatica, ct);
+            if (v.Cuenta is { } cc)
+                contable = (await saldosContables.ObtenerAsync(hasta, [cc.Id], null, ct)).GetValueOrDefault(cc.Id);
+            else notas.Add("La cuenta contable no existe en el catálogo");
+        }
+        string Dif(string que, decimal? otro) => otro is decimal o && Math.Abs(o - saldoFinal) > 0.009m ? $"{que} difiere en {o - saldoFinal:N2}" : "";
+        notas.AddRange(new[] { Dif("Extracto", conciliado), Dif("Contabilidad", contable) }.Where(t => t.Length > 0));
+        return new Dictionary<string, object?>
+        {
+            ["tipo"] = "cuadre", ["cuentaId"] = cuenta.Id, ["cuenta"] = nombre, ["moneda"] = cuenta.Moneda,
+            ["clasificacion"] = "Cuadre", ["concepto"] = $"Saldo final contra conciliación y Contabilidad al {hasta:dd/MM/yyyy}",
+            ["neto"] = saldoFinal, ["conciliado"] = conciliado, ["contable"] = contable,
+            ["rastro"] = notas.Count == 0 ? "Cuadra" : string.Join(" · ", notas),
+        };
     }
 
     static string Clasificacion(ConceptoMovimiento? c) => c?.ClasificacionFlujo switch

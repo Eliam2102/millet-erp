@@ -75,6 +75,7 @@ param glassAgentSpnClientId = '990f1714-c0df-4dd8-aef8-429bc50b2f90'
 // procesa el AwSolicitudesWorker en dev = la empresa seed de Tiglass.
 // NO es secreto (GUID interno). En prod se setea al go-live (M3).
 param awSolicitudesEmpresaId = '00000003-0000-0000-0000-000000000001'
+param awNotasCreditoLecturaHabilitada = true
 
 // SDK FiscalAPI encendido en dev (FAC-DET): TenantKey SANDBOX en el KV dev
 // (secreto operator-managed `fiscalapi-tenant-key`); la ApiKey sk_test y la

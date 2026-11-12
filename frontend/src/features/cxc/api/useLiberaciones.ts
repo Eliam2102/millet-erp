@@ -6,7 +6,10 @@ import type {
   AutorizacionCreditoResponse,
   BeneficiarioCreditoResponse,
   ConfiguracionExcepcionCredito,
+  CorregirReevaluarLiberacionBody,
   CrearAutorizacionCreditoCommand,
+  EvaluacionPedidoItem,
+  ReevaluacionLiberacionResponse,
   ReglaFirmaExcepcionCredito,
   DecidirLiberacionCommand,
   DecisionLiberacionResponse,
@@ -320,6 +323,46 @@ export function useFirmarAutorizacionCredito() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cxcKeys.autorizaciones() });
+    },
+  });
+}
+
+/**
+ * <c>useCorregirReevaluarLiberacion()</c> — M-238: corrige el dato que retuvo un pedido y vuelve a evaluar la
+ * liberación. El backend crea una decisión nueva con la misma cascada y deja el rastro de antes y después. 409 si la
+ * retención ya se reevaluó o la superó otra decisión.
+ */
+export function useCorregirReevaluarLiberacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      decisionId: string;
+      body: CorregirReevaluarLiberacionBody;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<ReevaluacionLiberacionResponse>(
+        `${BASE}/${args.decisionId}/corregir-reevaluar`,
+        { method: 'POST', body: args.body, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.liberaciones() });
+    },
+  });
+}
+
+/** M-238: todas las evaluaciones de un pedido, con las correcciones que las ligan. */
+export function useHistorialLiberacionPedido(pedidoRef: string | null) {
+  return useQuery<EvaluacionPedidoItem[]>({
+    enabled: pedidoRef != null,
+    queryKey: [...cxcKeys.liberaciones(), 'historial', pedidoRef],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<EvaluacionPedidoItem[]>(
+        `${BASE}/pedidos/${encodeURIComponent(pedidoRef ?? '')}/historial`,
+        { signal },
+      );
+      return data;
     },
   });
 }

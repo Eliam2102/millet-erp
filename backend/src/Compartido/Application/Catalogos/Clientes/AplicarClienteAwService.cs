@@ -303,6 +303,9 @@ public sealed class AplicarClienteAwService
         var cpFiscal = string.IsNullOrWhiteSpace(cliente.CodigoPostalFiscal) ? Vacio(snap.CodigoPostalFiscal) : null;
         if (telefono is not null || email is not null || rfc is not null || cpFiscal is not null)
             cliente.ActualizarDatos(rfc: rfc, codigoPostalFiscal: cpFiscal, telefono: telefono, email: email);
+        // M-294: el Tax ID de A+W completa uno vacío; el capturado en el ERP no se pisa.
+        if (string.IsNullOrWhiteSpace(cliente.NumRegIdTrib) && Vacio(snap.NumRegIdTrib) is { } taxId)
+            cliente.AsignarDatosReceptorExtranjero(numRegIdTrib: taxId);
 
         var resultado = ResultadoDe(snap);
         if (registro is null)
@@ -480,6 +483,8 @@ public sealed class AplicarClienteAwService
         N(s.CreditoReferenciaLimite1 is { } l1 ? Math.Round(l1, 4) : null, "0.0000");
         N(s.CreditoReferenciaNet, "R");
         N(s.EstadoOrigenCrudo); N(s.BloqueoOrigenCrudo);
+        // M-294: solo cuando A+W informa Tax ID, para no cambiar el hash de los clientes nacionales.
+        if (Vacio(s.NumRegIdTrib) is not null) T(s.NumRegIdTrib);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()))).ToLowerInvariant();
     }
 }

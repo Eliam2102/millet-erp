@@ -177,3 +177,31 @@ public sealed class ReglaFirmaExcepcionCreditoConfiguration : IEntityTypeConfigu
             .HasDatabaseName("ux_regla_firma_excepcion_credito");
     }
 }
+
+/// <summary>M-238: tabla <c>cuentas_por_cobrar.correccion_liberacion</c> (rastro de corregir y reevaluar una retención).</summary>
+public sealed class CorreccionLiberacionConfiguration : IEntityTypeConfiguration<CorreccionLiberacion>
+{
+    public void Configure(EntityTypeBuilder<CorreccionLiberacion> builder)
+    {
+        builder.ToTable("correccion_liberacion", t =>
+        {
+            t.HasCheckConstraint("ck_correccion_liberacion_tipo", "tipo IN (1, 2, 3)");
+            t.HasCheckConstraint("ck_correccion_liberacion_distintas", "decision_retenida_id != decision_reevaluada_id");
+        });
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.PedidoRef).HasMaxLength(80).IsRequired();
+        builder.Property(e => e.DecisionRetenidaId).IsRequired();
+        builder.Property(e => e.DecisionReevaluadaId).IsRequired();
+        builder.Property(e => e.Tipo).HasConversion<short>().IsRequired();
+        builder.Property(e => e.Detalle).HasMaxLength(254).IsRequired();
+        builder.Property(e => e.CorregidaPor).IsRequired();
+        builder.Property(e => e.CorregidaEn).IsRequired();
+
+        // Una retención se reevalúa una sola vez (la carrera → 23505 → 409).
+        builder.HasIndex(e => e.DecisionRetenidaId).IsUnique().HasDatabaseName("ux_correccion_liberacion_retenida");
+        builder.HasIndex(e => e.DecisionReevaluadaId).HasDatabaseName("ix_correccion_liberacion_reevaluada");
+        builder.HasIndex(e => e.PedidoRef).HasDatabaseName("ix_correccion_liberacion_pedido");
+    }
+}

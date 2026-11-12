@@ -115,7 +115,8 @@ public sealed class RegistrarEjecucionCorridaHandler(TesoreriaDbContext db, ISen
                 if (!pasivos.TryGetValue(l.FacturaProveedorId, out var p) || p.PagoBloqueado)
                     throw new BusinessRuleException("CORRIDA_PASIVO_RETIRADO",
                         $"CxP retiró la autorización del pasivo {l.FacturaProveedorId}; no se paga. Cancela la corrida (o ciérrala si ya registraste otros pagos) para liberarlo, o pide que CxP lo autorice de nuevo.");
-                if (p.SaldoPendiente != l.ImporteProgramado)
+                // M-264: la línea puede pagar solo una parte; se detiene si el saldo vigente ya no alcanza lo autorizado.
+                if (p.SaldoPendiente < l.ImporteProgramado)
                     throw new BusinessRuleException("CORRIDA_PASIVO_MODIFICADO",
                         $"El pasivo {l.FacturaProveedorId} cambió después de autorizar la corrida (autorizado {l.ImporteProgramado:N2}, vigente {p.SaldoPendiente:N2}); no se paga. Cancela la corrida (o ciérrala si ya registraste otros pagos) para liberarlo y ármala de nuevo.");
             }

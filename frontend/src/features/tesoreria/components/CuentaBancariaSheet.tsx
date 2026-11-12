@@ -15,11 +15,16 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
+  CuentaSelector,
+  type CuentaOpcion,
+} from '@/features/contabilidad/components/dimensiones/CuentaSelector';
+import {
   useActualizarCuentaBancaria,
   useCrearCuentaBancaria,
   useRegistrarSaldoInicial,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaSaldoResponse } from '@/features/tesoreria/api/types';
+import { mensajeApi } from '@/features/tesoreria/lib/mensaje-api';
 import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface CuentaBancariaSheetProps {
@@ -30,6 +35,8 @@ export interface CuentaBancariaSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const MENSAJE_SOLICITUD =
+  'Solicitud enviada; la cuenta cambia cuando la autorice el Director de Planeación Financiera';
 const CLABE_REGEX = /^\d{18}$/;
 const MONEDA_REGEX = /^[A-Za-z]{3}$/;
 
@@ -86,7 +93,14 @@ function CuentaBancariaForm({
   const [clabe, setClabe] = useState('');
   const [limpiarClabe, setLimpiarClabe] = useState(false);
   const [moneda, setMoneda] = useState(cuenta?.moneda ?? 'MXN');
-  const [cuentaContableRef, setCuentaContableRef] = useState(cuenta?.cuentaContableRef ?? '');
+  // En edición solo se conoce el código; el selector lo muestra hasta que se elija otra cuenta.
+  const [cuentaContable, setCuentaContable] = useState<CuentaOpcion | null>(
+    cuenta?.cuentaContableRef
+      ? { id: cuenta.cuentaContableRef, codigo: cuenta.cuentaContableRef, nombre: '' }
+      : null,
+  );
+  const [errorContable, setErrorContable] = useState<string | null>(null);
+  const cuentaContableRef = cuentaContable?.codigo ?? '';
   const [perfilExtracto, setPerfilExtracto] = useState(cuenta?.perfilExtracto ?? '');
 
   const clabeValida = clabe === '' || CLABE_REGEX.test(clabe.trim());
@@ -98,6 +112,14 @@ function CuentaBancariaForm({
     !(limpiarClabe && clabe !== '');
 
   function onError(error: unknown, titulo: string) {
+    if (
+      esApiError(error) &&
+      (error.code === 'CTA_CUENTA_CONTABLE_NO_EXISTE' ||
+        error.code === 'CTA_CUENTA_CONTABLE_NO_BANCOS')
+    ) {
+      setErrorContable(mensajeApi(error, titulo));
+      return;
+    }
     toast.error(esApiError(error) ? error.problem.title : titulo, {
       description: esApiError(error) ? (error.problem.detail ?? codigoSoporte(error)) : undefined,
     });
@@ -105,6 +127,7 @@ function CuentaBancariaForm({
 
   function confirmar() {
     if (!valido) return;
+    setErrorContable(null);
     if (!esEdicion) {
       crear.mutate(
         {
@@ -121,10 +144,8 @@ function CuentaBancariaForm({
           idempotencyKey: crypto.randomUUID(),
         },
         {
-          onSuccess: (creada) => {
-            toast.success('Cuenta bancaria creada', {
-              description: `${creada.banco} · ${creada.numeroCuenta} (${creada.moneda}).`,
-            });
+          onSuccess: () => {
+            toast.success(MENSAJE_SOLICITUD);
             onOpenChange(false);
           },
           onError: (error) => onError(error, 'No se pudo crear la cuenta'),
@@ -148,10 +169,8 @@ function CuentaBancariaForm({
         idempotencyKey: crypto.randomUUID(),
       },
       {
-        onSuccess: (editada) => {
-          toast.success('Cuenta bancaria actualizada', {
-            description: `${editada.banco} · ${editada.numeroCuenta}.`,
-          });
+        onSuccess: () => {
+          toast.success(MENSAJE_SOLICITUD);
           onOpenChange(false);
         },
         onError: (error) => onError(error, 'No se pudo actualizar la cuenta'),
@@ -172,6 +191,10 @@ function CuentaBancariaForm({
 
       <>
         <SheetBody className="space-y-4">
+          <p className="rounded-md bg-surface-muted px-3 py-2 text-xs text-ink-secondary">
+            Las altas y los cambios de datos pasan por autorización del Director de Planeación
+            Financiera antes de aplicarse.
+          </p>
           <FormSeccion numero={1} titulo="Datos de la cuenta">
             <FormCampo span={6}>
               <div className="space-y-1">
@@ -264,14 +287,21 @@ function CuentaBancariaForm({
                 <label className="text-xs text-ink-muted" htmlFor="cta-contable">
                   Cuenta contable (opcional)
                 </label>
-                <Input
+                <CuentaSelector
                   id="cta-contable"
-                  value={cuentaContableRef}
-                  onChange={(e) => setCuentaContableRef(e.target.value)}
-                  placeholder="1102-001"
-                  className="font-mono"
-                  maxLength={40}
+                  value={cuentaContable}
+                  onChange={(c) => {
+                    setCuentaContable(c);
+                    setErrorContable(null);
+                  }}
+                  soloAfectables
+                  vacio="Sin cuenta contable"
                 />
+                {errorContable && (
+                  <p role="alert" className="text-xs text-danger-fg">
+                    {errorContable}
+                  </p>
+                )}
               </div>
             </FormCampo>
             <FormCampo span={6}>
@@ -421,7 +451,7 @@ function CuentaBancariaForm({
             Cancelar
           </Button>
           <Button onClick={confirmar} disabled={pendiente || !valido}>
-            {pendiente ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear cuenta'}
+            {pendiente ? 'Enviando…' : esEdicion ? 'Enviar cambios a autorización' : 'Enviar alta a autorización'}
           </Button>
         </SheetFooter>
       </>

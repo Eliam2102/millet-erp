@@ -173,7 +173,7 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
           </p>
         </div>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-md font-semibold">
           Requisitos documentales{' '}
           <Badge variant={data.faltantes.length ? 'warning' : 'info'}>

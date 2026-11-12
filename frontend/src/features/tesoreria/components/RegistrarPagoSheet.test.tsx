@@ -181,9 +181,18 @@ describe('<RegistrarPagoSheet> TC del pago (TES-09)', () => {
     fireEvent.change(campo, { target: { value: '18.6123' } });
     fireEvent.click(screen.getByText('elegir egreso'));
     fireEvent.change(screen.getByLabelText(/Referencia bancaria/), { target: { value: 'spei-usd' } });
+    // M-265b: el TC a mano exige motivo; sin él no se puede registrar.
+    expect(screen.getAllByText('Indica por qué capturas el tipo de cambio a mano.').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Motivo del tipo de cambio/), {
+      target: { value: 'El banco aplicó su propio tipo de cambio' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
     await waitFor(() => expect(post.body).not.toBeNull());
-    expect(post.body).toMatchObject({ tipoCambioPago: 18.6123 });
+    expect(post.body).toMatchObject({
+      tipoCambioPago: 18.6123,
+      motivoTipoCambio: 'El banco aplicó su propio tipo de cambio',
+    });
   });
 
   it('un TC en cero deshabilita el registro', async () => {

@@ -205,6 +205,14 @@ public static class PedidosFacturablesEndpoints
         .WithSummary("Bandeja de excepciones de importación A+W/Planta Pintura")
         .Produces<BandejaExcepcionesImportacionResponse>(StatusCodes.Status200OK);
 
+        // GET: M-233 — envíos de A+W en curso o de resultado incierto (sin acuse en aw_solicitud_pedido).
+        group.MapGet("/envios-inciertos", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new EnviosAwInciertosQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("EnviosAwInciertos")
+        .WithSummary("Envíos de A+W en curso o de resultado incierto")
+        .Produces<IReadOnlyList<EnvioAwInciertoItem>>(StatusCodes.Status200OK);
+
         // POST: resuelve una excepción de importación (F3-PR1b).
         group.MapPost("/excepciones/{id:guid}/resolver", async (
             Guid id,

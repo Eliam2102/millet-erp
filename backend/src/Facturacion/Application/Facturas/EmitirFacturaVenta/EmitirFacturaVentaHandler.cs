@@ -242,6 +242,11 @@ public sealed class EmitirFacturaVentaHandler
         // él, la autorización del Director de Administración y Finanzas (CA6.12). Un pedido manual
         // legacy (sin clase) se rechaza aquí.
         var pedido = await CargarYValidarPedidoAsync(command, true, cancellationToken);
+        // M-444: el cliente de un pedido de A+W ya llega por su clave (si no existe, la ingesta lo rechaza); la obra
+        // debe traer la suya (KO_OBJEKT_KUNDE → KA_OBJEKT). El ERP no da de alta clientes ni obras en A+W.
+        if (pedido is { Origen: OrigenPedido.Aw, ObraId: null } && !string.IsNullOrWhiteSpace(pedido.ObraNombre))
+            throw new BusinessRuleException("FACTURA_OBRA_SIN_CLAVE_AW",
+                $"La obra «{pedido.ObraNombre}» del pedido {pedido.NumeroPedido} no trae su clave de A+W (KA_OBJEKT). Corrígela en el pedido de A+W; el ERP no da de alta obras en A+W.");
         var salida = await CargarYValidarSalidaAsync(command, pedido, cancellationToken);
         // FAC-08: con salida, las partidas de origen son las posiciones de la salida.
         var partidasOrigen = salida is null

@@ -298,7 +298,19 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                     // M-327 (Millet, 10-nov-2026): autoriza la reversa de un anticipo al agente ya comprobado. Perfil corporativo:
                     // consulta y firma expedientes de todas las sucursales.
                     or PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionAutorizar or PermisosCanonicos.ComercioExteriorExpedientesLeer
-                    or PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales or PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales),
+                    or PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales or PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales
+                    // M-199 (Javier Canché, 11-nov): captura el alta o cambio de cuenta bancaria. M-202: visto bueno y reapertura de la conciliación.
+                    or PermisosCanonicos.TesoreriaCuentasVer or PermisosCanonicos.TesoreriaCuentasAdministrar
+                    or PermisosCanonicos.TesoreriaConciliacionOperar or PermisosCanonicos.TesoreriaConciliacionRevisar or PermisosCanonicos.TesoreriaConciliacionReabrir
+                    // Perfil corporativo (ADR-0051): ve y gestiona las cuentas y conciliaciones de todas las sucursales.
+                    or PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales or PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales),
+            // M-199/M-201 (Javier Canché, 9 al 11-nov): CP Carlos René Pérez Echazarreta autoriza altas y cambios de cuenta bancaria
+            // y las partidas en tránsito de la conciliación. Distinto del Director de Administración y Finanzas.
+            (Guid.Parse("0000000b-0001-0001-0000-000000000001"), "direccion-planeacion-financiera",
+                "Director de Planeación Financiera", "Autoriza altas y cambios de cuentas bancarias y las partidas en tránsito.",
+                p => p.Codigo is PermisosCanonicos.TesoreriaCuentasVer or PermisosCanonicos.TesoreriaCuentasAutorizar
+                    or PermisosCanonicos.TesoreriaConciliacionOperar or PermisosCanonicos.TesoreriaConciliacionAutorizarTransito
+                    or PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales or PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales),
             // REQ-PERM (86e3xd4uz): los 80 usuarios del Portal de Requisiciones. Equivalencia en
             // docs/operacion/equivalencia-permisos-portal-requisiciones.md.
             (Guid.Parse("00000010-0001-0000-0000-000000000001"), "requisitante",

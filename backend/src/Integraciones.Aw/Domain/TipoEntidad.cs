@@ -9,7 +9,6 @@ public enum TipoEntidad : short
 {
     Cotizacion = 0,
     Pedido = 1,
-    Cliente = 2,
-    Articulo = 3,
+    // 2 y 3 (Cliente, Articulo) retirados (M-444): A+W no recibe altas de clientes, obras ni artículos desde el ERP.
     Inventario = 4,
 }

@@ -150,9 +150,9 @@ export function PiezasPage() {
             ) : items.length === 0 ? (
               <EmptyState title="No hay piezas para esos filtros" />
             ) : (
-              <Table className="grid min-w-0 text-sm">
-                <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
-                  <TableRow className={`${columnas} h-9`}>
+              <Table className="grid min-w-[900px] text-sm">
+                <TableHeader className="h-auto min-h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
+                  <TableRow className={`${columnas} min-h-9`}>
                     {['Etiqueta', 'Pedido', 'Partida', 'N.º de pieza', 'Sucursal', 'Estado', 'Escaneada'].map((x) => (
                       <TableHead key={x} className="px-3">
                         {x}
@@ -170,7 +170,7 @@ export function PiezasPage() {
                       <TableCell className="min-w-0 truncate px-3">{nombreSucursal(p.sucursalId)}</TableCell>
                       <TableCell className="px-3">
                         {p.estado === 'EnTransito' ? (
-                          <Badge variant="info">
+                          <Badge variant="info" className="h-auto min-h-ctl-xs whitespace-normal">
                             En tránsito{p.sucursalDestinoId ? ` a ${nombreSucursal(p.sucursalDestinoId)}` : ''}
                           </Badge>
                         ) : p.estado === 'Cargada' ? (

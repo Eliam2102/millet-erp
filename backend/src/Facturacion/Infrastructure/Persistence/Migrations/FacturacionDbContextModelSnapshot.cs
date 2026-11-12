@@ -3608,6 +3608,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Campo")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("campo");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -3662,6 +3667,16 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
+
+                    b.Property<string>("ValorEsperado")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("valor_esperado");
+
+                    b.Property<string>("ValorRecibido")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("valor_recibido");
 
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
@@ -4343,15 +4358,6 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date")
                         .HasColumnName("fecha");
-
-                    b.Property<DateTimeOffset?>("InvalidadaEn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("invalidada_en");
-
-                    b.Property<string>("InvalidadaMotivo")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("invalidada_motivo");
 
                     b.Property<string>("Medio")
                         .IsRequired()
@@ -5203,10 +5209,6 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("proforma");
-
-                    b.Property<Guid?>("ProformaPedidoId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("proforma_pedido_id");
 
                     b.Property<string>("ReferenciaCliente")
                         .HasMaxLength(60)

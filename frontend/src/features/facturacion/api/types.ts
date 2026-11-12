@@ -90,8 +90,7 @@ export const EstadoTimbrado = {
   /** Nota de crédito de A+W que espera autorización (86e3wjt5r); no se timbra hasta autorizarla. */
   PorAutorizar: 9,
 } as const satisfies Record<string, number>;
-export type EstadoTimbrado =
-  (typeof EstadoTimbrado)[keyof typeof EstadoTimbrado];
+export type EstadoTimbrado = (typeof EstadoTimbrado)[keyof typeof EstadoTimbrado];
 
 /**
  * Eje fiscal de la facturación: cómo se comporta la venta frente al
@@ -105,8 +104,7 @@ export const ComportamientoFiscal = {
   VentaActivoFijo: 5,
   Administrativa: 6,
 } as const satisfies Record<string, number>;
-export type ComportamientoFiscal =
-  (typeof ComportamientoFiscal)[keyof typeof ComportamientoFiscal];
+export type ComportamientoFiscal = (typeof ComportamientoFiscal)[keyof typeof ComportamientoFiscal];
 
 /**
  * Clase de un pedido manual (F6.1). Mirror de backend <c>ClasePedidoManual</c>:
@@ -118,8 +116,7 @@ export const ClasePedidoManual = {
   VentaDirecta: 1,
   Emergencia: 2,
 } as const satisfies Record<string, number>;
-export type ClasePedidoManual =
-  (typeof ClasePedidoManual)[keyof typeof ClasePedidoManual];
+export type ClasePedidoManual = (typeof ClasePedidoManual)[keyof typeof ClasePedidoManual];
 /** Nombre de la clase tal como llega en las lecturas (`.ToString()`). */
 export type ClasePedidoManualNombre = keyof typeof ClasePedidoManual;
 
@@ -129,8 +126,7 @@ export const SubtipoVentaDirecta = {
   Almacenable: 2,
   Servicio: 3,
 } as const satisfies Record<string, number>;
-export type SubtipoVentaDirecta =
-  (typeof SubtipoVentaDirecta)[keyof typeof SubtipoVentaDirecta];
+export type SubtipoVentaDirecta = (typeof SubtipoVentaDirecta)[keyof typeof SubtipoVentaDirecta];
 export type SubtipoVentaDirectaNombre = keyof typeof SubtipoVentaDirecta;
 
 /**
@@ -166,8 +162,7 @@ export const EstadoAnticipo = {
   Amortizado: 2,
   Cancelado: 3,
 } as const satisfies Record<string, number>;
-export type EstadoAnticipo =
-  (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
+export type EstadoAnticipo = (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
 
 /**
  * Estado derivado en la comparativa de anticipos vs aplicaciones (F6.2):
@@ -1004,8 +999,7 @@ export interface PedidoClienteFiscal {
  * canal desactivado sigue mostrando su nombre). `version` se usa como
  * `If-Match` al editar.
  */
-export interface PedidoFacturableDetalleResponse
-  extends ClasificacionPedidoLectura {
+export interface PedidoFacturableDetalleResponse extends ClasificacionPedidoLectura {
   /** F6.1: motivo de la captura de emergencia (solo clase Emergencia). */
   motivoEmergencia?: string | null;
   /** F6.1: pedido A+W para conciliar después (opcional, emergencia). */
@@ -1135,6 +1129,22 @@ export interface ExcepcionImportacionItem {
   detalle: string | null;
   resuelto: boolean;
   createdAt: string;
+  /** M-233: campo del envío que no cuadra y sus valores (null si la excepción no es de totales). */
+  campo?: string | null;
+  valorRecibido?: string | null;
+  valorEsperado?: string | null;
+}
+
+/** M-233: envío de A+W sin acuse (GET /pedidos-facturables/envios-inciertos). */
+export interface EnvioAwInciertoItem {
+  solicitudId: string;
+  numeroPedido: string;
+  operacion: string;
+  version: number;
+  creadaAt: string;
+  estado: 'EnCurso' | 'Incierto';
+  versionAplicadaErp: number | null;
+  detalle: string | null;
 }
 
 /** Comprobante del historial de un pedido (GET /pedidos-facturables/{id}/comprobantes, B5). */
@@ -1263,7 +1273,11 @@ export interface EmitirFacturaVentaLinea {
  * Retenciones de IVA que nos hacen los clientes (tabla de Contabilidad del 5-nov): cada concepto
  * fija la tasa de la línea y la cuenta contable de la retención. Mismo catálogo que el backend.
  */
-export const CONCEPTOS_RETENCION_CLIENTE: ReadonlyArray<{ value: string; label: string; tasa: number }> = [
+export const CONCEPTOS_RETENCION_CLIENTE: ReadonlyArray<{
+  value: string;
+  label: string;
+  tasa: number;
+}> = [
   { value: 'FLETES', label: 'Fletes 4 %', tasa: 0.04 },
   { value: 'SERVICIOS', label: 'Servicios 6 %', tasa: 0.06 },
   { value: 'DESPERDICIO', label: 'Desperdicio 16 %', tasa: 0.16 },
@@ -2281,19 +2295,11 @@ export interface ComparacionProformaResponse {
 
 /** Estado local del comprobante en el monitor de CFDI. */
 export type EstadoMonitorCfdi =
-  | 'Timbrado'
-  | 'Cancelación en trámite'
-  | 'Cancelado'
-  | 'Fallido'
-  | 'Sin timbrar';
+  'Timbrado' | 'Cancelación en trámite' | 'Cancelado' | 'Fallido' | 'Sin timbrar';
 
 /** Estatus del CFDI según la última consulta al SAT. */
 export type EstatusSatCfdi =
-  | 'Vigente'
-  | 'Cancelado'
-  | 'No encontrado'
-  | 'Sin verificar'
-  | 'No aplica';
+  'Vigente' | 'Cancelado' | 'No encontrado' | 'Sin verificar' | 'No aplica';
 
 export interface MonitorCfdiResumen {
   timbrados: number;
