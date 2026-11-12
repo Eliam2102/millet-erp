@@ -1,3 +1,4 @@
+import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
@@ -14,13 +15,13 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft, FileDown, Printer, RotateCw } from 'lucide-react';
+import { ArrowLeft, FileDown, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
-import { descargarComprobanteSalida } from '@/features/almacen/api/descargarComprobanteSalida';
+import { obtenerComprobante } from '@/features/almacen/api/descargarComprobanteSalida';
 import { EstadoMovimiento, type SalidaDetalle } from '@/features/almacen/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -342,25 +343,5 @@ function VerValeButton({ salidaId }: { salidaId: string }) {
  * (SALIDA DE MERCANCIA) que dibuja el backend, para firmarlo a mano.
  */
 function ImprimirComprobanteButton({ salida }: { salida: SalidaDetalle }) {
-  const [generando, setGenerando] = useState(false);
-
-  async function imprimir() {
-    setGenerando(true);
-    try {
-      await descargarComprobanteSalida(salida.id, salida.folio);
-    } catch (e) {
-      toast.error('No se pudo generar el comprobante PDF.', {
-        description: errorUsuario(e, 'Reintenta en unos segundos.'),
-      });
-    } finally {
-      setGenerando(false);
-    }
-  }
-
-  return (
-    <Button type="button" variant="outline" onClick={imprimir} disabled={generando}>
-      <Printer className="mr-2 size-3.5" />
-      {generando ? 'Generando PDF…' : 'Imprimir comprobante'}
-    </Button>
-  );
+  return <ImprimirPdfButton generarPdf={() => obtenerComprobante(`/api/v1/almacen/salidas/${salida.id}/comprobante`)}>Imprimir comprobante</ImprimirPdfButton>;
 }

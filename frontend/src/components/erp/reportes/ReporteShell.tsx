@@ -1,6 +1,7 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { renderCelda } from '@/components/erp/reportes/render-celda';
 import { type ReactNode, useState } from 'react';
-import { FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react';
+import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/erp/feedback/ErrorState';
@@ -113,7 +114,7 @@ export function ReporteShell<TFila>({
     try {
       const { descargarReportePdf } =
         await import('@/components/erp/reportes/exporters/reporte-pdf-exporter');
-      await descargarReportePdf(paraExport, nombreArchivo ?? slugify(paraExport.titulo));
+      await descargarReportePdf(paraExport, nombreArchivo ?? slugify(paraExport.titulo), getCelda);
     } catch (err) {
       toast.error('No se pudo generar el PDF', {
         description: err instanceof Error ? err.message : String(err),
@@ -129,7 +130,7 @@ export function ReporteShell<TFila>({
     try {
       const { descargarReporteExcel } =
         await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
-      await descargarReporteExcel(paraExport, nombreArchivo ?? slugify(paraExport.titulo));
+      await descargarReporteExcel(paraExport, nombreArchivo ?? slugify(paraExport.titulo), getCelda);
     } catch (err) {
       toast.error('No se pudo generar el Excel', {
         description: err instanceof Error ? err.message : String(err),
@@ -209,10 +210,7 @@ export function ReporteShell<TFila>({
                 )}
                 PDF
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" />
-                Imprimir
-              </Button>
+              <ImprimirReporteButton type="button" variant="outline" size="sm" reporte={paraExport ?? reporte} obtenerCelda={getCelda} />
             </div>
           </header>
 

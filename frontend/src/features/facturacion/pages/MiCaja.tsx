@@ -1,3 +1,5 @@
+import { abrirPdfParaImprimir } from '@/components/erp/reportes/imprimir-pdf';
+import { obtenerArchivo } from '@/features/facturacion/lib/descargas';
 import { DateTimeDisplay, ErrorState, TableSkeleton } from '@/components/erp';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { resumirSesionCaja } from '@/features/facturacion/lib/resumen-caja';
@@ -1052,8 +1054,8 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
 // ─── Movimientos y cobros de la sesión ───────────────────────────────
 
 /** Reimpresión del Vale de Caja de un retiro: mismo folio y datos (86e3ww6tw). */
-function reimprimirVale(movimientoId: string, folio: number) {
-  descargarValeCaja(movimientoId, folio).catch((error: unknown) =>
+function reimprimirVale(movimientoId: string) {
+  abrirPdfParaImprimir(() => obtenerArchivo(`/api/v1/facturacion/cajas/movimientos/${movimientoId}/vale.pdf`)).catch((error: unknown) =>
     toastError(error, 'No se pudo descargar el Vale de Caja.'),
   );
 }
@@ -1104,7 +1106,7 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
                       variant="ghost"
                       size="sm"
                       aria-label={`Vale de caja folio ${m.folioVale}`}
-                      onClick={() => reimprimirVale(m.id, m.folioVale!)}
+                      onClick={() => reimprimirVale(m.id)}
                     >
                       <FileText className="mr-1 h-3.5 w-3.5" aria-hidden />
                       Vale de caja
