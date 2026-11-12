@@ -83,7 +83,7 @@ export function ActivoDetallePage() {
         </aside>
       }
     >
-      <section className="min-w-0 flex-1 space-y-5 overflow-auto">
+      <section className="@container min-w-0 flex-1 space-y-5 overflow-auto">
         <div className="flex flex-wrap items-center gap-3" data-print="hidden">
           <h1 className="font-mono text-xl font-semibold">{a.numero}</h1>
           <ImprimirEtiquetas activoId={a.id} />
@@ -125,7 +125,7 @@ export function ActivoDetallePage() {
             <TabsTrigger value="mantenimientos">Mantenimientos</TabsTrigger>
           </TabsList>
           <TabsContent value="datos">
-            <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+            <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @sm:grid-cols-2 [&>div]:min-w-0 [&_dd]:[overflow-wrap:anywhere]">
               {Object.entries({
                 Clase: clases.data?.find((c) => c.id === a.claseId)?.nombre,
                 Responsable: a.custodiaDescripcion?.responsable,

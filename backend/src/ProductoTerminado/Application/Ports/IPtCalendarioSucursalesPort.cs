@@ -12,4 +12,5 @@ public interface IPtCalendarioSucursalesPort
     Task<IReadOnlySet<DateOnly>> FestivosAsync(CancellationToken ct);
 }
 
-public sealed record SucursalCalendarioPt(string Clave, string ZonaHoraria);
+/// <summary><c>Nombre</c>: origen de la Carta Porte de la hoja (la sucursal de donde sale, no siempre Conkal).</summary>
+public sealed record SucursalCalendarioPt(string Clave, string ZonaHoraria, string? Nombre = null);

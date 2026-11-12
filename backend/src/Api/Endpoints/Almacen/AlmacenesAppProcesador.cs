@@ -44,6 +44,14 @@ public sealed class AlmacenesAppProcesador(
         return null;
     }
 
+    /// <summary>
+    /// M-333: fecha del hecho = la del sobre (<c>fecha</c>), en la hora local con que la escribe la app (p. ej.
+    /// <c>2026-11-09T17:28:59-06:00</c> → 9-nov). Sin fecha o ilegible: null (el movimiento toma la de hoy).
+    /// </summary>
+    public static DateOnly? FechaDelHecho(JsonElement root) =>
+        DateTimeOffset.TryParse(Str(root, "fecha"), System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var f) ? DateOnly.FromDateTime(f.DateTime) : null;
+
     private static string? Str(JsonElement root, string n) =>
         root.ValueKind == JsonValueKind.Object && root.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String
             ? v.GetString() : null;
@@ -94,8 +102,15 @@ public sealed class AlmacenesAppProcesador(
                 // Un ERROR de datos (artículo/medida/sucursal sin dar de alta, campo inválido) no descuenta nada y queda en la
                 // bandeja de excepciones (A4.3-a) con folio de revisión; la app lo corrige y reprocesa el mismo mensajeId.
                 if (resuelta is null) return await ErrorMarcadoAsync(mensajeId, tipo, referencia, root, errorSalida, ct);
+                if (tipo == AlmacenesAppSalida.Rotura)
+                {
+                    var p = await salidasGuardado.GuardarRoturaPendienteAsync(mensajeId, tipo, referencia, root.GetRawText(), ct);
+                    if (!p.Duplicado) return new AcuseApp(mensajeId, p.Estado, p.Folio, null);
+                    previo = await db.MensajesApp.AsNoTracking().FirstAsync(m => m.MensajeId == mensajeId, ct);
+                    return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
+                }
                 var g = await salidasGuardado.GuardarAsync(mensajeId, tipo, referencia, root.GetRawText(),
-                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct, resuelta.Origen);
+                    resuelta.EmpresaId, resuelta.UsuarioId, resuelta.Salidas, ct, resuelta.Origen, FechaDelHecho(root));
                 if (g.Estado == "ERROR") return new AcuseApp(mensajeId, g.Estado, g.Folio, g.Error);
                 if (!g.Duplicado)
                     // Sin existencia (5-nov): ya no se acepta en silencio. El mensaje quedó EN_REVISION con su folio de
@@ -184,6 +199,24 @@ public sealed class AlmacenesAppProcesador(
 
         // Mismo folio (y error, si lo hubo) que la primera vez; nada nuevo se crea.
         return new AcuseApp(mensajeId, "DUPLICADO", previo.Folio, previo.Error);
+    }
+
+    /// <summary>
+    /// M-223: autoriza una ROTURA pendiente de la app. Vuelve a resolver el mensaje guardado (artículo, medida, lote, área) con las mismas
+    /// reglas de la recepción y baja el saldo en una transacción. <paramref name="verificarSucursal"/> aplica el alcance por sucursal.
+    /// </summary>
+    public async Task<(string? Folio, string? Error)> AutorizarRoturaAsync(string mensajeId, Guid usuarioId,
+        Func<Guid, Task> verificarSucursal, CancellationToken ct)
+    {
+        var mensaje = await db.MensajesApp.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.MensajeId == mensajeId && m.Tipo == AlmacenesAppSalida.Rotura && m.Estado == MensajeApp.Pendiente, ct)
+            ?? throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("ROTURA_NO_PENDIENTE", "La rotura ya fue decidida o no existe.");
+        using var doc = JsonDocument.Parse(mensaje.Payload);
+        var (resuelta, error) = await AlmacenesAppSalida.ManejarAsync(mensaje.Tipo, doc.RootElement.GetProperty("datos"), salidaResolver,
+            usuarioServicio, ct, dimensiones, opciones.Value.ExigirAreaEquipo, opciones.Value.CentroAlmacen);
+        if (resuelta is null) return (null, error);
+        await verificarSucursal(resuelta.Salidas[0].SucursalId);
+        return await salidasGuardado.AutorizarRoturaAsync(mensajeId, resuelta.EmpresaId, resuelta.UsuarioId, usuarioId, resuelta.Salidas, ct);
     }
 
     /// <summary>

@@ -55,7 +55,7 @@ public class SalidasRoturaTests(WebApplicationFactory<Program> factory)
 
     private static async Task<Guid> CapturarAsync(HttpClient c, Guid articuloId, Guid binId, decimal cantidad)
     {
-        using var r = await c.PostAsJsonAsync(Ruta, new { ubicacionId = binId, articuloId, cantidad, motivoCodigo = "rotura_rack" });
+        using var r = await c.PostAsJsonAsync(Ruta, new { ubicacionId = binId, articuloId, cantidad, motivoCodigo = "rotura_rack", evidenciaBlobRef = "almacen/rotura-prueba.jpg" });
         Assert.True(r.StatusCode == HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
         return (await ContabTestKit.Json(r)).GetProperty("id").GetGuid();
     }
@@ -111,7 +111,7 @@ public class SalidasRoturaTests(WebApplicationFactory<Program> factory)
             Assert.Equal("ROTURA_MISMO_USUARIO", (await ContabTestKit.Json(propia)).GetProperty("code").GetString());
             Assert.Equal(20m, await SaldoAsync(art));
 
-            using var captura = await lector.PostAsJsonAsync(Ruta, new { ubicacionId = bin, articuloId = art, cantidad = 1m, motivoCodigo = "rotura_rack" });
+            using var captura = await lector.PostAsJsonAsync(Ruta, new { ubicacionId = bin, articuloId = art, cantidad = 1m, motivoCodigo = "rotura_rack", evidenciaBlobRef = "almacen/rotura-prueba.jpg" });
             Assert.Equal(HttpStatusCode.Forbidden, captura.StatusCode);
             using var decide = await lector.PostAsJsonAsync($"{Ruta}/{id}/rechazar", new { motivo = "x" });
             Assert.Equal(HttpStatusCode.Forbidden, decide.StatusCode);

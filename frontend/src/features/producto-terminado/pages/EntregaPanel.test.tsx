@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { EntregaPanel } from './EntregaPanel';
-import type { AlbaranDto } from '../api/types';
+import type { AlbaranDto, EntregaDto } from '../api/types';
 
-const entrega = vi.hoisted(() => ({ mutateAsync: vi.fn() }));
-vi.mock('../api/hooks', () => ({ useConfirmarEntrega: () => ({ mutateAsync: entrega.mutateAsync, isPending: false }) }));
+const entrega = vi.hoisted(() => ({ mutateAsync: vi.fn(), corregir: vi.fn() }));
+vi.mock('../api/hooks', () => ({
+  useConfirmarEntrega: () => ({ mutateAsync: entrega.mutateAsync, isPending: false }),
+  useCorregirEntrega: () => ({ mutateAsync: entrega.corregir, isPending: false }),
+}));
 // jsdom no dibuja: el lienzo de firma se sustituye por un botón que entrega un PNG.
 vi.mock('./FirmaPad', () => ({
   FirmaPad: ({ onChange }: { onChange: (v: string | null) => void }) => <button type="button" onClick={() => onChange('data:image/png;base64,AAAA')}>Firmar</button>,
@@ -69,5 +72,26 @@ describe('EntregaPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Confirmar entrega/ }));
     await waitFor(() => expect(entrega.mutateAsync.mock.calls[0][0].body.cobro).toEqual({ monto: 8500, formaPago: 'TPV', referencia: 'VCH-0417' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  it('corregir (M-248) parte de lo registrado, pide el motivo y no ofrece cobro', async () => {
+    entrega.corregir.mockResolvedValue({});
+    const onListo = vi.fn();
+    const previa = { id: 'e1', resultado: 'Entregada', receptor: 'Mariana Pech', entregadaAt: '2026-11-10T10:00:00Z', entregadas: 3, rechazadas: 0, motivoRechazo: null, tieneFirma: true, tieneFoto: false, etiquetasRechazadas: [], cobro: null } as EntregaDto;
+    render(<EntregaPanel hojaId="h1" albaran={albaran} corregir={previa} onListo={onListo} onCancelar={vi.fn()} />);
+    expect(screen.getByPlaceholderText('Nombre de quien recibe')).toHaveValue('Mariana Pech');
+    expect(screen.queryByLabelText('Cobré en la entrega')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Firmar' }));
+    expect(screen.getByRole('button', { name: /Guardar corrección/ })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Rechazar 260317-3'));
+    fireEvent.change(screen.getByPlaceholderText(/Vidrio|vidrio con rayón/i), { target: { value: 'Rayón' } });
+    fireEvent.change(screen.getByPlaceholderText(/se capturó mal/), { target: { value: 'Se marcó la pieza equivocada' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar corrección/ }));
+    await waitFor(() => expect(entrega.corregir).toHaveBeenCalledWith({
+      hojaId: 'h1', albaranId: 'a1',
+      body: { receptor: 'Mariana Pech', rechazadas: ['260317-3'], motivoRechazo: 'Rayón', firma: 'data:image/png;base64,AAAA', foto: null, motivoCorreccion: 'Se marcó la pieza equivocada' },
+    }));
+    expect(onListo).toHaveBeenCalled();
+    expect(entrega.mutateAsync).not.toHaveBeenCalled();
   });
 });

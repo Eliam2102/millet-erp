@@ -2,6 +2,7 @@ using MediatR;
 using Millet.Api.Endpoints.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
 using Millet.Api.Web;
@@ -14,6 +15,7 @@ using Millet.Compras.Application.Eliminar;
 using Millet.Compras.Application.EnviarAAutorizacion;
 using Millet.Compras.Application.Listar;
 using Millet.Compras.Application.Motivos;
+using Millet.Compras.Application.NecesidadRqApp;
 using Millet.Compras.Application.ObtenerRequisicionPorId;
 using Millet.Compras.Application.PreviewCubrimiento;
 using Millet.Compras.Application.Devolver;
@@ -180,6 +182,32 @@ public static class RequisicionesEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // M-332: necesidad de una RQ de la app de Almacenes (necesidad, disponible, convertido a OC, pendiente). Solo lectura.
+        group.MapGet("/{id:guid}/necesidad-app", async (
+            Guid id,
+            IMediator mediator,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            IUsuarioReadPort usuarios,
+            CancellationToken cancellationToken) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+            await RqDepartamentoScope.VerificarAsync(id, db, currentUser, permisos, usuarios, cancellationToken);
+            return Results.Ok(await mediator.Send(new NecesidadRqAppQuery(id), cancellationToken));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLeer)
+        .WithName("ObtenerNecesidadRqApp")
+        .WithSummary("Necesidad de una RQ de la app de Almacenes (M-332)")
+        .WithDescription(
+            "Por línea: necesidad, disponible hoy en la sucursal, convertido a OC (no cancelada) y pendiente. " +
+            "`aplica=false` si la RQ no viene de la app. Requiere `compras.requisiciones.leer`.")
+        .Produces<NecesidadRqAppResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // S2: autorización masiva desde la bandeja de pendientes. Reutiliza
         // AutorizarRequisicionCommand por id (mismas validaciones y bifurcación).
         // El permiso del nivel se valida una vez para el lote; el alcance por
@@ -231,49 +259,15 @@ public static class RequisicionesEndpoints
                     $"El usuario no tiene permiso para autorizar en {request.Nivel}.");
             }
 
-            if (request.Ids is null || request.Ids.Count is < 1 or > 50)
+            if (LoteFueraDeRango(request.Items) is { } invalido)
             {
-                return Results.Problem(
-                    title: "ids inválidos",
-                    detail: "ids debe contener entre 1 y 50 requisiciones.",
-                    statusCode: StatusCodes.Status400BadRequest);
+                return invalido;
             }
 
-            var resultados = new List<AutorizacionMasivaItemResultado>(request.Ids.Count);
-            foreach (var id in request.Ids.Distinct())
-            {
-                try
-                {
-                    await RqSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
-                    await mediator.Send(
-                        new AutorizarRequisicionCommand(id, request.Nivel, request.Notas),
-                        cancellationToken);
-                    resultados.Add(new AutorizacionMasivaItemResultado(id, true, null, null));
-                }
-                catch (DomainException ex)
-                {
-                    // Un fallo puede dejar cambios sin guardar en el DbContext
-                    // compartido del request: se descartan para no colarlos en el
-                    // siguiente id del lote.
-                    scopeDb.ChangeTracker.Clear();
-                    resultados.Add(new AutorizacionMasivaItemResultado(id, false, ex.Code, ex.Message));
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    // Fallo no previsto: mismo descarte del DbContext compartido. El detalle
-                    // va solo al log; al cliente se devuelve un mensaje genérico.
-                    scopeDb.ChangeTracker.Clear();
-                    loggerFactory.CreateLogger("RequisicionesEndpoints")
-                        .LogError(ex, "Error inesperado en autorización masiva de la requisición {RequisicionId}", id);
-                    resultados.Add(new AutorizacionMasivaItemResultado(
-                        id,
-                        false,
-                        "ERROR_INESPERADO",
-                        "Ocurrió un error inesperado al autorizar la requisición. Intente de nuevo."));
-                }
-            }
-
-            return Results.Ok(new AutorizacionMasivaResponse(resultados));
+            return Results.Ok(await EjecutarLoteAsync(
+                request.Items!, "autorizar",
+                id => mediator.Send(new AutorizarRequisicionCommand(id, request.Nivel, request.Notas), cancellationToken),
+                scopeDb, currentUser, scopePermisos, scopeSucursales, loggerFactory, cancellationToken));
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization()
@@ -281,11 +275,99 @@ public static class RequisicionesEndpoints
         .WithSummary("Autorización masiva de requisiciones (S2)")
         .WithDescription(
             "Registra la firma del nivel indicado para hasta 50 requisiciones. " +
+            "Cada item lleva la `version` que vio la selección: si la requisición " +
+            "cambió desde entonces su resultado es `RQ_CAMBIO_DESDE_SELECCION` y no se firma. " +
             "Cada id se procesa con las mismas reglas que `POST /{id}/autorizaciones` " +
             "y devuelve su resultado (`ok`, `errorCodigo`, `mensaje`) con HTTP 200; " +
             "un id fallido no aborta el lote. Requiere el permiso del nivel " +
             "(`compras.requisiciones.autorizar.nivel1` o `nivel2`). Header " +
             "`Idempotency-Key` obligatorio.")
+        .Produces<AutorizacionMasivaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // M-254: rechazo en lote. Un solo motivo para todo el lote; cada item lleva la
+        // versión de la selección y se procesa con RechazarRequisicionCommand por id.
+        group.MapPost("/rechazos-masivos", async Task<IResult> (
+            [FromBody] RechazarRequisicionesMasivasRequest request,
+            IMediator mediator,
+            ICurrentUserContext currentUser,
+            ComprasDbContext scopeDb,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
+            ILoggerFactory loggerFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (LoteFueraDeRango(request.Items) is { } invalido)
+            {
+                return invalido;
+            }
+            if (request.MotivoId == Guid.Empty)
+            {
+                return Results.Problem(
+                    title: "motivo requerido",
+                    detail: "El motivo es obligatorio para rechazar el lote.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            return Results.Ok(await EjecutarLoteAsync(
+                request.Items!, "rechazar",
+                id => mediator.Send(new RechazarRequisicionCommand(id, request.MotivoId, request.MotivoTexto), cancellationToken),
+                scopeDb, currentUser, scopePermisos, scopeSucursales, loggerFactory, cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesRechazar)
+        .WithName("RechazarRequisicionesMasivas")
+        .WithSummary("Rechazo masivo de requisiciones (M-254)")
+        .WithDescription(
+            "Rechaza hasta 50 requisiciones con un mismo motivo (catálogo + texto libre " +
+            "según el motivo). Cada item lleva la `version` de la selección: si cambió, " +
+            "su resultado es `RQ_CAMBIO_DESDE_SELECCION` y no se rechaza. Un id fallido " +
+            "no aborta el lote. Header `Idempotency-Key` obligatorio.")
+        .Produces<AutorizacionMasivaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // M-254: devolución en lote a corregir (reutiliza DevolverRequisicionCommand;
+        // las firmas previas se conservan como historia).
+        group.MapPost("/devoluciones-masivas", async Task<IResult> (
+            [FromBody] DevolverRequisicionesMasivasRequest request,
+            IMediator mediator,
+            ICurrentUserContext currentUser,
+            ComprasDbContext scopeDb,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
+            ILoggerFactory loggerFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (LoteFueraDeRango(request.Items) is { } invalido)
+            {
+                return invalido;
+            }
+            if (string.IsNullOrWhiteSpace(request.Comentario) || request.Comentario.Length > 500)
+            {
+                return Results.Problem(
+                    title: "comentario inválido",
+                    detail: "El comentario es obligatorio (máximo 500 caracteres) para devolver el lote.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            return Results.Ok(await EjecutarLoteAsync(
+                request.Items!, "devolver",
+                id => mediator.Send(new DevolverRequisicionCommand(id, request.Comentario), cancellationToken),
+                scopeDb, currentUser, scopePermisos, scopeSucursales, loggerFactory, cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesRechazar)
+        .WithName("DevolverRequisicionesMasivas")
+        .WithSummary("Devolución masiva a corregir (M-254)")
+        .WithDescription(
+            "Devuelve a Borrador hasta 50 requisiciones EnAutorización con un mismo " +
+            "comentario obligatorio. Cada item lleva la `version` de la selección: si " +
+            "cambió, su resultado es `RQ_CAMBIO_DESDE_SELECCION`. Un id fallido no aborta " +
+            "el lote. Header `Idempotency-Key` obligatorio.")
         .Produces<AutorizacionMasivaResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -845,8 +927,86 @@ public static class RequisicionesEndpoints
     /// <summary>Body del POST /autorizaciones.</summary>
     public sealed record AutorizarRequisicionRequest(NivelAutorizacion Nivel, string? Notas);
 
-    /// <summary>Body del POST /autorizaciones-masivas (S2): 1 a 50 ids.</summary>
-    public sealed record AutorizarRequisicionesMasivasRequest(IReadOnlyList<Guid> Ids, NivelAutorizacion Nivel, string? Notas);
+    /// <summary>Item de un lote (M-254): la requisición y la versión que vio la selección.</summary>
+    public sealed record LoteRequisicionItem(Guid Id, int Version);
+
+    /// <summary>Body del POST /autorizaciones-masivas (S2): 1 a 50 items.</summary>
+    public sealed record AutorizarRequisicionesMasivasRequest(IReadOnlyList<LoteRequisicionItem> Items, NivelAutorizacion Nivel, string? Notas);
+
+    /// <summary>Body del POST /rechazos-masivos (M-254): motivo único para el lote.</summary>
+    public sealed record RechazarRequisicionesMasivasRequest(IReadOnlyList<LoteRequisicionItem> Items, Guid MotivoId, string? MotivoTexto);
+
+    /// <summary>Body del POST /devoluciones-masivas (M-254): comentario único para el lote.</summary>
+    public sealed record DevolverRequisicionesMasivasRequest(IReadOnlyList<LoteRequisicionItem> Items, string Comentario);
+
+    private static IResult? LoteFueraDeRango(IReadOnlyList<LoteRequisicionItem>? items) =>
+        items is null || items.Count is < 1 or > 50
+            ? Results.Problem(
+                title: "items inválidos",
+                detail: "items debe contener entre 1 y 50 requisiciones.",
+                statusCode: StatusCodes.Status400BadRequest)
+            : null;
+
+    /// <summary>
+    /// Ejecuta <paramref name="ejecutar"/> por item sin abortar el lote. Antes de cada uno
+    /// compara la versión actual contra la de la selección (M-254): si cambió, no se ejecuta.
+    /// </summary>
+    private static async Task<AutorizacionMasivaResponse> EjecutarLoteAsync(
+        IReadOnlyList<LoteRequisicionItem> items,
+        string accion,
+        Func<Guid, Task> ejecutar,
+        ComprasDbContext scopeDb,
+        ICurrentUserContext currentUser,
+        ICurrentUserPermissions scopePermisos,
+        IUsuarioSucursalReadPort scopeSucursales,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        var resultados = new List<AutorizacionMasivaItemResultado>(items.Count);
+        foreach (var item in items.DistinctBy(i => i.Id))
+        {
+            var id = item.Id;
+            try
+            {
+                await RqSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+                var versionActual = await scopeDb.Requisiciones.AsNoTracking()
+                    .Where(r => r.Id == id)
+                    .Select(r => (int?)r.Version)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (versionActual is not null && versionActual != item.Version)
+                {
+                    resultados.Add(new AutorizacionMasivaItemResultado(
+                        id, false, "RQ_CAMBIO_DESDE_SELECCION", "Cambió, revísala."));
+                    continue;
+                }
+                await ejecutar(id);
+                resultados.Add(new AutorizacionMasivaItemResultado(id, true, null, null));
+            }
+            catch (DomainException ex)
+            {
+                // Un fallo puede dejar cambios sin guardar en el DbContext
+                // compartido del request: se descartan para no colarlos en el
+                // siguiente id del lote.
+                scopeDb.ChangeTracker.Clear();
+                resultados.Add(new AutorizacionMasivaItemResultado(id, false, ex.Code, ex.Message));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Fallo no previsto: mismo descarte del DbContext compartido. El detalle
+                // va solo al log; al cliente se devuelve un mensaje genérico.
+                scopeDb.ChangeTracker.Clear();
+                loggerFactory.CreateLogger("RequisicionesEndpoints")
+                    .LogError(ex, "Error inesperado en lote ({Accion}) de la requisición {RequisicionId}", accion, id);
+                resultados.Add(new AutorizacionMasivaItemResultado(
+                    id,
+                    false,
+                    "ERROR_INESPERADO",
+                    $"Ocurrió un error inesperado al {accion} la requisición. Intente de nuevo."));
+            }
+        }
+
+        return new AutorizacionMasivaResponse(resultados);
+    }
 
     /// <summary>Body común para POST /rechazar y POST /eliminar.</summary>
     public sealed record TerminarRequisicionRequest(Guid MotivoId, string? MotivoTexto);

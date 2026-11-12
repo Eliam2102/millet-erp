@@ -130,6 +130,22 @@ public static class AprobacionEndpoints
         .WithSummary("Aplica el conteo aprobado: genera movimientos AjustePositivo/AjusteNegativo en batch + publica AjusteInventarioAplicadoEvent")
         .Produces<AplicarConteoResponse>(StatusCodes.Status200OK);
 
+        // M-224: acta del conteo aplicado (PDF dibujado al momento con lo guardado en la conciliación final).
+        app.MapGet("/api/v1/almacen/conteos/{id:guid}/acta", async (
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, HttpResponse response, CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            var pdf = await mediator.Send(new Millet.Almacen.Application.Conteos.Pdf.ActaConteoPdfQuery(id), ct);
+            if (pdf is null) return Results.NotFound();
+            response.Headers.CacheControl = "no-store";
+            return Results.File(pdf.Contenido, "application/pdf", pdf.NombreArchivo);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosAprobarNivel1)
+        .WithTags("Almacen")
+        .WithName("ActaConteo")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .Produces(StatusCodes.Status404NotFound);
+
         return app;
     }
 }

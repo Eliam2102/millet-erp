@@ -125,3 +125,9 @@ Sin una decisión transversal sobre **qué motor de reportería usa el ERP**, ca
 - [ADR-0025](0025-generacion-pdfs.md) — generación de PDFs operativos. Conviene actualizarlo para reflejar que `@react-pdf/renderer` es el motor para PDFs derivados de reportes (mismo dato JSON), mientras que QuestPDF puede quedarse como opción para PDFs no-reporte (acuses, comprobantes con plantilla simple).
 - ADR-0007 (RBAC) y ADR-0021 (versionado API) ya cubren los endpoints `GET /api/v1/<modulo>/reportes/<nombre>` sin cambios.
 - ADR-0023 (frontend stack) — confirma que TanStack Table y `@react-pdf/renderer` son compatibles con el stack vigente.
+
+## Adenda de implementación · 11-nov-2026
+
+Por instrucción de Eliam, todos los botones de impresión abren el PDF del documento para revisar y ajustar papel, escala e impresora en el visor nativo. Los reportes se generan desde sus datos completos y conservan celdas calculadas, filtros y totales; no se capturan pantallas. Los documentos existentes del servidor se reutilizan y conservan sus permisos, estados y registro de impresiones. CSS print permanece como compatibilidad del navegador, no como acción de esos botones.
+
+React PDF necesita compilar el WebAssembly de Yoga: la CSP permite exclusivamente `wasm-unsafe-eval`, conservando el bloqueo de evaluación de JavaScript y scripts en línea. No se incorporan motores ni dependencias adicionales. La comprobación local no acredita QA, producción ni aceptación de Millet.

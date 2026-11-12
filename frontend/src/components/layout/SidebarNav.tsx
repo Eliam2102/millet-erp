@@ -70,7 +70,7 @@ export function SidebarNav({
     };
     const railClass = (active: boolean) =>
       cn(
-        'flex w-rail-item flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        'flex w-rail-item max-w-full shrink-0 flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
         active ? 'bg-rail-active text-primary-foreground' : 'text-rail-fg hover:bg-rail-active hover:text-primary-foreground',
       );
     const ordenados = [...items].sort(

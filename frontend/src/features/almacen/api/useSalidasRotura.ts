@@ -30,6 +30,8 @@ export interface SalidaRotura {
   /** 86e3zf04y: área (CeCo) y equipo capturados para la póliza de merma. */
   areaClave?: string | null;
   equipoClave?: string | null;
+  /** M-223: foto o documento que respalda la rotura (obligatoria al capturar). */
+  evidenciaBlobRef?: string | null;
 }
 
 export interface MotivoRotura {
@@ -46,6 +48,7 @@ export interface CapturarRoturaPayload {
   comentario: string | null;
   areaClave?: string | null;
   equipoClave?: string | null;
+  evidenciaBlobRef: string;
 }
 
 /** 86e3zf04y: si la cuenta de merma exige área o equipo (regla C-03) para la ubicación y la fecha. */
@@ -112,6 +115,45 @@ export function useDecidirRotura() {
         body: args.accion === 'rechazar' ? { motivo: args.motivo } : undefined,
         idempotencyKey: crypto.randomUUID(),
       });
+      return data;
+    },
+    // Autorizar baja el saldo: se refrescan también saldos y salidas.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: almacenKeys.all }),
+  });
+}
+
+/** M-223: ROTURA de la app de Almacenes pendiente de decidir. `payload` es el JSON crudo del mensaje de la app. */
+export interface RoturaAppPendiente {
+  mensajeId: string;
+  referencia: string | null;
+  folio: string | null;
+  recibidoAt: string;
+  payload: string;
+}
+
+export function useRoturasApp(habilitado: boolean) {
+  return useQuery({
+    queryKey: almacenKeys.roturasApp(),
+    enabled: habilitado,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<RoturaAppPendiente[]>('/api/v1/almacen/salidas-rotura/app', { signal });
+      return data;
+    },
+  });
+}
+
+export function useDecidirRoturaApp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { mensajeId: string; accion: 'autorizar' | 'rechazar'; motivo?: string }) => {
+      const { data } = await apiRequest<{ mensajeId: string; estado: string; folio: string | null }>(
+        `/api/v1/almacen/salidas-rotura/app/${encodeURIComponent(args.mensajeId)}/${args.accion}`,
+        {
+          method: 'POST',
+          body: args.accion === 'rechazar' ? { motivo: args.motivo } : undefined,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      );
       return data;
     },
     // Autorizar baja el saldo: se refrescan también saldos y salidas.

@@ -48,6 +48,23 @@ public static class IncidenciasAlmacen
         PasoReanudacion: PasosIncidencia.AlmRecepcionRegistrar,
         RutaReanudacion: $"/compras/ordenes/{ocId}");
 
+    /// <summary>N-11: clave de la incidencia de referencia duplicada; una por OC, se resuelve con la siguiente recepción de esa OC.</summary>
+    public const string ClaveDuplicada = "referencia-duplicada";
+
+    /// <summary>
+    /// N-11 (ALM-recepcion-09): la remisión o factura ya entró en otra recepción vigente de la misma OC y no se dio motivo. No se crea otra
+    /// entrada; queda la incidencia para aclarar si es una entrega complementaria (se registra con motivo) o una recaptura (no se registra).
+    /// </summary>
+    public static AbrirIncidenciaSolicitud ReferenciaDuplicada(Guid ocId, string? ocFolio, string folioPrevio, string referencia,
+        Guid? sucursalId, string motivo) => new(
+        Modulo, "orden_compra", ocId, Etiqueta(ocFolio ?? ocId.ToString(), folioPrevio),
+        PasosIncidencia.AlmRecepcionDiferenciaOc, motivo, Guid.Empty, sucursalId,
+        Detalle: $"La referencia {referencia} ya entró en la recepción {folioPrevio}. Si es otra entrega del mismo documento, regístrala con " +
+            "el motivo; si es la misma mercancía, no la recapturas: consulta la recepción existente.",
+        DetalleClave: ClaveDuplicada,
+        PasoReanudacion: PasosIncidencia.AlmRecepcionRegistrar,
+        RutaReanudacion: $"/compras/ordenes/{ocId}");
+
     public static AbrirIncidenciaSolicitud ValeSinRegularizar(Guid valeId, string? folio, Guid? sucursalId, Guid responsable,
         string motivo, string? codigo, string detalle) => new(
         Modulo, "vale", valeId, $"Vale {folio ?? "(sin folio)"}",

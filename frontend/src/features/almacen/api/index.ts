@@ -82,6 +82,7 @@ export {
   useReporteAlfakHistorial,
   useReporteTrazabilidadMp,
   useReporteKardex,
+  useReporteConsumoInsumosLinea,
   useReporteExistenciaMpCnk,
 } from '@/features/almacen/api/useSaldosCierreReportes';
 export {

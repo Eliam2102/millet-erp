@@ -29,7 +29,7 @@ public sealed class G3RecepcionYValeTests
         await using var f = new P1Fixture();
         await ConFactura(f, Guid.NewGuid(), "R-55");
 
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => ConFactura(f, Guid.NewGuid(), " r-55 "));
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(() => ConFactura(f, Guid.NewGuid(), " r-55 "));
         ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
         ex.Message.Should().Contain("ya fue recibida");
         (await f.Db.Movimientos.CountAsync()).Should().Be(1);
@@ -43,12 +43,28 @@ public sealed class G3RecepcionYValeTests
     }
 
     [Fact]
+    public async Task N11_referencia_duplicada_sin_motivo_abre_incidencia_de_la_OC_y_no_crea_entrada()
+    {
+        await using var f = new P1Fixture();
+        var cfdi = Guid.NewGuid();
+        var primera = await ConFactura(f, cfdi, "R-90");
+
+        var ex = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Incidencias.IncidenciaRechazoException>(() => ConFactura(f, cfdi, "R-91"));
+
+        ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
+        ex.Solicitud.DocumentoId.Should().Be(f.DocumentoId);
+        ex.Solicitud.DetalleClave.Should().Be(Millet.Almacen.Application.Incidencias.IncidenciasAlmacen.ClaveDuplicada);
+        ex.Solicitud.Detalle.Should().Contain(primera.Folio).And.Contain("factura");
+        (await f.Db.Movimientos.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
     public async Task Misma_remision_por_lista_de_empaque_tambien_pide_motivo()
     {
         await using var f = new P1Fixture();
         await ConPackingList(f, "R-77");
 
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => ConPackingList(f, "R-77"));
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(() => ConPackingList(f, "R-77"));
         ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
         (await f.Db.Movimientos.CountAsync()).Should().Be(1);
         await ConPackingList(f, "R-77", "Segundo camión");
@@ -62,7 +78,7 @@ public sealed class G3RecepcionYValeTests
         var cfdi = Guid.NewGuid();
         await ConFactura(f, cfdi, "R-1");
 
-        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => ConFactura(f, cfdi, "R-2"));
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(() => ConFactura(f, cfdi, "R-2"));
         ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
     }
 

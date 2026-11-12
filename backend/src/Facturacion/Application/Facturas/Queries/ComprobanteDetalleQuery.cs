@@ -66,7 +66,9 @@ public sealed record ComprobanteDetalleResponse(
     // pendiente» y no acreditan: el por cobrar sigue siendo la factura completa.
     IReadOnlyList<NotaCreditoPendienteDetalle>? NotasCreditoPendientes = null,
     // M-216: por qué sigue retenida en PendientePedimento (falta expediente o pedimento).
-    string? MotivoPedimento = null);
+    string? MotivoPedimento = null,
+    // M-340: versión de la proforma aprobada de la que viene la factura (el folio PF va en Proforma).
+    Guid? ProformaPedidoId = null);
 
 /// <summary>U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC.</summary>
 public sealed record NotaCreditoPendienteDetalle(
@@ -271,7 +273,7 @@ public sealed class ComprobanteDetalleHandler
             CobroMostrador: cobroDetalle,
             PagadoPorRep: pagadoPorRep, DatosEmbarqueCe: f.DatosEmbarqueCe,
             OrdenCompraCliente: f.OrdenCompraCliente, ReferenciaCliente: f.ReferenciaCliente,
-            CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones,
+            CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones, ProformaPedidoId: f.ProformaPedidoId,
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
             NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
             ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken),

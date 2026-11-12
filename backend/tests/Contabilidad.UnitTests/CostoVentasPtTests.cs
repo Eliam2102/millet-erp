@@ -160,13 +160,13 @@ public class CostoVentasPtTests
     }
 
     [Fact]
-    public void El_oyente_de_PT_solo_contabiliza_la_entrega_confirmada()
+    public void El_oyente_de_PT_contabiliza_la_entrega_confirmada_y_los_traspasos()
     {
         var w = new Millet.Contabilidad.Infrastructure.Workers.ProductoTerminadoContabilidadListenerWorker(null, null!,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Millet.Contabilidad.Infrastructure.Workers.ProductoTerminadoContabilidadListenerWorker>.Instance);
 
         w.Topic.Should().Be("producto-terminado-events");
-        w.TiposContables.Should().BeEquivalentTo(new[] { N.EntregaPtConfirmada });
+        w.TiposContables.Should().BeEquivalentTo(new[] { N.EntregaPtConfirmada, N.TraspasoPtSalidaAutorizada, N.TraspasoPtEntradaRegistrada });
     }
 
     private static string Migracion()

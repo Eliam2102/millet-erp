@@ -32,7 +32,12 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
         var total = await consulta.CountAsync(cancellationToken);
         var items = await consulta.OrderBy(x => x.NumeroPedido).ThenBy(x => x.p.Posicion).ThenBy(x => x.p.NumeroPieza)
             .Skip((q.Page - 1) * q.PageSize).Take(q.PageSize)
-            .Select(x => new PiezaDto(x.p.Id, x.p.Etiqueta, x.NumeroPedido, x.p.Posicion, x.p.NumeroPieza, x.p.SucursalId, x.p.Estado.ToString(), x.p.EscaneadaAt))
+            .Select(x => new PiezaDto(x.p.Id, x.p.Etiqueta, x.NumeroPedido, x.p.Posicion, x.p.NumeroPieza, x.p.SucursalId, x.p.Estado.ToString(), x.p.EscaneadaAt, null,
+                x.p.Almacen == null ? null : x.p.Almacen.ToString(), x.p.Lugar, x.p.Estado == EstadoPieza.EnPT && x.p.Almacen == null,
+                db.Escaneos.Where(e => e.Id == x.p.EscaneoId).Select(e => (int?)e.Estacion).FirstOrDefault(),
+                db.Escaneos.Where(e => e.Id == x.p.EscaneoId).Select(e => e.Area).FirstOrDefault(),
+                db.Escaneos.Where(e => e.Id == x.p.EscaneoId).Select(e => (DateTimeOffset?)e.RegistradoUtc).FirstOrDefault(),
+                x.p.Costo == null))
             .ToListAsync(cancellationToken);
 
         // Las piezas en tránsito siguen con su sucursal de origen; se muestra a dónde van.
@@ -56,7 +61,7 @@ public sealed class ListarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso 
             var est = await db.PedidosPt.AsNoTracking().Where(o => o.NumeroPedido == numero)
                 .Select(o => new { o.Liberacion, o.MotivoLiberacion, o.LiberacionAt }).FirstOrDefaultAsync(cancellationToken);
             estadoPedido = est?.Liberacion is { } l ? new EstadoPedidoDto(l.ToString(), est.MotivoLiberacion, est.LiberacionAt) : null;
-            var cuentas = await consulta.GroupBy(x => x.p.Posicion).Select(g => new { Posicion = g.Key, N = g.Count(), EnPt = g.Count(x => x.p.Estado == EstadoPieza.EnPT), Cargadas = g.Count(x => x.p.Estado == EstadoPieza.Cargada), Entregadas = g.Count(x => x.p.Estado == EstadoPieza.Embarcada || x.p.Estado == EstadoPieza.Entregada) }).ToListAsync(cancellationToken);
+            var cuentas = await consulta.Where(x => x.p.Estado != EstadoPieza.Baja).GroupBy(x => x.p.Posicion).Select(g => new { Posicion = g.Key, N = g.Count(), EnPt = g.Count(x => x.p.Estado == EstadoPieza.EnPT), Cargadas = g.Count(x => x.p.Estado == EstadoPieza.Cargada), Entregadas = g.Count(x => x.p.Estado == EstadoPieza.Embarcada || x.p.Estado == EstadoPieza.Entregada) }).ToListAsync(cancellationToken);
             avance = posiciones.Select(pos =>
             {
                 var cuenta = cuentas.FirstOrDefault(c => c.Posicion == pos.Posicion);
@@ -139,5 +144,32 @@ public sealed class ListarEscaneosHandler(ProductoTerminadoDbContext db, PtAcces
         var total = await filas.CountAsync(cancellationToken);
         var items = await filas.OrderByDescending(e => e.RecibidoAt).Skip((q.Page - 1) * q.PageSize).Take(q.PageSize).ToListAsync(cancellationToken);
         return new EscaneosPagina(items.Select(BandejaGuardas.ADto).ToList(), total);
+    }
+}
+
+public sealed class UbicarPiezasHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IClock clock) : IRequestHandler<UbicarPiezasCommand, IReadOnlyList<PiezaDto>>
+{
+    public async Task<IReadOnlyList<PiezaDto>> Handle(UbicarPiezasCommand c, CancellationToken cancellationToken)
+    {
+        await acceso.ExigirPermisoAsync(PermisosCanonicos.ProductoTerminadoExcepcionesGestionar, cancellationToken);
+        if (!Enum.TryParse<AlmacenPt>(c.Almacen, true, out var almacen))
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("PT_UBICACION_INVALIDA", "El almacén de producto terminado es Nacional o Exportacion.");
+        var etiquetas = c.Etiquetas.Select(e => e.Trim()).Where(e => e.Length > 0).Distinct().ToList();
+        var piezas = await db.Piezas.Where(p => etiquetas.Contains(p.Etiqueta)).ToListAsync(cancellationToken);
+        var faltan = etiquetas.Except(piezas.Select(p => p.Etiqueta)).ToList();
+        if (faltan.Count > 0 || etiquetas.Count == 0)
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("PT_UBICACION_PIEZAS", $"Etiquetas inexistentes: {string.Join(", ", faltan)}");
+        foreach (var s in piezas.Select(p => p.SucursalId).Distinct())
+            await acceso.VerificarSucursalAsync(s, PermisosCanonicos.ProductoTerminadoExcepcionesGestionarTodasSucursales, cancellationToken);
+        var ahora = clock.UtcNow;
+        foreach (var p in piezas)
+        {
+            p.Ubicar(almacen, c.Lugar, acceso.Actor, ahora);
+            db.Movimientos.Add(MovimientoPieza.Hecho(p, TipoMovimientoPieza.Ubicacion, EstadoPieza.EnPT, $"ubicacion/{almacen}/{p.Lugar}/{ahora.UtcTicks}", ahora, acceso.Actor));
+        }
+        await db.SaveChangesAsync(cancellationToken);
+        var pedidos = await db.PedidosPt.AsNoTracking().Where(o => piezas.Select(p => p.PedidoPtId).Contains(o.Id)).ToDictionaryAsync(o => o.Id, o => o.NumeroPedido, cancellationToken);
+        return [.. piezas.Select(p => new PiezaDto(p.Id, p.Etiqueta, pedidos[p.PedidoPtId], p.Posicion, p.NumeroPieza, p.SucursalId, p.Estado.ToString(), p.EscaneadaAt, null,
+            p.Almacen?.ToString(), p.Lugar, false, CostoPendiente: p.Costo is null))];
     }
 }

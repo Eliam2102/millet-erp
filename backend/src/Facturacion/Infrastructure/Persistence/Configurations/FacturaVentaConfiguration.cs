@@ -26,6 +26,7 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
         builder.Property(e => e.PedidoFacturableId);
         builder.Property(e => e.SalidaFacturableId);
         builder.Property(e => e.OrdenCompraCliente).HasMaxLength(60);
+        builder.Property(e => e.ProformaPedidoId); // M-340: proforma aprobada de origen
         builder.Property(e => e.ReferenciaCliente).HasMaxLength(60);
         builder.Property(e => e.CondicionesPago).HasMaxLength(60);
         builder.Property(e => e.Proforma).HasMaxLength(40);

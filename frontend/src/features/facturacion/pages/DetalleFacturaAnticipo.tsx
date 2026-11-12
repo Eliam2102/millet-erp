@@ -1,3 +1,4 @@
+import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { formatMoney } from '@/lib/money';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -30,7 +31,7 @@ import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/Estado
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
-import { descargarArchivo } from '@/features/facturacion/lib/descargas';
+import { descargarArchivo, obtenerArchivo } from '@/features/facturacion/lib/descargas';
 import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas-anticipo-search-schema';
 import { ETIQUETA_TIPO_RELACION } from '@/features/facturacion/lib/glosario';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
@@ -39,7 +40,7 @@ import { useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Ban, Download, FileCode, Printer, X } from 'lucide-react';
+import { Ban, Download, FileCode, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -137,10 +138,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     <Download className="mr-1 h-4 w-4" />
                     PDF
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => window.print()}>
-                    <Printer className="mr-1 h-4 w-4" />
-                    Imprimir
-                  </Button>
+                  <ImprimirPdfButton generarPdf={() => obtenerArchivo(`${BASE}/${f.id}/pdf`)} />
                   {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
