@@ -97,6 +97,8 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     public EstadoRequisicion Estado { get; private set; }
 
+    public int CicloAutorizacion { get; private set; }
+
     /// <summary>
     /// Origen de la RQ (ADR-0047 PR5): <see cref="OrigenRequisicion.Manual"/> (default,
     /// captura humana) o <see cref="OrigenRequisicion.Sistema"/> (motor de reorden).
@@ -485,6 +487,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         }
 
         Estado = EstadoRequisicion.EnAutorizacion;
+        CicloAutorizacion++;
         ComentarioDevolucion = null;
         DevueltaPorId = null;
         FechaDevolucion = null;

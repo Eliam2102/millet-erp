@@ -65,7 +65,7 @@ public static class CierreEndpoints
         .RequireAuthorization()
         .WithTags("Almacen")
         .WithName("ListarActasCierreMes")
-        .WithSummary("Actas de los últimos 12 cierres mensuales.")
+        .WithSummary("Actas de los cierres mensuales.")
         .Produces<IReadOnlyList<ActaCierreResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 

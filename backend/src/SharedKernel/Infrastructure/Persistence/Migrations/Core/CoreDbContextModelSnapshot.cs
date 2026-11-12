@@ -219,6 +219,41 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                     b.ToTable("audit_log", "core");
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Notificaciones.AvisoLectura", b =>
+                {
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("ClaveOcurrencia")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("clave_ocurrencia");
+
+                    b.Property<DateTimeOffset?>("LeidoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("leido_at");
+
+                    b.Property<long>("PrimeraDeteccionSec")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("primera_deteccion_sec");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("PrimeraDeteccionSec"));
+
+                    b.HasKey("UsuarioId", "EmpresaId", "ClaveOcurrencia")
+                        .HasName("pk_aviso_lectura");
+
+                    b.HasIndex("UsuarioId", "EmpresaId", "PrimeraDeteccionSec")
+                        .HasDatabaseName("ix_aviso_lectura_usuario_id_empresa_id_primera_deteccion_sec");
+
+                    b.ToTable("aviso_lectura", "core");
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Infrastructure.Correo.CorreoEnvio", b =>
                 {
                     b.Property<Guid>("Id")
