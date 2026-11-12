@@ -23,7 +23,11 @@ public sealed class AplicacionPagoProveedor : BaseEntity, IAuditable
     public Guid MovimientoId { get; private set; }
     public Guid FacturaProveedorId { get; private set; }
     public Guid ProveedorId { get; private set; }
+    /// <summary>Lo que liquida del pasivo: efectivo pagado + <see cref="Redondeo"/>.</summary>
     public decimal ImporteAplicado { get; private set; }
+
+    /// <summary>M-326 (b): redondeo autorizado (±≤0.99) incluido en <see cref="ImporteAplicado"/>; 0 si no hubo.</summary>
+    public decimal Redondeo { get; private set; }
 
     /// <summary>Corrida de pagos que originó esta aplicación (NULL en pago individual).</summary>
     public Guid? CorridaId { get; private set; }
@@ -47,7 +51,8 @@ public sealed class AplicacionPagoProveedor : BaseEntity, IAuditable
         Guid proveedorId,
         decimal importeAplicado,
         DateTimeOffset creadoEn,
-        Guid? corridaId = null) : base(Guid.CreateVersion7())
+        Guid? corridaId = null,
+        decimal redondeo = 0m) : base(Guid.CreateVersion7())
     {
         if (movimientoId == Guid.Empty)
             throw new BusinessRuleException("APL_MOVIMIENTO_VACIO", "El movimiento es obligatorio.");
@@ -61,6 +66,7 @@ public sealed class AplicacionPagoProveedor : BaseEntity, IAuditable
         ProveedorId = proveedorId;
         ImporteAplicado = importeAplicado;
         CorridaId = corridaId;
+        Redondeo = redondeo;
         CreadoEn = creadoEn;
     }
 

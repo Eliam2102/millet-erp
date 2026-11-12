@@ -2768,6 +2768,13 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("proveedor_id");
 
+                    b.Property<decimal>("Redondeo")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("redondeo");
+
                     b.Property<bool>("Revertida")
                         .HasColumnType("boolean")
                         .HasColumnName("revertida");
@@ -3185,6 +3192,99 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_autorizacion_pago_ce_tipo", "tipo IN (1, 2)");
                         });
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Pasivos.AutorizacionRedondeoPago", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creado_en");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<int>("Estado")
+                        .HasColumnType("integer")
+                        .HasColumnName("estado");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<Guid?>("PagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pago_id");
+
+                    b.Property<decimal>("Redondeo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("redondeo");
+
+                    b.Property<DateTimeOffset?>("ResueltoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelto_en");
+
+                    b.Property<Guid?>("ResueltoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelto_por");
+
+                    b.Property<Guid>("SolicitadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitado_por");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_autorizacion_redondeo_pago");
+
+                    b.HasIndex("FacturaProveedorId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_autorizacion_redondeo_pago_vigente")
+                        .HasFilter("estado IN (1, 2)");
+
+                    b.HasIndex("EmpresaId", "FacturaProveedorId")
+                        .HasDatabaseName("ix_autorizacion_redondeo_pago_factura");
+
+                    b.ToTable("autorizacion_redondeo_pago", "tesoreria");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Pasivos.PasivoPendientePago", b =>
