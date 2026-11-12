@@ -47,9 +47,11 @@ public sealed class LiberacionPedido(ProductoTerminadoDbContext db, ISaldoPedido
     /// </summary>
     private async Task<bool> CompletoAsync(PedidoPt pedido, CancellationToken ct) =>
         await SalidaParcial.CompletoAsync(db, pedido, ct)
+        // Guadalupe, 11-nov: REPARTO no espera todas las piezas; con alguna en 69 entra y sale como parcial.
+        || (Salidas.ReglasHoja.EsReparto(pedido) && (db.Piezas.Local.Any(p => p.PedidoPtId == pedido.Id) || await db.Piezas.AnyAsync(p => p.PedidoPtId == pedido.Id && p.Estado != EstadoPieza.Baja, ct)))
         || await db.SolicitudesParciales.AnyAsync(s => s.PedidoPtId == pedido.Id && s.Estado == EstadoSolicitudPt.Autorizada, ct);
 
-    // Saldo primero (E4); REPARTO libera sin verificar pago, pero también con el pedido completo (P-096, SRC-112/114); si debe salir incompleto se cambia aquí.
+    // Saldo primero (E4); REPARTO libera sin verificar pago y desde la primera pieza en 69 (Guadalupe, 11-nov): sale como parcial.
     private async Task<string?> MotivoAutomaticoAsync(PedidoPt pedido, CancellationToken ct)
     {
         if (await saldos.ObtenerAsync(pedido.EmpresaId, pedido.NumeroPedido, ct) is <= 0m) return MotivosPt.SaldoCubierto;
@@ -74,7 +76,7 @@ public static class SalidaParcial
     public static async Task<HashSet<Guid>?> PermitidasAsync(ProductoTerminadoDbContext db, PedidoPt pedido, CancellationToken ct)
     {
         if (pedido.Posiciones.Count == 0) await db.Entry(pedido).Collection(p => p.Posiciones).LoadAsync(ct);
-        if (await CompletoAsync(db, pedido, ct)) return null;
+        if (Salidas.ReglasHoja.EsReparto(pedido) || await CompletoAsync(db, pedido, ct)) return null;
         var autorizadas = await db.SolicitudesParciales.AsNoTracking().Where(s => s.PedidoPtId == pedido.Id && s.Estado == EstadoSolicitudPt.Autorizada)
             .Select(s => s.PiezaIds).ToListAsync(ct);
         return autorizadas.SelectMany(x => x).ToHashSet();

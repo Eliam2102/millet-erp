@@ -52,7 +52,7 @@ internal sealed class SucursalesTodas : IUsuarioSucursalReadPort
 /// <summary>Sin festivos; la sucursal de prueba en Mérida salvo que se indique otra zona.</summary>
 internal sealed class CalendarioFalso : IPtCalendarioSucursalesPort
 {
-    public Dictionary<Guid, SucursalCalendarioPt> Sucursales { get; } = new() { [EntornoPt.Sucursal] = new("CIR", "America/Merida") };
+    public Dictionary<Guid, SucursalCalendarioPt> Sucursales { get; } = new() { [EntornoPt.Sucursal] = new("CIR", "America/Merida", "Circuito Colonias") };
     public Task<IReadOnlyDictionary<Guid, SucursalCalendarioPt>> SucursalesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
         Task.FromResult<IReadOnlyDictionary<Guid, SucursalCalendarioPt>>(Sucursales.Where(s => ids.Contains(s.Key)).ToDictionary());
     public Task<IReadOnlySet<DateOnly>> FestivosAsync(CancellationToken ct) => Task.FromResult<IReadOnlySet<DateOnly>>(new HashSet<DateOnly>());

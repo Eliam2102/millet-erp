@@ -104,12 +104,15 @@ internal static class ReglasHoja
             if (!ReglasSalidaPt.TieneFactura(facturas.Where(f => f.PedidoFacturableId == pedido.PedidoFacturableId)
                     .Select(f => (f.PendientePedimento, f.Exportacion, f.FechaTimbrado is { } t ? FechaContable.HoyLocal(t) : (DateOnly?)null)), hoy))
                 sinFactura.Add(clave);
-            if (!(autorizadas.TryGetValue(pedido.Id, out var ok) && a.Piezas.All(p => ok.Contains(p.PiezaId))) && ReglasSalidaPt.EsParcial(pedido.Posiciones.Select(x => (x.PiezasEsperadas, a.Piezas.Count(p => posicionDe[p.PiezaId] == x.Posicion),
+            if (!EsReparto(pedido) && !(autorizadas.TryGetValue(pedido.Id, out var ok) && a.Piezas.All(p => ok.Contains(p.PiezaId))) && ReglasSalidaPt.EsParcial(pedido.Posiciones.Select(x => (x.PiezasEsperadas, a.Piezas.Count(p => posicionDe[p.PiezaId] == x.Posicion),
                     salieron.Where(y => y.PedidoPtId == pedido.Id && y.Posicion == x.Posicion).Sum(y => y.Piezas)))))
                 parciales.Add(clave);
         }
         return (sinFactura, parciales);
     }
+
+    /// <summary>Guadalupe, 11-nov: REPARTO no espera todas las piezas; sale como parcial con lo que ya está en 69, sin solicitud.</summary>
+    public static bool EsReparto(PedidoPt p) => string.Equals(p.CondicionPagoOrigen?.Trim(), "REPARTO", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Lo requerido que la autorización no cubre (si la carga cambió después de autorizar, ya no lo cubre).</summary>
     public static List<string> SinCubrir(IReadOnlyList<string> requeridos, AutorizacionSalidaPt? autorizacion) =>
@@ -191,10 +194,8 @@ public sealed class CrearHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcce
 }
 
 public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion,
-    IIntegrationEventPublisher eventos, ICurrentEmpresaContext empresa, IClock clock) : IRequestHandler<EmitirHojaSalidaCommand, HojaSalidaDto>
+    IIntegrationEventPublisher eventos, ICurrentEmpresaContext empresa, IClock clock, IPtCalendarioSucursalesPort? sucursales = null) : IRequestHandler<EmitirHojaSalidaCommand, HojaSalidaDto>
 {
-    // ponytail: origen fijo hasta recibir de Logística la Carta Porte real (D15); luego sale de la sucursal.
-    private const string Origen = "Planta Millet";
 
     public async Task<HojaSalidaDto> Handle(EmitirHojaSalidaCommand c, CancellationToken cancellationToken)
     {
@@ -231,7 +232,10 @@ public sealed class EmitirHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcc
         // La Carta Porte primero (su falla más común es de configuración fiscal y no debe dejar una salida facturable sin embarcar); queda guardada para que un reintento no emita otra.
         if (s.Foranea && s.CartaPorteId is null)
         {
-            var cp = await facturacion.EmitirCartaPorteAsync(new SolicitudCartaPorte(s.SucursalId, Origen, s.OrigenCodigoPostal!, s.OrigenEstado!, s.Destino, s.DestinoCodigoPostal!, s.DestinoEstado!, s.DistanciaKm!.Value,
+            // Origen = la sucursal de donde sale la hoja (Guadalupe, 11-nov: OBRAS y rutas salen también de otras sucursales, no solo de Conkal).
+            var sucursal = sucursales is null ? null : (await sucursales.SucursalesAsync([s.SucursalId], cancellationToken)).GetValueOrDefault(s.SucursalId);
+            var origen = sucursal?.Nombre ?? sucursal?.Clave ?? throw new BusinessRuleException("PT_SALIDA_SUCURSAL_SIN_NOMBRE", "La sucursal de la hoja no tiene nombre para la Carta Porte.");
+            var cp = await facturacion.EmitirCartaPorteAsync(new SolicitudCartaPorte(s.SucursalId, origen, s.OrigenCodigoPostal!, s.OrigenEstado!, s.Destino, s.DestinoCodigoPostal!, s.DestinoEstado!, s.DistanciaKm!.Value,
                 s.VehiculoId!.Value, s.OperadorId!.Value, conPiezas.Count == 1 ? pedidos[conPiezas[0].PedidoPtId].PedidoFacturableId : null, ahora,
                 [new MercanciaSalida($"Vidrio terminado, {piezaIds.Count} piezas")], s.PesoKg!.Value), cancellationToken);
             s.AsignarCartaPorte(cp.Id, cp.Folio);

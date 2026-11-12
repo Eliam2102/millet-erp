@@ -89,7 +89,7 @@ public sealed class SalidasTests
         public PtAcceso Acceso { get; } = new(new Usuario(), new Permisos(), new Sucursales());
         public CrearHojaSalidaHandler Crear() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public EmisorAutorizado Emitir() => new(T.Db, T.Pedidos, Facturacion,
-            new EmitirHojaSalidaHandler(T.Db, Acceso, T.Pedidos, Facturacion, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora)), new RelojFijo(Ahora));
+            new EmitirHojaSalidaHandler(T.Db, Acceso, T.Pedidos, Facturacion, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora), new CalendarioFalso()), new RelojFijo(Ahora));
         public CancelarHojaSalidaHandler Cancelar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public CargarPiezaHojaHandler Cargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public DescargarPiezaHojaHandler Descargar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));

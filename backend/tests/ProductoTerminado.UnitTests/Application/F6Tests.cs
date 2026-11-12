@@ -145,6 +145,21 @@ public sealed class F6Tests
         (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_PIEZA_NO_AUTORIZADA");
     }
 
+    [Fact]
+    public async Task Reparto_sale_como_parcial_con_lo_que_ya_esta_en_69_sin_autorizacion()
+    {
+        var e = new E();
+        using var _ = e;
+        e.T.Saldos.Saldos["50001"] = 900m;
+        e.T.Pedidos.Pedidos["50001"] = new PedidoPtOrigen(Guid.NewGuid(), "50001", EntornoPt.Sucursal, "Abierto", "REPARTO", 1, [new LineaPtOrigen(1, null, "Vidrio", 10, null)]);
+        for (var i = 1; i <= 3; i++) await e.T.Escanear($"50001-{i}", "50001", 1, i.ToString());
+        var hoja = await e.CrearHoja("50001", "50001-1", "50001-2", "50001-3");
+        var emitida = await new EmitirHojaSalidaHandler(e.T.Db, e.Yo, e.T.Pedidos, e.F, e.T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora))
+            .Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
+        emitida.Estado.Should().Be("Emitida");
+        emitida.Albaranes.Single().Total.Should().Be(3);
+    }
+
     // ---- M-247 ----
 
     [Fact]
