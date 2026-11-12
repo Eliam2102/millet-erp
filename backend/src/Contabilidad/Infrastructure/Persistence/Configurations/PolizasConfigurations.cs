@@ -180,3 +180,30 @@ public sealed class SolicitudAnulacionPolizaConfiguration : IEntityTypeConfigura
 
     public const string UxPendiente = "ux_solicitudes_anulacion_poliza_pendiente";
 }
+
+/// <summary>M-321: incidencias posteriores a la autorización de una póliza o al cierre de un periodo.</summary>
+public sealed class IncidenciaPosteriorConfiguration : IEntityTypeConfiguration<IncidenciaPosterior>
+{
+    public void Configure(EntityTypeBuilder<IncidenciaPosterior> builder)
+    {
+        builder.ToTable("incidencias_posteriores", t =>
+        {
+            t.HasCheckConstraint("ck_incidencias_posteriores_estado", "estado BETWEEN 0 AND 1");
+            t.HasCheckConstraint("ck_incidencias_posteriores_resolucion", "resolucion IS NULL OR resolucion BETWEEN 1 AND 2");
+        });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Hallazgo).HasMaxLength(IncidenciaPosterior.HallazgoMaximo).IsRequired();
+        builder.Property(x => x.Impacto).HasMaxLength(IncidenciaPosterior.ImpactoMaximo).IsRequired();
+        builder.Property(x => x.ImporteImpacto).HasPrecision(18, 2);
+        builder.Property(x => x.Estado).HasConversion<short>();
+        builder.Property(x => x.Resolucion).HasConversion<short?>();
+        builder.Property(x => x.RegistradaPor).HasMaxLength(256).IsRequired();
+        builder.Property(x => x.ResueltaPor).HasMaxLength(256);
+        builder.Property(x => x.NotaResolucion).HasMaxLength(IncidenciaPosterior.NotaMaximo);
+        builder.Ignore(x => x.Abierta);
+        builder.HasIndex(x => new { x.EmpresaId, x.PeriodoAnio, x.PeriodoNumero, x.Estado });
+        builder.HasIndex(x => x.PolizaId).HasFilter("poliza_id IS NOT NULL");
+        builder.HasOne<Poliza>().WithMany().HasForeignKey(x => x.PolizaId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

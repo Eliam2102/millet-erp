@@ -109,10 +109,14 @@ public sealed class C12AdaptadoresRealesTests(WebApplicationFactory<Program> fac
             Assert.Equal(HttpStatusCode.Created, conCatalogo.StatusCode);
             Assert.Equal(18.25m, await TipoCambioGuardadoAsync(ambiente, (await Json(conCatalogo)).GetProperty("id").GetGuid()));
 
-            // M-080: el TC capturado (0.82 % del catálogo, dentro de la tolerancia de M-207) es el que queda en el pasivo.
-            var capturado = await admin.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", Comando(Dia, 18.40m));
+            // M-080: el TC capturado (0.05 MXN sobre el catálogo, límite de la tolerancia absoluta) es el que queda en el pasivo.
+            var capturado = await admin.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", Comando(Dia, 18.30m));
             Assert.Equal(HttpStatusCode.Created, capturado.StatusCode);
-            Assert.Equal(18.40m, await TipoCambioGuardadoAsync(ambiente, (await Json(capturado)).GetProperty("id").GetGuid()));
+            Assert.Equal(18.30m, await TipoCambioGuardadoAsync(ambiente, (await Json(capturado)).GetProperty("id").GetGuid()));
+
+            // M-080: 0.15 MXN sobre el catálogo (0.82 %, dentro del 1 % pero fuera de 0.05 MXN) ya pide confirmación.
+            var sobre = await admin.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", Comando(Dia, 18.40m));
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, sobre.StatusCode);
 
             // M-080: fuera de tolerancia se pide confirmación (422) y no se guarda nada.
             var fuera = await admin.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", Comando(Dia, 19.50m));

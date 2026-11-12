@@ -23,6 +23,7 @@ const fila = (extra: Record<string, unknown>) => ({
   siguienteRevision: null,
   escalada: false,
   revisionVencida: false,
+  cerrada: false,
   ...extra,
 });
 

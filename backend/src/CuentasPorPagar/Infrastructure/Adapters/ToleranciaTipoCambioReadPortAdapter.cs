@@ -15,4 +15,13 @@ public sealed class ToleranciaTipoCambioReadPortAdapter(CompartidoDbContext db) 
             .SingleOrDefaultAsync(cancellationToken);
         return valor is null ? ToleranciaTipoCambioCfdiParametro.ValorPorOmision : ToleranciaTipoCambioCfdiParametro.LeerValor(valor);
     }
+
+    public async Task<decimal> ToleranciaAbsolutaMxnAsync(CancellationToken cancellationToken)
+    {
+        var valor = await db.ParametrosGlobales.AsNoTracking()
+            .Where(p => p.Clave == ToleranciaTipoCambioAbsolutaParametro.Clave)
+            .Select(p => p.Valor)
+            .SingleOrDefaultAsync(cancellationToken);
+        return valor is null ? ToleranciaTipoCambioAbsolutaParametro.ValorPorOmision : ToleranciaTipoCambioAbsolutaParametro.LeerValor(valor);
+    }
 }

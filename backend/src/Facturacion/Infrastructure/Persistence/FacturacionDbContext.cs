@@ -157,6 +157,7 @@ public sealed class FacturacionDbContext : BaseDbContext
     // 86e3vr1tf: archivo diario de la terminal de tarjetas y su liquidación por folio.
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal> CargasTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal> TransaccionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal>();
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TerminalAfiliacion> TerminalesAfiliacion => Set<Millet.Facturacion.Domain.Cajas.Terminal.TerminalAfiliacion>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal> LiquidacionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal> FacturasBancoTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal>();
 

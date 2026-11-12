@@ -133,13 +133,22 @@ public sealed class TerminalTarjetaHandlers :
             select new { FormaPagoId = fp.Id, CobroId = c.Id, c.SucursalId, fp.Referencia, fp.Importe, s.DiaOperacion })
             .ToListAsync(ct);
 
+        // M-111: con la terminal en el catálogo, la venta solo se empareja con cobros de la sucursal de esa terminal.
+        // Sin afiliación/terminal en el archivo o sin catálogo, se empareja como antes (por autorización, importe y día).
+        var catalogo = (await _db.TerminalesAfiliacion.AsNoTracking().Where(c => c.Activa)
+                .Select(c => new { c.Afiliacion, c.CodTerminal, c.SucursalId }).ToListAsync(ct))
+            .ToDictionary(c => (c.Afiliacion, c.CodTerminal), c => c.SucursalId);
+
         var usadas = new HashSet<Guid>();
         foreach (var t in porEmparejar.OrderBy(t => t.FechaHora))
         {
+            Guid? sucursalTerminal = t.Afiliacion is not null && t.CodTerminal is not null
+                && catalogo.TryGetValue((t.Afiliacion, t.CodTerminal), out var sucursalCatalogo) ? sucursalCatalogo : null;
             var dia = HoraTerminal.DiaLocal(t.FechaHora, Zona);
             var forma = candidatas.FirstOrDefault(c => !usadas.Contains(c.FormaPagoId)
                 && MismaAutorizacion(c.Referencia!, t.Autorizacion!)
-                && c.Importe == t.Importe && c.DiaOperacion == dia);
+                && c.Importe == t.Importe && c.DiaOperacion == dia
+                && (sucursalTerminal is null || c.SucursalId == sucursalTerminal));
             if (forma is null) continue;
             usadas.Add(forma.FormaPagoId);
             t.Emparejar(forma.CobroId, forma.FormaPagoId, forma.SucursalId);

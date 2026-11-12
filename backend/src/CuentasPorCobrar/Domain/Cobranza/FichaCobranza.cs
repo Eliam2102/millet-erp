@@ -17,6 +17,19 @@ public enum TipoEventoFicha : short
     Escalamiento = 5,
     /// <summary>Corrige un evento anterior sin editarlo (rastro).</summary>
     Correccion = 6,
+    /// <summary>M-345: se cerró la ficha con motivo y, si quedaba saldo, su explicación.</summary>
+    Cierre = 7,
+}
+
+/// <summary>M-345 (CXC-GESTION/s06): por qué se cierra la ficha de cobranza.</summary>
+public enum MotivoCierreFicha : short
+{
+    Pagada = 1,
+    /// <summary>Quedó un convenio o acuerdo de pago distinto de la promesa.</summary>
+    AcuerdoDePago = 2,
+    /// <summary>El cliente disputa la factura o el saldo.</summary>
+    Disputa = 3,
+    Otro = 4,
 }
 
 /// <summary>
@@ -35,6 +48,12 @@ public sealed class FichaCobranza : BaseEntity, IPerteneceAEmpresa, IAuditable
     public bool Escalada { get; private set; }
     public Guid? EscaladaPorId { get; private set; }
     public DateTimeOffset? EscaladaEn { get; private set; }
+    /// <summary>M-345: la ficha cerrada ya no admite gestiones nuevas; su historial queda.</summary>
+    public bool Cerrada { get; private set; }
+    public DateTimeOffset? CerradaEn { get; private set; }
+    public MotivoCierreFicha? MotivoCierre { get; private set; }
+    public decimal? SaldoAlCerrar { get; private set; }
+    public string? ExplicacionSaldo { get; private set; }
 
     private FichaCobranza() { }
 
@@ -93,6 +112,7 @@ public sealed class FichaCobranza : BaseEntity, IPerteneceAEmpresa, IAuditable
     public FichaCobranzaEvento RegistrarGestion(CanalCobranza canal, ResultadoCobranza resultado, string nota,
         decimal? monto, DateOnly? fechaComprometida, DateOnly? siguienteRevision, Guid usuarioId, string? usuarioNombre, DateTimeOffset ahora)
     {
+        ExigirAbierta();
         if (string.IsNullOrWhiteSpace(nota))
             throw new BusinessRuleException("FCO_NOTA_VACIA", "La nota de la gestión es obligatoria.");
         var hoy = DateOnly.FromDateTime(ahora.UtcDateTime);
@@ -126,6 +146,7 @@ public sealed class FichaCobranza : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     public FichaCobranzaEvento Reprogramar(DateOnly nueva, string motivo, Guid usuarioId, string? usuarioNombre, DateTimeOffset ahora)
     {
+        ExigirAbierta();
         Exigir(motivo);
         if (nueva < DateOnly.FromDateTime(ahora.UtcDateTime))
             throw new BusinessRuleException("FCO_REVISION_PASADA", "La siguiente revisión no puede ser anterior a hoy.");
@@ -140,6 +161,7 @@ public sealed class FichaCobranza : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// <summary>Escala la gestión a un supervisor: él pasa a ser el responsable y queda el rastro de quién y por qué.</summary>
     public FichaCobranzaEvento Escalar(Guid supervisorId, string? supervisorNombre, string motivo, Guid usuarioId, string? usuarioNombre, DateTimeOffset ahora)
     {
+        ExigirAbierta();
         Exigir(motivo);
         if (supervisorId == Guid.Empty)
             throw new BusinessRuleException("FCO_SUPERVISOR_VACIO", "Indica a qué supervisor se escala.");
@@ -167,6 +189,40 @@ public sealed class FichaCobranza : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("FCO_SIN_CAMBIO", "La nota corregida es igual a la original.");
         return FichaCobranzaEvento.Crear(this, TipoEventoFicha.Correccion, usuarioId, usuarioNombre, ahora, nota: notaCorregida.Trim(),
             corrigeEventoId: original.Id, notaAnterior: original.Nota, motivoCorreccion: motivo.Trim());
+    }
+
+    /// <summary>
+    /// M-345: cierra la ficha con motivo. Con saldo pendiente exige explicarlo (qué se acordó o por qué queda): la ficha
+    /// no cierra con saldo sin explicar. «Pagada» solo vale sin saldo.
+    /// </summary>
+    public FichaCobranzaEvento Cerrar(MotivoCierreFicha motivo, decimal saldoPendiente, string? explicacionSaldo,
+        Guid usuarioId, string? usuarioNombre, DateTimeOffset ahora)
+    {
+        ExigirAbierta();
+        if (saldoPendiente < 0)
+            throw new BusinessRuleException("FCO_SALDO_INVALIDO", "El saldo pendiente no puede ser negativo.");
+        var explicacion = explicacionSaldo?.Trim();
+        if (saldoPendiente > 0)
+        {
+            if (motivo == MotivoCierreFicha.Pagada)
+                throw new BusinessRuleException("FCO_PAGADA_CON_SALDO", "La factura aún tiene saldo: elige otro motivo de cierre y explica el saldo.");
+            if (string.IsNullOrWhiteSpace(explicacion))
+                throw new BusinessRuleException("FCO_SALDO_SIN_EXPLICAR", "La ficha no se cierra con saldo sin explicar: indica qué pasó con el saldo pendiente.");
+        }
+        else if (motivo != MotivoCierreFicha.Pagada)
+        {
+            throw new BusinessRuleException("FCO_CIERRE_SIN_SALDO", "Sin saldo pendiente la ficha se cierra como pagada.");
+        }
+        Cerrada = true; CerradaEn = ahora; MotivoCierre = motivo; SaldoAlCerrar = saldoPendiente;
+        ExplicacionSaldo = string.IsNullOrWhiteSpace(explicacion) ? null : explicacion;
+        return FichaCobranzaEvento.Crear(this, TipoEventoFicha.Cierre, usuarioId, usuarioNombre, ahora,
+            nota: ExplicacionSaldo ?? $"Ficha cerrada: {motivo}", monto: saldoPendiente);
+    }
+
+    private void ExigirAbierta()
+    {
+        if (Cerrada)
+            throw new BusinessRuleException("FCO_FICHA_CERRADA", "La ficha está cerrada: ya no admite cambios.");
     }
 
     private static void Exigir(string motivo)
