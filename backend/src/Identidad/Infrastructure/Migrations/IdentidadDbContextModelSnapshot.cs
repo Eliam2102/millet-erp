@@ -6861,6 +6861,12 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("idioma_ui");
 
+                    b.Property<bool>("SonidoAvisosHabilitado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("sonido_avisos_habilitado");
+
                     b.Property<string>("TemaUI")
                         .IsRequired()
                         .HasMaxLength(20)

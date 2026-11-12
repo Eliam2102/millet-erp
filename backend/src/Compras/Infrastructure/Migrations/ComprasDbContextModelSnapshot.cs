@@ -2702,6 +2702,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("almacen_destino_id");
 
+                    b.Property<int>("CicloAutorizacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ciclo_autorizacion");
+
                     b.Property<short>("Clasificacion")
                         .HasColumnType("smallint")
                         .HasColumnName("clasificacion");

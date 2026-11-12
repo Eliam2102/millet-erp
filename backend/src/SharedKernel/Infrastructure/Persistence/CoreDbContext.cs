@@ -31,6 +31,8 @@ public sealed class CoreDbContext : BaseDbContext
 
     public DbSet<CorreoEnvio> CorreoEnvios => Set<CorreoEnvio>();
 
+    public DbSet<Millet.SharedKernel.Domain.Notificaciones.AvisoLectura> AvisosLectura => Set<Millet.SharedKernel.Domain.Notificaciones.AvisoLectura>();
+
     protected override bool ManagesAuditLogMigration => true;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -40,5 +42,6 @@ public sealed class CoreDbContext : BaseDbContext
 
         modelBuilder.ApplyConfiguration(new IdempotencyKeyConfiguration());
         modelBuilder.ApplyConfiguration(new CorreoEnvioConfiguration());
+        modelBuilder.ApplyConfiguration(new Millet.SharedKernel.Infrastructure.Notificaciones.AvisoLecturaConfiguration());
     }
 }
