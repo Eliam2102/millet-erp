@@ -28,6 +28,10 @@ public sealed class UsuarioPreferencia : BaseEntity, INotAudited
     public string? ZonaHoraria { get; private set; } // null → usa default America/Mexico_City (ADR-0013)
     public string TemaUI { get; private set; } = "system"; // "light" | "dark" | "system"
 
+    public bool SonidoAvisosHabilitado { get; private set; }
+
+    public void CambiarSonidoAvisos(bool habilitado) => SonidoAvisosHabilitado = habilitado;
+
     private UsuarioPreferencia() { } // EF Core
 
     public UsuarioPreferencia(Guid id, Guid usuarioId) : base(id)

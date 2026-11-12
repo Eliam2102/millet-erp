@@ -44,6 +44,12 @@ public sealed class SolicitudCancelacionCfdi : BaseEntity, IPerteneceAEmpresa, I
     public string? EvidenciaBlobRef { get; private set; }
     public string? EvidenciaNombre { get; private set; }
 
+    /// <summary>M-096: CFDI sustituto (ya ingresado) con el que se aceptó la cancelación de una factura ya pagada.</summary>
+    public Guid? SustitutoCfdiId { get; private set; }
+
+    /// <summary>M-096: quien autorizó aceptar la cancelación de una factura con pagos (Contador General).</summary>
+    public Guid? AutorizadoPor { get; private set; }
+
     private SolicitudCancelacionCfdi() { }
 
     /// <summary>
@@ -68,7 +74,7 @@ public sealed class SolicitudCancelacionCfdi : BaseEntity, IPerteneceAEmpresa, I
 
     public void Decidir(
         bool aceptar, string comentario, string? evidenciaBlobRef, string? evidenciaNombre,
-        Guid? usuarioId, DateTimeOffset ahora)
+        Guid? usuarioId, DateTimeOffset ahora, Guid? sustitutoCfdiId = null, Guid? autorizadoPor = null)
     {
         if (Estado != EstadoSolicitudCancelacion.Pendiente)
             throw new BusinessRuleException(
@@ -83,6 +89,8 @@ public sealed class SolicitudCancelacionCfdi : BaseEntity, IPerteneceAEmpresa, I
         ComentarioDecision = comentario.Trim();
         EvidenciaBlobRef = evidenciaBlobRef;
         EvidenciaNombre = evidenciaNombre;
+        SustitutoCfdiId = aceptar ? sustitutoCfdiId : null;
+        AutorizadoPor = aceptar ? autorizadoPor : null;
     }
 
     public static DateTimeOffset SumarDiasHabiles(DateTimeOffset desde, int dias)

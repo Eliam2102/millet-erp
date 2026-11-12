@@ -42,6 +42,10 @@ export interface SolicitudCancelacion {
   decididoPorNombre: string | null;
   comentarioDecision: string | null;
   evidenciaNombre: string | null;
+  /** M-096: CFDI sustituto con el que se aceptó la cancelación de una factura ya pagada. */
+  sustitutoCfdiId?: string | null;
+  /** M-096: quien autorizó aceptar la cancelación de una factura con pagos. */
+  autorizadoPor?: string | null;
 }
 
 const base = (cfdiId: string) =>
@@ -90,11 +94,13 @@ export function useDecidirSolicitudCancelacion(cfdiId: string) {
       aceptar: boolean;
       comentario: string;
       archivo: File | null;
+      sustitutoCfdiId?: string | null;
       idempotencyKey: string;
     }) => {
       const formData = new FormData();
       formData.append('aceptar', String(args.aceptar));
       formData.append('comentario', args.comentario);
+      if (args.sustitutoCfdiId) formData.append('sustitutoCfdiId', args.sustitutoCfdiId);
       if (args.archivo) formData.append('archivo', args.archivo);
       const { data } = await apiRequest<SolicitudCancelacion>(
         `${base(cfdiId)}/${args.solicitudId}/decidir`,
