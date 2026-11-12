@@ -119,6 +119,9 @@ param awOrigenDemoPermitido bool = false
 @description('Apaga el SDK de FiscalAPI. Default true; dev lo enciende en su .bicepparam (tenant sandbox en el KV dev). Ver appservice.bicep.')
 param integracionesFiscalSdkDisabled bool = true
 
+@description('Ajustes de la app propios del ambiente que no tienen parámetro dedicado (nombre de app setting → valor). Así no quedan como ajustes a mano en el portal: un deploy de infraestructura los vuelve a poner. Solo valores no secretos o referencias @Microsoft.KeyVault(...). Ver appservice.bicep.')
+param appSettingsExtra object = {}
+
 @description('Fuente del estatus SAT de los CFDI emitidos: FiscalApi (real) o Simulado. Default Simulado; pruebas y producción = FiscalApi. Ver appservice.bicep.')
 @allowed([ 'Simulado', 'FiscalApi' ])
 param consultaEstatusSatProveedor string = 'Simulado'
@@ -402,6 +405,7 @@ module appservice 'modules/appservice.bicep' = {
     awNotasCreditoLecturaHabilitada: awNotasCreditoLecturaHabilitada
     awOrigenDemoPermitido: awOrigenDemoPermitido
     integracionesFiscalSdkDisabled: integracionesFiscalSdkDisabled
+    appSettingsExtra: appSettingsExtra
     consultaEstatusSatProveedor: consultaEstatusSatProveedor
     awClientesOrigen: awClientesOrigen
     awClientesLecturaHabilitada: awClientesLecturaHabilitada

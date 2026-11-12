@@ -1510,6 +1510,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Afiliacion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("afiliacion");
+
                     b.Property<string>("Autorizacion")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
@@ -1526,6 +1531,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CobroMostradorId")
                         .HasColumnType("uuid")
                         .HasColumnName("cobro_mostrador_id");
+
+                    b.Property<string>("CodTerminal")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("cod_terminal");
 
                     b.Property<decimal?>("Comision")
                         .HasPrecision(18, 2)
