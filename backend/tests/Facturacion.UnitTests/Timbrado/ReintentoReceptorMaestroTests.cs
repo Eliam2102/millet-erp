@@ -42,7 +42,7 @@ public sealed class ReintentoReceptorMaestroTests
         return (fv, pedido.ClienteId);
     }
 
-    private static ClienteFiscalLectura Maestro(Guid id, string? regimen = "612", string? cp = "97100") =>
+    private static ClienteFiscalLectura Maestro(Guid id, string? regimen = "603", string? cp = "97100") =>
         new(id, "CCC010101CCC", "Cliente corregido SA", regimen, cp, "G03", "01", "PUE", "MXN", false);
 
     private static ReintentarTimbradoHandler Handler(FacturacionDbContext db, ClienteFiscalLectura maestro, FakeFiscalApiClient pac) =>
@@ -64,7 +64,7 @@ public sealed class ReintentoReceptorMaestroTests
         r.Estado.Should().Be("Timbrado");
         factura.ReceptorRfc.Should().Be("CCC010101CCC");
         factura.ReceptorNombre.Should().Be("Cliente corregido SA");
-        factura.ReceptorRegimenFiscal.Should().Be("612");
+        factura.ReceptorRegimenFiscal.Should().Be("603");
         factura.ReceptorCodigoPostal.Should().Be("97100");
         factura.ReceptorUsoCfdi.Should().Be("G03"); // el uso es del documento
         pac.UltimaEmision!.Receptor.Rfc.Should().Be("CCC010101CCC");
