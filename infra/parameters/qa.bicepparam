@@ -89,3 +89,44 @@ param integracionesFiscalSdkDisabled = false
 // FiscalAPI (sandbox en este ambiente). Requiere la consulta habilitada en la
 // cuenta de FiscalAPI; un error se cuenta «con error» y no cambia el estatus.
 param consultaEstatusSatProveedor = 'FiscalApi'
+
+// === Ajustes de la app que estaban puestos a mano en el portal (12-nov-2026) ===
+// Valores copiados del App Service app-millet-qa-mxc-01. Un deploy de infraestructura reemplaza todos
+// los ajustes de la app, así que viven aquí. Secretos solo como referencia @Microsoft.KeyVault(...).
+param appSettingsExtra = {
+  Almacen__Avisos__Finanzas__0: 'gpantoja@millet.com.mx'
+  Almacen__Avisos__JefeAlmacen__0: 'eesparza@millet.com.mx'
+  Auth__EntraId__ClientSecret: '@Microsoft.KeyVault(VaultName=kv-millet-qa-mxc-01;SecretName=auth-entra-api-client-secret)'
+  Auth__EntraId__SenderEmail: 'erpmillet@millet.com.mx'
+  Auth__ServicePrincipalsJson: '[{"Name":"Reabastecimiento Automatico","AppId":"a0000000-0000-4000-8000-0000000000a1","ObjectId":"b0000000-0000-4000-8000-0000000000b1","EmpresaRfc":"MIN120224147","Permisos":["compras.requisiciones.crear","compras.requisiciones.seleccionar-requisitante"],"Notes":"SP interno: creador de RQ de reorden y de la app de Almacenes. Sin credenciales."}]'
+  Correo__ModoPruebas__Activo: 'true'
+  Correo__ModoPruebas__BuzonesPrueba__0: 'operaciones@vilostudio.ai'
+  Correo__ModoPruebas__BuzonesPrueba__1: 'geovany@vilostudio.ai'
+  Correo__ModoPruebas__BuzonesPrueba__2: 'jorge.toache@millet.com.mx'
+  Correo__ModoPruebas__DominiosPermitidos__0: 'vilostudio.ai'
+  Correo__Proveedor: 'Graph'
+  CuentasPorPagar__AvisosRevision__Compras__0: 'compras@millet.com.mx'
+  CuentasPorPagar__AvisosRevision__ContadorGeneral__0: 'contadorgeneral@millet.com.mx'
+  CuentasPorPagar__AvisosRevision__Proveedor: 'Graph'
+  CuentasPorPagar__PortalProveedores__Proveedor: 'Graph'
+  Facturacion__Avisos__Contingencias__Fiscal__0: 'mcolin@millet.com.mx'
+  Facturacion__Workers__AwSolicitudes__Disabled: 'true'
+  Integraciones__AlmCompra__Habilitado: 'true'
+  Integraciones__AlmCompra__Transporte: 'Sql'
+  Integraciones__AlmMensaje__CargaInicialHabilitada: 'true'
+  Integraciones__AlmMensaje__Habilitado: 'false'
+  Integraciones__AlmMensaje__Origen: 'Sql'
+  IntegracionesAw__Clientes__UnificacionAutomaticaHabilitada: 'true'
+  IntegracionesAw__Exportacion__BatchSize: '200'
+  IntegracionesAw__Exportacion__ContratoI134Firmado: 'true'
+  IntegracionesAw__Exportacion__EmpresaId: '00000003-0000-0000-0000-000000000001'
+  IntegracionesAw__Exportacion__EntradaHabilitada: 'true'
+  IntegracionesAw__Exportacion__EntregaDesde: '2026-11-01'
+  IntegracionesAw__PiezasPt__ContratoI134Firmado: 'true'
+  IntegracionesAw__PiezasPt__Desde: '1-nov-2026'
+  IntegracionesAw__PiezasPt__EmpresaId: '00000003-0000-0000-0000-000000000001'
+  IntegracionesAw__PiezasPt__EntradaHabilitada: 'true'
+  IntegracionesAw__Retorno__Habilitado: 'false'
+  Integraciones__CostoPromedio__Habilitado: 'true'
+  Integraciones__CostoPromedio__Transporte: 'Sql'
+}

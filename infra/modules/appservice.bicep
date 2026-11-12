@@ -158,6 +158,14 @@ https://test.fiscalapi.com en la ConfiguracionPac); prod usará su propio
 tenant en su propio KV.''')
 param integracionesFiscalSdkDisabled bool = true
 
+@description('Ajustes propios del ambiente sin parámetro dedicado (nombre → valor), declarados en su .bicepparam. Solo valores no secretos o referencias @Microsoft.KeyVault(...). No repetir aquí un nombre que ya define este módulo.')
+param appSettingsExtra object = {}
+
+var extraAppSettings = [for item in items(appSettingsExtra): {
+  name: item.key
+  value: string(item.value)
+}]
+
 // ── Interruptores A+W (todos APAGADOS por defecto; se encienden por ambiente en el .bicepparam) ──
 // El deploy re-aplica la lista COMPLETA de app settings: lo no declarado aquí se borra.
 @description('IntegracionesAw:Clientes:Origen — "Simulado" | "Sql" (Sql exige ConnectionStrings__AwClientesDb).')
@@ -588,7 +596,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'Auth__Bootstrap__EmpresaInicial__NombreComercial'
           value: empresaInicialNombreComercial
         }
-      ], corsAppSettings, awIntegrationAppSettings, soketiAppSettings, blobStorageAppSettings, integracionesFiscalAppSettings)
+      ], corsAppSettings, awIntegrationAppSettings, soketiAppSettings, blobStorageAppSettings, integracionesFiscalAppSettings, extraAppSettings)
     }
   }
 }
