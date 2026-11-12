@@ -39,6 +39,7 @@ export function useCentroAvisos(filtros: FiltrosAvisos) {
   useEffect(() => { sesion.sonido.establecerHabilitado(preferencia.data?.habilitado === true && !preferencia.isError); }, [sesion, preferencia.data, preferencia.isError]);
   const query = useQuery({
     queryKey: ['centro-avisos', scope, filtros], enabled: habilitada, retry: false, gcTime: 0,
+    networkMode: 'always',
     refetchInterval: () => document.visibilityState === 'visible' ? 15000 : false,
     refetchOnWindowFocus: 'always', refetchOnReconnect: 'always',
     queryFn: async ({ signal }) => {
