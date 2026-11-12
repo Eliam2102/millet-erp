@@ -49,7 +49,9 @@ public sealed record CapturarFacturaConOcCommand(
     IReadOnlyList<NotaCreditoAdjunta>? NotasCredito = null,
     string? Obra = null, string? ConceptoRetencion = null,
     // 86e3tfedr: recepción de Almacén elegida al capturar (opcional).
-    Guid? RecepcionId = null) : IRequest<CapturarFacturaConOcResponse>;
+    Guid? RecepcionId = null,
+    // M-080: confirma el TC capturado cuando se aparta del catálogo más que la tolerancia (permiso contabilidad.tipo-cambio.autorizar-sustituto).
+    bool ConfirmaTipoCambio = false) : IRequest<CapturarFacturaConOcResponse>;
 
 public sealed record NotaCreditoAdjunta(Guid CfdiRecibidoId, IReadOnlyList<CompensacionNcLinea> Lineas);
 public sealed record CompensacionNcLinea(Guid LineaOcId, decimal Base);
