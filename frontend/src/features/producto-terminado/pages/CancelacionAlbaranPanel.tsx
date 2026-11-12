@@ -60,8 +60,13 @@ export function CancelacionAlbaranPanel({ hojaId, albaran, operar }: { hojaId: s
               {c.solicitadaAt && <> (la pidió {nombreUsuario(c.solicitadaPorId)}: {c.motivoSolicitud})</>}
             </p>
           )}
-          {c?.autorizadaPorId && <p className="text-ink-muted">Cancelación autorizada por {nombreUsuario(c.autorizadaPorId)}.</p>}
-          {operar && <div><Button size="sm" variant="outline" onClick={() => { setError(null); setPaso('solicitar'); }}>Solicitar cancelación</Button></div>}
+          {albaran.cancelado && (
+            <p className="text-ink-muted">
+              Cancelado{c?.autorizadaPorId ? <> · autorizó {nombreUsuario(c.autorizadaPorId)}</> : null}
+              {c?.solicitadaAt && <> · pidió {nombreUsuario(c.solicitadaPorId)}: {c.motivoSolicitud}</>}
+            </p>
+          )}
+          {operar && !albaran.cancelado && <div><Button size="sm" variant="outline" onClick={() => { setError(null); setPaso('solicitar'); }}>Solicitar cancelación</Button></div>}
         </>
       )}
       {paso && (
