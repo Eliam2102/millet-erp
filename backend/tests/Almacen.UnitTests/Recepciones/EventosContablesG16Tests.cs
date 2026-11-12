@@ -211,6 +211,19 @@ public class EventosContablesG16Tests
     }
 
     [Fact]
+    public void M224_acta_del_conteo_genera_pdf_con_teorico_contado_diferencia_y_ajuste()
+    {
+        Millet.Documentos.PdfLicencia.Inicializar();
+        var acta = new Millet.Almacen.Application.Conteos.Pdf.ActaConteoImpresion(null, "CNT-1A2B3C4D", "Rotativo", new DateOnly(2026, 11, 11),
+            DateTimeOffset.UtcNow,
+            [new("INS-SIL-A", "Silicón estructural A", "CNK-ALM-INS › R1", 100m, 95m, -5m, "M-AJN2026-000001", 95m),
+             new("INS-BUT", "Butilo", "CNK-ALM-INS › R2", 12m, 12m, 0m, null, 12m)],
+            ["Almacenista Conkal"], "Jefe de almacén Conkal");
+        System.Text.Encoding.ASCII.GetString(Millet.Almacen.Application.Conteos.Pdf.ActaConteoDocumento.Generar(acta), 0, 4).Should().Be("%PDF");
+        Millet.Almacen.Application.Conteos.Pdf.ActaConteoPdfHandler.Numero(Guid.Parse("0196f0aa-0000-7000-8000-00001a2b3c4d")).Should().Be("CNT-1A2B3C4D");
+    }
+
+    [Fact]
     public void M224_la_linea_que_no_cuadra_no_se_concilia()
     {
         var l = new LineaConteo(Guid.NewGuid(), Guid.NewGuid(), ArticuloId, SubId, BinId, 100m, 50m);
