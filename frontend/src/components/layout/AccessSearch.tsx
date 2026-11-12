@@ -72,10 +72,10 @@ export function AccessSearch({ children }: { children?: ReactNode }) {
           title={
             switching ? 'Espera a que termine el cambio de empresa' : 'Buscar accesos (⌘K o Ctrl+K)'
           }
-          className="ml-auto w-11 shrink-0 border-line bg-surface-page px-0 text-ink-muted [&_svg]:size-3.75 md:w-full md:max-w-80 md:flex-1 md:justify-start md:px-3"
+          className="ml-auto w-11 shrink-0 border-line bg-surface-page px-0 text-ink-muted [&_svg]:size-3.75 xl:w-full xl:max-w-64 xl:flex-1 xl:justify-start xl:px-3"
         >
           <Search size={15} strokeWidth={1.8} aria-hidden="true" />
-          <span className="hidden md:inline">Buscar o ir a…</span>
+          <span className="hidden xl:inline">Buscar o ir a…</span>
           <kbd className="ml-auto hidden rounded-xs border border-line-control bg-surface-card px-1 font-mono text-2xs md:inline">
             ⌘K
           </kbd>

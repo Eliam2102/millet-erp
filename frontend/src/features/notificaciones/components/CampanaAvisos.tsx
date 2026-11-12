@@ -35,7 +35,7 @@ function ContenidoCampana() {
         {data && data.totalSinLeerConocido > 0 && <span className="absolute right-0 top-0 rounded-full bg-danger-bg px-1 text-2xs text-danger-fg tabular-nums">{data.coberturaCompleta ? '' : '≥'}{data.totalSinLeerConocido}</span>}
       </Button>
     </PopoverTrigger>
-    <PopoverContent align="end" className="w-96 space-y-3 bg-surface-card shadow-card">
+    <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)] space-y-3 bg-surface-card shadow-card">
       <h2 className="text-sm font-semibold">Notificaciones</h2>
       {data && <p className="text-xs text-ink-muted" role="status">{cantidad} sin leer · {data.coberturaCompleta ? '' : 'Al menos '}{data.totalAccionesConocidas} por hacer</p>}
       <div className="flex gap-2">
