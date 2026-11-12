@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Breadcrumbs, EmptyState, ErrorState, PaginacionTabla, TableSkeleton } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
@@ -54,6 +55,7 @@ export function ExcepcionesPage() {
         titulo="Excepciones de entrada"
         descripcion="Revise los escaneos que no pudieron darse de alta como pieza: reintente, descarte con motivo o marque como revisados."
       />
+      <TramoDetenidoBanner />
       {errorAccion && (
         <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
           {errorAccion}

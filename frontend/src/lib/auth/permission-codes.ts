@@ -592,6 +592,9 @@ export const PermisosCanonicos = {
   ProductoTerminadoSalidaAprobarContraloria: 'producto_terminado.salida.aprobar-contraloria',
   ProductoTerminadoSalidaAprobarCredito: 'producto_terminado.salida.aprobar-credito',
   ProductoTerminadoSalidaAprobarVentas: 'producto_terminado.salida.aprobar-ventas',
+  ProductoTerminadoSalidaCancelarEmitida: 'producto_terminado.salida.cancelar-emitida',
+  ProductoTerminadoCalidadDictaminar: 'producto_terminado.calidad.dictaminar',
+  CompartidoTramosGestionar: 'compartido.tramos.gestionar',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

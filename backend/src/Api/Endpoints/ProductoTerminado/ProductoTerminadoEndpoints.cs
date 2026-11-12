@@ -14,6 +14,8 @@ using Millet.ProductoTerminado.Application.Liquidacion;
 using Millet.ProductoTerminado.Application.Entregas;
 using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Application.Traspasos;
+using Millet.ProductoTerminado.Application.Casos;
+using Millet.Api.Endpoints.Tramos;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Endpoints.ProductoTerminado;
@@ -22,7 +24,9 @@ public static class ProductoTerminadoEndpoints
 {
     public static void MapProductoTerminado(this IEndpointRouteBuilder app)
     {
-        var g = app.MapGroup("/api/v1/producto-terminado").WithTags("Producto terminado").RequireAuthorization();
+        // M-303: con el tramo de captura detenido, las escrituras de PT responden 409 con el aviso.
+        var g = app.MapGroup("/api/v1/producto-terminado").WithTags("Producto terminado").RequireAuthorization()
+            .ConTramoDeCaptura(Millet.SharedKernel.Application.Tramos.TramosOperativos.PtCaptura);
 
         // El alcance por sucursal de los listados lo aplican los handlers (PtAcceso).
         g.MapGet("/piezas", async ([FromQuery] string? pedido, [FromQuery] Guid? sucursalId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
@@ -171,6 +175,57 @@ public static class ProductoTerminadoEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
 
+        var gestionar = PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar;
+        var ver = PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer;
+
+        // M-251: recepción física y ubicación en PT.
+        g.MapPost("/piezas/ubicar", async (UbicarPiezasCommand cmd, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // M-245: salida parcial de un pedido incompleto. Resolver: el permiso depende del nivel (lo exige el handler).
+        var parciales = g.MapGroup("/salidas-parciales");
+        parciales.MapGet("", async ([FromQuery] string? estado, [FromQuery] string? pedido, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarSolicitudesParcialesQuery(estado, pedido, page ?? 1, pageSize ?? 50), ct))).RequireAuthorization(ver);
+        parciales.MapPost("", async (SolicitarSalidaParcialCommand cmd, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        parciales.MapPost("/{id:guid}/resolver", async (Guid id, ResolverParcialBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ResolverSalidaParcialCommand(id, body.Autorizar, body.Nivel, body.Suplencia, body.Motivo), ct)))
+            .RequireAuthorization().WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // M-247: cancelación de un albarán emitido con solicitud y autorización de otra persona.
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/solicitar-cancelacion", async (Guid id, Guid albaranId, CancelarAlbaranBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new SolicitarCancelacionAlbaranCommand(id, albaranId, body.Motivo), ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/resolver-cancelacion", async (Guid id, Guid albaranId, ResolverCancelacionBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ResolverCancelacionAlbaranCommand(id, albaranId, body.Autorizar, body.Motivo), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoSalidaCancelarEmitida).WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // M-248: corregir una entrega confirmada con soporte (antes de cerrar la liquidación).
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/entrega/corregir", async (Guid id, Guid albaranId, CorregirEntregaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CorregirEntregaCommand(id, albaranId, body.Receptor, body.Rechazadas, body.MotivoRechazo, body.Firma, body.Foto, body.MotivoCorreccion), ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // F1-PT-06 / M-351 / M-352: casos de daño, rechazo o devolución con dictamen de Calidad y correctivo fiscal.
+        var casos = g.MapGroup("/casos");
+        casos.MapGet("", async ([FromQuery] string? estado, [FromQuery] string? pedido, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarCasosQuery(estado, pedido, page ?? 1, pageSize ?? 50), ct))).RequireAuthorization(ver);
+        casos.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new ObtenerCasoQuery(id), ct))).RequireAuthorization(ver);
+        casos.MapGet("/{id:guid}/evidencia", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new ObtenerEvidenciaCasoQuery(id), ct))).RequireAuthorization(ver);
+        casos.MapPost("", async (RegistrarCasoDanoCommand cmd, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/evidencia", async (Guid id, EvidenciaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AdjuntarEvidenciaCasoCommand(id, body.Evidencia), ct))).RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/dictaminar", async (Guid id, DictamenBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DictaminarCasoCommand(id, body.Dictamen, body.Observacion, body.PedidoRefabricacionAw), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoCalidadDictaminar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/nota-credito", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new EmitirNotaCreditoCasoCommand(id), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoBonificacion).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/cancelar-factura", async (Guid id, CancelarFacturaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new SolicitarCancelacionFacturaCasoCommand(id, body.MotivoSat, body.UuidSustituto), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesSolicitar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/cerrar", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new CerrarCasoCommand(id), ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
         // El canal Real usa el saldo de Facturación (U-3); este endpoint queda solo para Demo.
         if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
@@ -211,4 +266,14 @@ public static class ProductoTerminadoEndpoints
     public sealed record AutorizarHojaBody(string Nivel, string Motivo, string? Suplencia);
 
     public sealed record SaldoDemoBody(decimal Saldo);
+
+    public sealed record ResolverParcialBody(bool Autorizar, string? Nivel, string? Suplencia, string Motivo);
+
+    public sealed record ResolverCancelacionBody(bool Autorizar, string Motivo);
+
+    public sealed record EvidenciaBody(string Evidencia);
+
+    public sealed record DictamenBody(string Dictamen, string Observacion, string? PedidoRefabricacionAw);
+
+    public sealed record CancelarFacturaBody(string MotivoSat, string? UuidSustituto);
 }

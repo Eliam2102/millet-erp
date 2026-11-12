@@ -15,6 +15,8 @@ public sealed class PtAcceso(ICurrentUserContext user, ICurrentUserPermissions p
             throw new ForbiddenException("PT_PERMISO_REQUERIDO", "No tiene permiso para esta acción.");
     }
 
+    public ValueTask<bool> TieneAsync(string permiso, CancellationToken ct) => permisos.TieneAsync(permiso, ct);
+
     /// <summary>Sucursales visibles para el usuario; null = todas (tiene el permiso de bypass).</summary>
     public async Task<IReadOnlyList<Guid>?> SucursalesVisiblesAsync(string permisoTodas, CancellationToken ct)
     {

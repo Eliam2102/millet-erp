@@ -21,7 +21,9 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useAccionHojaSalida, useCrearHojaSalida, useHojaSalida, useHojasSalida } from '../api/hooks';
 import type { EstadoHojaSalida } from '../api/types';
 import { AutorizacionHojaPanel } from './AutorizacionHojaPanel';
+import { CancelacionAlbaranPanel } from './CancelacionAlbaranPanel';
 import { CargaHojaPanel } from './CargaHojaPanel';
+import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 
 // Texto además del color: el estado no depende solo de la vista.
 const estadoUi: Record<EstadoHojaSalida, { texto: string; tono: 'info' | 'success' | 'neutral' }> = {
@@ -109,6 +111,7 @@ export function HojasSalidaPage() {
           titulo="Hojas de salida y albaranes"
           descripcion="Arma la ruta, carga las piezas y emite un albarán por pedido para registrar lo que lleva el chofer."
         />
+        <TramoDetenidoBanner />
         {error && (
           <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
             {error}
@@ -255,6 +258,7 @@ export function HojasSalidaPage() {
                 <TableHead>Obra o destino</TableHead>
                 <TableHead>Lo cargado</TableHead>
                 <TableHead>Entrega</TableHead>
+                {detalle.data.estado === 'Emitida' && <TableHead>Cancelación</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -283,9 +287,14 @@ export function HojasSalidaPage() {
                     {(a.rotas?.length ?? 0) > 0 && <p className="text-warning-fg">Pendiente de repartida (rota al cargar): {a.rotas!.join(', ')}</p>}
                   </TableCell>
                   <TableCell>
-                    {detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
+                    {a.cancelado ? 'Cancelado' : detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
                     {a.estadoPedido === '115' && <p className="text-success-fg">Facturado y entregado</p>}
                   </TableCell>
+                  {detalle.data.estado === 'Emitida' && (
+                    <TableCell className="min-w-56 whitespace-normal">
+                      <CancelacionAlbaranPanel hojaId={detalle.data.id} albaran={a} operar={operar} />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

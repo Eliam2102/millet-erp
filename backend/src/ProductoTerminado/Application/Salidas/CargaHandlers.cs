@@ -57,6 +57,8 @@ public sealed class CargarPiezaHojaHandler(ProductoTerminadoDbContext db, PtAcce
             throw new BusinessRuleException("PT_SALIDA_PIEZA_YA_EN_HOJA", $"La pieza {pieza.Etiqueta} ya está en otra hoja de salida o ya salió.");
         if ((await SalidaMapeo.RotasAsync(db, [pieza.Id], cancellationToken)).Count > 0)
             throw new BusinessRuleException("PT_CARGA_PIEZA_ROTA", $"La pieza {pieza.Etiqueta} se marcó como rota y espera su reposición.");
+        if (await SalidaParcial.PermitidasAsync(db, pedido, cancellationToken) is { } permitidas && !permitidas.Contains(pieza.Id))
+            throw new BusinessRuleException("PT_PIEZA_NO_AUTORIZADA", $"El pedido {pedido.NumeroPedido} está incompleto: solo se cargan las piezas de su salida parcial autorizada.");
 
         var ahora = clock.UtcNow;
         pieza.Cargar();

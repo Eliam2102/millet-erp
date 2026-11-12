@@ -19,6 +19,7 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useAutorizarTraspaso, useCrearTraspaso, useRecibirTraspaso, useTraspasos } from '../api/hooks';
 import type { EstadoTraspaso } from '../api/types';
 import { TraspasoDetallePanel } from './TraspasoDetallePanel';
+import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 
 // Texto además del color: el estado no depende solo de la vista.
 const estadoUi: Record<EstadoTraspaso, { texto: string; tono: 'info' | 'warning' | 'success' | 'neutral' }> = {
@@ -105,6 +106,7 @@ export function TraspasosPage() {
           titulo="Traspasos entre sucursales"
           descripcion="Prepara el traspaso, que lo autorice otra persona, recíbelo en destino y aclara las diferencias hasta cerrarlo."
         />
+        <TramoDetenidoBanner />
         {error && (
           <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
             {error}

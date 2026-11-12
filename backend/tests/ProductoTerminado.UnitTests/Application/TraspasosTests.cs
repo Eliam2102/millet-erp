@@ -50,6 +50,13 @@ public sealed class TraspasosTests
             Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
         public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
+
+        public Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct) => Task.FromResult(false);
+        public Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct) =>
+            Task.FromResult(new DocumentoFiscalPt(Guid.NewGuid(), "NCRED-1", "Timbrado", false));
+        public Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct) =>
+            Task.FromResult(new DocumentoFiscalPt(facturaId, "F-1", "CancelacionPendiente", true));
+        public Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct) => Task.FromResult<DocumentoFiscalPt?>(null);
     }
 
     private sealed class AvisoFalso(bool falla = false) : IAvisoTraspasoPort

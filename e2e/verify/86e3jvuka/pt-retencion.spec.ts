@@ -92,16 +92,16 @@ test.describe('PT-02 retención y liberación del pedido', () => {
     expect((await pagina(guard, PEDIDO_CONTADO)).estadoPedido.desde).toBe(desde);
   });
 
-  test('4 pedido de reparto con 3 de 10 piezas: no se libera', async ({ page, guard }) => {
+  // Guadalupe, 11-nov: REPARTO no espera todas las piezas; con las que ya están en 69 pasa a 70 y sale como parcial.
+  test('4 pedido de reparto con 3 de 10 piezas: Liberado por pedido de reparto', async ({ page, guard }) => {
     escanear(PEDIDO_REPARTO, 3);
-    await esperarEstado(guard, PEDIDO_REPARTO, 3, undefined, undefined);
+    await esperarEstado(guard, PEDIDO_REPARTO, 3, 'Liberado', 'Reparto');
     await buscar(page, PEDIDO_REPARTO);
     const estado = page.getByRole('region', { name: 'Estado del pedido' });
-    await expect(estado.getByText('En producción')).toBeVisible();
-    await expect(estado.getByText('Liberado')).toHaveCount(0);
+    await expect(estado.getByText('Liberado', { exact: true })).toBeVisible();
     const avance = page.getByRole('region', { name: 'Avance por posición' });
     await expect(avance.getByRole('article').filter({ hasText: 'Posición 1' }).locator('dd')).toHaveText(['10', '3', '3', '0', '0', '7']);
-    await shot(page, '07-pedido-4800118-reparto-3-de-10-no-se-libera');
+    await shot(page, '07-pedido-4800118-reparto-3-de-10-liberado');
   });
 
   test('5 pedido de reparto con 10 de 10 piezas: Liberado por pedido de reparto', async ({ page, guard }) => {
