@@ -97,12 +97,12 @@ public static class ActaConteoDocumento
             contenido.Item().Component(new TablaRenglones<RenglonActaConteo>(a.Renglones,
             [
                 new("Clave", r => r.Clave, 1.5f),
-                new("Descripción", r => r.Descripcion, 3.6f),
+                new("Descripción", r => r.Descripcion, 3.0f),
                 new("Ubicación", r => r.Ubicacion, 1.8f),
                 new("Teórico", r => N(r.Teorico), 1.1f, AlineacionColumna.Derecha),
                 new("Contado", r => N(r.Contado), 1.1f, AlineacionColumna.Derecha),
-                new("Diferencia", r => N(r.Diferencia), 1.1f, AlineacionColumna.Derecha),
-                new("Ajuste", r => r.FolioAjuste ?? "—", 1.7f, AlineacionColumna.Centro),
+                new("Diferencia", r => N(r.Diferencia), 1.4f, AlineacionColumna.Derecha),
+                new("Ajuste", r => r.FolioAjuste ?? "—", 2.3f, AlineacionColumna.Centro),
                 new("Saldo final", r => N(r.SaldoResultante), 1.1f, AlineacionColumna.Derecha),
                 new("Dif. final", r => N(r.SaldoResultante - r.Contado), 1f, AlineacionColumna.Derecha),
             ]));
