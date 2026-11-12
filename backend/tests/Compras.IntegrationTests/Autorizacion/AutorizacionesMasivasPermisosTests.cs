@@ -34,7 +34,7 @@ public class AutorizacionesMasivasPermisosTests : IClassFixture<StubsWebApplicat
         var (soloLectura, _) = await CreateUsuarioConPermisosAsync(
             _factory, PermisosCanonicos.ComprasRequisicionesLeer);
         var nivel1 = await soloLectura.PostAsJsonAsync(
-            EndpointMasiva, new { Ids = new[] { rqId }, Nivel = 1, Notas = (string?)null });
+            EndpointMasiva, new { Items = await ItemsLoteAsync(admin, rqId), Nivel = 1, Notas = (string?)null });
 
         Assert.Equal(HttpStatusCode.Forbidden, nivel1.StatusCode);
         Assert.Equal("AUTORIZAR_NIVEL_DENEGADO", (await ReadJsonAsync(nivel1)).GetProperty("code").GetString());
@@ -45,7 +45,7 @@ public class AutorizacionesMasivasPermisosTests : IClassFixture<StubsWebApplicat
             PermisosCanonicos.ComprasRequisicionesLeer,
             PermisosCanonicos.ComprasRequisicionesAutorizarNivel1);
         var nivel2 = await soloNivel1.PostAsJsonAsync(
-            EndpointMasiva, new { Ids = new[] { rqId }, Nivel = 2, Notas = (string?)null });
+            EndpointMasiva, new { Items = await ItemsLoteAsync(admin, rqId), Nivel = 2, Notas = (string?)null });
 
         Assert.Equal(HttpStatusCode.Forbidden, nivel2.StatusCode);
         Assert.Equal("AUTORIZAR_NIVEL_DENEGADO", (await ReadJsonAsync(nivel2)).GetProperty("code").GetString());
@@ -59,7 +59,7 @@ public class AutorizacionesMasivasPermisosTests : IClassFixture<StubsWebApplicat
         var admin = await CreateSuperAdminClientAsync(_factory);
 
         var resp = await admin.PostAsJsonAsync(
-            EndpointMasiva, new { Ids = Array.Empty<Guid>(), Nivel = 1, Notas = (string?)null });
+            EndpointMasiva, new { Items = Array.Empty<object>(), Nivel = 1, Notas = (string?)null });
 
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
@@ -68,10 +68,10 @@ public class AutorizacionesMasivasPermisosTests : IClassFixture<StubsWebApplicat
     public async Task Masiva_MasDe50Ids_Retorna400()
     {
         var admin = await CreateSuperAdminClientAsync(_factory);
-        var ids = Enumerable.Range(0, 51).Select(_ => Guid.NewGuid()).ToArray();
+        var items = Enumerable.Range(0, 51).Select(_ => new { Id = Guid.NewGuid(), Version = 1 }).ToArray();
 
         var resp = await admin.PostAsJsonAsync(
-            EndpointMasiva, new { Ids = ids, Nivel = 1, Notas = (string?)null });
+            EndpointMasiva, new { Items = items, Nivel = 1, Notas = (string?)null });
 
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
@@ -85,7 +85,7 @@ public class AutorizacionesMasivasPermisosTests : IClassFixture<StubsWebApplicat
             _factory, SuperAdminOid, "superadmin@dev.local", "Super Admin Dev");
 
         var resp = await sinKey.PostAsJsonAsync(
-            EndpointMasiva, new { Ids = new[] { rqId }, Nivel = 1, Notas = (string?)null });
+            EndpointMasiva, new { Items = await ItemsLoteAsync(admin, rqId), Nivel = 1, Notas = (string?)null });
 
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
         Assert.Equal("MISSING_IDEMPOTENCY_KEY", (await ReadJsonAsync(resp)).GetProperty("code").GetString());
@@ -108,7 +108,7 @@ public class AutorizacionesMasivasPermisosTests : IClassFixture<StubsWebApplicat
         await AsociarSucursalAsync(_factory, usuarioId, TestComprasFixtures.SucursalMty);
 
         var resp = await operativo.PostAsJsonAsync(
-            EndpointMasiva, new { Ids = new[] { rqMid, rqMty }, Nivel = 1, Notas = (string?)null });
+            EndpointMasiva, new { Items = await ItemsLoteAsync(admin, rqMid, rqMty), Nivel = 1, Notas = (string?)null });
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var resultados = (await ReadJsonAsync(resp)).GetProperty("resultados").EnumerateArray().ToList();

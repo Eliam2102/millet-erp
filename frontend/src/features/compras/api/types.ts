@@ -282,6 +282,8 @@ export interface PendienteAutorizacionItemResponse
   disponibilidad: DisponibilidadPendiente;
   /** Requisitante con ≥ 3 RQ en 60 días en la misma clasificación. */
   esRecurrente: boolean;
+  /** Versión de la RQ al listar; los lotes la devuelven para detectar cambios (M-254). */
+  version: number;
 }
 
 /**
