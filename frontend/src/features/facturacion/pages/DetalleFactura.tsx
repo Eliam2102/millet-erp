@@ -660,21 +660,21 @@ function PedimentoForm({ facturaId, motivo }: { facturaId: string; motivo?: stri
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 rounded-md border border-line bg-warning-note-bg p-3 sm:grid-cols-4"
+      className="grid grid-cols-1 gap-2 rounded-md border border-line bg-warning-note-bg p-3 @xl:grid-cols-2 @4xl:grid-cols-4"
       data-print="hidden"
     >
-      <div className="sm:col-span-4 text-sm font-medium">
+      <div className="col-span-full text-sm font-medium">
         Factura retenida por pedimento — aplícalo para timbrar
       </div>
       {motivo && (
-        <p className="sm:col-span-4 text-xs text-ink-muted" data-testid="motivo-pedimento">
+        <p className="col-span-full text-xs text-ink-muted" data-testid="motivo-pedimento">
           {motivo}
         </p>
       )}
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <ErrorTimbradoAviso error={aplicar.error} />
       </div>
-      <div className="sm:col-span-2">
+      <div className="@xl:col-span-2">
         <Label htmlFor="pedimento-numero" className="text-xs">Pedimento *</Label>
         <Input
           id="pedimento-numero" placeholder="15  47  3807  5000123"
@@ -690,7 +690,7 @@ function PedimentoForm({ facturaId, motivo }: { facturaId: string; motivo?: stri
         <Label htmlFor="pedimento-identificacion" className="text-xs">Identificación mercancía</Label>
         <Input id="pedimento-identificacion" value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} />
       </div>
-      <div className="sm:col-span-4 flex justify-end">
+      <div className="col-span-full flex justify-end">
         <Button size="sm" onClick={enviar} disabled={aplicar.isPending}>
           {aplicar.isPending ? 'Aplicando…' : 'Aplicar pedimento y timbrar'}
         </Button>
@@ -755,16 +755,16 @@ function AplicarAnticipoForm({
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 sm:grid-cols-4 border-line"
+      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 @xl:grid-cols-2 @4xl:grid-cols-4 border-line"
       data-print="hidden"
     >
-      <div className="sm:col-span-4 text-sm font-medium">
+      <div className="col-span-full text-sm font-medium">
         Aplicar anticipo a esta factura (NC de amortización, relación 07)
       </div>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <ErrorTimbradoAviso error={aplicar.error} />
       </div>
-      <div className="sm:col-span-2">
+      <div className="@xl:col-span-2">
         <Label className="text-xs">Anticipo *</Label>
         <AnticipoPicker clienteId={clienteId} value={anticipo?.anticipoId} onChange={elegir} />
       </div>
@@ -782,7 +782,7 @@ function AplicarAnticipoForm({
         />
       </div>
       <p className="self-end text-xs text-ink-muted">Por cobrar: {formatMoney({ amount: porCobrar, currency: moneda })}</p>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <Label className="text-xs" htmlFor="aplicar-anticipo-comentarios">
           Comentarios (se imprimen en la nota de crédito)
         </Label>
@@ -794,7 +794,7 @@ function AplicarAnticipoForm({
           textareaProps={{ id: 'aplicar-anticipo-comentarios' }}
         />
       </div>
-      <div className="sm:col-span-4 flex justify-end gap-2">
+      <div className="col-span-full flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={aplicar.isPending}>
           Cancelar
         </Button>
@@ -870,13 +870,13 @@ function NcBonificacionForm({
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 sm:grid-cols-4 border-line"
+      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 @xl:grid-cols-2 @4xl:grid-cols-4 border-line"
       data-print="hidden"
     >
-      <div className="sm:col-span-4 text-sm font-medium">
+      <div className="col-span-full text-sm font-medium">
         Nota de crédito por bonificación (relación 01)
       </div>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <ErrorTimbradoAviso error={emitir.error} />
       </div>
       <div>
@@ -900,11 +900,11 @@ function NcBonificacionForm({
           onChange={(e) => setTasaIva(e.target.value)}
         />
       </div>
-      <div className="sm:col-span-2">
+      <div className="@xl:col-span-2">
         <Label htmlFor="nc-descripcion" className="text-xs">Descripción</Label>
         <Input id="nc-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
       </div>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <Label className="text-xs" htmlFor="nc-bonificacion-comentarios">
           Comentarios (se imprimen en la nota de crédito)
         </Label>
@@ -917,7 +917,7 @@ function NcBonificacionForm({
         />
       </div>
       {puedeReembolsar && (
-        <div className="sm:col-span-4 flex items-center gap-2">
+        <div className="col-span-full flex items-center gap-2">
           <Checkbox
             id="nc-devolver-dinero"
             checked={devolver}
@@ -944,13 +944,13 @@ function NcBonificacionForm({
               onChange={(e) => setClabe(e.target.value.replace(/\D/g, ''))}
             />
           </div>
-          <div className="sm:col-span-2">
+          <div className="@xl:col-span-2">
             <Label className="text-xs" htmlFor="nc-reembolso-titular">Titular *</Label>
             <Input id="nc-reembolso-titular" value={titular} onChange={(e) => setTitular(e.target.value)} />
           </div>
         </>
       )}
-      <div className="sm:col-span-4 flex justify-end gap-2">
+      <div className="col-span-full flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={emitir.isPending}>
           Cancelar
         </Button>
