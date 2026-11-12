@@ -6,6 +6,7 @@ using Millet.Contabilidad.Application.Polizas;
 using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Contabilidad.Application.Iva;
@@ -58,7 +59,8 @@ public sealed class GenerarPolizaLiquidacionIvaValidator : AbstractValidator<Gen
     }
 }
 
-public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimientoIvaReadPort cumplimiento, IMediator mediator)
+public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimientoIvaReadPort cumplimiento, IMediator mediator,
+    ICurrentUserContext usuario, IClock clock)
     : IRequestHandler<LiquidacionIvaQuery, LiquidacionIvaResponse>,
       IRequestHandler<GenerarPolizaLiquidacionIvaCommand, PolizaResponse>
 {
@@ -103,7 +105,8 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
             throw new ConflictException("CONTAB_IVA_LIQUIDACION_EXISTE",
                 $"Ya existe la póliza de liquidación de IVA de {folio[4..]}; anúlela para generar otra.");
 
-        var r = (await Handle(new LiquidacionIvaQuery(c.Anio, c.Mes), ct)).Resumen;
+        var liquidacion = await Handle(new LiquidacionIvaQuery(c.Anio, c.Mes), ct);
+        var r = liquidacion.Resumen;
         var fecha = Mes(c.Anio, c.Mes).Hasta;
         var roles = await db.RolesCuenta.AsNoTracking().Where(x => x.DeletedAt == null).ToListAsync(ct);
         var partidas = new List<PartidaRequest>();
@@ -140,8 +143,13 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         var tipo = await db.TiposDocumento.AsNoTracking().Where(t => t.Clave == ClaveTipoPoliza).Select(t => t.Id).FirstOrDefaultAsync(ct);
         if (tipo == Guid.Empty)
             throw new BusinessRuleException("CONTAB_IVA_TIPO_POLIZA", $"No existe el tipo de póliza {ClaveTipoPoliza} (asiento contable).");
-        return await mediator.Send(new CrearPolizaCommand(new PolizaManualRequest(tipo, fecha, $"Liquidación de IVA {c.Mes:D2}/{c.Anio}",
+        var poliza = await mediator.Send(new CrearPolizaCommand(new PolizaManualRequest(tipo, fecha, $"Liquidación de IVA {c.Mes:D2}/{c.Anio}",
             partidas, DocumentoOrigen: new DocumentoOrigenRequest(DocLiquidacion.Modulo, DocLiquidacion.Tipo, Guid.CreateVersion7(), folio, null))), ct);
+        // M-311: la foto del mes (resumen, detalle y cuadre) se guarda con la póliza y ya no cambia.
+        db.LiquidacionesIvaFoto.Add(LiquidacionIvaFoto.Crear(Guid.Empty, liquidacion, poliza.Id, folio,
+            usuario.UserId ?? throw new BusinessRuleException("IVA_FOTO_SIN_USUARIO", "No se identificó al usuario que genera la liquidación."), clock.UtcNow));
+        await db.SaveChangesAsync(ct);
+        return poliza;
     }
 
     /// <summary>M-209: bases e IVA del mes por lado y tratamiento, sumados de lo que movió cada pago o cobro (en MXN).</summary>
