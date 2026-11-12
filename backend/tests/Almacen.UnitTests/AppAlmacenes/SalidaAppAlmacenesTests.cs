@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.AppAlmacenes;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Catalogo;
+using Millet.Almacen.Domain.Cierre;
+using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -44,6 +46,51 @@ public class SalidaAppAlmacenesTests
 
     private static SalidaApp Salida(decimal cantidad, decimal? costo = null, TipoMovimiento tipo = TipoMovimiento.SalidaConsumo) =>
         new(tipo, Sucursal, Articulo, "PZA", Variante, cantidad, costo, "App Almacenes AJUSTE_SALIDA", 2440m, 3660m);
+
+    [Fact]
+    public async Task M333_el_movimiento_lleva_la_fecha_del_hecho_y_no_la_del_servidor()
+    {
+        var (db, _, _, _, _) = Db();
+        var (estado, _, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, [Salida(1)], default,
+            fecha: new DateOnly(2026, 11, 9));
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.Recibido);
+        (await db.Movimientos.SingleAsync()).FechaMovimiento.Should().Be(new DateOnly(2026, 11, 9));
+    }
+
+    [Fact]
+    public async Task M333_un_consumo_con_fecha_de_un_mes_cerrado_queda_en_revision_con_motivo_y_sin_mover_saldo()
+    {
+        var (db, _, _, _, _) = Db();
+        db.Set<PeriodoCerrado>().Add(new PeriodoCerrado(Guid.NewGuid(), EmpresaId, 2026, 10, Usuario));
+        await db.SaveChangesAsync();
+
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, [Salida(1)], default,
+            fecha: new DateOnly(2026, 10, 31));
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.EnRevision);
+        folio.Should().BeNull();
+        error.Should().Contain("2026/10").And.Contain("mes corriente");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+        (await db.SaldosInventario.SingleAsync(s => s.Lote == null && s.CantidadDisponible > 0 && s.CantidadDisponible < 50))
+            .CantidadDisponible.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task M333_con_el_almacen_en_conteo_anual_la_salida_queda_en_revision()
+    {
+        var (db, subA, _, _, _) = Db();
+        db.Set<BloqueoInventario>().Add(new BloqueoInventario(Guid.NewGuid(), Guid.NewGuid(), subA));
+        await db.SaveChangesAsync();
+
+        var (estado, _, error) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(1), default);
+
+        estado.Should().Be(SalidaAppAlmacenes.EnRevision);
+        error.Should().Contain("conteo anual");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+    }
 
     [Fact]
     public async Task Tres_hojas_generan_una_salida_de_3_a_costo_promedio()

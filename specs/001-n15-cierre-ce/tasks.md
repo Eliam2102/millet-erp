@@ -17,7 +17,7 @@ Independent test: avisos invertidos/empatados/repetidos no revierten neto; dismi
 - [x] T006 [US1] Cubrir neto, canceladas/devoluciones/AF y conversiones en backend/tests/Almacen.UnitTests/Recepciones/; ajustar constructor directo existente.
 - [x] T007 [US1] Compartir reparto actual bajo candados CE antes de leer Almacén en backend/src/ComercioExterior/Application/ConciliacionRecepcionServicio.cs y RecepcionCe.cs; rechazar línea ausente y acumulados inválidos.
 - [x] T008 [US1] Conservar eventos reales y no duplicar historia/revisión sin cambios en backend/src/ComercioExterior/Domain/ExpedienteRecepcion.cs y ExpedienteImportacion.cs.
-- [ ] T009 [US1] Probar reparto entre guías/expedientes, cancelados/cerrados, duplicados, empates y disminuciones en backend/tests/ComercioExterior.UnitTests/P20RecepcionTests.cs y Api.IntegrationTests/ComercioExterior/.
+- [x] T009 [US1] Probar reparto entre guías/expedientes, cancelados/cerrados, duplicados, empates y disminuciones en backend/tests/ComercioExterior.UnitTests/P20RecepcionTests.cs y Api.IntegrationTests/ComercioExterior/.
 
 ## Phase 4: US2 · Responsable con su acceso vigente
 Independent test: aceptar asignado/corporativo/bypass de gestión; rechazar lectura sola, ajeno/inactivo/denegado.
@@ -27,15 +27,15 @@ Independent test: aceptar asignado/corporativo/bypass de gestión; rechazar lect
 ## Phase 5: US3 · Recuperación y cierre del mismo expediente
 Independent test: CE1/Almacén2 se recupera por operación normal, sin recepción ni evento nuevos.
 - [x] T012 [US3] Incorporar reconciliación canónica en revisión/cierres, preservando transacción/versión/alcance y evitando crear incidencias en operaciones sin recepción en backend/src/ComercioExterior/Application/ExpedienteHandlers.cs y DependencyInjection.cs.
-- [ ] T013 [US3] Probar reparación histórica por HTTP, misma incidencia/historia, sin UUID fabricado y rollback422 en backend/tests/Api.IntegrationTests/ComercioExterior/P25ExpedienteRealHttpTests.cs.
-- [ ] T014 [US3] Ejecutar pruebas dirigidas CE/Almacén/Api.UnitTests y gate CE según docs/qa/gate-integracion.md; guardar salidas fuera del repo.
-- [ ] T015 [US3] Preparar commit/PR y verificar CI antes de integrar/pasar QA, con evidencia fuera del repo y trazabilidad a N-15.
-- [ ] T016 [US3] Verificar versión y permiso exacto de Eliam en QA; recuperar CE-IMP-2026-000004 usando sus seis recepciones, completar hitos, revisión y tres cierres/aprobación; guardar evidencia externa.
+- [x] T013 [US3] Probar reparación histórica por HTTP, misma incidencia/historia, sin UUID fabricado y rollback422 en backend/tests/Api.IntegrationTests/ComercioExterior/P25ExpedienteRealHttpTests.cs.
+- [x] T014 [US3] Ejecutar pruebas dirigidas CE/Almacén/Api.UnitTests y gate CE según docs/qa/gate-integracion.md; guardar salidas fuera del repo.
+- [x] T015 [US3] Preparar commit/PR y verificar CI antes de integrar/pasar QA, con evidencia fuera del repo y trazabilidad a N-15.
+- [x] T016 [US3] Verificar versión y permiso exacto de Eliam en QA; recuperar CE-IMP-2026-000004 usando sus seis recepciones, completar hitos, revisión y tres cierres/aprobación; guardar evidencia externa.
 
 ## Phase 6: Polish
-- [ ] T017 Evaluar convergencia del resultado con la skill oficial y registrar pendientes reales en specs/001-n15-cierre-ce/.
-- [ ] T018 Actualizar N-15 y fichas/Bitácora de la bóveda con evidencia y límites; cerrar sólo si T016 pasó íntegro.
-- [ ] T019 Verificar diff limpio de secretos, logs y archivos de trabajo según docs/qa/gate-integracion.md y AGENTS.md.
+- [x] T017 Evaluar convergencia del resultado con la skill oficial y registrar pendientes reales en specs/001-n15-cierre-ce/.
+- [x] T018 Actualizar N-15 y fichas/Bitácora de la bóveda con evidencia y límites; cerrar sólo si T016 pasó íntegro.
+- [x] T019 Verificar diff limpio de secretos, logs y archivos de trabajo según docs/qa/gate-integracion.md y AGENTS.md.
 
 ## Dependencies
 T001→T002→(T003,T004)→US1/US2→US3→convergencia/gestión.
@@ -53,3 +53,10 @@ No marcar terminado un task por haber intentado ejecutarlo; registrar fallo/pend
 
 ## Phase 7: Convergence
 - [x] T020 Corregir la búsqueda de incidencia automática por línea completa, incluida la partida histórica de una guía cancelada, y demostrar con regresión que el mismo neto/diferencia no repite historia ni revisión; FR-002 / US1-AC2 / plan: historial estable (partial, HIGH).
+
+## Phase 8: Convergence
+- [x] T021 Reutilizar la corrección existente del PR654 para habilitar la aprobación de Gerencia con los tres cierres registrados; validar y publicar sólo el frontend sobre su paquete QA actual, conservando #674/#663/#669, y aprobar el ensayo desde la pantalla. US3/AC3, FR-008 y plan: ajuste del consumidor (partial, HIGH). No duplicar implementación ni ampliar permisos.
+
+## Resultado verificado · 11-nov-2026
+
+Implementación integrada mediante PR676 y PR654, ambos con CI aprobado. QA: CE-IMP-2026-000004 cerrado desde la pantalla a las20:12 Mérida con las mismas seis recepciones; tres cierres y aprobación final persistidos, cero incidencias pendientes. N-15 COMPLETE verificado después del ensayo. Convergencia oficial: 10FR, 5SC, 11 escenarios de aceptación, 8 decisiones de ejecución y 5 principios; cero brechas nuevas. Evidencia y resultados fuera del repositorio. No implica aceptación fiscal/productiva ni cierre de Q-CE/Activos Fijos.

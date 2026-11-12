@@ -8,6 +8,10 @@ import type { OtrEnvio } from '../api/otr';
 const state = vi.hoisted(() => ({ data: [] as OtrEnvio[], mutar: vi.fn() }));
 vi.mock('../api/otr', () => ({
   useOtrEnvios: () => ({ data: state.data, isError: false }),
+  useOtrBandeja: () => ({ data: state.data.map((e) => ({
+    id: e.id, idOrigen: e.idOrigen, version: e.version, versionAplicada: e.versionAplicada,
+    sucursalId: e.sucursalId, estado: e.estado, motivoVinculacion: e.motivoVinculacion, contenido: e.contenido,
+  })), isError: false }),
   useOtrAccion: () => ({ mutateAsync: state.mutar, isPending: false, isError: false }),
   useOtrCandidatos: () => ({ data: [{ id: 'exp', folio: 'CE-EXP-DEMO' }], isError: false }),
 }));
@@ -97,7 +101,7 @@ it('la bandeja muestra envíos por vincular y abre el selector de expediente', (
   fireEvent.change(screen.getByLabelText(/Expediente abierto/), { target: { value: 'exp' } });
   fireEvent.click(screen.getByRole('button', { name: 'Vincular envío' }));
   expect(state.mutar).toHaveBeenCalledWith({
-    envio: state.data[0],
+    envio: expect.objectContaining({ id: envio.id, version: envio.version }),
     ruta: 'vincular',
     body: { expedienteId: 'exp' },
   });
@@ -204,7 +208,8 @@ it('ofrece revalidar sucursal sólo con gestión corporativa y envía la versió
   useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
   render(<OtrBandejaPage />);
   fireEvent.click(screen.getByRole('button', { name: 'Revalidar sucursal' }));
-  expect(state.mutar).toHaveBeenCalledWith({ envio: state.data[0], ruta: 'revalidar-sucursal' });
+  expect(state.mutar).toHaveBeenCalledWith({ envio: expect.objectContaining({ id: envio.id, version: envio.version }), ruta: 'revalidar-sucursal' });
+  expect(state.mutar.mock.calls[0][0].envio).not.toHaveProperty('lineas');
   expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
 });
 

@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Link } from '@tanstack/react-router';
-import { BarChart3, BookOpen, History, Package, Search } from 'lucide-react';
+import { BarChart3, BookOpen, Factory, History, Package, Search } from 'lucide-react';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
@@ -47,6 +47,14 @@ export function ReportesPage() {
             icon={Search}
           />
         )}
+        {puedeAlfak && (
+          <ReporteCard
+            to="/almacen/reportes/consumo-insumos-linea"
+            titulo="Consumo de insumos por línea"
+            descripcion="Salidas por consumo (PVB, silicón, butilo, argón) agrupadas por línea y artículo, con cantidad y costo."
+            icon={Factory}
+          />
+        )}
         {puedeMpCnk && (
           <ReporteCard
             to="/almacen/reportes/mp-cnk"
@@ -71,7 +79,7 @@ function ReporteCard({
   descripcion,
   icon: Icon,
 }: {
-  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/kardex' | '/almacen/reportes/trazabilidad-mp' | '/almacen/reportes/mp-cnk';
+  to: '/almacen/reportes/alfak-historial' | '/almacen/reportes/kardex' | '/almacen/reportes/trazabilidad-mp' | '/almacen/reportes/consumo-insumos-linea' | '/almacen/reportes/mp-cnk';
   titulo: string;
   descripcion: string;
   icon: typeof BarChart3;

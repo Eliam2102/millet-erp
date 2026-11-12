@@ -1639,6 +1639,7 @@ foreach (var dimension in new[] { 1, 2, 3 })
 
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.AplicarProductoAwService>();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.IProductoAwContratoReadPort, Millet.Compartido.Infrastructure.PublicAdapters.ProductoAwContratoReadAdapter>();
+Millet.Api.Notificaciones.NotificacionesRegistration.AddCentroAvisos(builder.Services);
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
@@ -1906,6 +1907,7 @@ Millet.Api.Endpoints.Almacen.TamboresLineaEndpoints.MapTamboresLineaEndpoints(ap
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
 Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
 Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
+Millet.Api.Endpoints.Almacen.CorreccionesConsumoEndpoints.MapCorreccionesConsumoEndpoints(app);
 Millet.Api.Endpoints.Almacen.OrigenCapturaMpEndpoints.MapOrigenCapturaMpEndpoints(app);
 Millet.Api.Endpoints.Almacen.ConciliacionDiariaEndpoints.MapConciliacionDiariaEndpoints(app);
 
@@ -2168,6 +2170,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 Millet.Api.Endpoints.Incidencias.IncidenciasEndpoints.MapIncidenciasEndpoints(app);
+Millet.Api.Endpoints.Notificaciones.NotificacionesEndpoints.MapNotificacionesEndpoints(app);
 
 Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
