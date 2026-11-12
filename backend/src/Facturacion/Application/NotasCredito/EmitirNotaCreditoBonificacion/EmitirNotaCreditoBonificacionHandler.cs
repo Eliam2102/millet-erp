@@ -143,11 +143,12 @@ public sealed class EmitirNotaCreditoBonificacionHandler
             facturaRelacionadaId: factura.Id,
             montoTotal: command.MontoTotal,
             tasaIva: command.TasaIva,
-            descripcion: command.Descripcion);
+            descripcion: command.Descripcion,
+            motivo: command.Devolucion ? MotivoNotaCredito.Devolucion : MotivoNotaCredito.Bonificacion);
 
         nc.FijarComentarios(command.Comentarios);
         if (!string.IsNullOrWhiteSpace(factura.Uuid))
-            nc.AgregarRelacion(factura.Uuid!, "01");
+            nc.AgregarRelacion(factura.Uuid!, command.Devolucion ? "03" : "01");
         if (command.Reembolso is { } reembolso)
             nc.ProgramarReembolso(reembolso.Banco, reembolso.Clabe, reembolso.Titular);
 

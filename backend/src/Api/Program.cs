@@ -727,6 +727,7 @@ builder.Services.AddScoped<Millet.Compartido.Application.Cargas.Lotes.LotesCarga
 // M-166: tipo de carga contabilidad.saldos-iniciales (apertura contable) para el lote común.
 Millet.Api.Infrastructure.Adapters.CargasContabilidadRegistro.AddCargasContabilidad(builder.Services);
 builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Tramos.ITramosOperativosPort, Millet.Compartido.Infrastructure.PublicAdapters.TramosOperativosAdapter>();
 // M-236: responsable por omisión de las incidencias de la conciliación programada de cartera.
 builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Conciliacion.IResponsableConciliacionReadPort, Millet.Api.Infrastructure.Adapters.ResponsableConciliacionCarteraAdapter>();
 // M-236: historial de cierres manuales (mismo adaptador; no obliga a otros módulos a implementarlo).
@@ -2174,6 +2175,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 Millet.Api.Endpoints.Incidencias.IncidenciasEndpoints.MapIncidenciasEndpoints(app);
 Millet.Api.Endpoints.Notificaciones.NotificacionesEndpoints.MapNotificacionesEndpoints(app);
+Millet.Api.Endpoints.Tramos.TramosEndpoints.MapTramosEndpoints(app);
 
 Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);

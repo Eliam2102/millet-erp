@@ -1,3 +1,4 @@
+import * as imprimirPdf from '@/components/erp/reportes/imprimir-pdf';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -8,6 +9,8 @@ const state = vi.hoisted(() => ({
   lista: vi.fn(), detalle: vi.fn(), recibir: vi.fn(), crear: vi.fn(), autorizar: vi.fn(), clasificar: vi.fn(), aclarar: vi.fn(),
 }));
 
+vi.mock('./TramoDetenidoBanner', () => ({ TramoDetenidoBanner: () => null }));
+vi.mock('../lib/usuarios', () => ({ useNombreUsuario: () => (id?: string | null) => id ?? '—' }));
 vi.mock('@/components/erp', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/components/erp')>()),
   Breadcrumbs: () => null,
@@ -144,14 +147,14 @@ describe('TraspasosPage', () => {
   });
 
   it('imprime la hoja de traslado con su folio', () => {
-    const imprimir = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    const imprimir = vi.spyOn(imprimirPdf, 'abrirPdfParaImprimir').mockResolvedValue(undefined);
     state.lista.mockReturnValue(listaCon([traspaso('EnTransito', 2)]));
     state.detalle.mockReturnValue({ data: { ...traspaso('EnTransito', 2), piezas: [pieza('p1', 'E1'), pieza('p2', 'E2')] } });
     render(<TraspasosPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Ver piezas' }));
     expect(screen.getByRole('heading', { name: 'Hoja de traslado TR-20261104-ABCDE' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Imprimir hoja de traslado/ }));
-    expect(imprimir).toHaveBeenCalled();
+    expect(imprimir).toHaveBeenCalledOnce();
   });
 
   it('«Por recibir» pide los traspasos en tránsito o con diferencia de la sucursal que recibe', () => {

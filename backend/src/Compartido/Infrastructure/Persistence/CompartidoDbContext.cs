@@ -132,6 +132,8 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento> IncidenciasHistorial => Set<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento>();
     /// <summary>I13.6: alertas del tablero de integraciones (abiertas y su recuperación).</summary>
     public DbSet<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion> AlertasIntegracion => Set<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion>();
+    /// <summary>M-303: interruptores de tramo (detener y reanudar sin apagar la aplicación).</summary>
+    public DbSet<Millet.SharedKernel.Domain.Tramos.TramoOperativo> TramosOperativos => Set<Millet.SharedKernel.Domain.Tramos.TramoOperativo>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -259,6 +261,15 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureAdjunto(modelBuilder);
         IncidenciasModelo.Configure(modelBuilder);
         TableroIntegracionesModelo.Configure(modelBuilder);
+        var tramo = modelBuilder.Entity<Millet.SharedKernel.Domain.Tramos.TramoOperativo>();
+        tramo.ToTable("tramos_operativos");
+        tramo.HasKey(x => x.Id);
+        tramo.Property(x => x.Id).ValueGeneratedNever();
+        tramo.Property(x => x.Clave).HasMaxLength(80).IsRequired();
+        tramo.Property(x => x.Motivo).HasMaxLength(500);
+        tramo.Property(x => x.MotivoReanudacion).HasMaxLength(500);
+        tramo.Property(x => x.UltimoEventoCorrecto).HasMaxLength(300);
+        tramo.HasIndex(x => x.Clave).IsUnique();
         LotesCargaModelo.Configure(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }

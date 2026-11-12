@@ -69,7 +69,7 @@ const ATAJOS_CAJA: ReadonlyArray<{ accion: string; teclas: string }> = [
   { accion: 'Abrir y elegir en un selector', teclas: 'Enter / ↑ ↓ / Esc' },
   { accion: 'Confirmar el formulario (emitir/guardar)', teclas: 'Enter en el botón o Ctrl+Enter' },
   { accion: 'Cerrar el panel lateral (Sheet)', teclas: 'Esc' },
-  { accion: 'Imprimir el comprobante en pantalla', teclas: 'Ctrl+P' },
+  { accion: 'Ajustar e imprimir el documento desde su visor PDF', teclas: 'Ctrl+P en el visor PDF' },
 ];
 
 export function Ayuda() {

@@ -86,6 +86,10 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
         return new(pieza, TipoMovimientoPieza.SalidaCancelada, anterior, referencia, ocurridoAt, usuario);
     }
 
+    /// <summary>Movimiento de un hecho de PT (ubicación, daño, dictamen, corrección): se llama después de cambiar el estado; <c>referencia</c> es el documento (caso, entrega).</summary>
+    public static MovimientoPieza Hecho(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, string referencia, DateTimeOffset ocurridoAt, Guid? usuario)
+        => new(pieza, tipo, anterior, referencia.Length > 200 ? referencia[..200] : referencia, ocurridoAt, usuario?.ToString() ?? "sistema");
+
     public static MovimientoPieza TrasladoSalida(PiezaPt pieza, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, TipoMovimientoPieza.TrasladoSalida, EstadoPieza.EnPT, EstadoPieza.EnTransito, pieza.SucursalId, destino, traspasoId, ocurridoAt, usuario);
 

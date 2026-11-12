@@ -1,0 +1,4 @@
+# Investigación
+- Decisión: permitir wasm-unsafe-eval exclusivamente. Razón: Yoga del renderer compila WebAssembly; script-src self lo bloquea. Se conserva el bloqueo de eval JavaScript e inline. Fuente oficial: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src . Alternativas: unsafe-eval amplía innecesariamente; capturar pantalla incumple solicitud; otro motor duplica infraestructura.
+- Decisión: visor PDF nativo abierto durante clic; generar desde datos completos y reutilizar originales disponibles. Razón: ajustes de impresión sin imprimir shell.
+- Inventario: cinco vistas de reporte; nueve detalles (RQ, OC, factura, anticipo, póliza, plantilla, conteo, hoja salida, traspaso). react-pdf compartido además soporta proformas/borradores/etiquetas. ObtenerCelda debe llegar al exportador para preservar valores calculados.

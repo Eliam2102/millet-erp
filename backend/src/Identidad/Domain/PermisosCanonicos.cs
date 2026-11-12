@@ -727,6 +727,12 @@ public static class PermisosCanonicos
     public const string ProductoTerminadoSalidaAprobarContraloria = "producto_terminado.salida.aprobar-contraloria";
     public const string ProductoTerminadoSalidaAprobarCredito = "producto_terminado.salida.aprobar-credito";
     public const string ProductoTerminadoSalidaAprobarVentas = "producto_terminado.salida.aprobar-ventas";
+    // M-247: autorizar o rechazar la cancelación de un albarán ya emitido (la pide quien opera la hoja; autoriza otra persona).
+    public const string ProductoTerminadoSalidaCancelarEmitida = "producto_terminado.salida.cancelar-emitida";
+    // M-351 (Fernando, 11-nov): el daño en producto terminado lo dictamina Calidad.
+    public const string ProductoTerminadoCalidadDictaminar = "producto_terminado.calidad.dictaminar";
+    // M-303: detener y reanudar tramos de la operación (reanudar lo hace otra persona).
+    public const string CompartidoTramosGestionar = "compartido.tramos.gestionar";
 
     // U-4 (86e3yzemw): incidencias comunes del ERP; el responsable siempre ve y atiende las suyas (ADR-0051 para el bypass).
     public const string CompartidoIncidenciasVer = "compartido.incidencias.ver";
@@ -1156,6 +1162,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000010-0003-0000-0000-000000000003"), ProductoTerminadoSalidaAprobarContraloria, "Autorizar hoja de salida sin factura por suplencia de Contraloría"),
         (Guid.Parse("00000010-0003-0000-0000-000000000004"), ProductoTerminadoSalidaAprobarCredito, "Autorizar salida parcial de pedido por Crédito y Cobranza"),
         (Guid.Parse("00000010-0003-0000-0000-000000000005"), ProductoTerminadoSalidaAprobarVentas, "Autorizar salida parcial de pedido por suplencia de Gerencia de Ventas"),
+        (Guid.Parse("00000010-0003-0000-0000-000000000006"), ProductoTerminadoSalidaCancelarEmitida, "Autorizar o rechazar la cancelación de un albarán ya emitido"),
+        (Guid.Parse("00000010-0004-0000-0000-000000000001"), ProductoTerminadoCalidadDictaminar, "Dictaminar casos de daño, rechazo o devolución de producto terminado (Calidad)"),
+        (Guid.Parse("00000011-0002-0000-0000-000000000001"), CompartidoTramosGestionar, "Detener y reanudar tramos de la operación (reanudar lo autoriza otra persona)"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000008"), ActivosFijosDepreciacionCorrer, "Activos fijos: depreciacion.correr"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000009"), ActivosFijosDepreciacionAnular, "Activos fijos: depreciacion.anular"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000010"), ActivosFijosBajasRegistrar, "Activos fijos: bajas.registrar"),

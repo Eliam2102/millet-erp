@@ -1,3 +1,5 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reporteRequisicion } from '../lib/requisicion-impresion';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useContext } from 'react';
@@ -6,7 +8,7 @@ import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendie
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useParams, useMatches } from '@tanstack/react-router';
-import { History, Printer, X } from 'lucide-react';
+import { History, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollaborationIndicator, EditandoBanner } from '@/components/erp';
@@ -168,16 +170,12 @@ export function DetalleRequisicion() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <Button
+          <ImprimirReporteButton
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => window.print()}
             aria-label="Imprimir"
-          >
-            <Printer className="mr-1.5 h-4 w-4" />
-            Imprimir
-          </Button>
+           reporte={reporteRequisicion(rq, resolverNombre(rq.sucursalId))}>Imprimir</ImprimirReporteButton>
           <Button
             type="button"
             variant="ghost"
