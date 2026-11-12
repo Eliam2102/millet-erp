@@ -1,7 +1,9 @@
 using System.Globalization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Millet.Almacen.Domain.Ports.Blob;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.Almacen.DevolucionesProveedor;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application.Consultas;
@@ -12,6 +14,7 @@ using Millet.ProductoTerminado.Application.Liquidacion;
 using Millet.ProductoTerminado.Application.Entregas;
 using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Application.Traspasos;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Endpoints.ProductoTerminado;
 
@@ -57,8 +60,8 @@ public static class ProductoTerminadoEndpoints
 
         // Traspasos entre sucursales (PT5.9). El alcance por sucursal lo aplican los handlers (PtAcceso).
         var traspasos = g.MapGroup("/traspasos");
-        traspasos.MapGet("", async ([FromQuery] string? estado, [FromQuery] Guid? sucursalId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ListarTraspasosQuery(estado, sucursalId, page ?? 1, pageSize ?? 50), ct)))
+        traspasos.MapGet("", async ([FromQuery] string? estado, [FromQuery] Guid? sucursalId, [FromQuery] Guid? destinoId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarTraspasosQuery(estado, sucursalId, page ?? 1, pageSize ?? 50, destinoId), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
         traspasos.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerTraspasoQuery(id), ct)))
@@ -67,6 +70,33 @@ public static class ProductoTerminadoEndpoints
             Results.Ok(await mediator.Send(cmd, ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
+        traspasos.MapPost("/{id:guid}/autorizar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AutorizarTraspasoCommand(id), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        traspasos.MapPost("/{id:guid}/clasificar-diferencias", async (Guid id, ClasificarDiferenciasBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ClasificarDiferenciasTraspasoCommand(id, body.Piezas), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        traspasos.MapPost("/{id:guid}/aclarar-diferencia", async (Guid id, AclararDiferenciaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AclararDiferenciaTraspasoCommand(id, body.PiezaId, body.Resolucion), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        // Evidencia de una diferencia (foto o documento): sube al mismo blob que la de Almacén y devuelve la referencia que se manda al clasificar.
+        traspasos.MapPost("/evidencia/blob", async (IFormFile archivo, IAlmacenarBlobPort blob, CancellationToken ct) =>
+        {
+            if (archivo is null || archivo.Length == 0) throw new BusinessRuleException("ARCHIVO_REQUERIDO", "Debe enviarse un archivo en el campo 'archivo' del multipart.");
+            if (archivo.Length > EvidenciaMaxBytes) throw new BusinessRuleException("ARCHIVO_DEMASIADO_GRANDE", $"El archivo excede el tamaño máximo permitido ({EvidenciaMaxBytes / (1024 * 1024)} MB).");
+            var contentType = (archivo.ContentType ?? "application/octet-stream").ToLowerInvariant();
+            if (!EvidenciaMime.Contains(contentType)) throw new BusinessRuleException("MIME_NO_PERMITIDO", "La evidencia es una imagen, un PDF o un video corto.");
+            await using var stream = archivo.OpenReadStream();
+            var blobRef = await blob.SubirAsync(Guid.CreateVersion7(), stream, contentType, archivo.FileName, ct);
+            return Results.Created(blobRef, new SubirEvidenciaResponse(blobRef, archivo.FileName, archivo.Length, contentType));
+        })
+            .DisableAntiforgery()
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .Accepts<IFormFile>("multipart/form-data");
         traspasos.MapPost("/{id:guid}/recibir", async (Guid id, RecibirBody? body, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new RecibirTraspasoCommand(id, body?.PiezaIds), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
@@ -165,6 +195,14 @@ public static class ProductoTerminadoEndpoints
 
     /// <summary>Sin cuerpo o sin <c>PiezaIds</c> = recepción total.</summary>
     public sealed record RecibirBody(IReadOnlyList<Guid>? PiezaIds);
+
+    public sealed record ClasificarDiferenciasBody(IReadOnlyList<DiferenciaTraspasoInput> Piezas);
+
+    public sealed record AclararDiferenciaBody(Guid PiezaId, string Resolucion);
+
+    private const long EvidenciaMaxBytes = 20 * 1024 * 1024;
+
+    private static readonly string[] EvidenciaMime = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "video/mp4", "video/quicktime"];
 
     public sealed record LiquidarBody(IReadOnlyList<LiquidacionAlbaranInput> Albaranes, IReadOnlyList<ImprevistoInput>? Imprevistos);
 

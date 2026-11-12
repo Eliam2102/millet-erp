@@ -1257,7 +1257,7 @@ resource ptContabilidadSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscri
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'producto_terminado.entrega.confirmada.v1\')'
+      sqlExpression: 'user.EventType IN (\'producto_terminado.entrega.confirmada.v1\', \'producto_terminado.traspaso.salida-autorizada.v1\', \'producto_terminado.traspaso.entrada-registrada.v1\')'
       compatibilityLevel: 20
     }
   }
