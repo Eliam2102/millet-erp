@@ -17,7 +17,8 @@ public sealed record FacturaProveedorCanceladaCommand(
     FacturaProveedorCanceladaPayload Payload) : IRequest;
 
 public sealed class FacturaProveedorCanceladaCommandHandler(
-    ComprasDbContext db, IPublisher publisher, ILogger<FacturaProveedorCanceladaCommandHandler> logger)
+    ComprasDbContext db, IPublisher publisher, ILogger<FacturaProveedorCanceladaCommandHandler> logger,
+    Millet.Compras.Application.PublicPorts.IFacturaServicioCeReadPort? facturasCe = null)
     : IRequestHandler<FacturaProveedorCanceladaCommand>
 {
     public const string EventType = "cuentas_por_pagar.factura.cancelada.v1";
@@ -41,6 +42,19 @@ public sealed class FacturaProveedorCanceladaCommandHandler(
         else
         {
             logger.LogInformation("Factura {FacturaId} cancelada sin acumulado por línea de OC — sin efecto en Compras.", p.FacturaProveedorId);
+        }
+
+        if (p.OrdenCompraId is Guid servicioId)
+        {
+            var servicio = await db.OrdenesCompra.Include(o => o.Autorizaciones)
+                .SingleOrDefaultAsync(o => o.Id == servicioId && o.EmpresaId == p.EmpresaId, cancellationToken);
+            if (servicio is { EsServicioComercioExterior: true })
+            {
+                if (facturasCe is null) throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CE_VALIDACION_NO_DISPONIBLE", "No se pudo comprobar la factura vigente del servicio.");
+                // Un aviso antiguo no invalida la revisión de una factura sustituta que sigue vigente.
+                if (!await facturasCe.TienePasivoVigenteAsync(p.EmpresaId, servicioId, cancellationToken))
+                    servicio.DevolverServicioPorFacturaCancelada(p.FacturaProveedorId);
+            }
         }
 
         db.EventosProcesados.Add(new EventoProcesado(command.EventoId, EventType, $"FacturaId={p.FacturaProveedorId}"));

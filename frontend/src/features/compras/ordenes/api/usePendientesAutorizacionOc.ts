@@ -22,6 +22,7 @@ export type OrdenPendienteAutorizacion = OrdenCompraResumen & {
   numeroLineas: number;
   totalAPagar: number;
   esMenorCuantia: boolean;
+  esServicioComercioExterior?: boolean;
   esRecurrente: boolean;
   proveedorConocido: boolean;
   requiereNivel2: boolean;

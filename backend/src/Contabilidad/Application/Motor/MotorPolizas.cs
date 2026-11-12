@@ -77,6 +77,11 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
             throw Falta("SucursalId");
         var tc = await TipoCambioDelEventoAsync(e, ct);
 
+        // M-005: CE reconoce el gasto al distribuir; la factura usa la cuenta por aplicar para no duplicarlo.
+        if (e.Tipo == NormalizadorEventos.FacturaProveedorRegistrada && e.EsServicioComercioExterior)
+            foreach (var linea in plantilla.Lineas.Where(l => l.Rol == "GASTO"))
+                linea.Rol = "GASTOS_IMPORTACION_POR_APLICAR";
+
         var codigos = plantilla.Lineas.Select(l => l.Rol).Distinct().ToList();
         var porClasificador = plantilla.Lineas.Where(l => l.RolPorClasificador).Select(l => l.Rol + "_").Distinct().ToList();
         // C1.5: con rol por clasificador se leen todos los roles de la empresa (catálogo chico) y se filtra en memoria por prefijo.

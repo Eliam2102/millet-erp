@@ -290,6 +290,8 @@ export interface RevisionVigente {
 }
 
 export interface FacturaDetalle {
+  esServicioComercioExterior?: boolean;
+  servicioCeSegundaFirma?: boolean;
   revisionVigente?: RevisionVigente | null;
   obra?: string | null;
   conceptoRetencion?: string | null;

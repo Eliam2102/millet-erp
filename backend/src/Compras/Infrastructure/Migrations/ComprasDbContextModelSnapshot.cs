@@ -1741,6 +1741,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("es_importacion");
 
+                    b.Property<bool>("EsServicioComercioExterior")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_servicio_comercio_exterior");
+
                     b.Property<short>("Estado")
                         .HasColumnType("smallint")
                         .HasColumnName("estado");

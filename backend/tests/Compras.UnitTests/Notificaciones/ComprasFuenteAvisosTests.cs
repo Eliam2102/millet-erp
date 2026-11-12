@@ -22,6 +22,19 @@ public sealed class ComprasFuenteAvisosTests
     private static readonly DateTimeOffset Fecha = new(2026, 11, 11, 15, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task Servicio_CE_no_avisa_firma_sin_facultad_del_nivel()
+    {
+        await using var db = Db();
+        var servicio = Oc(40);
+        typeof(OrdenCompra).GetProperty(nameof(OrdenCompra.EsServicioComercioExterior))!.SetValue(servicio, true);
+        db.OrdenesCompra.Add(servicio); await db.SaveChangesAsync();
+        var permisos = new Permisos(PermisosCanonicos.ComprasOrdenesLeer, PermisosCanonicos.ComprasOrdenesAutorizarNivel1);
+        (await Fuente(db, permisos).ConsultarAsync(Contexto(), default)).Should().BeEmpty();
+        permisos.Codigos.Add(PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1);
+        (await Fuente(db, permisos).ConsultarAsync(Contexto(), default)).Select(a => a.DocumentoId).Should().Equal(servicio.Id);
+    }
+
+    [Fact]
     public async Task Oc_conjunto_completo_scope_y_permiso_no_duplican_ni_filtran_diez()
     {
         await using var db = Db();

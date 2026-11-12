@@ -146,6 +146,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// firma N1 autoriza directo y N2 no aplica.
     /// </summary>
     public bool RequiereNivel2 { get; private set; } = true;
+    public bool EsServicioComercioExterior { get; private set; }
     public SubEstadoRecepcion SubEstadoRecepcion { get; private set; }
     public SubEstadoFacturacion SubEstadoFacturacion { get; private set; }
     public SubEstadoPago SubEstadoPago { get; private set; }
@@ -354,7 +355,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Guid? ocOrigenId = null,
         string? usoCfdiClave = null,
         string? metodoPago = null,
-        string? formaPagoClave = null) : base(id)
+        string? formaPagoClave = null,
+        bool esServicioComercioExterior = false) : base(id)
     {
         EnsureNotEmpty(empresaId, nameof(empresaId));
         EnsureNotEmpty(proveedorId, nameof(proveedorId));
@@ -439,6 +441,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         SinRequisicionPrevia = sinRequisicionPrevia;
         EsImportacion = esImportacion;
         CotizacionExcepcionada = cotizacionExcepcionada;
+        EsServicioComercioExterior = esServicioComercioExterior;
         FechaDocumento = fechaDocumento;
         FechaEntregaEsperada = fechaEntregaEsperada;
         MotivoSinRequisicion = motivoSinRequisicion;
@@ -1093,6 +1096,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 "La OC debe tener al menos una línea para enviarse a autorización.");
         }
 
+        if (EsServicioComercioExterior && _lineas.Any(l => !l.EsServicio))
+            throw new BusinessRuleException("OC_CE_SOLO_SERVICIOS", "La orden de servicios de comercio exterior sólo admite partidas de servicio.");
         var sinPrecio = _lineas
             .Where(l => l.PrecioUnitario <= 0m)
             .OrderBy(l => l.Posicion)
@@ -1133,7 +1138,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             CicloAutorizacion++;
         MotivoRechazoId = null;
         MotivoRechazoTexto = null;
-        RequiereNivel2 = requiereNivel2;
+        RequiereNivel2 = EsServicioComercioExterior || requiereNivel2;
         Estado = EstadoOrdenCompra.EnAutorizacionJefeCompras;
 
         return new Events.OrdenCompraEnviadaAAutorizacionEvent(
@@ -1142,6 +1147,16 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             Folio: Folio.Valor,
             CompradorTitularId: CompradorTitularId,
             OcurridoEn: ocurridoEn);
+    }
+
+    public void DevolverServicioPorFacturaCancelada(Guid facturaId)
+    {
+        if (!EsServicioComercioExterior || Estado is EstadoOrdenCompra.Cancelada or EstadoOrdenCompra.Rechazada
+            || !_autorizaciones.Any(a => a.Ciclo == CicloAutorizacion && a.Nivel == NivelAutorizacion.Nivel1 && a.Resultado == ResultadoAutorizacionOc.Autorizado)) return;
+        // La retransmisión existente abre otro ciclo y conserva las firmas del documento cancelado.
+        Estado = EstadoOrdenCompra.Rechazada;
+        MotivoRechazoId = null;
+        MotivoRechazoTexto = $"Factura de servicio CE {facturaId} cancelada; revise y retransmita la orden para autorizar su sustitución.";
     }
 
     /// <summary>
@@ -1757,7 +1772,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         decimal cantidadAcumulada,
         DateTimeOffset ocurridoEn)
     {
-        ValidarEstadoParaRegistrarMovimiento();
+        // N1 de servicio CE permite capturar el pasivo mientras Dirección aún debe firmar.
+        if (!EsServicioComercioExterior || Estado != EstadoOrdenCompra.EnAutorizacionDireccion)
+            ValidarEstadoParaRegistrarMovimiento();
         var linea = BuscarLineaOLanzar(lineaId);
         linea.SetCantidadFacturada(cantidadAcumulada);
         return RecalcularSubEstadosYAjustarEstado(ocurridoEn);

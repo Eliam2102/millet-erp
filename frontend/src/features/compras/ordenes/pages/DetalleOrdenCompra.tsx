@@ -217,7 +217,11 @@ export function DetalleOrdenCompra() {
           <ImprimirPdfButton variant="ghost"
             disabled={oc.estado !== EstadoOrdenCompra.Autorizada && oc.estado !== EstadoOrdenCompra.Cerrada}
             title={oc.estado !== EstadoOrdenCompra.Autorizada && oc.estado !== EstadoOrdenCompra.Cerrada ? 'Autoriza la orden de compra antes de imprimir su PDF.' : 'Abrir el PDF de la orden de compra para imprimir.'}
-            generarPdf={() => descargarPdfOrdenCompra(oc.id)} />
+            generarPdf={async () => {
+              const pdf = await descargarPdfOrdenCompra(oc.id);
+              void ocQuery.refetch();
+              return pdf;
+            }} />
           <Button asChild variant="ghost" size="icon">
             <Link to="/compras/ordenes" search={bandejaSearch} aria-label="Cerrar">
               <X className="h-4 w-4" />
@@ -240,6 +244,7 @@ export function DetalleOrdenCompra() {
 
         <StepperAutorizacionOc
           estado={oc.estado}
+          servicioCe={oc.esServicioComercioExterior}
           // Autorizada sin firma vigente de Dirección = N2 no hizo falta (monto bajo el umbral).
           n2NoRequerido={!(oc.autorizaciones ?? []).some((a) => a.nivel === 2 && a.resultado === 1)}
         />
