@@ -43,6 +43,7 @@ public sealed class CorridaLayoutBancoTests
     {
         var db = Db();
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
         var pasivos = items.Select((x, i) =>
         {
             var p = CorridaPagoDominioTests.Pasivo(x.Proveedor, x.Monto, x.Monto, 0m, 0m, empresa: Empresa);
@@ -220,6 +221,7 @@ public sealed class CorridaLayoutBancoTests
         await using var db = Db();
         var prov = Guid.NewGuid();
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
         var pasivo = CorridaPagoDominioTests.Pasivo(prov, 1_000m, 1_000m, 0m, 0m, empresa: Empresa);
         db.CuentasBancarias.Add(cuenta);
         db.PasivosPendientesPago.Add(pasivo);

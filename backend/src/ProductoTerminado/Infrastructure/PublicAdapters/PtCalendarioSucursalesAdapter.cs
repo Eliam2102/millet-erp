@@ -10,7 +10,7 @@ public sealed class PtCalendarioSucursalesAdapter(CompartidoDbContext db) : IPtC
 {
     public async Task<IReadOnlyDictionary<Guid, SucursalCalendarioPt>> SucursalesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
         await db.Sucursales.AsNoTracking().Where(s => ids.Contains(s.Id))
-            .ToDictionaryAsync(s => s.Id, s => new SucursalCalendarioPt(s.Clave, s.ZonaHoraria), ct);
+            .ToDictionaryAsync(s => s.Id, s => new SucursalCalendarioPt(s.Clave, s.ZonaHoraria, s.Nombre), ct);
 
     public async Task<IReadOnlySet<DateOnly>> FestivosAsync(CancellationToken ct)
     {

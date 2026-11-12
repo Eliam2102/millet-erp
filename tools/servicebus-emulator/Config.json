@@ -869,7 +869,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('producto_terminado.entrega.confirmada.v1')"
+                        "SqlExpression": "user.EventType IN ('producto_terminado.entrega.confirmada.v1', 'producto_terminado.traspaso.salida-autorizada.v1', 'producto_terminado.traspaso.entrada-registrada.v1')"
                       }
                     }
                   }

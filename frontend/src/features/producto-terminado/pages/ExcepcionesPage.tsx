@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Breadcrumbs, EmptyState, ErrorState, PaginacionTabla, TableSkeleton } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
@@ -54,6 +55,7 @@ export function ExcepcionesPage() {
         titulo="Excepciones de entrada"
         descripcion="Revise los escaneos que no pudieron darse de alta como pieza: reintente, descarte con motivo o marque como revisados."
       />
+      <TramoDetenidoBanner />
       {errorAccion && (
         <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
           {errorAccion}
@@ -102,9 +104,9 @@ export function ExcepcionesPage() {
             ) : items.length === 0 ? (
               <EmptyState title="Sin excepciones abiertas" />
             ) : (
-              <Table className="grid min-w-0 text-sm">
-                <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
-                  <TableRow className={`${columnas} h-9`}>
+              <Table className="grid min-w-[1100px] text-sm">
+                <TableHeader className="h-auto min-h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
+                  <TableRow className={`${columnas} min-h-9`}>
                     {['Etiqueta', 'Pedido', 'Posición', 'N.º de pieza', 'Estación', 'Área', 'Registrado', 'Motivo', 'Intentos', 'Acciones'].map(
                       (x) => (
                         <TableHead key={x} className="px-3">

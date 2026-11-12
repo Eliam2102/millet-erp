@@ -41,7 +41,9 @@ public sealed record EmitirCartaPorteCommand(
     string? OrigenCodigoPostal = null,
     string? OrigenEstado = null,
     string? DestinoCodigoPostal = null,
-    string? DestinoEstado = null) : IRequest<EmitirCartaPorteResponse>;
+    string? DestinoEstado = null,
+    // M-354: tramo del traslado que se emite; solo vehículo propio. Sin él, el flujo es el de siempre.
+    Guid? TramoId = null) : IRequest<EmitirCartaPorteResponse>;
 
 public sealed record CartaPorteMercanciaInput(
     string Descripcion,

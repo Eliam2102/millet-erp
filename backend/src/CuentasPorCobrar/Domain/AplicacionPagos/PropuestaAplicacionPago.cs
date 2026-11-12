@@ -45,7 +45,7 @@ public enum TipoAjusteCobro : short
 public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     /// <summary>
-    /// M-326: un faltante de hasta este importe (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo ni autorización.
+    /// M-326: un faltante de hasta este importe (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo; su autorización la da el Gerente de Área.
     /// Supuesto a validar con Contabilidad. Un faltante que se documenta con tipo y motivo (comisión, diferencia menor, M-086) no es redondeo.
     /// </summary>
     public const decimal ToleranciaRedondeo = 0.99m;
@@ -90,6 +90,9 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
 
     /// <summary>CXC-06: REP timbrado de la propuesta (correlaciona el movimiento de cartera con la póliza del cobro).</summary>
     public Guid? ReciboPagoId { get; private set; }
+
+    /// <summary>M-326 parte 2: el redondeo lo autoriza o rechaza quien tenga el permiso de Gerente de Área, no cualquier autorizador de ajustes.</summary>
+    public bool RequiereGerenteDeArea => TipoAjuste == TipoAjusteCobro.Redondeo;
 
     /// <summary>CXC-06: el ajuste espera autorización; mientras tanto la propuesta no se envía a Tesorería.</summary>
     public bool AjustePorAutorizar => AjusteNoFiscal < 0 && AjusteAutorizadoEn is null && Estado == EstadoPropuestaAplicacion.Propuesta;
@@ -172,8 +175,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             MovimientoBancarioId = movimientoBancarioId,
             TipoAjuste = esRedondeo ? TipoAjusteCobro.Redondeo : conAjuste ? tipoAjuste : null,
             MotivoAjuste = esRedondeo ? $"Redondeo de hasta ${ToleranciaRedondeo:0.00}" : conAjuste ? motivoAjuste!.Trim() : null,
-            // M-326: el redondeo no espera autorización (queda autorizado por el sistema, sin persona).
-            AjusteAutorizadoEn = esRedondeo ? ahora ?? DateTimeOffset.UtcNow : null,
+            // M-326 parte 2 (c): el redondeo también espera la autorización del Gerente de Área (otra persona, no quien propone).
             Estado = EstadoPropuestaAplicacion.Propuesta,
         };
 

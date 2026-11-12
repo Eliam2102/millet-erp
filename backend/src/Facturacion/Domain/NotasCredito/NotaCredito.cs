@@ -424,8 +424,12 @@ public sealed class NotaCredito : Comprobante
         Guid facturaRelacionadaId,
         decimal montoTotal,
         decimal? tasaIva,
-        string? descripcion)
+        string? descripcion,
+        MotivoNotaCredito motivo = MotivoNotaCredito.Bonificacion)
     {
+        // M-352: la devolución de producto terminado usa el mismo camino que la bonificación, con su motivo (relación 03, afecta inventario).
+        if (motivo is not (MotivoNotaCredito.Bonificacion or MotivoNotaCredito.Devolucion))
+            throw new BusinessRuleException("NC_MOTIVO_INVALIDO", "Solo bonificación o devolución.");
         if (montoTotal <= 0)
             throw new BusinessRuleException("NC_MONTO_INVALIDO", "El monto de la nota de crédito debe ser mayor que cero.");
 
@@ -445,14 +449,16 @@ public sealed class NotaCredito : Comprobante
             periodoAnio: periodoAnio,
             periodoMes: periodoMes,
             canalVentaId: canalVentaId,
-            motivo: MotivoNotaCredito.Bonificacion,
+            motivo: motivo,
             anticipoOrigenId: null,
             facturaRelacionadaId: facturaRelacionadaId,
             claveProdServSat: "84111506",
             claveUnidadSat: "ACT",
-            descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Bonificación" : descripcion!);
+            descripcion: string.IsNullOrWhiteSpace(descripcion) ? (motivo == MotivoNotaCredito.Devolucion ? "Devolución" : "Bonificación") : descripcion!);
 
         DesglosarTotales(nc, montoTotal, tasaIva);
+        if (motivo == MotivoNotaCredito.Devolucion)
+            nc.ImporteAfectaInventario = nc.Subtotal;
         return nc;
     }
 

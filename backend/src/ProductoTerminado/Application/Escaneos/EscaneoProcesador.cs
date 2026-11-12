@@ -111,11 +111,18 @@ public sealed class EscaneoProcesador(ProductoTerminadoDbContext db, IPedidosPtR
         }
 
         // (6b) reposición: la etiqueta ya está en PT; deja movimiento en la pieza, sin pieza nueva ni evento (el avance nunca supera lo esperado).
-        // ponytail: PT-01 no tiene baja por rotura (P3, Jorge); cuando exista, aquí la pieza vuelve a EnPT y el avance sube.
         var etiqueta = e.Etiqueta.Trim();
         var existente = await db.Piezas.FirstOrDefaultAsync(x => x.EmpresaId == e.EmpresaId && x.Etiqueta == etiqueta, ct);
         if (existente is not null)
         {
+            // M-351: la que Calidad mandó a reproceso, o una baja que A+W repuso con la misma etiqueta, vuelve a PT (por ubicar).
+            var antes = existente.Estado;
+            if (existente.ReingresarPorReposicion(sucursalId))
+            {
+                db.Movimientos.Add(MovimientoPieza.Hecho(existente, TipoMovimientoPieza.ReingresoReposicion, antes, e.Id.ToString(), clock.UtcNow, null));
+                e.MarcarAlta(existente.Id);
+                return;
+            }
             db.Movimientos.Add(MovimientoPieza.Reposicion(existente, e.Id.ToString(), clock.UtcNow));
             e.MarcarReposicion();
             return;

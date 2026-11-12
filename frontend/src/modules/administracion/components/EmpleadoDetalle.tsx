@@ -96,7 +96,7 @@ export function EmpleadoDetalle() {
   const mutando = asignar.isPending || desactivar.isPending || reactivar.isPending;
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <PageHeader
         mono
         titulo={empleado.clave}
@@ -112,7 +112,7 @@ export function EmpleadoDetalle() {
           </Button>
         }
       />
-      <dl className="grid gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @sm:grid-cols-2 @3xl:grid-cols-4 [&>div]:min-w-0 [&_dd]:[overflow-wrap:anywhere]">
         <div>
           <dt className="text-xs text-ink-muted">Colaborador</dt>
           <dd className="font-medium">{empleado.nombre}</dd>

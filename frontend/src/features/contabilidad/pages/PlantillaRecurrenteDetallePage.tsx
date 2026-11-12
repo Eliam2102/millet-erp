@@ -1,3 +1,6 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reportePlantilla } from '../lib/documentos-impresion';
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
@@ -10,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { CheckCheck, Pause, Pencil, Play, Printer, RotateCcw, X } from 'lucide-react';
+import { CheckCheck, Pause, Pencil, Play, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/erp';
@@ -57,12 +60,15 @@ interface Props {
 /** Detalle de plantilla recurrente (P3 master-detail, K10.4): datos, partidas fijas, calendario de aplicaciones y acciones. */
 export function PlantillaRecurrenteDetallePage({ id, search }: Props) {
   return (
-    <div className="flex min-h-0 flex-1">
-      <ListaCompacta idActivo={id} search={search} />
+    <MaestroDetalle
+      seleccionado
+      etiquetaLista="plantillas recurrentes"
+      lista={<ListaCompacta idActivo={id} search={search} />}
+    >
       <div className="min-w-0 flex-1">
         <DetallePlantilla id={id} search={search} />
       </div>
-    </div>
+    </MaestroDetalle>
   );
 }
 
@@ -131,6 +137,8 @@ const TEXTO_ACCION: Record<AccionPlantilla, { haciendo: string; hecho: string }>
 function DetallePlantilla({ id, search }: Props) {
   const consulta = usePlantillaRecurrente(id);
   const p = consulta.data;
+  const etiquetasImpresion = useEtiquetasCuentas(p?.partidas.map(x => x.cuentaId) ?? []);
+  const sucursalesImpresion = useSucursalesMovimiento();
   const usuarioId = useAuthStore((s) => s.user?.id ?? null);
   const puedeAdministrar = useHasPermission(PermisosCanonicos.ContabilidadRecurrentesAdministrar);
   const puedeAutorizar = useHasPermission(PermisosCanonicos.ContabilidadRecurrentesAutorizar);
@@ -261,14 +269,11 @@ function DetallePlantilla({ id, search }: Props) {
               {textoBoton('activar', 'Activar')}
             </Button>
           )}
-          <Button
+          <ImprimirReporteButton
             variant="ghost"
-            size="icon"
+            size="sm"
             aria-label="Imprimir plantilla"
-            onClick={() => window.print()}
-          >
-            <Printer className="size-4" strokeWidth={1.6} aria-hidden="true" />
-          </Button>
+           reporte={reportePlantilla(p, id => { const c = etiquetasImpresion.get(id); return c ? `${c.codigo} ${c.nombre}` : id; }, id => sucursalesImpresion.data?.find(s => s.id === id)?.nombre ?? id)}>Imprimir</ImprimirReporteButton>
           {cerrar}
         </span>
       </div>
@@ -414,7 +419,9 @@ function TablaPartidas({ partidas }: { partidas: PartidaPlantilla[] }) {
   const etiquetas = useEtiquetasCuentas(partidas.map((x) => x.cuentaId));
   const sucursales = useSucursalesMovimiento();
   const nombreSucursal = (x: PartidaPlantilla) =>
-    x.sucursalNombre ?? sucursales.data?.find((s) => s.id === x.sucursalId)?.nombre ?? 'Sin sucursal';
+    x.sucursalNombre ??
+    sucursales.data?.find((s) => s.id === x.sucursalId)?.nombre ??
+    'Sin sucursal';
   const totalCargos = partidas.reduce((s, x) => s + x.cargo, 0);
   const totalAbonos = partidas.reduce((s, x) => s + x.abono, 0);
   return (
@@ -447,7 +454,9 @@ function TablaPartidas({ partidas }: { partidas: PartidaPlantilla[] }) {
                 <TableRow key={`${i}-${x.cuentaId}`} className="border-b border-line-row align-top">
                   <TableCell className="px-3 py-2 text-xs text-ink-muted">{i + 1}</TableCell>
                   <TableCell className="px-3 py-2">
-                    <span className="font-mono text-xs">{cuenta?.codigo ?? <span className="text-ink-muted">Sin cuenta</span>}</span>
+                    <span className="font-mono text-xs">
+                      {cuenta?.codigo ?? <span className="text-ink-muted">Sin cuenta</span>}
+                    </span>
                     {cuenta?.nombre && (
                       <span className="block text-xs text-ink-muted">{cuenta.nombre}</span>
                     )}

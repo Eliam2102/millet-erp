@@ -70,6 +70,13 @@ public sealed class AlmMensajeOptions
     public bool ExigirAreaEquipo { get; init; }
 
     /// <summary>
+    /// Jorge (TI), 11-nov: la rotura y la salida manual son del área de Almacén y el centro se configura con el motivo y el almacén del
+    /// mensaje. Llave <c>SUCURSAL[|TIPO_ALMACEN][|MOTIVO]</c> → <c>AREA/EQUIPO</c> (claves de Dim2/Dim3). Solo aplica si el mensaje no
+    /// trae área ni equipo.
+    /// </summary>
+    public Dictionary<string, string> CentroAlmacen { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// M-283 (contrato v9 §4): lee <c>alm_carga_inicial</c> (la carga de número más alto) y acusa APLICADO / ERROR por renglón.
     /// Apagado por omisión; se enciende cuando TI avise el número de carga. Usa el mismo <see cref="Origen"/> y cadena.
     /// </summary>

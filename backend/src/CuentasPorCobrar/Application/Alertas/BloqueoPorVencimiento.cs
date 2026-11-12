@@ -34,6 +34,18 @@ public static class BloqueoPorVencimiento
             .ToList();
 
     /// <summary>
+    /// M-237: igual que la versión por fechas, pero una factura con plazo corregido a mano usa ese plazo en lugar del de la línea. Sin
+    /// corrección (plazo null) el resultado es idéntico al de siempre.
+    /// </summary>
+    public static IReadOnlyList<DateOnly> FacturasQueRebasan(
+        IEnumerable<(DateTimeOffset FechaTimbrado, int? PlazoCorregidoDias)> facturas,
+        int plazoLineaDias, int toleranciaDias, DateOnly hoy) =>
+        facturas
+            .Select(f => DiaDeBloqueo(f.FechaTimbrado, f.PlazoCorregidoDias ?? plazoLineaDias, toleranciaDias))
+            .Where(d => d <= hoy)
+            .ToList();
+
+    /// <summary>
     /// ¿Hay que bloquear? Sí, si alguna factura rebasa el umbral y no quedó
     /// cubierta por el último desbloqueo manual autorizado (supuesto C7.5 «a
     /// validar»: el desbloqueo manual cubre lo vencido a esa fecha; otra
@@ -85,7 +97,7 @@ public static class BloqueoPorVencimiento
         var vivas = facturas
             .Where(f => f.Estado is EstadoFacturaCartera.Abierta or EstadoFacturaCartera.Parcial
                      && f.SaldoPendiente > 0)
-            .Select(f => f.FechaTimbrado);
+            .Select(f => (f.FechaTimbrado, f.PlazoCorregidoDias));
 
         if (FacturasQueRebasan(vivas, linea.PlazoDias, toleranciaDias, hoy).Count > 0) return false;
 

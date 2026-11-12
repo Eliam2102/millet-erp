@@ -11,6 +11,8 @@ public static class DependencyInjection
     {
         services.AddScoped<Millet.Compras.Application.PublicPorts.ITransporteImportacionCeReadPort, TransporteImportacionCeReadAdapter>();
         services.AddScoped<ExpedienteServicio>();
+        services.AddScoped<CierreServiciosCeServicio>();
+        services.AddScoped<ConciliacionRecepcionServicio>();
         services.AddScoped<FinanzasServicio>();
         services.AddScoped<DimensionesDistribucionServicio>();
         services.AddScoped<OrdenesServicioServicio>();

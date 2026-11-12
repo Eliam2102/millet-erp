@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MOTIVOS_CANCELACION } from '@/features/facturacion/api/types';
-import { useSolicitarCancelacion } from '@/features/facturacion/api/useFacturas';
+import { useAceptacionCancelacion, useSolicitarCancelacion } from '@/features/facturacion/api/useFacturas';
+import { GUIA_MOTIVO_CANCELACION, textoAceptacion } from '@/features/facturacion/lib/guia-motivo-cancelacion';
 import { useFormIdempotencyKey } from '@/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -31,6 +32,8 @@ export function CancelarComprobanteForm({
   const [uuidSustituto, setUuidSustituto] = useState('');
   const idempotencyKey = useFormIdempotencyKey();
   const cancelar = useSolicitarCancelacion();
+  const aceptacion = useAceptacionCancelacion(comprobanteId);
+  const guia = GUIA_MOTIVO_CANCELACION[motivoSat];
   const requiereSustituto =
     MOTIVOS_CANCELACION.find((m) => m.value === motivoSat)?.requiereSustituto ?? false;
 
@@ -94,6 +97,14 @@ export function CancelarComprobanteForm({
           <p role="note" className="rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
             Para sustituir esta factura usa «Sustituir»: el ERP emite la nueva con relación 04 y arma esta
             solicitud con su UUID. Captura el UUID a mano solo si la sustituta se emitió fuera del ERP.
+          </p>
+        </FormCampo>
+      )}
+      {guia && (
+        <FormCampo span={12}>
+          <p role="note" className="rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
+            {guia.texto}
+            {aceptacion.data && <> {textoAceptacion(aceptacion.data.requiereAceptacion, aceptacion.data.razonesSinAceptacion)}</>}
           </p>
         </FormCampo>
       )}

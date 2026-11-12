@@ -117,6 +117,7 @@ public static class DependencyInjection
         // y la entrega espera en la bandeja como dato faltante; PT5.12 registra su adaptador en Program.cs y reemplaza este.
         services.AddScoped<Millet.Contabilidad.Application.Ports.ICostoProductoTerminadoReadPort, Adapters.CostoProductoTerminadoSinValuacionAdapter>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorCostoVentasPt>();
+        services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorCostoTraspasoPt>();
 
         // K10.4: pólizas recurrentes con reversa automática; el generador corre también como proceso de fondo.
         services.AddScoped<GeneradorRecurrentes>();

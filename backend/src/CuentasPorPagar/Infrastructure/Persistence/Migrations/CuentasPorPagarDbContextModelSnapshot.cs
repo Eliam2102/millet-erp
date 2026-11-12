@@ -1090,6 +1090,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("area");
 
+                    b.Property<Guid?>("AutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por");
+
                     b.Property<Guid>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
@@ -1149,6 +1153,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ResponsableId")
                         .HasColumnType("uuid")
                         .HasColumnName("responsable_id");
+
+                    b.Property<Guid?>("SustitutoCfdiId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sustituto_cfdi_id");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1931,6 +1939,12 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("EncargadoComprasSnapshot")
                         .HasColumnType("uuid")
                         .HasColumnName("encargado_compras_snapshot");
+
+                    b.Property<bool>("EsServicioComercioExterior")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_servicio_comercio_exterior");
 
                     b.Property<short>("Estado")
                         .HasColumnType("smallint")

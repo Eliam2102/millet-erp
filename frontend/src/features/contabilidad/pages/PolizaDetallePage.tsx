@@ -1,3 +1,6 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reportePoliza } from '../lib/documentos-impresion';
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DialogBody } from '@/components/ui/dialog';
 import {
@@ -15,7 +18,6 @@ import {
   CheckCheck,
   GitBranch,
   Pencil,
-  Printer,
   Repeat,
   Trash2,
   Undo2,
@@ -58,7 +60,11 @@ import {
   type PolizasSearch,
 } from '../lib/polizas';
 
-const ETIQUETA_ORIGEN: Record<string, string> = { Manual: 'Manual', Automatica: 'Automática', Apertura: 'Apertura' };
+const ETIQUETA_ORIGEN: Record<string, string> = {
+  Manual: 'Manual',
+  Automatica: 'Automática',
+  Apertura: 'Apertura',
+};
 
 const PERMISOS_ADJUNTOS = {
   ver: PermisosCanonicos.ContabilidadPolizasLeer,
@@ -76,12 +82,15 @@ interface Props {
 /** Detalle de póliza (P3 master-detail, F1-CON-04): lista compacta a la izquierda y el detalle con sus acciones. */
 export function PolizaDetallePage({ id, search, onNavegar }: Props) {
   return (
-    <div className="flex min-h-0 flex-1">
-      <ListaCompacta idActivo={id} search={search} />
+    <MaestroDetalle
+      seleccionado
+      etiquetaLista="pólizas"
+      lista={<ListaCompacta idActivo={id} search={search} />}
+    >
       <div className="min-w-0 flex-1">
         <DetallePoliza id={id} search={search} onNavegar={onNavegar} />
       </div>
-    </div>
+    </MaestroDetalle>
   );
 }
 
@@ -301,14 +310,11 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
               Solicitar anulación
             </Button>
           )}
-          <Button
+          <ImprimirReporteButton
             variant="ghost"
-            size="icon"
+            size="sm"
             aria-label="Imprimir póliza"
-            onClick={() => window.print()}
-          >
-            <Printer className="size-4" strokeWidth={1.6} aria-hidden="true" />
-          </Button>
+           reporte={reportePoliza(p)}>Imprimir</ImprimirReporteButton>
           {cerrar}
         </span>
       </div>
@@ -571,7 +577,9 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
         onClose={() => setAnulando(false)}
         onSolicitada={() => {
           setAnulando(false);
-          setAviso('Anulación solicitada: queda pendiente de que otra persona con facultad la apruebe.');
+          setAviso(
+            'Anulación solicitada: queda pendiente de que otra persona con facultad la apruebe.',
+          );
         }}
       />
     </div>
@@ -701,7 +709,9 @@ function TablaPartidas({ poliza }: { poliza: Poliza }) {
                   <span className="block text-xs text-ink-muted">{x.cuentaNombre ?? ''}</span>
                 </TableCell>
                 <TableCell className="px-3 py-2">{x.concepto ?? '—'}</TableCell>
-                <TableCell className="px-3 py-2">{x.sucursalNombre ?? <span className="text-ink-muted">Sin sucursal</span>}</TableCell>
+                <TableCell className="px-3 py-2">
+                  {x.sucursalNombre ?? <span className="text-ink-muted">Sin sucursal</span>}
+                </TableCell>
                 <TableCell className="px-3 py-2 font-mono text-xs">
                   {centros(x)}
                   {otras(x) && <span className="block font-sans text-ink-muted">{otras(x)}</span>}

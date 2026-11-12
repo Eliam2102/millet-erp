@@ -1162,7 +1162,7 @@ resource ceAlmacenP20Filter 'Microsoft.ServiceBus/namespaces/topics/subscription
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.recepcion_activo.anulada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1257,7 +1257,7 @@ resource ptContabilidadSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscri
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'producto_terminado.entrega.confirmada.v1\')'
+      sqlExpression: 'user.EventType IN (\'producto_terminado.entrega.confirmada.v1\', \'producto_terminado.traspaso.salida-autorizada.v1\', \'producto_terminado.traspaso.entrada-registrada.v1\')'
       compatibilityLevel: 20
     }
   }

@@ -67,6 +67,7 @@ export const CrearOrdenCompraVaciaSchema = z
       .nullish(),
     sinRequisicionPrevia: z.boolean(),
     esImportacion: z.boolean(),
+    esServicioComercioExterior: z.boolean().optional(),
     cotizacionExcepcionada: z.boolean(),
     observaciones: z
       .string()
@@ -139,6 +140,7 @@ export const DEFAULT_CREAR_OC_VACIA: CrearOrdenCompraVaciaValues = {
   tipoCambio: null,
   sinRequisicionPrevia: false,
   esImportacion: false,
+  esServicioComercioExterior: false,
   cotizacionExcepcionada: false,
   observaciones: null,
   motivoSinRequisicion: null,

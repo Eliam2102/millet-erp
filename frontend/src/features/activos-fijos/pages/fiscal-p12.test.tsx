@@ -57,6 +57,10 @@ it('consulta corte y exporta filas, factor y totales por clase mediante ReporteS
         ]),
       }),
       'depreciacion-fiscal-2026-12',
+      expect.any(Function),
     ),
   );
+  const [reporte, , obtenerCelda] = state.exportar.mock.calls[0];
+  expect(obtenerCelda(reporte.filas[0], 'factor')).toBe(1.03);
+  expect(obtenerCelda(reporte.filas[1], 'deduccionActualizada')).toBe(118020.83);
 });

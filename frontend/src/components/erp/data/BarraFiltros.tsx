@@ -46,7 +46,7 @@ export function BarraFiltros({
       data-print="hidden"
     >
       {busqueda != null && (
-        <div className="w-full shrink-0 sm:w-[260px] [&_input]:h-ctl-md [&_input]:rounded-[7px] [&_input]:border-line">
+        <div className="w-full min-w-0 max-w-full shrink-0 sm:w-[260px] [&_input]:h-ctl-md [&_input]:rounded-[7px] [&_input]:border-line">
           {busqueda}
         </div>
       )}
@@ -65,7 +65,10 @@ export function BarraFiltros({
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-80 space-y-3 [&_button[role=combobox]]:w-full">
+          <PopoverContent
+            align="start"
+            className="w-80 max-w-[calc(100vw-2rem)] space-y-3 [&_button[role=combobox]]:w-full"
+          >
             <p className="text-sm font-medium text-ink">Más filtros</p>
             {masFiltros}
           </PopoverContent>

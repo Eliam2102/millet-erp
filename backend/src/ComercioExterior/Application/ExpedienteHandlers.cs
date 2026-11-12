@@ -53,7 +53,7 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
     }
 }
 
-public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos, IOcImportacionReadPort compras, Millet.Compartido.Application.Ports.ITipoDocumentoCondicionalPort tiposDocumento) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
+public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos, IOcImportacionReadPort compras, Millet.Compartido.Application.Ports.ITipoDocumentoCondicionalPort tiposDocumento, ConciliacionRecepcionServicio conciliacion) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
 {
     public async Task<ExpedienteDetalle> Handle(MutarExpedienteCommand request, CancellationToken cancellationToken)
     {
@@ -71,6 +71,20 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
             "editar" or "participantes" => PermisosCanonicos.ComercioExteriorExpedientesEditar,
             _ => throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.")};
         await servicio.PermisoAsync(permiso, cancellationToken);
+        if (RequiereConciliacion(request.Accion))
+        {
+            ExpedienteDetalle? resultado = null;
+            await PedidoEmbarqueLock.ExecuteAsync(db, [], async ct =>
+            {
+                var origen = await db.Expedientes.AsNoTracking().Where(e => e.Id == request.Id)
+                    .Select(e => new { e.EmpresaId, e.SucursalId, e.OrdenesCompraIds }).SingleOrDefaultAsync(ct)
+                    ?? throw new EntityNotFoundException("CE_EXPEDIENTE_NO_ENCONTRADO", "No existe el expediente.");
+                await servicio.SucursalAsync(origen.SucursalId, true, ct);
+                await conciliacion.BloquearAsync(origen.EmpresaId, origen.OrdenesCompraIds, ct);
+                resultado = await MutarAsync(request, ct);
+            }, cancellationToken);
+            return resultado!;
+        }
         if (request.Accion == "cancelar")
         {
             var ids = await db.Partidas.AsNoTracking().Where(p => p.ExpedienteId == request.Id && p.Estado != EstadoPartida.Liberada)
@@ -84,12 +98,18 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
         return await MutarAsync(request, cancellationToken);
     }
 
+    private static bool RequiereConciliacion(string accion) => accion is "revisar-documentos" or "cerrar" or "cerrar-fisico" or "cerrar-documental" or "cerrar-financiero";
+
     private async Task<ExpedienteDetalle> MutarAsync(MutarExpedienteCommand request, CancellationToken cancellationToken)
     {
         var e = await servicio.CargarAsync(request.Id, true, cancellationToken);
         if (e.Version != request.Version)
             throw new ConcurrencyException("Expediente", request.Id);
         e.ExigirAbierto();
+        if (RequiereConciliacion(request.Accion) && e.Tipo == TipoExpediente.Importacion)
+            await conciliacion.AplicarAsync(e.EmpresaId, e.OrdenesCompraIds,
+                e.PartidasImportacion.Where(p => p.CantidadRecibida is not null).Select(p => p.OcLineaId).Distinct().ToArray(),
+                null, clock.HoyLocal(), servicio.Actor, clock.UtcNow, cancellationToken);
         switch (request.Accion)
         {
             case "requisito-hito":
@@ -115,6 +135,12 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
             case "cerrar-fisico":
             case "cerrar-documental":
             case "cerrar-financiero":
+                if (request.Accion is "cerrar" or "cerrar-financiero")
+                {
+                    var pagosPendientes = await servicio.MotivosPagoServiciosAsync(e, cancellationToken);
+                    if (pagosPendientes.Count > 0)
+                        throw new BusinessRuleException("CE_SERVICIOS_PENDIENTES", string.Join(" ", pagosPendientes));
+                }
                 var requisitosCierre = await catalogos.RequisitosAsync(e.Tipo, cancellationToken);
                 var adjuntosCierre = await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken);
                 var recibidas = (await compras.ObtenerVariasAsync(e.OrdenesCompraIds, cancellationToken)).SelectMany(o => o.Partidas ?? []).ToDictionary(p => p.Id, p => p.CantidadRecibida);

@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.Tesoreria.Application.Cuentas;
+using Millet.Tesoreria.Domain.Cuentas;
 
 namespace Millet.Api.Endpoints.Tesoreria;
 
@@ -53,13 +54,14 @@ public static class CuentasEndpoints
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // M-199: el alta queda como solicitud pendiente de autorizar; la cuenta nace al aprobarla.
             var response = await mediator.Send(command, cancellationToken);
-            return Results.Created($"/api/v1/tesoreria/cuentas/{response.Id}", response);
+            return Results.Accepted($"/api/v1/tesoreria/cuentas/solicitudes/{response.Id}", response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaCuentasAdministrar)
         .WithName("CrearCuentaBancaria")
-        .Produces<CuentaSaldoResponse>(StatusCodes.Status201Created)
+        .Produces<SolicitudCuentaResponse>(StatusCodes.Status202Accepted)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -84,10 +86,39 @@ public static class CuentasEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaCuentasAdministrar)
         .WithName("ActualizarCuentaBancaria")
-        .Produces<CuentaSaldoResponse>(StatusCodes.Status200OK)
+        .Produces<SolicitudCuentaResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-199: bandeja, autorización y rechazo de solicitudes; historial de versiones de la cuenta.
+        cuentas.MapGet("/solicitudes", async ([FromQuery] EstadoSolicitudCuenta? estado, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarSolicitudesCuentaQuery(estado), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaCuentasVer)
+        .WithName("ListarSolicitudesCuentaBancaria")
+        .Produces<IReadOnlyList<SolicitudCuentaResponse>>(StatusCodes.Status200OK);
+
+        cuentas.MapPost("/solicitudes/{id:guid}/aprobar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AprobarSolicitudCuentaCommand(id), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaCuentasAutorizar)
+        .WithName("AprobarSolicitudCuentaBancaria")
+        .Produces<SolicitudCuentaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        cuentas.MapPost("/solicitudes/{id:guid}/rechazar", async (Guid id, [FromBody] RechazarSolicitudCuentaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RechazarSolicitudCuentaCommand(id, body.Motivo), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaCuentasAutorizar)
+        .WithName("RechazarSolicitudCuentaBancaria")
+        .Produces<SolicitudCuentaResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem();
+
+        cuentas.MapGet("/{id:guid}/historial", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new HistorialCuentaQuery(id), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaCuentasVer)
+        .WithName("HistorialCuentaBancaria")
+        .Produces<IReadOnlyList<SolicitudCuentaResponse>>(StatusCodes.Status200OK);
 
         cuentas.MapPost("/{id:guid}/activar", async (
             Guid id,
@@ -147,3 +178,5 @@ public static class CuentasEndpoints
         string? CuentaContableRef,
         string? PerfilExtracto, string? Sucursal = null, string? Finalidad = null, string? Titular = null, string? Firmantes = null);
 }
+
+public sealed record RechazarSolicitudCuentaBody(string Motivo);

@@ -43,6 +43,12 @@ public sealed class LineaConteo : BaseEntity, IAuditable
     public bool RequiereRecuento { get; private set; }
     public bool AprobadoIndividualmente { get; private set; }
     public string? Justificacion { get; private set; }
+    /// <summary>M-224: cantidad contada vigente con que se aplicó la línea (captura o último recuento).</summary>
+    public decimal? CantidadAplicada { get; private set; }
+    /// <summary>M-224: saldo de la fila después de aplicar; debe ser igual a lo contado.</summary>
+    public decimal? SaldoResultante { get; private set; }
+    /// <summary>M-224: folio del ajuste que generó la línea (null si no hubo diferencia).</summary>
+    public string? FolioAjuste { get; private set; }
 
     internal LineaConteo() { }
 
@@ -122,6 +128,20 @@ public sealed class LineaConteo : BaseEntity, IAuditable
     /// Aprobado hasta que esta línea tenga al menos un recuento.
     /// </summary>
     public void MarcarRequiereRecuento() => RequiereRecuento = true;
+
+    /// <summary>
+    /// M-224: conciliación final de la línea al aplicar. Si el saldo resultante no es lo contado, el conteo no se cierra
+    /// (<c>CONTEO_NO_CUADRA</c>) y nada de la aplicación se guarda.
+    /// </summary>
+    public void AsentarConciliacion(decimal contada, decimal saldoResultante, string? folioAjuste)
+    {
+        if (saldoResultante != contada)
+            throw new BusinessRuleException("CONTEO_NO_CUADRA",
+                $"Después de aplicar, el saldo ({saldoResultante:0.####}) no es lo contado ({contada:0.####}); el conteo no se cierra.");
+        CantidadAplicada = contada;
+        SaldoResultante = saldoResultante;
+        FolioAjuste = folioAjuste;
+    }
 
     /// <summary>F7-PR2: aprobado individualmente (con justificación).</summary>
     public void AprobarConJustificacion(string justificacion)

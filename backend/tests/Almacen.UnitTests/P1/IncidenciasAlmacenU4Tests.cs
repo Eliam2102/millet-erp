@@ -64,7 +64,7 @@ public sealed class IncidenciasAlmacenU4Tests
         abierta.PasoReanudacion.Should().Be(PasosIncidencia.AlmRecepcionRegistrar);
         abierta.RutaReanudacion.Should().Be($"/almacen/recepciones/{r.RecepcionId}");
         // Lo aceptado en esa misma recepción resuelve antes lo pendiente de recepciones anteriores de la partida.
-        inc.Resueltas.Select(x => x.DetalleClave).Should().BeEquivalentTo([$"rechazo:{f.LineaId}", $"excede:{f.LineaId}"]);
+        inc.Resueltas.Select(x => x.DetalleClave).Should().BeEquivalentTo([Millet.Almacen.Application.Incidencias.IncidenciasAlmacen.ClaveDuplicada, $"rechazo:{f.LineaId}", $"excede:{f.LineaId}"]);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class IncidenciasAlmacenU4Tests
         var r = await ConFactura(f, inc, Linea(f, cantidad: 4));
 
         inc.Abiertas.Should().BeEmpty();
-        inc.Resueltas.Should().HaveCount(2).And.OnlyContain(x =>
+        inc.Resueltas.Should().HaveCount(3).And.OnlyContain(x =>
             x.Paso == PasosIncidencia.AlmRecepcionDiferenciaOc && x.DocumentoId == f.DocumentoId && x.Resolucion.Contains(r.Folio));
     }
 

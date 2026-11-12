@@ -137,6 +137,14 @@ export interface TrazabilidadMpFiltros {
   subAlmacenId?: string;
 }
 
+export interface ConsumoInsumosLineaFiltros {
+  desde: string; // YYYY-MM-DD
+  hasta: string;
+  sucursalId?: string;
+  centroCostoId?: string;
+  articuloId?: string;
+}
+
 export interface KardexFiltros {
   articuloId: string;
   desde: string; // YYYY-MM-DD
@@ -177,9 +185,11 @@ export const almacenKeys = {
   tamboresLinea: () => [...almacenKeys.all, 'tambores-linea'] as const,
   consumosRevision: () => [...almacenKeys.all, 'consumos-revision'] as const,
   mensajesAppMarcados: () => [...almacenKeys.all, 'mensajes-app-marcados'] as const,
+  origenCapturaMp: () => [...almacenKeys.all, 'origen-captura-mp'] as const,
 
   // Salida por rotura en almacén (ALM-03)
   salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,
+  roturasApp: () => [...almacenKeys.all, 'salidas-rotura', 'app'] as const,
   motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,
   dimensionesRotura: (ubicacionId: string, fecha: string) =>
     [...almacenKeys.all, 'salidas-rotura', 'dimensiones', ubicacionId, fecha] as const,
@@ -188,7 +198,8 @@ export const almacenKeys = {
 
   // Conciliación diaria contra A+W (A4.6)
   conciliacion: {
-    existencia: (almacenId: string) => [...almacenKeys.all, 'conciliacion', 'existencia', almacenId] as const,
+    existencia: (almacenId: string, fecha: string) => [...almacenKeys.all, 'conciliacion', 'existencia', almacenId, fecha] as const,
+    eventosDelDia: (almacenId: string, fecha: string) => [...almacenKeys.all, 'conciliacion', 'eventos-del-dia', almacenId, fecha] as const,
     diferencias: () => [...almacenKeys.all, 'conciliacion', 'diferencias'] as const,
     corridas: () => [...almacenKeys.all, 'conciliacion', 'corridas'] as const,
   },
@@ -278,6 +289,8 @@ export const almacenKeys = {
     [...almacenKeys.reportes(), 'alfak', filtros] as const,
   reporteTrazabilidadMp: (filtros: TrazabilidadMpFiltros) =>
     [...almacenKeys.reportes(), 'trazabilidad-mp', filtros] as const,
+  reporteConsumoInsumosLinea: (filtros: ConsumoInsumosLineaFiltros) =>
+    [...almacenKeys.reportes(), 'consumo-insumos-linea', filtros] as const,
   reporteKardex: (filtros: KardexFiltros) =>
     [...almacenKeys.reportes(), 'kardex', filtros] as const,
   reporteCuadreInventario: (anio: number, mes: number) =>

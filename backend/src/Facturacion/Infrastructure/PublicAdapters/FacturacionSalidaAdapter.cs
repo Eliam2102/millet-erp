@@ -5,6 +5,8 @@ using Millet.Facturacion.Application.CartaPorte.EmitirCartaPorte;
 using Millet.Facturacion.Application.Pedidos.CancelarSalidaFacturable;
 using Millet.Facturacion.Application.Pedidos.RegistrarSalidaFacturable;
 using Millet.Facturacion.Application.Timbrado;
+using Millet.Facturacion.Application.Cancelaciones.SolicitarCancelacion;
+using Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificacion;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ports;
@@ -63,4 +65,42 @@ public sealed class FacturacionSalidaAdapter(ISender sender, IEmpresaFiscalReadP
                      (f.Estado == EstadoTimbrado.Timbrado && f.FechaTimbrado != null || f.Estado == EstadoTimbrado.PendientePedimento)
                select new FacturaPedidoSalida(p.Id, p.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
                    f.Estado == EstadoTimbrado.PendientePedimento, f.FechaTimbrado)).ToListAsync(ct);
+
+    public async Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct) =>
+        await db.CartasPorte.AsNoTracking().AnyAsync(c => c.Id == cartaPorteId
+            && c.Estado != EstadoTimbrado.Cancelado && c.Estado != EstadoTimbrado.Descartada && c.Estado != EstadoTimbrado.TimbradoFallido, ct);
+
+    public async Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct)
+    {
+        var factura = await db.FacturasVenta.AsNoTracking().Include(f => f.Lineas).FirstOrDefaultAsync(f => f.Id == facturaId, ct)
+            ?? throw new EntityNotFoundException("FACTURA_NO_ENCONTRADA", "No existe la factura de las piezas.");
+        decimal total = 0m;
+        decimal? tasa = null;
+        foreach (var (posicion, n) in piezas)
+        {
+            var linea = factura.Lineas.FirstOrDefault(l => l.Posicion == posicion && l.Cantidad > 0)
+                ?? throw new BusinessRuleException("PT_NC_POSICION_SIN_FACTURA", $"La factura {factura.Folio} no trae la posición {posicion}.");
+            if (n > linea.Cantidad) throw new BusinessRuleException("PT_NC_EXCEDE_FACTURADO", $"La posición {posicion} devuelve {n} piezas y la factura tiene {linea.Cantidad:0.##}.");
+            // Por pieza: lo que la línea cobró (neto de descuento, con impuestos) entre su cantidad.
+            total += (linea.Importe - linea.Descuento + linea.ImpuestoTrasladadoImporte - linea.RetencionTotalImporte) / linea.Cantidad * n;
+            tasa ??= linea.TasaIvaTraslado;
+        }
+        var r = await sender.Send(new EmitirNotaCreditoBonificacionCommand(facturaId, Math.Round(total, 2, MidpointRounding.AwayFromZero), tasa, descripcion, Devolucion: true), ct);
+        return new DocumentoFiscalPt(r.Id, r.Folio, r.Estado, r.Estado != nameof(EstadoTimbrado.Timbrado));
+    }
+
+    public async Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct)
+    {
+        var r = await sender.Send(new SolicitarCancelacionCommand(facturaId, motivoSat, uuidSustituto), ct);
+        var folio = await db.FacturasVenta.AsNoTracking().Where(f => f.Id == facturaId).Select(f => f.Folio).FirstOrDefaultAsync(ct);
+        return new DocumentoFiscalPt(facturaId, folio, r.EstadoComprobante, r.EstadoComprobante != nameof(EstadoTimbrado.Cancelado));
+    }
+
+    public async Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct)
+    {
+        var d = notaCredito
+            ? await db.NotasCredito.AsNoTracking().Where(n => n.Id == id).Select(n => new { n.Folio, n.Estado }).FirstOrDefaultAsync(ct)
+            : await db.FacturasVenta.AsNoTracking().Where(f => f.Id == id).Select(f => new { f.Folio, f.Estado }).FirstOrDefaultAsync(ct);
+        return d is null ? null : new DocumentoFiscalPt(id, d.Folio, d.Estado.ToString(), d.Estado != (notaCredito ? EstadoTimbrado.Timbrado : EstadoTimbrado.Cancelado));
+    }
 }

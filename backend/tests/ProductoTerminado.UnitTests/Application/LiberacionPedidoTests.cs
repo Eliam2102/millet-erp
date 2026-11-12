@@ -78,15 +78,16 @@ public sealed class LiberacionPedidoTests
 
     // P-096 / S15: REPARTO tampoco sale incompleto, aunque haya saldo.
     [Fact]
-    public async Task Reparto_incompleto_no_se_libera()
+    public async Task Reparto_incompleto_se_libera_con_lo_que_ya_esta_en_69()
     {
+        // Guadalupe, 11-nov: REPARTO no espera todas las piezas; sale como parcial con lo que ya está en 69.
         using var t = new EntornoPt();
         t.AgregarPedido("P1", 1, 10, condicionPago: "REPARTO");
         t.Saldos.Saldos["P1"] = 500m;
         await Escanear(t, 3);
 
-        Pedido(t).Liberacion.Should().BeNull();
-        Cambios(t).Should().BeEmpty();
+        Pedido(t).Liberacion.Should().Be(EstadoLiberacion.Liberado);
+        Pedido(t).MotivoLiberacion.Should().Be(MotivosPt.Reparto);
     }
 
     // REPARTO completo con saldo -> 70 Reparto, sin evento de 69.

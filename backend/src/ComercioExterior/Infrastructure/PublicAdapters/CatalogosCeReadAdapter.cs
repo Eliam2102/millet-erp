@@ -4,11 +4,13 @@ using Millet.ComercioExterior.Application;
 using Millet.ComercioExterior.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Infrastructure;
+using Millet.Identidad.Application;
+using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Infrastructure.PublicAdapters;
-public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock, IUsuarioSucursalReadPort sucursales, Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext ce) : ICatalogosCeReadPort
+public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock, IUsuarioSucursalReadPort sucursales, Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext ce, IPermissionLoader permisos) : ICatalogosCeReadPort
 {
     public async Task<IReadOnlyList<ReferenciaCe>> ReferenciasAsync(string tipo, string q, CancellationToken ct)
     {
@@ -44,8 +46,14 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
 
     public async Task ValidarResponsableAsync(Guid sucursal, Guid responsable, CancellationToken ct)
     {
-        if (!await identidad.Usuarios.AnyAsync(x => x.Id == responsable && x.Activo && identidad.UsuarioEmpresaRoles.Any(r => r.UsuarioId == x.Id), ct)
-            || !await sucursales.EstaAsociadoAsync(responsable, sucursal, ct))
+        var empresa = await db.Sucursales.Where(x => x.Id == sucursal).Select(x => (Guid?)x.EmpresaId).SingleOrDefaultAsync(ct);
+        if (empresa is null || !await identidad.Usuarios.AnyAsync(x => x.Id == responsable && x.Activo
+                && identidad.UsuarioEmpresaRoles.Any(r => r.UsuarioId == x.Id && r.EmpresaId == empresa), ct))
+            throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Seleccione un usuario activo con acceso a la sucursal del expediente.");
+        if (await sucursales.EstaAsociadoAsync(responsable, sucursal, ct)) return;
+        // El alcance del responsable puede ser corporativo por permiso, igual que el del actor (ADR-0051).
+        var efectivos = await permisos.LoadForUserInEmpresaAsync(responsable, empresa.Value, ct);
+        if (!efectivos.Contains(PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales))
             throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Seleccione un usuario activo con acceso a la sucursal del expediente.");
     }
 

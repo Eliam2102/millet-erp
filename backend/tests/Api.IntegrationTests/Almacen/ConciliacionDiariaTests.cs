@@ -65,7 +65,7 @@ public class ConciliacionDiariaTests(WebApplicationFactory<Program> factory)
     }
 
     private static object Cuerpo(Guid almacenId, Guid articuloId, decimal fisico) =>
-        new { almacenId, fuente = "AW", lineas = new[] { new { articuloId, fisico } } };
+        new { almacenId, fuente = "AW", lineas = new[] { new { articuloId, fisico } }, confirmarPendientes = true }; // M-225: la base compartida trae mensajes de otras pruebas del mismo día
 
     [Fact]
     public async Task CA4_6_una_pieza_de_diferencia_genera_salida_no_planificada_que_se_aclara_sin_descontar_otra_vez()

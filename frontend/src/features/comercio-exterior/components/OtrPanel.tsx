@@ -10,6 +10,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import { motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
 import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -88,7 +89,7 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
         <Badge variant={estadosOtr[envio.estado].tono}>{estadosOtr[envio.estado].texto}</Badge>
         <span className="text-xs text-ink-muted">Versión {envio.versionAplicada}</span>
       </header>
-      {envio.motivoVinculacion && <p className="text-warning-fg">{envio.motivoVinculacion}</p>}
+      {envio.motivoVinculacion && <p className="text-warning-fg">{motivoVinculacionOtr(envio.motivoVinculacion)}</p>}
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Object.entries({
           Cliente: envio.contenido.cliente,
@@ -103,10 +104,10 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
         ))}
       </dl>
       <div className="overflow-x-auto">
-        <Table className="grid min-w-0 text-sm">
+        <Table className="grid min-w-[720px] text-sm">
           <caption className="pb-2 text-left font-medium">Partidas recibidas</caption>
           <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
-            <TableRow className="grid h-9 grid-cols-[160px_80px_100px_80px_minmax(0,1.6fr)] items-center">
+            <TableRow className="grid h-9 grid-cols-[160px_80px_100px_140px_minmax(240px,1fr)] items-center">
               {['Pedido A+W', 'Partida', 'Cantidad', 'Versión', 'Estado y motivo'].map((x) => (
                 <TableHead className="px-3" key={x}>
                   {x}
@@ -117,7 +118,7 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
           <TableBody>
             {envio.lineas.map((l) => (
               <TableRow
-                className="grid min-h-12 grid-cols-[160px_80px_100px_80px_minmax(0,1.6fr)] items-center border-b border-line-row"
+                className="grid min-h-12 grid-cols-[160px_80px_100px_140px_minmax(240px,1fr)] items-center border-b border-line-row"
                 key={l.id}
               >
                 <TableCell className="px-3 font-mono">{l.numeroPedido}</TableCell>
@@ -245,7 +246,7 @@ function Conflicto({
     </div>
   );
 }
-export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose: () => void }) {
+export function VincularOtrSheet({ envio, onClose }: { envio: Pick<OtrEnvio, 'id' | 'idOrigen' | 'version' | 'contenido'>; onClose: () => void }) {
   const candidatos = useOtrCandidatos(envio.id);
   const accion = useOtrAccion();
   const [expediente, setExpediente] = useState('');

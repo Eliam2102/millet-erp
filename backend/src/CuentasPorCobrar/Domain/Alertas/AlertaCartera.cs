@@ -17,6 +17,9 @@ public enum TipoAlertaCartera : short
 
     /// <summary>Pedido a contra entrega (Crédito 24 h) que el chofer no liquidó en caja el día de la salida (PT5.7, Manual §2.3).</summary>
     ContraEntregaNoLiquidada = 4,
+
+    /// <summary>M-372: el banco devolvió un cheque del cliente (aviso de Tesorería); hay que cobrarlo por otra vía.</summary>
+    ChequeRebotado = 5,
 }
 
 /// <summary>

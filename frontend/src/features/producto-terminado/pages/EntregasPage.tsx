@@ -10,7 +10,9 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useEvidenciaEntrega, useHojaSalida, useHojasSalida } from '../api/hooks';
 import type { AlbaranDto, ResultadoEntrega } from '../api/types';
+import { useNombreUsuario } from '../lib/usuarios';
 import { EntregaPanel } from './EntregaPanel';
+import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 
 // Texto además del color: el estado no depende solo de la vista.
 const resultadoUi: Record<ResultadoEntrega, { texto: string; tono: 'success' | 'warning' | 'danger' }> = {
@@ -35,6 +37,7 @@ export function EntregasPage() {
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
       <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Entregas' }]} />
       <PageHeader titulo="Entregas al cliente" descripcion="Confirma las entregas de cada ruta con la firma o una foto de quien recibe y registra las piezas rechazadas." />
+      <TramoDetenidoBanner />
       {aviso && <p role="status" className="rounded-md bg-success-bg p-3 text-success-fg">{aviso}</p>}
       {lista.isError ? (
         <ErrorState title="No se pudieron cargar las rutas" onRetry={() => void lista.refetch()} />
@@ -65,7 +68,7 @@ export function EntregasPage() {
         <section aria-label={`Entregas de la ruta ${detalle.data.folio}`} className="flex flex-col gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
           <h2 className="text-md font-semibold">Ruta {detalle.data.folio} · {detalle.data.destino}</h2>
           <div className="grid items-start gap-3 xl:grid-cols-2">
-            {detalle.data.albaranes.map((a) => (
+            {detalle.data.albaranes.filter((a) => !a.cancelado).map((a) => (
               <PedidoEntrega
                 key={a.id}
                 hojaId={detalle.data!.id}
@@ -88,6 +91,7 @@ function PedidoEntrega({ hojaId, albaran: a, operar, confirmando, onConfirmar, o
   hojaId: string; albaran: AlbaranDto; operar: boolean; confirmando: boolean; onConfirmar: () => void; onCancelar: () => void; onListo: () => void;
 }) {
   const [verEvidencia, setVerEvidencia] = useState(false);
+  const nombreUsuario = useNombreUsuario();
   const e = a.entrega;
   const evidencia = useEvidenciaEntrega(hojaId, a.id, verEvidencia && !!e);
   return (
@@ -113,7 +117,31 @@ function PedidoEntrega({ hojaId, albaran: a, operar, confirmando, onConfirmar, o
               {e.cobro.conciliadoAt ? <span className="text-success-fg">conciliado en caja</span> : <span className="text-ink-muted">pendiente de liquidar en caja</span>}
             </p>
           )}
-          <div><Button variant="outline" size="sm" className="min-h-11" onClick={() => setVerEvidencia(!verEvidencia)}>{verEvidencia ? 'Ocultar evidencia' : 'Ver evidencia'}</Button></div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" className="min-h-11" onClick={() => setVerEvidencia(!verEvidencia)}>{verEvidencia ? 'Ocultar evidencia' : 'Ver evidencia'}</Button>
+            {operar && !confirmando && <Button variant="outline" size="sm" className="min-h-11" onClick={onConfirmar}>Corregir entrega</Button>}
+          </div>
+          {confirmando && <EntregaPanel hojaId={hojaId} albaran={a} corregir={e} onListo={onListo} onCancelar={onCancelar} />}
+          {(e.versiones?.length ?? 0) > 0 && (
+            <details className="text-xs">
+              <summary className="min-h-9 cursor-pointer py-2 font-medium">Versiones anteriores ({e.versiones!.length})</summary>
+              <ol className="flex flex-col gap-2">
+                {[...e.versiones!].sort((x, y) => y.numero - x.numero).map((v) => (
+                  <li key={v.numero} className="rounded-md border border-line-divider p-2">
+                    <p className="font-medium">
+                      Versión {v.numero} · {resultadoUi[v.resultado].texto}
+                    </p>
+                    <p>Recibió {v.receptor} · <DateTimeDisplay value={v.entregadaAt} variant="datetime" /> · {v.entregadas} aceptadas, {v.rechazadas} rechazadas{v.motivoRechazo ? ` (${v.motivoRechazo})` : ''}.</p>
+                    {v.motivoCorreccion && (
+                      <p className="text-ink-muted">
+                        Reemplazada por {nombreUsuario(v.corregidaPor)}{v.corregidaAt && <> · <DateTimeDisplay value={v.corregidaAt} variant="datetime" /></>}: {v.motivoCorreccion}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
           {verEvidencia && (
             <div className="flex flex-wrap gap-3">
               {evidencia.isLoading && <p className="text-ink-muted">Cargando evidencia…</p>}

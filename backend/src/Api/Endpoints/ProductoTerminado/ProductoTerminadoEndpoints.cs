@@ -1,7 +1,9 @@
 using System.Globalization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Millet.Almacen.Domain.Ports.Blob;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.Almacen.DevolucionesProveedor;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.ProductoTerminado.Application.Consultas;
@@ -12,6 +14,9 @@ using Millet.ProductoTerminado.Application.Liquidacion;
 using Millet.ProductoTerminado.Application.Entregas;
 using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Application.Traspasos;
+using Millet.ProductoTerminado.Application.Casos;
+using Millet.Api.Endpoints.Tramos;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Endpoints.ProductoTerminado;
 
@@ -19,7 +24,9 @@ public static class ProductoTerminadoEndpoints
 {
     public static void MapProductoTerminado(this IEndpointRouteBuilder app)
     {
-        var g = app.MapGroup("/api/v1/producto-terminado").WithTags("Producto terminado").RequireAuthorization();
+        // M-303: con el tramo de captura detenido, las escrituras de PT responden 409 con el aviso.
+        var g = app.MapGroup("/api/v1/producto-terminado").WithTags("Producto terminado").RequireAuthorization()
+            .ConTramoDeCaptura(Millet.SharedKernel.Application.Tramos.TramosOperativos.PtCaptura);
 
         // El alcance por sucursal de los listados lo aplican los handlers (PtAcceso).
         g.MapGet("/piezas", async ([FromQuery] string? pedido, [FromQuery] Guid? sucursalId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
@@ -57,8 +64,8 @@ public static class ProductoTerminadoEndpoints
 
         // Traspasos entre sucursales (PT5.9). El alcance por sucursal lo aplican los handlers (PtAcceso).
         var traspasos = g.MapGroup("/traspasos");
-        traspasos.MapGet("", async ([FromQuery] string? estado, [FromQuery] Guid? sucursalId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ListarTraspasosQuery(estado, sucursalId, page ?? 1, pageSize ?? 50), ct)))
+        traspasos.MapGet("", async ([FromQuery] string? estado, [FromQuery] Guid? sucursalId, [FromQuery] Guid? destinoId, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarTraspasosQuery(estado, sucursalId, page ?? 1, pageSize ?? 50, destinoId), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer);
         traspasos.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerTraspasoQuery(id), ct)))
@@ -67,6 +74,33 @@ public static class ProductoTerminadoEndpoints
             Results.Ok(await mediator.Send(cmd, ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
+        traspasos.MapPost("/{id:guid}/autorizar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AutorizarTraspasoCommand(id), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        traspasos.MapPost("/{id:guid}/clasificar-diferencias", async (Guid id, ClasificarDiferenciasBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ClasificarDiferenciasTraspasoCommand(id, body.Piezas), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        traspasos.MapPost("/{id:guid}/aclarar-diferencia", async (Guid id, AclararDiferenciaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AclararDiferenciaTraspasoCommand(id, body.PiezaId, body.Resolucion), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
+        // Evidencia de una diferencia (foto o documento): sube al mismo blob que la de Almacén y devuelve la referencia que se manda al clasificar.
+        traspasos.MapPost("/evidencia/blob", async (IFormFile archivo, IAlmacenarBlobPort blob, CancellationToken ct) =>
+        {
+            if (archivo is null || archivo.Length == 0) throw new BusinessRuleException("ARCHIVO_REQUERIDO", "Debe enviarse un archivo en el campo 'archivo' del multipart.");
+            if (archivo.Length > EvidenciaMaxBytes) throw new BusinessRuleException("ARCHIVO_DEMASIADO_GRANDE", $"El archivo excede el tamaño máximo permitido ({EvidenciaMaxBytes / (1024 * 1024)} MB).");
+            var contentType = (archivo.ContentType ?? "application/octet-stream").ToLowerInvariant();
+            if (!EvidenciaMime.Contains(contentType)) throw new BusinessRuleException("MIME_NO_PERMITIDO", "La evidencia es una imagen, un PDF o un video corto.");
+            await using var stream = archivo.OpenReadStream();
+            var blobRef = await blob.SubirAsync(Guid.CreateVersion7(), stream, contentType, archivo.FileName, ct);
+            return Results.Created(blobRef, new SubirEvidenciaResponse(blobRef, archivo.FileName, archivo.Length, contentType));
+        })
+            .DisableAntiforgery()
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .Accepts<IFormFile>("multipart/form-data");
         traspasos.MapPost("/{id:guid}/recibir", async (Guid id, RecibirBody? body, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new RecibirTraspasoCommand(id, body?.PiezaIds), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
@@ -141,6 +175,57 @@ public static class ProductoTerminadoEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar)
             .WithMetadata(new RequireIdempotencyKeyAttribute());
 
+        var gestionar = PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoExcepcionesGestionar;
+        var ver = PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoPiezasVer;
+
+        // M-251: recepción física y ubicación en PT.
+        g.MapPost("/piezas/ubicar", async (UbicarPiezasCommand cmd, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // M-245: salida parcial de un pedido incompleto. Resolver: el permiso depende del nivel (lo exige el handler).
+        var parciales = g.MapGroup("/salidas-parciales");
+        parciales.MapGet("", async ([FromQuery] string? estado, [FromQuery] string? pedido, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarSolicitudesParcialesQuery(estado, pedido, page ?? 1, pageSize ?? 50), ct))).RequireAuthorization(ver);
+        parciales.MapPost("", async (SolicitarSalidaParcialCommand cmd, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        parciales.MapPost("/{id:guid}/resolver", async (Guid id, ResolverParcialBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ResolverSalidaParcialCommand(id, body.Autorizar, body.Nivel, body.Suplencia, body.Motivo), ct)))
+            .RequireAuthorization().WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // M-247: cancelación de un albarán emitido con solicitud y autorización de otra persona.
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/solicitar-cancelacion", async (Guid id, Guid albaranId, CancelarAlbaranBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new SolicitarCancelacionAlbaranCommand(id, albaranId, body.Motivo), ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/resolver-cancelacion", async (Guid id, Guid albaranId, ResolverCancelacionBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ResolverCancelacionAlbaranCommand(id, albaranId, body.Autorizar, body.Motivo), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoSalidaCancelarEmitida).WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // M-248: corregir una entrega confirmada con soporte (antes de cerrar la liquidación).
+        hojas.MapPost("/{id:guid}/albaranes/{albaranId:guid}/entrega/corregir", async (Guid id, Guid albaranId, CorregirEntregaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new CorregirEntregaCommand(id, albaranId, body.Receptor, body.Rechazadas, body.MotivoRechazo, body.Firma, body.Foto, body.MotivoCorreccion), ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+
+        // F1-PT-06 / M-351 / M-352: casos de daño, rechazo o devolución con dictamen de Calidad y correctivo fiscal.
+        var casos = g.MapGroup("/casos");
+        casos.MapGet("", async ([FromQuery] string? estado, [FromQuery] string? pedido, [FromQuery] int? page, [FromQuery] int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarCasosQuery(estado, pedido, page ?? 1, pageSize ?? 50), ct))).RequireAuthorization(ver);
+        casos.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new ObtenerCasoQuery(id), ct))).RequireAuthorization(ver);
+        casos.MapGet("/{id:guid}/evidencia", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new ObtenerEvidenciaCasoQuery(id), ct))).RequireAuthorization(ver);
+        casos.MapPost("", async (RegistrarCasoDanoCommand cmd, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(cmd, ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/evidencia", async (Guid id, EvidenciaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AdjuntarEvidenciaCasoCommand(id, body.Evidencia), ct))).RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/dictaminar", async (Guid id, DictamenBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DictaminarCasoCommand(id, body.Dictamen, body.Observacion, body.PedidoRefabricacionAw), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ProductoTerminadoCalidadDictaminar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/nota-credito", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new EmitirNotaCreditoCasoCommand(id), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoBonificacion).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/cancelar-factura", async (Guid id, CancelarFacturaBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new SolicitarCancelacionFacturaCasoCommand(id, body.MotivoSat, body.UuidSustituto), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesSolicitar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        casos.MapPost("/{id:guid}/cerrar", async (Guid id, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(new CerrarCasoCommand(id), ct)))
+            .RequireAuthorization(gestionar).WithMetadata(new RequireIdempotencyKeyAttribute());
+
         // Solo Demo (PT5.2): el saldo de prueba simula el cobro de caja. Nunca se mapea en Production; además exige el origen Demo de A+W.
         // El canal Real usa el saldo de Facturación (U-3); este endpoint queda solo para Demo.
         if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
@@ -166,6 +251,14 @@ public static class ProductoTerminadoEndpoints
     /// <summary>Sin cuerpo o sin <c>PiezaIds</c> = recepción total.</summary>
     public sealed record RecibirBody(IReadOnlyList<Guid>? PiezaIds);
 
+    public sealed record ClasificarDiferenciasBody(IReadOnlyList<DiferenciaTraspasoInput> Piezas);
+
+    public sealed record AclararDiferenciaBody(Guid PiezaId, string Resolucion);
+
+    private const long EvidenciaMaxBytes = 20 * 1024 * 1024;
+
+    private static readonly string[] EvidenciaMime = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "video/mp4", "video/quicktime"];
+
     public sealed record LiquidarBody(IReadOnlyList<LiquidacionAlbaranInput> Albaranes, IReadOnlyList<ImprevistoInput>? Imprevistos);
 
     public sealed record CancelarAlbaranBody(string Motivo);
@@ -173,4 +266,14 @@ public static class ProductoTerminadoEndpoints
     public sealed record AutorizarHojaBody(string Nivel, string Motivo, string? Suplencia);
 
     public sealed record SaldoDemoBody(decimal Saldo);
+
+    public sealed record ResolverParcialBody(bool Autorizar, string? Nivel, string? Suplencia, string Motivo);
+
+    public sealed record ResolverCancelacionBody(bool Autorizar, string Motivo);
+
+    public sealed record EvidenciaBody(string Evidencia);
+
+    public sealed record DictamenBody(string Dictamen, string Observacion, string? PedidoRefabricacionAw);
+
+    public sealed record CancelarFacturaBody(string MotivoSat, string? UuidSustituto);
 }

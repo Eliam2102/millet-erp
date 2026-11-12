@@ -240,7 +240,9 @@ public sealed record SaldoUbicacionItem(
     // F1-MP-01: medida de la fila de saldo; una fila por (ubicación, medida, lote).
     Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null,
     // S4b: lote de la fila (null = sin lote / apertura) para que la salida lo elija.
-    string? Lote = null);
+    string? Lote = null,
+    // M-231: fila de saldo y su versión, para el traslado entre posiciones (detecta que otro usuario ya la movió).
+    Guid? SaldoId = null, string? Version = null, DateTimeOffset? ActualizadoAt = null);
 
 public sealed record SaldosPorUbicacionQuery(
     Guid ArticuloId,
@@ -293,8 +295,9 @@ public sealed class SaldosPorUbicacionHandler
             select new SaldoUbicacionItem(
                 u.Id, u.Clave, u.Nombre, sa.Clave, al.Clave, u.EsDefault,
                 s.Cantidad, sa.Tipo == TipoSubAlmacen.MaterialEnRevision ? 0m : s.CantidadDisponible, s.CostoPromedioMxn,
-                s.ProductoAwVarianteId, null, null, null, s.Lote))
+                s.ProductoAwVarianteId, null, null, null, s.Lote, s.Id, null, s.UltimaActualizacionAt))
             .ToListAsync(cancellationToken);
+        filas = filas.Select(f => f with { Version = TrasladoPosicionApp.Version(f.ActualizadoAt!.Value) }).ToList();
         var medidas = _variantes is null
             ? new Dictionary<Guid, VarianteVidrioLectura>()
             : await _variantes.ObtenerPorIdsAsync(

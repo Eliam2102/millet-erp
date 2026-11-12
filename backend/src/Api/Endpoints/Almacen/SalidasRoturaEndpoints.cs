@@ -6,6 +6,7 @@ using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Domain.Roturas;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.Almacen.Recepciones;
 using Millet.Api.Web;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Identidad.Domain;
@@ -26,11 +27,11 @@ public static class SalidasRoturaEndpoints
         string? ArticuloClave, string? ArticuloDescripcion, decimal Cantidad, string UnidadMedida, DateOnly Fecha, string MotivoCodigo,
         string Motivo, string? Comentario, string Estado, string CapturadoPor, DateTimeOffset CapturadoAt, string? DecididoPor,
         DateTimeOffset? DecididoAt, string? MotivoRechazo, Guid? MovimientoId, string? FolioMovimiento, decimal? CostoUnitarioMxn,
-        decimal? ValorMxn, string? AreaClave = null, string? EquipoClave = null);
+        decimal? ValorMxn, string? AreaClave = null, string? EquipoClave = null, string? EvidenciaBlobRef = null);
 
     public sealed record MotivoRoturaResponse(string Codigo, string Texto);
     public sealed record CapturarRoturaRequest(Guid UbicacionId, Guid ArticuloId, decimal Cantidad, DateOnly? Fecha, string MotivoCodigo, string? Comentario,
-        string? AreaClave = null, string? EquipoClave = null);
+        string? AreaClave = null, string? EquipoClave = null, string? EvidenciaBlobRef = null);
 
     /// <summary>86e3zf04y: si la cuenta de merma exige área o equipo (regla C-03) para esa ubicación y fecha.</summary>
     public sealed record DimensionesRoturaResponse(bool ExigeArea, bool ExigeEquipo, string? CuentaCodigo);
@@ -39,10 +40,22 @@ public static class SalidasRoturaEndpoints
     private const string EventoRotura = "almacen.salida_rotura.registrada.v1";
     private const string CausaRotura = "rotura";
     public sealed record RechazarRoturaRequest(string Motivo);
+    public sealed record RoturaAppPendienteResponse(string MensajeId, string? Referencia, string? Folio, DateTimeOffset RecibidoAt, string Payload);
+    public sealed record RoturaAppDecisionResponse(string MensajeId, string Estado, string? Folio);
 
     public static IEndpointRouteBuilder MapSalidasRoturaEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/almacen/salidas-rotura").WithTags("Almacen");
+
+        // M-223: la evidencia de la rotura usa el mismo blob de Almacén que la recepción, con el permiso de capturar la rotura.
+        group.MapPost("/evidencia/blob", PackingListBlobEndpoints.SubirAsync)
+            .DisableAntiforgery()
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasRoturaCapturar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .WithName("SubirEvidenciaRotura")
+            .Accepts<IFormFile>("multipart/form-data")
+            .Produces<SubirPackingListResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         group.MapGet("/motivos", async (ICurrentUserPermissions permisos, CancellationToken ct) =>
         {
@@ -94,7 +107,7 @@ public static class SalidasRoturaEndpoints
             var r = await SalidaRoturaApp.CapturarAsync(db, periodo, decimales, articulos,
                 empresa.Current ?? throw new BusinessRuleException("ROTURA_SIN_EMPRESA", "El contexto de empresa es requerido."),
                 user.UserId ?? Guid.Empty,
-                new CapturarRoturaApp(req.UbicacionId, req.ArticuloId, req.Cantidad, req.Fecha ?? DateOnly.FromDateTime(DateTime.Now), req.MotivoCodigo, req.Comentario), ct);
+                new CapturarRoturaApp(req.UbicacionId, req.ArticuloId, req.Cantidad, req.Fecha ?? DateOnly.FromDateTime(DateTime.Now), req.MotivoCodigo, req.Comentario, req.EvidenciaBlobRef), ct);
             await scope.VerificarSucursalAsync(r.SucursalId, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
             // 86e3zf04y: área y equipo se resuelven en la sucursal con el puerto de H1. Una clave inválida no se acepta.
             // M-450 (86e3zr7ft): si la cuenta de merma los exige (regla C-03) y no vienen, la rotura tampoco se captura.
@@ -144,6 +157,51 @@ public static class SalidasRoturaEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-223: ROTURA que llega de la app de Almacenes. Entra pendiente (sin bajar saldo) y la decide un usuario del ERP distinto
+        // del que la capturó en la app: autorizar baja el saldo a costo promedio con su póliza de merma; rechazar no mueve nada.
+        group.MapGet("/app", async (AlmacenDbContext db, CancellationToken ct) =>
+        {
+            var filas = await db.MensajesApp.AsNoTracking()
+                .Where(m => m.Tipo == AlmacenesAppSalida.Rotura && m.Estado == Millet.Almacen.Domain.Idempotencia.MensajeApp.Pendiente)
+                .OrderBy(m => m.RecibidoAt).Take(500).ToListAsync(ct);
+            return Results.Ok(filas.Select(m => new RoturaAppPendienteResponse(m.MensajeId, m.Referencia, m.Folio, m.RecibidoAt, m.Payload)).ToList());
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasRoturaAutorizar)
+        .WithName("ListarRoturasAppPendientes")
+        .Produces<List<RoturaAppPendienteResponse>>(StatusCodes.Status200OK);
+
+        group.MapPost("/app/{mensajeId}/autorizar", async (string mensajeId, AlmacenesAppProcesador procesador, DocumentoSucursalScope scope,
+            ICurrentUserContext user, CancellationToken ct) =>
+        {
+            var (folio, error) = await procesador.AutorizarRoturaAsync(mensajeId, user.UserId ?? Guid.Empty,
+                s => scope.VerificarSucursalAsync(s, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct), ct);
+            if (error is not null) throw new BusinessRuleException("ROTURA_APP_NO_APLICADA", error);
+            return Results.Ok(new RoturaAppDecisionResponse(mensajeId, Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.Recibido, folio));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasRoturaAutorizar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("AutorizarRoturaApp")
+        .Produces<RoturaAppDecisionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/app/{mensajeId}/rechazar", async (string mensajeId, RechazarRoturaRequest req, AlmacenDbContext db,
+            ICurrentUserContext user, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.Motivo) || req.Motivo.Length > 500)
+                throw new BusinessRuleException("ROTURA_RECHAZO_SIN_MOTIVO", "El motivo del rechazo es obligatorio (hasta 500 caracteres).");
+            var m = await db.MensajesApp.FirstOrDefaultAsync(x => x.MensajeId == mensajeId && x.Tipo == AlmacenesAppSalida.Rotura
+                    && x.Estado == Millet.Almacen.Domain.Idempotencia.MensajeApp.Pendiente, ct)
+                ?? throw new BusinessRuleException("ROTURA_NO_PENDIENTE", "La rotura ya fue decidida o no existe.");
+            m.Rechazar(user.UserId ?? Guid.Empty, req.Motivo.Trim());
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new RoturaAppDecisionResponse(mensajeId, m.Estado, m.Folio));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasRoturaAutorizar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("RechazarRoturaApp")
+        .Produces<RoturaAppDecisionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
 
@@ -185,7 +243,7 @@ public static class SalidasRoturaEndpoints
                 return new SalidaRoturaResponse(r.Id, r.SucursalId, r.UbicacionId, ubic.GetValueOrDefault(r.UbicacionId), r.ArticuloId,
                     a?.Clave, a?.Descripcion, r.Cantidad, r.UnidadMedida, r.Fecha, r.MotivoCodigo, SalidaRotura.Motivos[r.MotivoCodigo],
                     r.Comentario, r.Estado, Nombre(r.CapturadoPor), r.CreatedAt, r.DecididoPor is { } d ? Nombre(d) : null, r.DecididoAt,
-                    r.MotivoRechazo, r.MovimientoId, r.FolioMovimiento, r.CostoUnitarioMxn, r.ValorMxn, r.AreaClave, r.EquipoClave);
+                    r.MotivoRechazo, r.MovimientoId, r.FolioMovimiento, r.CostoUnitarioMxn, r.ValorMxn, r.AreaClave, r.EquipoClave, r.EvidenciaBlobRef);
             }).ToList();
         }
     }

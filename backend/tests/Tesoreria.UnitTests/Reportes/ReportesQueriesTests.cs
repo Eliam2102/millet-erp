@@ -32,8 +32,11 @@ public sealed class ReportesQueriesTests
 
         reporte.Titulo.Should().Be("Flujo de efectivo");
         reporte.GeneradoEn.Should().Be(Ahora);
-        reporte.Columnas.Should().HaveCount(8);
-        reporte.Filas.Should().HaveCount(4); // inicial, detalle, final y total MXN
+        reporte.Columnas.Should().HaveCount(10);
+        reporte.Filas.Should().HaveCount(5); // inicial, detalle, final, cuadre (N-05) y total MXN
+        var cuadre = reporte.Filas.Single(f => (string?)f["tipo"] == "cuadre");
+        cuadre["neto"].Should().Be(15_000m);
+        ((string)cuadre["rastro"]!).Should().Contain("Sin conciliación cerrada del mes").And.Contain("Cuenta bancaria sin cuenta contable");
         reporte.Filas[1]["ingresos"].Should().Be(15_000m);
         reporte.Totales.Should().BeNull();
         reporte.Filas.Single(f => (string?)f["tipo"] == "total")["neto"].Should().Be(15_000m);

@@ -23,6 +23,10 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
     public DbSet<EntregaPt> Entregas => Set<EntregaPt>();
     public DbSet<SaldoDemo> SaldosDemo => Set<SaldoDemo>();
     public DbSet<EscaneoPt> Escaneos => Set<EscaneoPt>();
+    public DbSet<EntregaPtVersion> EntregaVersiones => Set<EntregaPtVersion>();
+    public DbSet<SolicitudSalidaParcialPt> SolicitudesParciales => Set<SolicitudSalidaParcialPt>();
+    public DbSet<CasoDanoPt> CasosDano => Set<CasoDanoPt>();
+    public DbSet<CasoDanoPtPieza> CasoDanoPiezas => Set<CasoDanoPtPieza>();
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -71,6 +75,9 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         pz.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Estado });
         pz.HasIndex(x => new { x.PedidoPtId, x.Estado });
         pz.HasOne<PedidoPt>().WithMany().HasForeignKey(x => x.PedidoPtId).OnDelete(DeleteBehavior.Restrict);
+        pz.Property(x => x.Almacen).HasConversion<string>().HasMaxLength(20);
+        pz.Property(x => x.Lugar).HasMaxLength(100);
+        pz.Property(x => x.Costo).HasPrecision(18, 4);
 
         var m = modelBuilder.Entity<MovimientoPieza>();
         m.ToTable("movimientos_pieza");
@@ -91,6 +98,16 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         t.Property(x => x.Id).ValueGeneratedNever();
         t.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
         t.HasIndex(x => new { x.EmpresaId, x.Estado, x.SalidaAt });
+        t.Property(x => x.Folio).HasMaxLength(40);
+        t.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
+        t.Property(x => x.Destino).HasMaxLength(200);
+        t.Property(x => x.OrigenCodigoPostal).HasMaxLength(5);
+        t.Property(x => x.OrigenEstado).HasMaxLength(3);
+        t.Property(x => x.DestinoCodigoPostal).HasMaxLength(5);
+        t.Property(x => x.DestinoEstado).HasMaxLength(3);
+        t.Property(x => x.DistanciaKm).HasPrecision(12, 2);
+        t.Property(x => x.PesoKg).HasPrecision(12, 2);
+        t.Property(x => x.CartaPorteFolio).HasMaxLength(40);
         t.HasMany(x => x.Piezas).WithOne().HasForeignKey(x => x.TraspasoPtId).OnDelete(DeleteBehavior.Restrict);
         t.Navigation(x => x.Piezas).UsePropertyAccessMode(PropertyAccessMode.Field);
 
@@ -99,6 +116,11 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         tp.HasKey(x => x.Id);
         tp.Property(x => x.Id).ValueGeneratedNever();
         tp.Ignore(x => x.AggregateRootId);
+        tp.Ignore(x => x.EnTransito);
+        tp.Property(x => x.Clasificacion).HasConversion<string>().HasMaxLength(20);
+        tp.Property(x => x.MotivoDiferencia).HasMaxLength(300);
+        tp.Property(x => x.EvidenciaDiferencia).HasMaxLength(500);
+        tp.Property(x => x.Resolucion).HasConversion<string>().HasMaxLength(20);
         tp.HasIndex(x => new { x.TraspasoPtId, x.PiezaId }).IsUnique();
         tp.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
 
@@ -130,6 +152,9 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         al.Ignore(x => x.Cancelado);
         al.Ignore(x => x.Entregado);
         al.Ignore(x => x.Liquidado);
+        al.Ignore(x => x.CancelacionPendiente);
+        al.Property(x => x.MotivoSolicitudCancelacion).HasMaxLength(500);
+        al.Property(x => x.MotivoRechazoCancelacion).HasMaxLength(500);
         al.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
         al.HasIndex(x => new { x.SalidaPtId, x.PedidoPtId }).IsUnique();
         al.HasOne<PedidoPt>().WithMany().HasForeignKey(x => x.PedidoPtId).OnDelete(DeleteBehavior.Restrict);
@@ -159,6 +184,61 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         en.HasIndex(x => x.PedidoPtId);
         en.HasIndex(x => x.CobroConciliadoAt).HasDatabaseName("ix_pt_entregas_cobro_pendiente").HasFilter("cobro_monto IS NOT NULL AND cobro_conciliado_at IS NULL");
         en.HasOne<AlbaranPt>().WithMany().HasForeignKey(x => x.AlbaranPtId).OnDelete(DeleteBehavior.Restrict);
+
+        var ev = modelBuilder.Entity<EntregaPtVersion>();
+        ev.ToTable("entrega_pt_versiones");
+        ev.HasKey(x => x.Id);
+        ev.Property(x => x.Id).ValueGeneratedNever();
+        ev.Property(x => x.Resultado).HasConversion<string>().HasMaxLength(20);
+        ev.Property(x => x.Receptor).HasMaxLength(200);
+        ev.Property(x => x.MotivoRechazo).HasMaxLength(500);
+        ev.Property(x => x.Usuario).HasMaxLength(100);
+        ev.Property(x => x.CorregidaPor).HasMaxLength(100);
+        ev.Property(x => x.MotivoCorreccion).HasMaxLength(500);
+        ev.HasIndex(x => new { x.EntregaPtId, x.Numero }).IsUnique();
+        ev.HasOne<EntregaPt>().WithMany().HasForeignKey(x => x.EntregaPtId).OnDelete(DeleteBehavior.Restrict);
+
+        var sol = modelBuilder.Entity<SolicitudSalidaParcialPt>();
+        sol.ToTable("solicitudes_salida_parcial_pt");
+        sol.HasKey(x => x.Id);
+        sol.Property(x => x.Id).ValueGeneratedNever();
+        sol.Property(x => x.Motivo).HasMaxLength(500);
+        sol.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
+        sol.Property(x => x.Nivel).HasMaxLength(20);
+        sol.Property(x => x.Suplencia).HasMaxLength(500);
+        sol.Property(x => x.MotivoResolucion).HasMaxLength(500);
+        sol.HasIndex(x => new { x.PedidoPtId, x.Estado });
+        sol.HasIndex(x => x.PedidoPtId).IsUnique().HasFilter("estado = 'Pendiente'").HasDatabaseName("ux_pt_parcial_pendiente_por_pedido");
+        sol.HasOne<PedidoPt>().WithMany().HasForeignKey(x => x.PedidoPtId).OnDelete(DeleteBehavior.Restrict);
+
+        var cd = modelBuilder.Entity<CasoDanoPt>();
+        cd.ToTable("casos_dano_pt");
+        cd.HasKey(x => x.Id);
+        cd.Property(x => x.Id).ValueGeneratedNever();
+        cd.Property(x => x.Folio).HasMaxLength(40);
+        cd.Property(x => x.Etapa).HasConversion<string>().HasMaxLength(20);
+        cd.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
+        cd.Property(x => x.Dictamen).HasConversion<string>().HasMaxLength(20);
+        cd.Property(x => x.Correctivo).HasConversion<string>().HasMaxLength(20);
+        cd.Property(x => x.Motivo).HasMaxLength(500);
+        cd.Property(x => x.ObservacionDictamen).HasMaxLength(500);
+        cd.Property(x => x.PedidoRefabricacionAw).HasMaxLength(50);
+        cd.Property(x => x.DocumentoFiscalFolio).HasMaxLength(60);
+        cd.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
+        cd.HasIndex(x => new { x.EmpresaId, x.Estado, x.RegistradoAt });
+        cd.HasOne<PedidoPt>().WithMany().HasForeignKey(x => x.PedidoPtId).OnDelete(DeleteBehavior.Restrict);
+        cd.HasMany(x => x.Piezas).WithOne().HasForeignKey(x => x.CasoDanoPtId).OnDelete(DeleteBehavior.Restrict);
+        cd.Navigation(x => x.Piezas).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var cdp = modelBuilder.Entity<CasoDanoPtPieza>();
+        cdp.ToTable("caso_dano_pt_piezas");
+        cdp.HasKey(x => x.Id);
+        cdp.Property(x => x.Id).ValueGeneratedNever();
+        cdp.Ignore(x => x.AggregateRootId);
+        cdp.Property(x => x.Etiqueta).HasMaxLength(100);
+        cdp.HasIndex(x => new { x.CasoDanoPtId, x.PiezaId }).IsUnique();
+        cdp.HasIndex(x => x.PiezaId);
+        cdp.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
 
         var e = modelBuilder.Entity<EscaneoPt>();
         e.ToTable("escaneos");

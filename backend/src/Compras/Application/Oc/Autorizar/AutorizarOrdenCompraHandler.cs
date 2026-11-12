@@ -31,19 +31,21 @@ public sealed class AutorizarOrdenCompraHandler : IRequestHandler<AutorizarOrden
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
+    private readonly ICurrentUserPermissions? _permisos;
+    private readonly Millet.Compras.Application.PublicPorts.IFacturaServicioCeReadPort? _facturasCe;
 
     public AutorizarOrdenCompraHandler(
         ComprasDbContext db,
         CompartidoDbContext compartido,
         ICurrentUserContext currentUser,
         IClock clock,
-        IPublisher publisher)
+        IPublisher publisher, ICurrentUserPermissions? permisos = null, Millet.Compras.Application.PublicPorts.IFacturaServicioCeReadPort? facturasCe = null)
     {
         _db = db;
         _compartido = compartido;
         _currentUser = currentUser;
         _clock = clock;
-        _publisher = publisher;
+        _publisher = publisher; _permisos = permisos; _facturasCe = facturasCe;
     }
 
     public async Task Handle(AutorizarOrdenCompraCommand command, CancellationToken cancellationToken)
@@ -66,6 +68,12 @@ public sealed class AutorizarOrdenCompraHandler : IRequestHandler<AutorizarOrden
             ?? throw new EntityNotFoundException(
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}'.");
+
+        await FirmasServicioCeGuard.ExigirAsync(oc, command.Nivel, _permisos, cancellationToken);
+
+        if (oc.EsServicioComercioExterior && command.Nivel == Millet.Compras.Domain.NivelAutorizacion.Nivel2
+            && (_facturasCe is null || !await _facturasCe.TienePasivoVigenteAsync(oc.EmpresaId, oc.Id, cancellationToken)))
+            throw new BusinessRuleException("CE_SERVICIO_SIN_PASIVO", "Registre primero la factura de servicio en Cuentas por Pagar antes de solicitar la segunda firma de Dirección Comercial.");
 
         // C10 — re-validar proveedor activo en cada transición.
         var proveedor = await _compartido.Proveedores

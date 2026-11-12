@@ -67,6 +67,35 @@ public static class SustitucionCfdi
         return original;
     }
 
+    /// <summary>
+    /// Motivos 02 y 04: la nueva se emite DESPUÉS de cancelar la original (sin relación). La original debe estar
+    /// cancelada por una solicitud aceptada (o vencida) con ese mismo motivo; el 04 solo aplica a público en general (global).
+    /// </summary>
+    public static async Task<FacturaVenta> CargarCanceladaParaMotivoAsync(
+        FacturacionDbContext db, Guid facturaId, string motivo, CancellationToken cancellationToken)
+    {
+        var original = await db.FacturasVenta.Include(f => f.Relaciones)
+            .FirstOrDefaultAsync(f => f.Id == facturaId, cancellationToken)
+            ?? throw new EntityNotFoundException("FACTURA_NO_ENCONTRADA", $"No existe la factura {facturaId}.");
+        if (motivo == "04" && original.ReceptorRfc != DatosFiscalesReceptor.RfcGenericoNacional)
+            throw new BusinessRuleException(
+                "SUSTITUCION_04_SOLO_GLOBAL", "El motivo 04 aplica solo a una factura global (público en general).");
+        var cancelada = original.Estado == EstadoTimbrado.Cancelado && await db.SolicitudesCancelacion.AnyAsync(
+            s => s.ComprobanteId == original.Id && s.MotivoSat == motivo
+                && (s.Estado == EstadoSolicitudCancelacion.Aceptada || s.Estado == EstadoSolicitudCancelacion.Vencida),
+            cancellationToken);
+        if (!cancelada)
+            throw new BusinessRuleException(
+                "SUSTITUCION_CANCELAR_PRIMERO", $"Con el motivo {motivo} primero se cancela la factura con ese motivo; después se emite la nueva.");
+        if (original.Relaciones.Any(r => r.TipoRelacion == "07"))
+            throw new BusinessRuleException(
+                "SUSTITUCION_CON_ANTICIPOS", "La factura amortiza anticipos; cancela sus NC de amortización antes de reemitirla.");
+        if (original.ComportamientoFiscal is ComportamientoFiscal.ExportacionConCce or ComportamientoFiscal.VentaActivoFijo)
+            throw new BusinessRuleException(
+                "SUSTITUCION_NO_SOPORTADA", "Las facturas de exportación con CCE o de venta de activo fijo no se reemiten desde aquí.");
+        return original;
+    }
+
     /// <summary>La factura que sustituye a <paramref name="uuidOriginal"/> y no está cancelada ni descartada.</summary>
     public static Task<Comprobante?> SustitutaVigenteDeAsync(
         FacturacionDbContext db, string uuidOriginal, CancellationToken cancellationToken) =>

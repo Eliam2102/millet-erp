@@ -265,3 +265,24 @@ public sealed record MovimientoBancarioRegistradoIntegrationEvent(
 {
     public const string WireEventType = "tesoreria.movimiento-bancario.registrado.v1";
 }
+
+/// <summary>
+/// <c>tesoreria.cheque.rebotado.v1</c> (M-372) — el banco devolvió un cheque del cliente. CxC lo consume y levanta la
+/// alerta de cartera para cobrarlo por otra vía. <c>Contramovimiento</c> = true si el cheque ya se había acreditado y se
+/// compensó el ingreso; false si rebotó antes de acreditarse.
+/// </summary>
+public sealed record ChequeRebotadoIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid ChequeId,
+    Guid ClienteId,
+    string BancoEmisor,
+    string Numero,
+    decimal Importe,
+    string Moneda,
+    string Motivo,
+    bool Contramovimiento)
+    : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
+{
+    public const string WireEventType = "tesoreria.cheque.rebotado.v1";
+}
