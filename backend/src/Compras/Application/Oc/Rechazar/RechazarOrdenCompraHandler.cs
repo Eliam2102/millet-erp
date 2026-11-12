@@ -26,17 +26,18 @@ public sealed class RechazarOrdenCompraHandler : IRequestHandler<RechazarOrdenCo
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
+    private readonly ICurrentUserPermissions? _permisos;
 
     public RechazarOrdenCompraHandler(
         ComprasDbContext db,
         ICurrentUserContext currentUser,
         IClock clock,
-        IPublisher publisher)
+        IPublisher publisher, ICurrentUserPermissions? permisos = null)
     {
         _db = db;
         _currentUser = currentUser;
         _clock = clock;
-        _publisher = publisher;
+        _publisher = publisher; _permisos = permisos;
     }
 
     public async Task Handle(RechazarOrdenCompraCommand command, CancellationToken cancellationToken)
@@ -81,6 +82,8 @@ public sealed class RechazarOrdenCompraHandler : IRequestHandler<RechazarOrdenCo
                 $"El motivo '{motivo.Clave}' permite texto libre y requiere descripción adicional.");
         }
 
+        await FirmasServicioCeGuard.ExigirAsync(oc, oc.Estado == Millet.Compras.Domain.Oc.EstadoOrdenCompra.EnAutorizacionJefeCompras
+            ? NivelAutorizacion.Nivel1 : NivelAutorizacion.Nivel2, _permisos, cancellationToken);
         var evento = oc.Rechazar(
             autorizacionId: Guid.CreateVersion7(),
             usuarioId: userId,

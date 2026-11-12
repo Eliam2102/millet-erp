@@ -33,7 +33,8 @@ public sealed record CrearOrdenCompraDesdeRequisicionCommand(
     string? MotivoEleccion = null,
     string? UsoCfdiClave = null,
     string? MetodoPago = null,
-    string? FormaPagoClave = null) : IRequest<CrearOrdenCompraDesdeRequisicionResponse>;
+    string? FormaPagoClave = null,
+    bool EsServicioComercioExterior = false) : IRequest<CrearOrdenCompraDesdeRequisicionResponse>;
 
 public sealed record CrearOrdenCompraDesdeRequisicionResponse(
     Guid OrdenCompraId,

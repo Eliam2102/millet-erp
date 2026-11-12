@@ -111,6 +111,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
 
         builder.Property(o => o.SinRequisicionPrevia).HasDefaultValue(false).IsRequired();
         builder.Property(o => o.EsImportacion).HasDefaultValue(false).IsRequired();
+        builder.Property(o => o.EsServicioComercioExterior).HasDefaultValue(false).IsRequired();
         builder.Property(o => o.CotizacionExcepcionada).HasDefaultValue(false).IsRequired();
 
         builder.Property(o => o.FechaDocumento).IsRequired();
