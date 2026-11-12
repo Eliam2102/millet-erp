@@ -2134,6 +2134,7 @@ Millet.Api.Endpoints.Facturacion.ActivosEndpoints.MapFacturacionActivosEndpoints
 
 // === Facturación — Reportes: liquidación caja + anticipos + CFDIs por obra (F11) ===
 Millet.Api.Endpoints.Facturacion.ReportesEndpoints.MapFacturacionReportesEndpoints(app);
+Millet.Api.Endpoints.Facturacion.ConciliacionFiscalEndpoints.MapFacturacionConciliacionFiscalEndpoints(app);
 
 // === Facturación — Emisor-defaults + lookups de catálogo para emisión (FAC-UX-PR1) ===
 Millet.Api.Endpoints.Facturacion.FacturacionCatalogosEndpoints.MapFacturacionCatalogosEndpoints(app);

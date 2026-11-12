@@ -6,6 +6,7 @@ using Millet.Facturacion.Domain.Cancelaciones;
 using Millet.Facturacion.Domain.CartaPorte;
 using Millet.Facturacion.Domain.Cce;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Conciliacion;
 using Millet.Facturacion.Domain.Envios;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ingesta;
@@ -70,6 +71,10 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <see cref="FacturasVenta"/>).
     /// </summary>
     public DbSet<Comprobante> Comprobantes => Set<Comprobante>();
+
+    /// <summary>M-314: resoluciones de incidencias fiscales (el SAT ya coincide con el estado interno) y cierres de folios por serie y mes.</summary>
+    public DbSet<ResolucionIncidenciaFiscal> ResolucionesIncidenciaFiscal => Set<ResolucionIncidenciaFiscal>();
+    public DbSet<CierreFolios> CierresFolios => Set<CierreFolios>();
 
     /// <summary>Facturas de venta (subtipo Ingreso, F1-PR1).</summary>
     public DbSet<FacturaVenta> FacturasVenta => Set<FacturaVenta>();
@@ -183,6 +188,8 @@ public sealed class FacturacionDbContext : BaseDbContext
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new ComprobanteConfiguration());
+        modelBuilder.ApplyConfiguration(new ResolucionIncidenciaFiscalConfiguration());
+        modelBuilder.ApplyConfiguration(new CierreFoliosConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaVentaConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaVentaLineaConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaAnticipoConfiguration());
