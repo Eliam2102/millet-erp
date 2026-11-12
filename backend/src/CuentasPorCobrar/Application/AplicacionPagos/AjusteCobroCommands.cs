@@ -19,6 +19,21 @@ namespace Millet.CuentasPorCobrar.Application.AplicacionPagos;
 // Hasta entonces la propuesta no llega a Tesorería.
 // ============================================================================
 
+/// <summary>
+/// M-326 parte 2 (c): todo redondeo requiere la autorización del Gerente de Área (respuesta de Millet 11-nov). Se exige el permiso
+/// <c>aplicacion-pago.autorizar-redondeo</c> además del de confirmar; sin el puerto de permisos se trata como sin permiso (falla cerrada).
+/// </summary>
+internal static class RedondeoCobroAutorizacion
+{
+    public static async Task ExigirAsync(PropuestaAplicacionPago propuesta, ICurrentUserPermissions? permisos, string accion, CancellationToken ct)
+    {
+        if (!propuesta.RequiereGerenteDeArea) return;
+        if (permisos is null || !await permisos.TieneAsync(Millet.Identidad.Domain.PermisosCanonicos.CuentasPorCobrarAplicacionPagoAutorizarRedondeo, ct))
+            throw new ForbiddenException("PAP_REDONDEO_REQUIERE_GERENTE",
+                $"El redondeo lo debe {accion} el Gerente de Área: pide a quien tenga ese permiso que lo haga.");
+    }
+}
+
 public sealed record AutorizarAjustePropuestaCommand(Guid Id, int VersionEsperada) : IRequest<PropuestaAplicacionResponse>;
 
 public sealed class AutorizarAjustePropuestaValidator : AbstractValidator<AutorizarAjustePropuestaCommand>
@@ -32,7 +47,7 @@ public sealed class AutorizarAjustePropuestaValidator : AbstractValidator<Autori
 /// </summary>
 public sealed class AutorizarAjustePropuestaHandler(
     CuentasPorCobrarDbContext db, IIntegrationEventPublisher eventos, ICurrentUserContext usuario, IClock clock,
-    ISoporteAjusteCobroReadPort? soporte = null)
+    ISoporteAjusteCobroReadPort? soporte = null, ICurrentUserPermissions? permisos = null)
     : IRequestHandler<AutorizarAjustePropuestaCommand, PropuestaAplicacionResponse>
 {
     public async Task<PropuestaAplicacionResponse> Handle(AutorizarAjustePropuestaCommand command, CancellationToken cancellationToken)
@@ -46,6 +61,7 @@ public sealed class AutorizarAjustePropuestaHandler(
         if (propuesta.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(PropuestaAplicacionPago), propuesta.Id);
 
+        await RedondeoCobroAutorizacion.ExigirAsync(propuesta, permisos, "autorizar", cancellationToken);
         var tieneSoporte = propuesta.TipoAjuste == TipoAjusteCobro.ComisionBancaria && soporte is not null
             && await soporte.TieneSoporteAsync(propuesta.Id, cancellationToken);
         propuesta.AutorizarAjuste(usuarioId, clock.UtcNow, tieneSoporte);
@@ -74,7 +90,7 @@ public sealed class RechazarAjustePropuestaValidator : AbstractValidator<Rechaza
 /// Rechazar el ajuste rechaza la propuesta: libera el saldo reservado de las facturas y quien propuso registra otra (por el depósito
 /// exacto o con un ajuste corregido). Tesorería nunca la recibió, así que no hay nada que avisarle.
 /// </summary>
-public sealed class RechazarAjustePropuestaHandler(CuentasPorCobrarDbContext db, ICurrentUserContext usuario, IClock clock)
+public sealed class RechazarAjustePropuestaHandler(CuentasPorCobrarDbContext db, ICurrentUserContext usuario, IClock clock, ICurrentUserPermissions? permisos = null)
     : IRequestHandler<RechazarAjustePropuestaCommand, PropuestaAplicacionResponse>
 {
     public async Task<PropuestaAplicacionResponse> Handle(RechazarAjustePropuestaCommand command, CancellationToken cancellationToken)
@@ -91,6 +107,7 @@ public sealed class RechazarAjustePropuestaHandler(CuentasPorCobrarDbContext db,
             throw new BusinessRuleException("PAP_SIN_AJUSTE_POR_AUTORIZAR",
                 "Solo se rechaza aquí una propuesta con ajuste pendiente de autorización.");
 
+        await RedondeoCobroAutorizacion.ExigirAsync(propuesta, permisos, "rechazar", cancellationToken);
         propuesta.Rechazar(usuarioId, $"Ajuste rechazado: {command.Motivo.Trim()}", clock.UtcNow);
         await db.SaveChangesAsync(cancellationToken);
         return await PropuestaAplicacionMapper.ToResponseAsync(db, propuesta, cancellationToken);

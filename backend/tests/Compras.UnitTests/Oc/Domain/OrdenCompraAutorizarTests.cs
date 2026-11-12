@@ -10,7 +10,7 @@ namespace Millet.Compras.UnitTests.Oc.Domain;
 /// </summary>
 public class OrdenCompraAutorizarTests
 {
-    private static OrdenCompra NewOcConLineaBorrador(bool importacion = false)
+    private static OrdenCompra NewOcConLineaBorrador(bool importacion = false, bool servicioCe = false)
     {
         var oc = new OrdenCompra(
             id: Guid.CreateVersion7(),
@@ -26,15 +26,29 @@ public class OrdenCompraAutorizarTests
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             esImportacion: importacion,
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test autorizar", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
+            motivoSinRequisicion: "Test autorizar", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99", esServicioComercioExterior: servicioCe);
         oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),
             articuloId: Guid.CreateVersion7(),
             cantidad: 10m,
             unidadMedida: "PZA",
             precioUnitario: 100m,
-            departamentoSolicitanteId: Guid.CreateVersion7());
+            departamentoSolicitanteId: Guid.CreateVersion7(), esServicio: servicioCe);
         return oc;
+    }
+
+    [Fact]
+    public void Servicio_CE_siempre_conserva_dos_firmas_aunque_sea_menor_cuantia()
+    {
+        var oc = new OrdenCompra(Guid.NewGuid(), Guid.NewGuid(), Millet.Compras.Domain.Oc.Folio.Parse("OC-MID2026-000099"), 2026,
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            new(2026, 11, 11), sinRequisicionPrevia: true, motivoSinRequisicion: "Servicio CE ficticio",
+            usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99", esServicioComercioExterior: true);
+        oc.AgregarLineaManual(Guid.NewGuid(), Guid.NewGuid(), 1, "SERV", 100, Guid.NewGuid(), esServicio: true);
+        oc.EnviarAAutorizacion(DateTimeOffset.UtcNow, requiereNivel2: false);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Equal(EstadoOrdenCompra.EnAutorizacionDireccion, oc.Estado);
+        Assert.True(oc.RequiereNivel2);
     }
 
     [Fact]
@@ -182,4 +196,38 @@ public class OrdenCompraAutorizarTests
         oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
         Assert.Equal(EstadoOrdenCompra.EnAutorizacionJefeCompras, oc.Estado);
     }
+    [Fact]
+    public void Cancelar_factura_CE_devuelve_a_correccion_y_conserva_firmas_del_ciclo_anterior()
+    {
+        var oc = NewOcConLineaBorrador(servicioCe: true);
+        var ahora = DateTimeOffset.UtcNow;
+        oc.EnviarAAutorizacion(ahora);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), ahora);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, Guid.NewGuid(), ahora.AddMinutes(1));
+        oc.DevolverServicioPorFacturaCancelada(Guid.NewGuid());
+        Assert.Equal(EstadoOrdenCompra.Rechazada, oc.Estado);
+        Assert.Equal(2, oc.Autorizaciones.Count);
+        oc.EnviarAAutorizacion(ahora.AddMinutes(3));
+        Assert.Equal(2, oc.CicloAutorizacion);
+        Assert.Equal(EstadoOrdenCompra.EnAutorizacionJefeCompras, oc.Estado);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), ahora.AddMinutes(4));
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, Guid.NewGuid(), ahora.AddMinutes(5));
+        Assert.Equal(EstadoOrdenCompra.Autorizada, oc.Estado);
+        Assert.Equal(4, oc.Autorizaciones.Count);
+    }
+
+    [Fact]
+    public void Facturacion_servicio_CE_despues_de_N1_no_adelanta_N2_ni_admite_pago()
+    {
+        var oc = NewOcConLineaBorrador(servicioCe: true);
+        var ahora = DateTimeOffset.UtcNow;
+        oc.EnviarAAutorizacion(ahora);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), ahora);
+        var resultado = oc.RegistrarFacturacionLinea(oc.Lineas.Single().Id, oc.Lineas.Single().Cantidad, ahora);
+        Assert.Equal(EstadoOrdenCompra.EnAutorizacionDireccion, oc.Estado);
+        Assert.Equal(SubEstadoFacturacion.Completa, oc.SubEstadoFacturacion);
+        Assert.Null(resultado.Cerrada);
+        Assert.Equal("OC_MOVIMIENTO_ESTADO_INVALIDO", Assert.Throws<BusinessRuleException>(() => oc.RegistrarPago(1, ahora)).Code);
+    }
+
 }

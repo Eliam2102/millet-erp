@@ -35,8 +35,8 @@ public enum TipoAjusteCobro : short
 ///
 /// <para>
 /// Invariantes (§4.2): <c>Σ importe_aplicado + ajuste_no_fiscal =
-/// monto_deposito - saldo_a_favor_por_identificar</c>; el ajuste solo puede ser negativo (depósito corto)
-/// y menor a la tolerancia no fiscal (parámetro, default $50 USD — gate
+/// monto_deposito - saldo_a_favor_por_identificar</c>; el ajuste es negativo (depósito corto, menor a la tolerancia no fiscal)
+/// o, solo si es redondeo (M-326), un excedente positivo de hasta $0.99. La tolerancia no fiscal (parámetro, default $50 USD — gate
 /// fiscal pendiente); sin <c>remittance_ref</c> no se puede proponer
 /// (regla 2.1). La confirmación NO aplica pagos a cartera — eso lo hace
 /// el REPP timbrado vía eventos de Facturación.
@@ -45,7 +45,7 @@ public enum TipoAjusteCobro : short
 public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     /// <summary>
-    /// M-326: un faltante de hasta este importe (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo ni autorización.
+    /// M-326: un faltante de hasta este importe (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo; su autorización la da el Gerente de Área.
     /// Supuesto a validar con Contabilidad. Un faltante que se documenta con tipo y motivo (comisión, diferencia menor, M-086) no es redondeo.
     /// </summary>
     public const decimal ToleranciaRedondeo = 0.99m;
@@ -63,7 +63,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
     public string Moneda { get; private set; } = default!;
     public string RemittanceRef { get; private set; } = default!;
 
-    /// <summary>Diferencia depósito − Σ importes; solo ≤ 0 y dentro de tolerancia.</summary>
+    /// <summary>Diferencia depósito − Σ importes: ≤ 0 dentro de tolerancia, o un excedente de redondeo (≤ $0.99, M-326).</summary>
     public decimal AjusteNoFiscal { get; private set; }
 
     /// <summary>CXC-06: tipo del ajuste (cuenta de la póliza); null si no hay ajuste.</summary>
@@ -91,8 +91,11 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
     /// <summary>CXC-06: REP timbrado de la propuesta (correlaciona el movimiento de cartera con la póliza del cobro).</summary>
     public Guid? ReciboPagoId { get; private set; }
 
+    /// <summary>M-326 parte 2: el redondeo lo autoriza o rechaza quien tenga el permiso de Gerente de Área, no cualquier autorizador de ajustes.</summary>
+    public bool RequiereGerenteDeArea => TipoAjuste == TipoAjusteCobro.Redondeo;
+
     /// <summary>CXC-06: el ajuste espera autorización; mientras tanto la propuesta no se envía a Tesorería.</summary>
-    public bool AjustePorAutorizar => AjusteNoFiscal < 0 && AjusteAutorizadoEn is null && Estado == EstadoPropuestaAplicacion.Propuesta;
+    public bool AjustePorAutorizar => AjusteNoFiscal != 0 && AjusteAutorizadoEn is null && Estado == EstadoPropuestaAplicacion.Propuesta;
 
     public EstadoPropuestaAplicacion Estado { get; private set; }
     public string? MotivoRechazo { get; private set; }
@@ -139,6 +142,10 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         if (tipoAjuste == TipoAjusteCobro.Redondeo)
             throw new BusinessRuleException("PAP_AJUSTE_TIPO_INVALIDO", "El redondeo lo asigna el sistema a los faltantes de hasta $0.99; no se elige como tipo de ajuste.");
         var esRedondeo = ajuste < 0 && Math.Abs(ajuste) <= ToleranciaRedondeo && tipoAjuste is null;
+        // M-326 parte 2 (a): un excedente de hasta $0.99 (el cliente depositó centavos de más) también es redondeo: va a REDONDEO como
+        // abono, no a saldo a favor. Un excedente mayor sigue como saldo a favor por identificar.
+        var esExcedenteRedondeo = ajuste > 0 && ajuste <= ToleranciaRedondeo && tipoAjuste is null;
+        var redondea = esRedondeo || esExcedenteRedondeo;
 
         if (!esRedondeo && ajuste < 0 && Math.Abs(ajuste) >= toleranciaNoFiscal)
             throw new BusinessRuleException("PAP_TOLERANCIA_EXCEDIDA",
@@ -164,16 +171,15 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             MontoDeposito = montoDeposito,
             Moneda = moneda,
             RemittanceRef = remittanceRef.Trim(),
-            AjusteNoFiscal = Math.Min(0, ajuste),
-            SaldoAFavorPorIdentificar = Math.Max(0, ajuste),
+            AjusteNoFiscal = esExcedenteRedondeo ? ajuste : Math.Min(0, ajuste),
+            SaldoAFavorPorIdentificar = esExcedenteRedondeo ? 0 : Math.Max(0, ajuste),
             PropuestoPor = propuestoPor,
             // C7.4: depósito sin identificar que CxC identificó (Tesorería lo
             // preselecciona); al confirmar, Tesorería informa el movimiento real.
             MovimientoBancarioId = movimientoBancarioId,
-            TipoAjuste = esRedondeo ? TipoAjusteCobro.Redondeo : conAjuste ? tipoAjuste : null,
-            MotivoAjuste = esRedondeo ? $"Redondeo de hasta ${ToleranciaRedondeo:0.00}" : conAjuste ? motivoAjuste!.Trim() : null,
-            // M-326: el redondeo no espera autorización (queda autorizado por el sistema, sin persona).
-            AjusteAutorizadoEn = esRedondeo ? ahora ?? DateTimeOffset.UtcNow : null,
+            TipoAjuste = redondea ? TipoAjusteCobro.Redondeo : conAjuste ? tipoAjuste : null,
+            MotivoAjuste = redondea ? $"Redondeo de hasta ${ToleranciaRedondeo:0.00}" : conAjuste ? motivoAjuste!.Trim() : null,
+            // M-326 parte 2 (c): el redondeo también espera la autorización del Gerente de Área (otra persona, no quien propone).
             Estado = EstadoPropuestaAplicacion.Propuesta,
         };
 
@@ -220,7 +226,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
     public void AutorizarAjuste(Guid usuarioId, DateTimeOffset ahora, bool tieneSoporte = false)
     {
         AsegurarPropuesta();
-        if (AjusteNoFiscal >= 0)
+        if (AjusteNoFiscal == 0)
             throw new BusinessRuleException("PAP_SIN_AJUSTE", "La propuesta no tiene ajuste que autorizar.");
         if (AjusteAutorizadoEn is not null)
             throw new BusinessRuleException("PAP_AJUSTE_YA_AUTORIZADO", "El ajuste ya fue autorizado.");
@@ -244,6 +250,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
     public void RevertirAjuste(Guid usuarioId, string motivo, DateTimeOffset ahora)
     {
         if (AjusteNoFiscal >= 0 || AjusteAutorizadoEn is null)
+            // M-326 parte 2: el excedente de redondeo (ajuste positivo) no se revierte aquí; solo el faltante.
             throw new BusinessRuleException("PAP_SIN_AJUSTE_AUTORIZADO", "La propuesta no tiene un ajuste autorizado que revertir.");
         if (AjusteRevertidoEn is not null)
             throw new BusinessRuleException("PAP_AJUSTE_YA_REVERTIDO", "El ajuste ya fue revertido.");

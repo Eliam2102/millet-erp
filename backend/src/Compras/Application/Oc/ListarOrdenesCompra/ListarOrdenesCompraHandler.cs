@@ -135,6 +135,7 @@ public sealed class ListarOrdenesCompraHandler
                 o.FechaDocumento,
                 o.ReferenciaProveedor)
             {
+                EsServicioComercioExterior = o.EsServicioComercioExterior,
                 EstadoComercialProveedor = o.EstadoComercialProveedor,
                 FechaCompromisoProveedor = o.FechaCompromisoProveedor,
             })

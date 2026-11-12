@@ -164,8 +164,13 @@ El índice de barrido selecciona `erp_resultado IS NULL` o `Error`, orden por id
   conserva la protección manual. Se auditan actor, fecha, decisión y motivo. Una decisión
   sobre un valor ERP ya modificado o versión antigua se rechaza
   (`CE_OTR_CONFLICTO_DESACTUALIZADO`); no hay sobrescritura silenciosa.
-- Cancelación de origen: vínculo Cancelado, partidas en revisión; pedidos y facturas se
-  conservan. Un id cancelado no se reactiva (`CE_OTR_CANCELADO`); se requiere un nuevo id.
+- Cancelación de origen (890): vínculo Cancelado; pedidos y facturas se conservan. Un id cancelado no se
+  reactiva (`CE_OTR_CANCELADO`); el cambio llega como un envío nuevo (M-445, Guadalupe Polanco 6-nov). Si el
+  contenedor del envío cancelado está activo, sin embarque real, sin preparación para facturar y sin factura,
+  el ERP lo cancela: sus partidas dejan de reservar cantidad y el envío nuevo, al vincularse, las toma bajo K3
+  sin duplicarlas. Si no se puede cancelar (embarcado, preparado o con factura), sus partidas quedan en
+  revisión y el envío nuevo queda Pendiente con `CE_CANTIDAD_EXCEDE_PEDIDO` hasta resolverlas a mano.
+  Demo: `aw-origen-demo.sh otr-cancelacion` cancela `DEMO-OTR-1` y carga `DEMO-OTR-3`.
 - Cierre financiero sigue bloqueado por CE-03 (`CE_CIERRE_FINANCIERO_PENDIENTE`). El
   cierre no se informa a A+W (ver «Regreso a A+W: no aplica»).
 

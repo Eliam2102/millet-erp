@@ -93,6 +93,16 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
     public string Moneda { get; private set; } = "MXN";
     public decimal? TipoCambio { get; private set; }
+    /// <summary>M-080: TC del catálogo a la fecha del documento cuando el capturado se apartó más que la tolerancia y se confirmó.</summary>
+    public decimal? TipoCambioCatalogo { get; private set; }
+    /// <summary>M-080: quién confirmó el TC capturado fuera de tolerancia.</summary>
+    public Guid? TipoCambioAutorizadoPor { get; private set; }
+
+    public void RegistrarTipoCambioConfirmado(decimal catalogo, Guid autorizadoPor)
+    {
+        TipoCambioCatalogo = catalogo;
+        TipoCambioAutorizadoPor = autorizadoPor;
+    }
 
     public decimal Subtotal { get; private set; }
     public decimal Descuentos { get; private set; }
@@ -172,6 +182,13 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     public decimal NcAplicadasTotal { get; private set; }
     public decimal CargosAplicadosTotal { get; private set; }
     public decimal ImportePagado { get; private set; }
+    public bool EsServicioComercioExterior { get; private set; }
+    public void IdentificarServicioComercioExterior()
+    {
+        if (OrdenCompraId is null || Estado != EstadoPasivo.Capturada)
+            throw new BusinessRuleException("CE_SERVICIO_OC_REQUERIDA", "El servicio de comercio exterior requiere una factura capturada con orden de compra.");
+        EsServicioComercioExterior = true;
+    }
 
     /// <summary>Saldo pendiente = Total − Anticipos − NCs − Pagado. Calculado, persistido.</summary>
     public decimal ImporteSaldado => ImportePagado + AnticipoAplicadoTotal + NcAplicadasTotal + CargosAplicadosTotal;
@@ -755,7 +772,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// disparar desde F4 cuando el flujo de revisión cierre; F3-PR1 lo
     /// expone para uso interno y test de transiciones).
     /// </summary>
-    public void Autorizar(Guid? usuarioId, DateTimeOffset ahora)
+    public void Autorizar(Guid? usuarioId, DateTimeOffset ahora, bool servicioCeConSegundaFirma = false)
     {
         if (Estado is not (EstadoPasivo.Capturada or EstadoPasivo.EnRevision))
         {
@@ -768,6 +785,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
             throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra los complementos pendientes en Tesorería antes de volver a autorizar.");
         if (AlertaRetenciones is not null && RetencionesRevisadasEn is null)
             throw new BusinessRuleException("CXP_RETENCIONES_SIN_REVISAR", "Las retenciones no coinciden con el proveedor: Fiscal debe revisarlas antes de autorizar el pago.");
+        if (EsServicioComercioExterior && !servicioCeConSegundaFirma)
+            throw new BusinessRuleException("CE_SERVICIO_SIN_SEGUNDA_FIRMA", "Dirección Comercial debe registrar la segunda firma de la orden antes de liberar el pasivo a Tesorería.");
         var anterior = Estado;
         Estado = EstadoPasivo.Autorizada;
         EnRevision = false;

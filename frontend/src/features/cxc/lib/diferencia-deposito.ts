@@ -4,7 +4,7 @@ export const TOLERANCIA_REDONDEO = 0.99;
 
 export function diferenciaDeposito(monto: number, aplicado: number, tolerancia: number | null) {
   const diferencia = Math.round((monto - aplicado) * 100) / 100;
-  // M-326: un faltante de hasta $0.99 (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo ni autorización y no
+  // M-326: un faltante de hasta $0.99 (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo (lo autoriza el Gerente de Área) y no
   // depende de la tolerancia no fiscal. Supuesto a validar con Contabilidad.
   const esRedondeo = diferencia < 0 && -diferencia <= TOLERANCIA_REDONDEO;
   return {

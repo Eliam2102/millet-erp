@@ -4,8 +4,27 @@ using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 
 namespace Millet.CuentasPorPagar.Infrastructure.PublicAdapters;
-public sealed class FacturaGastoReadAdapter(CuentasPorPagarDbContext db, IPagosFacturaCeReadPort pagos) : IFacturaGastoReadPort
+public sealed class FacturaGastoReadAdapter(CuentasPorPagarDbContext db, IPagosFacturaCeReadPort pagos, Millet.CuentasPorPagar.Domain.Ports.Compras.IComprasOcReadPort compras) : IFacturaGastoReadPort
 {
+    public async Task<IReadOnlyList<FacturaServicioSaldo>> ObtenerSaldosAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0) return [];
+        var facturas = await db.FacturasProveedor.AsNoTracking().Where(f => f.EmpresaId == empresaId && ids.Contains(f.Id)).ToArrayAsync(ct);
+        var vigentes = await pagos.ImportesVigentesAsync(empresaId, ids, ct);
+        var firmas = new Dictionary<Guid, bool>();
+        foreach (var ocId in facturas.Where(f => f.EsServicioComercioExterior).Select(f => f.OrdenCompraId).OfType<Guid>().Distinct())
+        {
+            var oc = await compras.ObtenerAsync(ocId, ct);
+            firmas[ocId] = oc is { EsServicioComercioExterior: true, ServicioCeNivel1Autorizado: true, ServicioCeNivel2Autorizado: true }
+                && oc.EmpresaId == empresaId && oc.Estado is "Autorizada" or "Cerrada";
+        }
+        // Una reversa bancaria aún pendiente de proyección en CxP no puede aparentar saldo cero.
+        return facturas.Select(f => new FacturaServicioSaldo(f.Id, f.EmpresaId, f.ProveedorId, f.SucursalId,
+            f.UuidCfdi ?? f.FolioProveedor ?? f.Id.ToString(), f.SaldoPendiente + Math.Max(0, f.ImportePagado - vigentes.GetValueOrDefault(f.Id)),
+            (f.Estado is EstadoPasivo.Autorizada or EstadoPasivo.Pagada)
+                && (!f.EsServicioComercioExterior || (f.OrdenCompraId is Guid ocId && firmas.GetValueOrDefault(ocId))),
+            vigentes.GetValueOrDefault(f.Id) > f.ImportePagado, f.Moneda)).ToArray();
+    }
     public async Task<FacturaGastoLectura?> BuscarAsync(Guid proveedorId, string referencia, Guid? id, CancellationToken ct)
     {
         referencia = referencia.Trim().ToUpperInvariant();

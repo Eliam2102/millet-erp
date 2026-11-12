@@ -44,6 +44,23 @@ public sealed partial class Expediente
         if (afectadas.Length > 0) VersionarEmbarque(ResponsableUsuarioId);
         if (afectadas.Length > 0) RevisionContenido++;
     }
+    /// <summary>
+    /// M-445: en OTR una ruta en 890 se cancela y el cambio llega como un envío nuevo (Guadalupe Polanco, 6-nov).
+    /// Si el contenedor del envío cancelado sigue activo, sin embarque real, sin preparación para facturar y sin
+    /// factura, se cancela: sus partidas dejan de reservar cantidad y el envío que lo reemplaza las toma sin
+    /// duplicarlas. Si no se puede cancelar, las partidas quedan en revisión para resolverlas a mano.
+    /// </summary>
+    public bool CancelarContenedorOtr(Guid contenedorId, bool tieneFactura)
+    {
+        var contenedor = _contenedores.SingleOrDefault(c => c.Id == contenedorId);
+        if (Estado == EstadoExpediente.Abierto && !tieneFactura && contenedor is { Estado: EstadoContenedor.Activo, FechaEmbarqueReal: null, PreparadoParaFacturarEn: null })
+        {
+            CancelarContenedor(contenedorId, "Ruta cancelada en OTR (estatus 890); el cambio llega como un envío nuevo.", tieneFactura: false);
+            return true;
+        }
+        RevisarPartidasOtr(_partidas.Where(p => p.ContenedorId == contenedorId).Select(p => p.Id).ToArray());
+        return false;
+    }
     public void RegistrarPedimentoExportacion(string numero, string clave, DateOnly fecha, DateOnly hoy, string? aduana, Guid? documentoId = null)
     {
         ExigirExportacion();

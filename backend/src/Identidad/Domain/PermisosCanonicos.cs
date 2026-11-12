@@ -529,6 +529,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarCarteraLeer             = "cuentas_por_cobrar.cartera.leer";
     public const string CuentasPorCobrarAplicacionPagoProponer  = "cuentas_por_cobrar.aplicacion-pago.proponer";
     public const string CuentasPorCobrarAplicacionPagoConfirmar = "cuentas_por_cobrar.aplicacion-pago.confirmar";
+    /// <summary>M-326 parte 2: autorizar o rechazar un redondeo de cobro (hasta $0.99). Lo asigna Administración al Gerente de Área.</summary>
+    public const string CuentasPorCobrarAplicacionPagoAutorizarRedondeo = "cuentas_por_cobrar.aplicacion-pago.autorizar-redondeo";
     // C7.2 (86e3kdxy6): administrar las reglas de liberación por serie.
     public const string CuentasPorCobrarReglasSerieGestionar    = "cuentas_por_cobrar.reglas-serie.gestionar";
     // C7.7 (86e3jvv4q): conciliar la cartera a demanda; leer las corridas usa cartera.leer.
@@ -694,6 +696,8 @@ public static class PermisosCanonicos
     public const string ComercioExteriorAnticiposRevertirComprobacionSolicitar = "comercio_exterior.anticipos.revertir-comprobacion-solicitar";
     /// <summary>M-327: autorizar o no la reversa de la comprobación (Contador General, Millet 10-nov-2026). Quien solicita no autoriza.</summary>
     public const string ComercioExteriorAnticiposRevertirComprobacionAutorizar = "comercio_exterior.anticipos.revertir-comprobacion-autorizar";
+    public const string ComercioExteriorServiciosAutorizarNivel1 = "comercio_exterior.servicios.autorizar-nivel1";
+    public const string ComercioExteriorServiciosAutorizarNivel2 = "comercio_exterior.servicios.autorizar-nivel2";
     public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
     public const string ComercioExteriorContenedoresGestionar = "comercio_exterior.expedientes.contenedores-gestionar";
     public const string ComercioExteriorRelacionIvaLeer = "comercio_exterior.relacion-iva.leer";
@@ -1043,6 +1047,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0004-0000-0000-000000000001"), CuentasPorCobrarCarteraLeer,             "Consultar cartera, antigüedad de saldos, estado de cuenta y alertas"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000002"), CuentasPorCobrarAplicacionPagoConfirmar, "Confirmar o rechazar propuestas de aplicación de pago (Ingresos)"),
+        (Guid.Parse("0000000a-0005-0000-0000-000000000003"), CuentasPorCobrarAplicacionPagoAutorizarRedondeo, "Autorizar o rechazar el redondeo de hasta $0.99 de un cobro (Gerente de Área, distinto de quien propone)"),
         (Guid.Parse("0000000a-0006-0000-0000-000000000001"), CuentasPorCobrarReglasSerieGestionar,    "Dar de alta, cambiar y activar o desactivar las reglas de liberación por serie"),
         (Guid.Parse("0000000a-0007-0000-0000-000000000001"), CuentasPorCobrarConciliacionEjecutar,    "Ejecutar a demanda la conciliación diaria de cartera contra facturación"),
 
@@ -1132,6 +1137,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000004"), ComercioExteriorAnticiposRevertirComprobacionSolicitar, "Solicitar con motivo la reversa de un anticipo al agente ya comprobado"),
+        (Guid.Parse("0000000e-0010-0000-0000-000000000001"), ComercioExteriorServiciosAutorizarNivel1, "Primera firma de servicios de Comercio Exterior para permitir registro de pasivo"),
+        (Guid.Parse("0000000e-0010-0000-0000-000000000002"), ComercioExteriorServiciosAutorizarNivel2, "Segunda firma de servicios de Comercio Exterior por Dirección Comercial para habilitar programación de pago"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000005"), ComercioExteriorAnticiposRevertirComprobacionAutorizar, "Autorizar la reversa de un anticipo al agente ya comprobado contra su saldo a favor (Contador General; no quien la solicitó)"),
         (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),
         (Guid.Parse("0000000e-0001-0000-0000-00000000000b"), ComercioExteriorContenedoresGestionar, "Gestionar contenedores y partidas"),

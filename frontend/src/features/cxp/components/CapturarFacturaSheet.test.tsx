@@ -211,9 +211,9 @@ describe('<CapturarFacturaSheet> — OcSelector deriva proveedor/sucursal', () =
 });
 
 describe('<CapturarFacturaSheet> — tipo de cambio (C1.2)', () => {
-  const aviso = /usa el tipo de cambio oficial del catálogo para la fecha del documento/i;
+  const aviso = /Sugerido del CFDI y editable/i;
 
-  it('en moneda extranjera avisa que el pasivo usa el TC del catálogo y acepta dejar el campo vacío', () => {
+  it('en moneda extranjera avisa que el TC es editable (M-080) y acepta dejar el campo vacío', () => {
     render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
       wrapper: createQueryWrapper(),
     });
@@ -224,7 +224,7 @@ describe('<CapturarFacturaSheet> — tipo de cambio (C1.2)', () => {
     fireEvent.change(screen.getByDisplayValue('MXN'), { target: { value: 'USD' } });
     expect(screen.getByText(aviso)).toBeInTheDocument();
 
-    // El TC del CFDI es informativo: capturarlo no quita el aviso.
+    // M-080: el TC capturado manda dentro de la tolerancia; el aviso sigue.
     const tipoCambio = screen.getByPlaceholderText('1.0000');
     fireEvent.change(tipoCambio, { target: { value: '18.40' } });
     expect(screen.getByText(aviso)).toBeInTheDocument();

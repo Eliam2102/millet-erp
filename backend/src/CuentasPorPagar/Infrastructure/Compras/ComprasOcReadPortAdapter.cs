@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain.Oc;
+using Millet.Compras.Domain;
 using Millet.Compras.Infrastructure;
 using Millet.CuentasPorPagar.Domain.Ports.Compras;
 
@@ -66,7 +67,7 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
     public async Task<OrdenCompraDto?> ObtenerAsync(Guid ordenCompraId, CancellationToken cancellationToken)
     {
         var oc = await _db.OrdenesCompra
-            .Include(o => o.Lineas)
+            .Include(o => o.Lineas).Include(o => o.Autorizaciones)
             .FirstOrDefaultAsync(o => o.Id == ordenCompraId, cancellationToken);
 
         return oc is null ? null : MapToDto(oc);
@@ -77,8 +78,8 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
         CancellationToken cancellationToken)
     {
         var ocs = await _db.OrdenesCompra
-            .Include(o => o.Lineas)
-            .Where(o => o.ProveedorId == proveedorId && o.Estado == EstadoOrdenCompra.Autorizada)
+            .Include(o => o.Lineas).Include(o => o.Autorizaciones)
+            .Where(o => o.ProveedorId == proveedorId && (o.Estado == EstadoOrdenCompra.Autorizada || (o.EsServicioComercioExterior && o.Estado == EstadoOrdenCompra.EnAutorizacionDireccion)))
             .ToListAsync(cancellationToken);
 
         return ocs.Select(MapToDto).ToList();
@@ -114,6 +115,9 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
             Total: totales.TotalAPagar,
             Estado: oc.Estado.ToString(),
             Lineas: lineas,
-            Moneda: oc.Moneda, Obra: oc.Obra, ServicioConfirmado: oc.ServicioConfirmadoEn is not null);
+            Moneda: oc.Moneda, Obra: oc.Obra, ServicioConfirmado: oc.ServicioConfirmadoEn is not null,
+            EsServicioComercioExterior: oc.EsServicioComercioExterior,
+            ServicioCeNivel1Autorizado: oc.Autorizaciones.Any(a => a.Ciclo == oc.CicloAutorizacion && a.Nivel == NivelAutorizacion.Nivel1 && a.Resultado == ResultadoAutorizacionOc.Autorizado),
+            ServicioCeNivel2Autorizado: oc.Autorizaciones.Any(a => a.Ciclo == oc.CicloAutorizacion && a.Nivel == NivelAutorizacion.Nivel2 && a.Resultado == ResultadoAutorizacionOc.Autorizado));
     }
 }
