@@ -1504,6 +1504,70 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("terminal_liquidacion", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Cajas.Terminal.TerminalAfiliacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activa");
+
+                    b.Property<string>("Afiliacion")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("afiliacion");
+
+                    b.Property<string>("CodTerminal")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("cod_terminal");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .HasColumnType("text")
+                        .HasColumnName("descripcion");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_terminales_afiliacion");
+
+                    b.ToTable("terminales_afiliacion", "facturacion");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal", b =>
                 {
                     b.Property<Guid>("Id")
