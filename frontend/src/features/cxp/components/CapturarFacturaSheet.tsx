@@ -151,6 +151,9 @@ export function CapturarFacturaSheet({
   // cfdiPreseleccionado, i.e. desde la bandeja de Facturas). Guarda el item
   // completo para la metadata del aside; el prop tiene precedencia.
   const [cfdiSel, setCfdiSel] = useState<CfdiListItem | null>(null);
+  // M-080: el servidor pidió confirmar un TC fuera de tolerancia contra el catálogo.
+  const [pideConfirmarTc, setPideConfirmarTc] = useState(false);
+  const [confirmaTc, setConfirmaTc] = useState(false);
   const cfdiBase = cfdiPreseleccionado ?? cfdiSel;
 
   // Proveedor del panel de pendientes cuando no hay CFDI vinculado.
@@ -251,6 +254,7 @@ export function CapturarFacturaSheet({
   const monedaSel = useWatch({ control: form.control, name: 'moneda' });
   const lineasActuales = useWatch({ control: form.control, name: 'lineas' });
   const puedeLeerRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesLeer);
+  const puedeConfirmarTc = useHasPermission(PermisosCanonicos.ContabilidadTipoCambioAutorizarSustituto);
   const catalogo = useRetenciones(open && puedeLeerRetenciones);
   const conceptoRetencion = useWatch({ control: form.control, name: 'conceptoRetencion' }) ?? '';
   const baseRetencion =
@@ -298,6 +302,7 @@ export function CapturarFacturaSheet({
           fechaDocumento: toIso(values.fechaDocumento),
           fechaContabilizacion: toIso(values.fechaContabilizacion),
           tipoCambio: values.tipoCambio ?? null,
+          confirmaTipoCambio: confirmaTc,
           lineas: values.lineas.map((l) => ({
             articuloId: l.articuloId ?? null,
             claveProdServ: l.claveProdServ ?? null,
@@ -338,6 +343,7 @@ export function CapturarFacturaSheet({
         },
         onError: (error) => {
           if (esApiError(error)) {
+            if (error.problem.code === 'TIPO_CAMBIO_REQUIERE_CONFIRMACION') setPideConfirmarTc(true);
             if (
               applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
@@ -575,9 +581,23 @@ export function CapturarFacturaSheet({
                   />
                   {monedaSel?.trim().toUpperCase() !== 'MXN' && (
                     <p className="text-xs text-ink-muted">
-                      El pasivo usa el tipo de cambio oficial del catálogo para la fecha del documento;
-                      el del CFDI es informativo.
+                      Sugerido del CFDI y editable. Si se aparta del tipo de cambio oficial de la fecha más que la
+                      tolerancia, hay que confirmarlo; vacío usa el oficial.
                     </p>
+                  )}
+                  {pideConfirmarTc && (
+                    <label className="mt-1 flex items-start gap-2 text-xs text-ink">
+                      <input
+                        type="checkbox"
+                        checked={confirmaTc}
+                        onChange={(e) => setConfirmaTc(e.target.checked)}
+                        disabled={!puedeConfirmarTc}
+                      />
+                      <span>
+                        Confirmo este tipo de cambio aunque difiere del oficial
+                        {puedeConfirmarTc ? '.' : ' (requiere el permiso de Contador General).'}
+                      </span>
+                    </label>
                   )}
                 </Campo>
               </FormSeccion>
