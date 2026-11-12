@@ -73,6 +73,7 @@ import {
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { cn } from '@/lib/utils';
@@ -184,15 +185,19 @@ export function MiCaja() {
 
 function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId: string } | null }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
-  const cajas = useListarCajas(true);
   const abrir = useAbrirSesion();
   const idempotencyKey = useFormIdempotencyKey();
+  // H-U28: la sucursal del encabezado se preselecciona y filtra las cajas ofrecidas.
+  const sucursalEncabezado = useAuthStore((s) => s.currentSucursalId);
 
   const [cajaId, setCajaId] = useState<string | null>(ultima?.cajaId ?? null);
   // Aviso [12-C]: los ajustes pendientes de la caja elegida se drenan
   // automáticamente al abrir — el cajero debe saberlo antes de declarar.
   const ajustes = useAjustesCaja(cajaId);
-  const [sucursalId, setSucursalId] = useState<string | null>(ultima?.sucursalId ?? null);
+  const [sucursalId, setSucursalId] = useState<string | null>(
+    ultima?.sucursalId ?? sucursalEncabezado ?? null,
+  );
+  const cajas = useListarCajas(true, sucursalId);
   const [fondo, setFondo] = useState('');
   const [autorizacionId, setAutorizacionId] = useState('');
   const [pideAutorizacion, setPideAutorizacion] = useState(false);
@@ -261,7 +266,13 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
         </div>
         <div className="space-y-1">
           <Label>Sucursal de operación</Label>
-          <SucursalSelector value={sucursalId} onChange={setSucursalId} />
+          <SucursalSelector
+            value={sucursalId}
+            onChange={(id) => {
+              setSucursalId(id);
+              setCajaId(null);
+            }}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="fondo">Fondo de apertura (MXN)</Label>

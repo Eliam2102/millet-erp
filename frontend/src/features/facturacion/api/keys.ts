@@ -169,7 +169,7 @@ export const facturacionKeys = {
 
   // Cajas (CAJAS-PR5)
   cajas: () => [...facturacionKeys.all, 'cajas'] as const,
-  cajasList: (filtros: { soloActivas?: boolean }) =>
+  cajasList: (filtros: { soloActivas?: boolean; sucursalId?: string | null }) =>
     [...facturacionKeys.cajas(), 'list', filtros] as const,
   cajaById: (id: string) => [...facturacionKeys.cajas(), 'byId', id] as const,
   usuarioAlcances: () => [...facturacionKeys.cajas(), 'usuario-alcances'] as const,
