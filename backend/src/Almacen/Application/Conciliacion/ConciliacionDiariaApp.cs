@@ -35,7 +35,8 @@ public static class ConciliacionDiariaApp
     public static async Task<(ConciliacionDiaria Corrida, IReadOnlyList<DiferenciaConciliacion> Diferencias)> EjecutarAsync(
         AlmacenDbContext db, IIntegrationEventPublisher events, IVarianteVidrioReadPort variantes, IArticuloReadPort articulos,
         IPeriodoContableReadPort periodo, Guid empresaId, Guid usuarioId, Guid almacenId, DateOnly? fechaSolicitada, string fuente,
-        IReadOnlyList<FisicoLinea> lineas, CancellationToken ct, bool confirmarPendientes = false)
+        IReadOnlyList<FisicoLinea> lineas, CancellationToken ct, bool confirmarPendientes = false,
+        IReadOnlyCollection<string>? clavesSucursal = null)
     {
         if (lineas.Count == 0)
             throw new BusinessRuleException("CONCILIACION_SIN_LINEAS", "Reporta al menos una línea de físico.");
@@ -54,7 +55,7 @@ public static class ConciliacionDiariaApp
             ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{almacenId}'.");
         // M-225: con mensajes de la app o consumos de ese día sin aplicar, el faltante podría ser un evento que todavía no entra.
         // La corrida avisa y no baja nada hasta que el usuario confirma.
-        var pendientesDia = await PendientesDelDiaAsync(db, fecha, ct);
+        var pendientesDia = await PendientesDelDiaAsync(db, fecha, ct, clavesSucursal);
         if (pendientesDia.Count > 0 && !confirmarPendientes)
             throw new BusinessRuleException("CONCILIACION_EVENTOS_PENDIENTES",
                 $"Hay {pendientesDia.Count} mensaje(s) de la app o consumo(s) del {fecha:dd/MM/yyyy} sin aplicar (en revisión, con error o " +
@@ -174,27 +175,53 @@ public static class ConciliacionDiariaApp
     }
 
     /// <summary>M-225: mensajes de la app y consumos por composición recibidos ese día que no movieron saldo.</summary>
-    public static async Task<IReadOnlyList<EventoPendienteDia>> PendientesDelDiaAsync(AlmacenDbContext db, DateOnly fecha, CancellationToken ct)
+    /// <param name="clavesSucursal">Claves de la sucursal del almacén (Clave y ClaveAw): solo cuentan los mensajes de esa sucursal
+    /// (<c>datos.sucursal</c>) y los consumos de su clave. Null = todas.</param>
+    public static async Task<IReadOnlyList<EventoPendienteDia>> PendientesDelDiaAsync(AlmacenDbContext db, DateOnly fecha, CancellationToken ct,
+        IReadOnlyCollection<string>? clavesSucursal = null)
     {
         var desde = FechaNegocio.InicioUtc(fecha);
         var hasta = FechaNegocio.InicioUtc(fecha.AddDays(1));
         var mensajes = await db.MensajesApp.AsNoTracking()
             .Where(m => m.RecibidoAt >= desde && m.RecibidoAt < hasta && !m.Tipo.StartsWith("REQUISICION_")
                 && (m.Estado == AppAlmacenes.SalidaAppAlmacenes.EnRevision || m.Estado == "ERROR" || m.Estado == Domain.Idempotencia.MensajeApp.Pendiente))
-            .Select(m => new EventoPendienteDia(m.Tipo, m.Referencia ?? m.MensajeId, m.Estado, m.Error, m.RecibidoAt)).ToListAsync(ct);
+            .Select(m => new { m.Tipo, m.Referencia, m.MensajeId, m.Estado, m.Error, m.RecibidoAt, m.Payload }).ToListAsync(ct);
         var consumos = await db.ConsumosComponenteAw.AsNoTracking()
             .Where(c => c.RegistradoAt >= desde && c.RegistradoAt < hasta
                 && (c.Estado == Domain.Consumo.ConsumoComponenteAw.EnRevision || c.Estado == Domain.Consumo.ConsumoComponenteAw.Excepcion))
-            .Select(c => new EventoPendienteDia(Domain.Consumo.ConsumoComponenteAw.Tipo, c.Auftnr + " pos " + c.Pos, c.Estado, c.Error, c.RegistradoAt))
+            .Select(c => new { c.Auftnr, c.Pos, c.Estado, c.Error, c.RegistradoAt, c.ClaveSucursal })
             .ToListAsync(ct);
-        return [.. mensajes, .. consumos];
+        bool DeLaSucursal(string? clave) => clavesSucursal is null
+            || (clave is not null && clavesSucursal.Contains(clave.Trim(), StringComparer.OrdinalIgnoreCase));
+        return
+        [
+            .. mensajes.Where(m => DeLaSucursal(SucursalDelPayload(m.Payload)))
+                .Select(m => new EventoPendienteDia(m.Tipo, m.Referencia ?? m.MensajeId, m.Estado, m.Error, m.RecibidoAt)),
+            .. consumos.Where(c => DeLaSucursal(c.ClaveSucursal))
+                .Select(c => new EventoPendienteDia(Domain.Consumo.ConsumoComponenteAw.Tipo, $"{c.Auftnr} pos {c.Pos}", c.Estado, c.Error, c.RegistradoAt)),
+        ];
+    }
+
+    private static string? SucursalDelPayload(string payload)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(payload);
+            return doc.RootElement.TryGetProperty("datos", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.Object
+                && d.TryGetProperty("sucursal", out var s) && s.ValueKind == System.Text.Json.JsonValueKind.String ? s.GetString() : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
     /// M-225: lo que hay que ver antes de bajar un faltante: los consumos de la mesa de corte (salidas de consumo) y las mermas de proceso
     /// de ese día en la sucursal del almacén, más lo que quedó sin aplicar. Sirve para encontrar un evento omitido o duplicado.
     /// </summary>
-    public static async Task<EventosDelDia> EventosDelDiaAsync(AlmacenDbContext db, Guid almacenId, DateOnly fecha, CancellationToken ct)
+    public static async Task<EventosDelDia> EventosDelDiaAsync(AlmacenDbContext db, Guid almacenId, DateOnly fecha, CancellationToken ct,
+        IReadOnlyCollection<string>? clavesSucursal = null)
     {
         var almacen = await db.Almacenes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == almacenId, ct)
             ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{almacenId}'.");
@@ -209,6 +236,6 @@ public static class ConciliacionDiariaApp
         var mermas = await db.MermasProceso.AsNoTracking()
             .Where(x => x.SucursalId == almacen.SucursalId && x.Fecha == fecha)
             .Select(x => new EventoMesaDia(x.Tipo, x.MensajeId ?? x.Id.ToString(), x.ArticuloId, x.M2, x.Mesa, x.Estado)).ToListAsync(ct);
-        return new EventosDelDia(await PendientesDelDiaAsync(db, fecha, ct), [.. consumos, .. mermas]);
+        return new EventosDelDia(await PendientesDelDiaAsync(db, fecha, ct, clavesSucursal), [.. consumos, .. mermas]);
     }
 }

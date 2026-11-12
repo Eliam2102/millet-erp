@@ -43,7 +43,7 @@ public static class ConciliacionDiariaEndpoints
 
         group.MapPost("/", async (EjecutarConciliacionRequest req, AlmacenDbContext db, IIntegrationEventPublisher events,
             IVarianteVidrioReadPort variantes, IArticuloReadPort articulos, IPeriodoContableReadPort periodo,
-            DocumentoSucursalScope scope, ICurrentUserContext user, ICurrentEmpresaContext empresa, CancellationToken ct) =>
+            DocumentoSucursalScope scope, ICurrentUserContext user, ICurrentEmpresaContext empresa, ISucursalReadPort sucursales, CancellationToken ct) =>
         {
             var almacen = await db.Almacenes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == req.AlmacenId, ct)
                 ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{req.AlmacenId}'.");
@@ -54,7 +54,7 @@ public static class ConciliacionDiariaEndpoints
             var (corrida, difs) = await ConciliacionDiariaApp.EjecutarAsync(db, events, variantes, articulos, periodo, empresaId,
                 user.UserId ?? Guid.Empty, req.AlmacenId, req.Fecha, req.Fuente,
                 (req.Lineas ?? []).Select(l => new FisicoLinea(l.ArticuloId, l.ProductoAwVarianteId, l.Lote, l.Fisico)).ToList(), ct,
-                req.ConfirmarPendientes);
+                req.ConfirmarPendientes, await ClavesSucursalAsync(sucursales, almacen.SucursalId, ct));
             await db.SaveChangesAsync(ct);
             if (tx is not null) await tx.CommitAsync(ct);
             return Results.Ok(new CorridaResponse(corrida.Id, corrida.AlmacenId, almacen.Clave, corrida.Fecha, corrida.Fuente,
@@ -69,12 +69,13 @@ public static class ConciliacionDiariaEndpoints
 
         // M-225: antes de conciliar, los consumos de mesa y mermas del día y lo que quedó sin aplicar (evento omitido o duplicado).
         group.MapGet("/eventos-del-dia", async ([FromQuery] Guid almacenId, [FromQuery] DateOnly fecha, AlmacenDbContext db,
-            DocumentoSucursalScope scope, CancellationToken ct) =>
+            DocumentoSucursalScope scope, ISucursalReadPort sucursales, CancellationToken ct) =>
         {
             var almacen = await db.Almacenes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == almacenId, ct)
                 ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{almacenId}'.");
             await scope.VerificarSucursalAsync(almacen.SucursalId, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
-            return Results.Ok(await ConciliacionDiariaApp.EventosDelDiaAsync(db, almacenId, fecha, ct));
+            return Results.Ok(await ConciliacionDiariaApp.EventosDelDiaAsync(db, almacenId, fecha, ct,
+                await ClavesSucursalAsync(sucursales, almacen.SucursalId, ct)));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosCrear)
         .WithName("EventosDelDiaConciliacion")
@@ -207,5 +208,12 @@ public static class ConciliacionDiariaEndpoints
                 d.AreaHojaM2 is null ? a?.UnidadMedida ?? "PZA" : "hojas", d.Teorico, d.Fisico, d.Diferencia, d.Sentido,
                 d.CostoUnitarioMxn, d.ValorMxn, d.FolioMovimiento, d.Estado, d.MotivoAclaracion, d.AclaradaAt);
         }).ToList();
+    }
+
+    /// <summary>M-225: claves con que la app nombra la sucursal del almacén (Clave y ClaveAw).</summary>
+    private static async Task<IReadOnlyCollection<string>> ClavesSucursalAsync(ISucursalReadPort sucursales, Guid sucursalId, CancellationToken ct)
+    {
+        var s = await sucursales.ObtenerAsync(sucursalId, ct);
+        return s is null ? [] : new[] { s.Clave, s.ClaveAw }.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c!.Trim()).ToArray();
     }
 }
