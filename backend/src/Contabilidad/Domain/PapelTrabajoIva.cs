@@ -140,7 +140,7 @@ public static class DetectorDiferenciasIva
         foreach (var f in foto)
         {
             var ahora = vivos.GetValueOrDefault(f.SaldoId)?.IvaMes ?? 0m;
-            if (ahora != f.IvaMes) cambios.Add(new(f.SaldoId, f.Folio, f.Uuid, f.IvaMes, ahora, CausaPagoRevertido));
+            if (ahora != f.IvaMes) cambios.Add(new(f.SaldoId, f.Folio, f.Uuid, f.IvaMes, ahora, ahora > f.IvaMes ? CausaPagoNuevo : CausaPagoRevertido));
         }
         var enFoto = foto.Select(f => f.SaldoId).ToHashSet();
         cambios.AddRange(actual.Where(a => !enFoto.Contains(a.SaldoId) && a.IvaMes != 0m)
