@@ -212,6 +212,47 @@ public sealed class TerminalTarjetaTests
         sinColumnas.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("TERMINAL_ENCABEZADOS");
     }
 
+    // ---- M-349: «statement» del portal de Getnet (encabezados reales; afiliaciones, terminales, ARN e importes INVENTADOS) ----
+    private const string EncabezadoStatement =
+        "\"Fecha Depósito\",\"Fecha Transacción\",\"Hora Transacción\",\"Afiliación\",\"Nombre del comercio\",\"Tipo Transacción\"," +
+        "\"Tarjeta\",\"Cod. Terminal\",\"Operación\",\"Tipo Tarjeta\",\"Tarjeta Número\",\"ARN\",\"Cod. Aut\",\"Divisa\"," +
+        "\"Total\",\"Venta\",\"Comisión\",\"Tasa Adquirente\",\"I.V.A *Valor estimado\"";
+
+    private static byte[] Statement(params string[] filas) =>
+        [.. new UTF8Encoding(true).GetPreamble(), .. Encoding.UTF8.GetBytes(EncabezadoStatement + "\r\n" + string.Join("\r\n", filas) + "\r\n")];
+
+    private static string FilaStatement(string afiliacion, string terminal, string arn, string aut, string venta, string comision, string iva,
+        string tipo = "Venta", string hora = "5:38:00pm") =>
+        $"\"-\",\"03/11/2026\",\"{hora}\",\"{afiliacion}\",\"COMERCIO DE PRUEBA\",\"{tipo}\",\"Visa\",\"{terminal}\",\"Débito\"," +
+        $"\"Doméstico\",\"4000-00XX-XXXX-1234\",\"{arn}\t\",\"{aut}\",\"MXN\",100.00,{venta},{comision},\"1.00%\",{iva}";
+
+    [Fact]
+    public void Lector_statement_lee_afiliacion_terminal_y_comision_en_positivo()
+    {
+        var csv = Statement(
+            FilaStatement("1111111", "TERM0001", "70000000000000000000001", "100001", "1500", "-17.25", "-2.76"),
+            FilaStatement("2222222", "TERM0002", "70000000000000000000002", "100002", "741.05", "-8.52", "-1.36", hora: "11:05:09am"),
+            FilaStatement("2222222", "TERM0002", "70000000000000000000003", "100003", "90", "-1", "-0.16", tipo: "Devolución"));
+
+        var renglones = LectorArchivoTerminal.Leer(csv, Dia, new TerminalTarjetaOptions());
+
+        renglones.Should().HaveCount(2, "las filas que no son «Venta» no se cargan");
+        var a = renglones[0];
+        a.NoOperacion.Should().Be("70000000000000000000001", "la llave es el ARN, sin el tabulador final");
+        a.Afiliacion.Should().Be("1111111");
+        a.CodTerminal.Should().Be("TERM0001");
+        a.Importe.Should().Be(1500m);
+        a.Comision.Should().Be(17.25m);
+        a.IvaComision.Should().Be(2.76m);
+        a.Neto.Should().Be(1500m - 17.25m - 2.76m, "neto = venta − comisión − IVA");
+        a.Ultimos4.Should().Be("1234");
+        a.Autorizacion.Should().Be("100001");
+        a.Aprobada.Should().BeTrue();
+        a.FechaHora.Should().Be(new DateTime(2026, 11, 3, 17, 38, 0));
+        renglones[1].FechaHora.Should().Be(new DateTime(2026, 11, 3, 11, 5, 9));
+        renglones[1].Afiliacion.Should().Be("2222222");
+    }
+
     // ---- 86e3xt2q8: archivo OneGMR TRST de Getnet (nombres reales de la guía «Getnet One GMR», jun-2025) ----
 
     private const string EncabezadoGmr =

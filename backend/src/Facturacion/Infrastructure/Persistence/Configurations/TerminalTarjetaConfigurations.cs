@@ -36,6 +36,8 @@ public sealed class TransaccionTerminalConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.Neto).HasPrecision(18, 2);
         builder.Property(e => e.FolioLiquidacion).HasMaxLength(40);
         builder.Property(e => e.FechaLiquidacion);
+        builder.Property(e => e.Afiliacion).HasMaxLength(20);
+        builder.Property(e => e.CodTerminal).HasMaxLength(20);
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Ignore(e => e.TraeLiquidacion);
 
