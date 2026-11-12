@@ -362,12 +362,15 @@ public static partial class NormalizadorEventos
         var p = Leer<PagoClienteContrato>(payload);
         var aplicado = p.Facturas is { Count: > 0 } fs ? fs.Sum(f => f.ImporteAplicado) + p.SaldoAFavorPorIdentificar : p.Monto;
         var ajuste = Math.Max(0m, aplicado - p.Monto);
+        // M-326 parte 2: lo depositado de más que no se aplicó a facturas ni quedó como saldo a favor es el excedente de redondeo
+        // (≤ $0.99, autorizado en CxC antes de llegar a Tesorería): abono a REDONDEO; lo aplicado a clientes no lo incluye.
+        var excedente = p.Facturas is { Count: > 0 } ? Math.Max(0m, p.Monto - aplicado) : 0m;
         return new(PagoClienteConfirmado, eventoId, p.EmpresaId, p.FechaValor, Doc(DocPagoCliente, p.MovimientoBancarioId, p.Referencia),
             null, null, p.ClienteId, null, null, MonedaDe(p.Moneda), null,
             new Dictionary<string, decimal?>
             {
-                ["Total"] = p.Monto, ["Aplicado"] = p.Monto + ajuste, ["Ajuste"] = ajuste,
-                ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m, ["AjusteRedondeo"] = 0m,
+                ["Total"] = p.Monto, ["Aplicado"] = p.Monto + ajuste - excedente, ["Ajuste"] = ajuste,
+                ["AjusteComision"] = 0m, ["AjusteDiferencia"] = 0m, ["AjusteRedondeo"] = 0m, ["ExcedenteRedondeo"] = excedente,
             },
             [], payload,
             FacturaOrigenId: p.Facturas is { Count: > 0 } facturas ? facturas[0].FacturaVentaId : null,

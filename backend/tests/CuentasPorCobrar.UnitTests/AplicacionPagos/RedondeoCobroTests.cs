@@ -37,6 +37,42 @@ public sealed class RedondeoCobroTests
         p.AjusteAutorizadoPor.Should().BeNull();
     }
 
+    [Fact]
+    public void M326b_Un_excedente_de_040_es_redondeo_y_no_saldo_a_favor_y_espera_al_gerente()
+    {
+        var p = Crear(-0.40m); // depósito 10,000.40 contra 10,000 aplicados
+        p.AjusteNoFiscal.Should().Be(0.40m);
+        p.SaldoAFavorPorIdentificar.Should().Be(0m);
+        p.TipoAjuste.Should().Be(TipoAjusteCobro.Redondeo);
+        p.AjustePorAutorizar.Should().BeTrue();
+        p.RequiereGerenteDeArea.Should().BeTrue();
+
+        p.AutorizarAjuste(Autorizador, Ahora);
+        p.AjusteAutorizadoPor.Should().Be(Autorizador);
+    }
+
+    [Fact]
+    public void M326b_Un_excedente_mayor_a_099_sigue_como_saldo_a_favor()
+    {
+        var p = Crear(-1.20m);
+        p.SaldoAFavorPorIdentificar.Should().Be(1.20m);
+        p.AjusteNoFiscal.Should().Be(0m);
+        p.TipoAjuste.Should().BeNull();
+        p.AjustePorAutorizar.Should().BeFalse();
+        Crear(-0.99m).TipoAjuste.Should().Be(TipoAjusteCobro.Redondeo);
+    }
+
+    [Fact]
+    public void M326b_El_excedente_de_redondeo_no_se_revierte_como_faltante()
+    {
+        var p = Crear(-0.40m);
+        p.AutorizarAjuste(Autorizador, Ahora);
+        p.Confirmar(Tesoreria, Ahora, Guid.NewGuid());
+        p.MarcarReppTimbrado(Guid.NewGuid());
+        var revertir = () => p.RevertirAjuste(Autorizador, "No procede", Ahora);
+        revertir.Should().Throw<BusinessRuleException>().Where(e => e.Code == "PAP_SIN_AJUSTE_AUTORIZADO");
+    }
+
     [Theory]
     [InlineData("MXN")]
     [InlineData("USD")]
