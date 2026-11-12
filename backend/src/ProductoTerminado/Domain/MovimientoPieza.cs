@@ -96,6 +96,14 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static MovimientoPieza TrasladoRecepcion(PiezaPt pieza, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, TipoMovimientoPieza.TrasladoRecepcion, EstadoPieza.EnTransito, EstadoPieza.EnPT, origen, destino, traspasoId, ocurridoAt, usuario);
 
+    /// <summary>Aclaración del traspaso: la pieza que no llegó regresa al PT de origen.</summary>
+    public static MovimientoPieza TrasladoRegreso(PiezaPt pieza, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, TipoMovimientoPieza.TrasladoRegreso, EstadoPieza.EnTransito, EstadoPieza.EnPT, origen, destino, traspasoId, ocurridoAt, usuario);
+
+    /// <summary>Aclaración del traspaso: la pieza se dio por perdida y queda en revisión para Calidad.</summary>
+    public static MovimientoPieza TrasladoPerdida(PiezaPt pieza, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, TipoMovimientoPieza.TrasladoPerdida, EstadoPieza.EnTransito, EstadoPieza.EnRevision, origen, destino, traspasoId, ocurridoAt, usuario);
+
     public static MovimientoPieza Alta(PiezaPt pieza, string referencia, DateTimeOffset ocurridoAt)
         => new(pieza, TipoMovimientoPieza.Alta, null, referencia, ocurridoAt);
 

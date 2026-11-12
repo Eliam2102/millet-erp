@@ -106,18 +106,27 @@ export interface SalidasPendientesPagina {
   con48h: number;
 }
 
-export type EstadoTraspaso = 'EnTransito' | 'ConDiferencia' | 'Recibido';
+/** Preparado (documentado, sin mover piezas) → EnTransito (autorizado por otra persona) → ConDiferencia → Recibido o Cerrado (diferencias aclaradas). */
+export type EstadoTraspaso = 'Preparado' | 'EnTransito' | 'ConDiferencia' | 'Recibido' | 'Cerrado';
+
+export type ClasificacionDiferencia = 'Faltante' | 'DanadaEnTransito' | 'EnCuarentena';
+export type ResolucionDiferencia = 'RecibidaTarde' | 'RegresadaAlOrigen' | 'DadaPorPerdida';
 
 export interface TraspasoPiezaDto {
   piezaId: string;
   etiqueta: string;
   numeroPedido: string;
   recibida: boolean;
+  clasificacion: ClasificacionDiferencia | null;
+  motivo: string | null;
+  evidencia: string | null;
+  resolucion: ResolucionDiferencia | null;
 }
 
-/** `piezas` solo viene en el detalle; `pendientes` = piezas aún en tránsito. */
+/** `piezas` solo viene en el detalle; `pendientes` = piezas aún en tránsito (sin llegar ni aclarar). */
 export interface TraspasoDto {
   id: string;
+  folio: string;
   sucursalOrigenId: string;
   sucursalDestinoId: string;
   estado: EstadoTraspaso;
@@ -126,6 +135,40 @@ export interface TraspasoDto {
   total: number;
   pendientes: number;
   piezas: TraspasoPiezaDto[];
+  preparadoPorId: string;
+  autorizadoPorId: string | null;
+  autorizadoAt: string | null;
+  foranea: boolean;
+  destino: string | null;
+  cartaPorteFolio: string | null;
+}
+
+/** Datos de transporte del traspaso foráneo (los mismos de la hoja de salida, para la Carta Porte). */
+export interface TransporteTraspasoBody {
+  destino: string;
+  vehiculoId: string | null;
+  operadorId: string | null;
+  distanciaKm: number;
+  pesoKg: number;
+  origenCodigoPostal: string;
+  origenEstado: string;
+  destinoCodigoPostal: string;
+  destinoEstado: string;
+}
+
+export interface CrearTraspasoBody {
+  sucursalOrigenId: string;
+  sucursalDestinoId: string;
+  etiquetas: string[];
+  foranea?: boolean;
+  transporte?: TransporteTraspasoBody;
+}
+
+export interface DiferenciaTraspasoBody {
+  piezaId: string;
+  clasificacion: ClasificacionDiferencia;
+  motivo: string;
+  evidencia?: string | null;
 }
 
 export interface TraspasosPagina {

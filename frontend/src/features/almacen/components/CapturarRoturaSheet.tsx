@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/sheet';
 import { ArticuloSelector, TextAreaField } from '@/components/erp';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
+import { EvidenciaRecepcionUpload } from '@/features/almacen/components/EvidenciaRecepcionUpload';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { useCapturarRotura, useDimensionesRotura, useMotivosRotura } from '@/features/almacen/api/useSalidasRotura';
 import { codigoSoporte, esApiError, useFormIdempotencyKey } from '@/lib/api';
@@ -64,6 +65,7 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
   const [comentario, setComentario] = useState<string | null>(null);
   const [areaClave, setAreaClave] = useState('');
   const [equipoClave, setEquipoClave] = useState('');
+  const [evidencia, setEvidencia] = useState<{ blobRef: string; nombre: string } | null>(null);
   // 86e3zf04y: la cuenta de merma puede exigir área o equipo (regla C-03); sin el dato la póliza queda en Rechazos.
   const dimensiones = useDimensionesRotura(ubicacionId, fecha);
   const exigeArea = dimensiones.data?.exigeArea ?? false;
@@ -78,6 +80,7 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
     if (!ubicacionId) faltan.ubicacion = 'Elige la ubicación de donde sale.';
     if (!(n > 0)) faltan.cantidad = 'La cantidad debe ser mayor que cero.';
     if (!motivoCodigo) faltan.motivo = 'Elige el motivo.';
+    if (!evidencia) faltan.evidencia = 'Adjunta la foto o el documento que respalda la rotura.';
     if (motivoCodigo === 'otro' && !comentario?.trim()) faltan.comentario = 'Con «Otro» describe qué pasó.';
     if (exigeArea && !areaClave.trim() && !equipoClave.trim())
       faltan.area = `La cuenta ${dimensiones.data?.cuentaCodigo ?? 'de merma'} pide el área.`;
@@ -90,6 +93,7 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
         command: { ubicacionId: ubicacionId!, articuloId: articuloId!, cantidad: n, fecha, motivoCodigo, comentario: comentario?.trim() || null,
           areaClave: areaClave.trim() || null,
           equipoClave: equipoClave.trim() || null,
+          evidenciaBlobRef: evidencia!.blobRef,
         },
         idempotencyKey,
       },
@@ -177,6 +181,14 @@ function Formulario({ onListo, onCancel }: { onListo: () => void; onCancel: () =
           </Field>
           <Field label="Comentario" required={motivoCodigo === 'otro'} error={errores.comentario}>
             <TextAreaField value={comentario} onChange={setComentario} maxLength={500} minRows={2} />
+          </Field>
+          <Field label="Evidencia (foto o documento)" required error={errores.evidencia}>
+            <EvidenciaRecepcionUpload
+              etiqueta="evidencia de la rotura"
+              urlSubida="/api/v1/almacen/salidas-rotura/evidencia/blob"
+              nombre={evidencia?.nombre}
+              onChange={setEvidencia}
+            />
           </Field>
         </form>
       </SheetBody>

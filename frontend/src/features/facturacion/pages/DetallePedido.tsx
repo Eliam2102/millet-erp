@@ -22,7 +22,7 @@ import {
   usePedidoComprobantes,
   usePedidoSalidas,
 } from '@/features/facturacion/api/usePedidos';
-import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
+import { useFacturarDesdeProforma, useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
 import type {
   ProformaPedidoResponse,
   SalidaFacturableItem,
@@ -48,7 +48,8 @@ import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { mensajeErrorAccion } from '@/lib/api/error';
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Eye, FileText, Pencil, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -116,6 +117,7 @@ function Contenido({
   comprobantesLoading: boolean;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const nuevoPedido = useNuevoPedido();
   const [modoEmision, setModoEmision] = useState(false);
   // FAC-08: parcialidad que se está facturando (null = el pedido completo).
@@ -139,6 +141,7 @@ function Contenido({
   // U1.8a: proforma sin valor fiscal (no consume folio) antes de timbrar.
   const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
   const generarProforma = useGenerarProforma();
+  const facturarDesdeProforma = useFacturarDesdeProforma();
   const [descargandoProforma, setDescargandoProforma] = useState(false);
   // Proforma abierta en el visor (null = cerrado).
   const [proformaEnVisor, setProformaEnVisor] = useState<ProformaPedidoResponse | null>(null);
@@ -156,6 +159,20 @@ function Contenido({
     } finally {
       setDescargandoProforma(false);
     }
+  }
+
+  // M-340: factura desde la versión aprobada, sin recaptura. Si el pedido cambió, el servidor invalida la conformidad y explica por qué.
+  function onFacturarDesdeProforma(proforma: ProformaPedidoResponse) {
+    facturarDesdeProforma.mutate(
+      { pedidoId: p.id, proformaId: proforma.id, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: (factura) => {
+          toast.success(`Factura ${factura.folio} emitida desde la proforma ${proforma.folio}`);
+          void navigate({ to: '/facturacion/facturas/$id', params: { id: factura.id } });
+        },
+        onError: (e) => toast.error(mensajeErrorAccion(e)),
+      },
+    );
   }
 
   function onGenerarProforma() {
@@ -437,6 +454,8 @@ function Contenido({
           onVer={setProformaEnVisor}
           onDescargar={(pf) => void descargarProforma(pf)}
           onConformidad={puedeEmitir ? setProformaConformidad : undefined}
+          onFacturar={puedeEmitir && facturable ? onFacturarDesdeProforma : undefined}
+          facturando={facturarDesdeProforma.isPending}
         />
       )}
       {puedeLeerCartaPorte && p.id ? <TramosTrasladoCard pedidoId={p.id} puedeEmitir={puedeEmitirCartaPorte} /> : null}

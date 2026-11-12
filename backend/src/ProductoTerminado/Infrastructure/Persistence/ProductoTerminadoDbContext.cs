@@ -98,6 +98,16 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         t.Property(x => x.Id).ValueGeneratedNever();
         t.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
         t.HasIndex(x => new { x.EmpresaId, x.Estado, x.SalidaAt });
+        t.Property(x => x.Folio).HasMaxLength(40);
+        t.HasIndex(x => new { x.EmpresaId, x.Folio }).IsUnique();
+        t.Property(x => x.Destino).HasMaxLength(200);
+        t.Property(x => x.OrigenCodigoPostal).HasMaxLength(5);
+        t.Property(x => x.OrigenEstado).HasMaxLength(3);
+        t.Property(x => x.DestinoCodigoPostal).HasMaxLength(5);
+        t.Property(x => x.DestinoEstado).HasMaxLength(3);
+        t.Property(x => x.DistanciaKm).HasPrecision(12, 2);
+        t.Property(x => x.PesoKg).HasPrecision(12, 2);
+        t.Property(x => x.CartaPorteFolio).HasMaxLength(40);
         t.HasMany(x => x.Piezas).WithOne().HasForeignKey(x => x.TraspasoPtId).OnDelete(DeleteBehavior.Restrict);
         t.Navigation(x => x.Piezas).UsePropertyAccessMode(PropertyAccessMode.Field);
 
@@ -106,6 +116,11 @@ public sealed class ProductoTerminadoDbContext(DbContextOptions<ProductoTerminad
         tp.HasKey(x => x.Id);
         tp.Property(x => x.Id).ValueGeneratedNever();
         tp.Ignore(x => x.AggregateRootId);
+        tp.Ignore(x => x.EnTransito);
+        tp.Property(x => x.Clasificacion).HasConversion<string>().HasMaxLength(20);
+        tp.Property(x => x.MotivoDiferencia).HasMaxLength(300);
+        tp.Property(x => x.EvidenciaDiferencia).HasMaxLength(500);
+        tp.Property(x => x.Resolucion).HasConversion<string>().HasMaxLength(20);
         tp.HasIndex(x => new { x.TraspasoPtId, x.PiezaId }).IsUnique();
         tp.HasOne<PiezaPt>().WithMany().HasForeignKey(x => x.PiezaId).OnDelete(DeleteBehavior.Restrict);
 

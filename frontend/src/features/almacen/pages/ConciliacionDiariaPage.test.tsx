@@ -2,15 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { ConciliacionDiariaPage } from '@/features/almacen/pages/ConciliacionDiariaPage';
+import { ApiError } from '@/lib/api/error';
 import type { CorridaConciliacion, DiferenciaConciliacion } from '@/features/almacen/api/useConciliacionDiaria';
 
 const hook = vi.hoisted(() => ({ aclarar: vi.fn(), ejecutar: vi.fn() }));
 const permiso = vi.hoisted(() => ({ tiene: true }));
-const datos = vi.hoisted(() => ({ difs: [] as unknown[], corridas: [] as unknown[], existencia: [] as unknown[] }));
+const datos = vi.hoisted(() => ({ difs: [] as unknown[], corridas: [] as unknown[], existencia: [] as unknown[], eventos: { pendientes: [], mesa: [] } as unknown }));
 
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => permiso.tiene }));
 vi.mock('@/features/almacen/api/useAlmacenes', () => ({ useAlmacenes: () => ({ data: { items: [{ id: 'a-1', clave: 'MP-CNK', nombre: 'Materia prima de prueba' }] } }) }));
 vi.mock('@/features/almacen/api/useConciliacionDiaria', () => ({
+  useEventosDelDia: () => ({ data: datos.eventos, isSuccess: true }),
   useExistenciaConciliacion: () => ({ data: datos.existencia, isLoading: false, isError: false }),
   useDiferenciasConciliacion: () => ({ data: datos.difs, isSuccess: true, isLoading: false, isError: false }),
   useCorridasConciliacion: () => ({ data: datos.corridas, isSuccess: true, isLoading: false, isError: false }),
@@ -86,4 +88,25 @@ it.each([0, 1])('el resultado con %s diferencias muestra la fecha formateada y n
     almacenId: 'a-1', fecha: '2026-11-04', fuente: 'AW',
     lineas: [{ articuloId: 'art-1', productoAwVarianteId: 'v-1', lote: 'L-2611', fisico: 9 }],
   }, expect.anything());
+});
+
+it('con eventos pendientes pide confirmar y reenvía con confirmarPendientes', async () => {
+  datos.existencia = [falta];
+  datos.eventos = {
+    pendientes: [{ tipo: 'ROTURA', referencia: 'MV-1', estado: 'PENDIENTE', error: null, recibidoAt: '2026-11-04T10:00:00Z' }],
+    mesa: [{ tipo: 'CONSUMO', referencia: 'C-1', articuloId: 'art-1', cantidad: 2, mesa: 'HEGLA1', estado: 'APLICADO' }],
+  };
+  hook.ejecutar.mockImplementationOnce((_c: unknown, o: { onError: (e: unknown) => void }) =>
+    o.onError(new ApiError({ type: 'x', title: 't', status: 422, code: 'CONCILIACION_EVENTOS_PENDIENTES', detail: 'Hay 1 evento sin aplicar.' }, 422)));
+  render(<ConciliacionDiariaPage />, { wrapper: createQueryWrapper() });
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Almacén' }), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: /MP-CNK/ }));
+  expect(screen.getByText('Eventos del día')).toBeInTheDocument();
+  expect(screen.getByText('HEGLA1')).toBeInTheDocument();
+  const captura = screen.getByLabelText(/Físico de FL6/);
+  fireEvent.change(captura, { target: { value: '9' } });
+  fireEvent.blur(captura);
+  fireEvent.click(screen.getByRole('button', { name: /^Conciliar/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Conciliar de todos modos' }));
+  expect(hook.ejecutar).toHaveBeenLastCalledWith(expect.objectContaining({ confirmarPendientes: true }), expect.anything());
 });

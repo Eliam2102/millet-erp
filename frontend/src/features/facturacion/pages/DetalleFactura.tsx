@@ -107,7 +107,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   const cancelacion = useCancelacionEstatus(f.id);
   // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
   const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
-  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | 'sustituir' | null>(null);
+  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | 'sustituir' | 'reemitir' | null>(null);
+  const [motivoReemision, setMotivoReemision] = useState('02');
   const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.FacturacionAnticiposVincular);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   // M20 (prueba S3-4): el XML existe desde el timbre y se descarga siempre, también con la cancelación en proceso o ya cancelada.
@@ -141,6 +142,11 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
 
   return (
     <div className="@container min-w-0 space-y-5">
+      {f.proformaPedidoId ? (
+        <p className="text-sm text-ink-muted">
+          Viene de la proforma <span className="font-mono font-medium text-ink">{f.proforma ?? ''}</span> aprobada por el cliente.
+        </p>
+      ) : null}
       <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
       {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
         <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor || <span className="text-ink-muted">—</span>}</dd></div>
@@ -227,6 +233,17 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                       Sustituir
                     </Button>
                   )}
+                  {puedeEmitir && f.estado === 'Cancelado' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAccion((a) => (a === 'reemitir' ? null : 'reemitir'))}
+                      title="Con motivo 02 o 04, emite la factura nueva sin relación después de cancelar esta"
+                    >
+                      <RefreshCw className="mr-1 h-4 w-4" />
+                      Reemitir
+                    </Button>
+                  )}
                   {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
@@ -272,6 +289,22 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       )}
       {accion === 'cancelar' && (
         <CancelarComprobanteForm comprobanteId={f.id} sugerirSustituir onDone={() => setAccion(null)} />
+      )}
+      {accion === 'reemitir' && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            Motivo con el que se canceló
+            <select
+              className="h-9 rounded-md border border-line-control bg-transparent px-3 text-sm"
+              value={motivoReemision}
+              onChange={(e) => setMotivoReemision(e.target.value)}
+            >
+              <option value="02">02 — Errores sin relación</option>
+              <option value="04">04 — Operación nominativa (factura global)</option>
+            </select>
+          </label>
+          <SustituirFacturaPanel key={motivoReemision} facturaId={f.id} motivo={motivoReemision} onDone={() => setAccion(null)} />
+        </div>
       )}
       {accion === 'sustituir' && <SustituirFacturaPanel facturaId={f.id} onDone={() => setAccion(null)} />}
 

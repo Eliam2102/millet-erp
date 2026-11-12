@@ -23,7 +23,8 @@ public class ConciliacionDiariaTests
     private static readonly Guid Sucursal = Guid.NewGuid();
     private static readonly Guid Articulo = Guid.NewGuid();
     private static readonly Guid Variante = Guid.NewGuid();
-    private static readonly DateOnly Dia = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+    // Ayer en la zona del negocio (la conciliación compara contra el día local, no el UTC).
+    private static readonly DateOnly Dia = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City")).DateTime).AddDays(-1);
     private const decimal AreaHoja = 2.44m * 3.66m; // 8.9304 m²
 
     private static (AlmacenDbContext Db, Guid Almacen, Guid Ubi) Db(decimal hojas = 10)
@@ -67,6 +68,47 @@ public class ConciliacionDiariaTests
         mov.Lineas.Should().ContainSingle(l => l.Cantidad == AreaHoja && l.Lote == "L-2611" && l.ProductoAwVarianteId == Variante);
         var ev = eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Should().ContainSingle().Subject;
         ev.Causa.Should().Be("salida_no_planificada");
+    }
+
+    [Fact]
+    public async Task M225_conciliar_ayer_con_movimientos_de_hoy_usa_el_teorico_al_cierre_de_ayer()
+    {
+        var (db, alm, ubi) = Db(10);
+        // Hoy entraron 2 hojas: el saldo actual (10) ya las incluye; ayer al cierre había 8.
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-6));
+        var mov = new MovimientoInventario(Guid.CreateVersion7(), TipoMovimiento.EntradaCompra, EmpresaId, Dia.AddDays(1));
+        mov.AgregarLinea(new LineaMovimiento(Guid.CreateVersion7(), mov.Id, 1, Articulo, 2 * AreaHoja, "M2", 250m,
+            ubicacionId: ubi, productoAwVarianteId: Variante, anchoMm: 2440m, altoMm: 3660m, lote: "L-2611"));
+        mov.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, hoy.Year, 1), Usuario);
+        db.Movimientos.Add(mov);
+        await db.SaveChangesAsync();
+
+        var (corrida, difs) = await Correr(db, alm, new Eventos(), 8);
+
+        corrida.Diferencias.Should().Be(0);
+        difs.Should().BeEmpty();
+        db.ChangeTracker.Entries<MovimientoInventario>().Should().OnlyContain(e => e.Entity.Id == mov.Id);
+    }
+
+    [Fact]
+    public async Task M225_con_un_mensaje_en_revision_del_dia_avisa_y_no_baja_el_faltante_sin_confirmar()
+    {
+        var (db, alm, _) = Db(10);
+        db.MensajesApp.Add(new Millet.Almacen.Domain.Idempotencia.MensajeApp("ajuste-mesa-1", "AJUSTE_SALIDA", "MV-0015001", "{}",
+            Millet.Almacen.Application.AppAlmacenes.SalidaAppAlmacenes.EnRevision, "REV-ajuste-mesa-1", "Sin existencia suficiente"));
+        await db.SaveChangesAsync();
+        var hoy = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City")).DateTime);
+        Task<(ConciliacionDiaria, IReadOnlyList<DiferenciaConciliacion>)> CorrerHoy(bool confirmar) =>
+            ConciliacionDiariaApp.EjecutarAsync(db, new Eventos(), new Medidas(), new Articulos(), new PeriodoContableStub(true),
+                EmpresaId, Usuario, alm, hoy, ConciliacionDiaria.FuenteAw, [new FisicoLinea(Articulo, Variante, "L-2611", 9)], default, confirmar);
+
+        var sinConfirmar = () => CorrerHoy(false);
+        (await sinConfirmar.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CONCILIACION_EVENTOS_PENDIENTES");
+        db.ChangeTracker.Entries<MovimientoInventario>().Should().BeEmpty();
+
+        (await ConciliacionDiariaApp.EventosDelDiaAsync(db, alm, hoy, default)).Pendientes.Should().ContainSingle(p => p.Referencia == "MV-0015001");
+        var (_, difs) = await CorrerHoy(true);
+        difs.Should().ContainSingle().Which.Sentido.Should().Be(DiferenciaConciliacion.Faltante);
     }
 
     [Fact]

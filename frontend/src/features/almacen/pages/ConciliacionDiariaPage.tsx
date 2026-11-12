@@ -30,11 +30,14 @@ import {
   useCorridasConciliacion,
   useDiferenciasConciliacion,
   useEjecutarConciliacion,
+  useEventosDelDia,
   useExistenciaConciliacion,
   type CorridaConciliacion,
   type DiferenciaConciliacion,
+  type EventosDelDia,
   type ExistenciaLinea,
 } from '@/features/almacen/api/useConciliacionDiaria';
+import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -59,7 +62,9 @@ export function ConciliacionDiariaPage() {
   const [motivo, setMotivo] = useState<string | null>(null);
 
   const almacenes = useAlmacenes({ limit: 200 });
-  const existencia = useExistenciaConciliacion(almacenId);
+  const [confirmarPendientes, setConfirmarPendientes] = useState<string | null>(null);
+  const existencia = useExistenciaConciliacion(almacenId, fecha);
+  const eventos = useEventosDelDia(almacenId, fecha);
   const diferencias = useDiferenciasConciliacion();
   const corridas = useCorridasConciliacion();
   const ejecutar = useEjecutarConciliacion();
@@ -70,13 +75,14 @@ export function ConciliacionDiariaPage() {
   const pendientes = (diferencias.data ?? []).filter((d) => d.estado === 'PENDIENTE');
   const valorPendiente = pendientes.filter((d) => d.sentido === 'FALTANTE').reduce((s, d) => s + d.valorMxn, 0);
 
-  function conciliar() {
+  function conciliar(confirmar = false) {
     if (!almacenId || capturadas.length === 0) return;
     ejecutar.mutate(
       {
         almacenId,
         fecha,
         fuente,
+        ...(confirmar && { confirmarPendientes: true }),
         lineas: capturadas.map((f) => ({
           articuloId: f.articuloId,
           productoAwVarianteId: f.productoAwVarianteId,
@@ -86,11 +92,19 @@ export function ConciliacionDiariaPage() {
       },
       {
         onSuccess: (c) => {
+          setConfirmarPendientes(null);
           setUltima(c);
           setFisico({});
           toast.success(c.diferencias === 0 ? 'Conciliación sin diferencias' : `Conciliación con ${c.diferencias} diferencia(s)`);
         },
-        onError: (e) => toast.error(errorTexto(e, 'No se pudo conciliar')),
+        onError: (e) => {
+          if (esApiError(e) && e.code === 'CONCILIACION_EVENTOS_PENDIENTES') {
+            setConfirmarPendientes(e.problem.detail ?? 'Hay eventos del día sin aplicar.');
+            return;
+          }
+          setConfirmarPendientes(null);
+          toast.error(errorTexto(e, 'No se pudo conciliar'));
+        },
       },
     );
   }
@@ -168,7 +182,13 @@ export function ConciliacionDiariaPage() {
               )}
             </Field>
             <Field label="Día a conciliar" className="gap-1">
-              <Input type="date" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value)} className="w-44" />
+              <Input
+                type="date"
+                value={fecha}
+                max={hoy()}
+                onChange={(e) => { setFecha(e.target.value); setFisico({}); setUltima(null); }}
+                className="w-44"
+              />
             </Field>
             <Field label="Físico reportado por" className="gap-1">
               {(c) => (
@@ -184,11 +204,15 @@ export function ConciliacionDiariaPage() {
               )}
             </Field>
             {puedeCorrer && (
-              <Button onClick={conciliar} disabled={!almacenId || capturadas.length === 0 || ejecutar.isPending}>
+              <Button onClick={() => conciliar()} disabled={!almacenId || capturadas.length === 0 || ejecutar.isPending}>
                 Conciliar {capturadas.length > 0 ? `(${capturadas.length})` : ''}
               </Button>
             )}
           </div>
+
+          {almacenId && eventos.isSuccess && (eventos.data.pendientes.length > 0 || eventos.data.mesa.length > 0) && (
+            <EventosDelDiaPanel eventos={eventos.data} />
+          )}
 
           {ultima &&
             (ultima.diferencias === 0 ? (
@@ -324,6 +348,17 @@ export function ConciliacionDiariaPage() {
       </Tabs>
 
       <ConfirmarAccionDialog
+        open={confirmarPendientes !== null}
+        onOpenChange={(abierto) => !abierto && setConfirmarPendientes(null)}
+        titulo="Hay eventos sin aplicar"
+        resumen={`${confirmarPendientes ?? ''} Si concilias ahora, el teórico no los incluye y pueden salir diferencias que no lo son. ¿Conciliar de todos modos?`}
+        verbo="Conciliar de todos modos"
+        tono="primario"
+        pendiente={ejecutar.isPending}
+        onConfirmar={() => conciliar(true)}
+      />
+
+      <ConfirmarAccionDialog
         open={aclarando !== null}
         onOpenChange={(abierto) => {
           if (!abierto) {
@@ -349,6 +384,47 @@ export function ConciliacionDiariaPage() {
         onConfirmar={guardarAclaracion}
       />
     </div>
+  );
+}
+
+/** M-225: antes de conciliar, lo del día que aún no cuadra con el teórico (app sin aplicar) y los consumos/mermas de mesa. */
+function EventosDelDiaPanel({ eventos }: { eventos: EventosDelDia }) {
+  return (
+    <section aria-labelledby="eventos-dia-titulo" className="space-y-2 rounded-lg border border-line-row bg-surface-card p-3 text-sm">
+      <h3 id="eventos-dia-titulo" className="font-semibold">Eventos del día</h3>
+      {eventos.pendientes.length > 0 && (
+        <AvisoEnLinea tono="advertencia">
+          {eventos.pendientes.length} evento(s) de la app sin aplicar:{' '}
+          {eventos.pendientes.map((p) => `${p.tipo} ${p.referencia ?? ''} (${p.estado}${p.error ? `: ${p.error}` : ''})`).join('; ')}
+        </AvisoEnLinea>
+      )}
+      {eventos.mesa.length > 0 && (
+        <TableContainer>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Referencia</TableHead>
+                <TableHead>Mesa</TableHead>
+                <TableHead className="text-right">Cantidad</TableHead>
+                <TableHead>Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {eventos.mesa.map((m, i) => (
+                <TableRow key={`${m.referencia}-${i}`}>
+                  <TableCell>{m.tipo}</TableCell>
+                  <TableCell className="font-mono text-xs">{m.referencia ?? '—'}</TableCell>
+                  <TableCell>{m.mesa ?? '—'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{num(m.cantidad)}</TableCell>
+                  <TableCell>{m.estado}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </section>
   );
 }
 

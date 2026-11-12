@@ -256,7 +256,7 @@ public class AlmacenesAppSalidasTests
         await using var f = ConLlave();
         var id = Guid.NewGuid().ToString();
         var datos = DatosV6("ROTURA", 4, [Grupo(sobrado.ArticuloAw, 2), Grupo(corto.ArticuloAw, 2)], motivo: "Rotura en mesa");
-        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA", datos)));
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA", datos)));
 
         // 5-nov (TI): ya no se acepta en silencio; ERROR con folio de revisión y el motivo.
         Assert.Equal("ERROR", a.GetProperty("estado").GetString());
@@ -275,12 +275,12 @@ public class AlmacenesAppSalidasTests
 
         // La app reprocesa el mismo mensajeId cuando ya hay existencia: se evalúa otra vez, descuenta y sale de la bandeja.
         var repuesto = await SembrarAsync(10, refAw: corto.ArticuloAw + "X");
-        var a2 = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA",
+        var a2 = await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA",
             DatosV6("ROTURA", 4, [Grupo(sobrado.ArticuloAw, 2), Grupo(repuesto.ArticuloAw, 2)], motivo: "Rotura en mesa"))));
         Assert.Equal("RECIBIDO", a2.GetProperty("estado").GetString());
         Assert.Equal(8 * Area, await DisponibleAsync(sobrado.ArticuloId));
         // Y un tercer envío ya es DUPLICADO con el mismo folio, sin aplicar nada.
-        var a3 = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA", datos)));
+        var a3 = await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA", datos)));
         Assert.Equal("DUPLICADO", a3.GetProperty("estado").GetString());
         Assert.Equal(a2.GetProperty("folio").GetString(), a3.GetProperty("folio").GetString());
         Assert.Equal(8 * Area, await DisponibleAsync(sobrado.ArticuloId));
@@ -414,13 +414,33 @@ public class AlmacenesAppSalidasTests
     }
 
     [Fact]
-    public async Task ROTURA_con_existencia_es_BajaPorDano_con_el_motivo_y_baja_el_saldo()
+    public async Task ROTURA_con_existencia_queda_pendiente_y_al_autorizarla_otro_usuario_es_BajaPorDano_con_el_motivo()
     {
+        // M-223: la ROTURA de la app entra pendiente y no baja el saldo hasta que la autoriza un usuario del ERP.
         var s = await SembrarAsync(10);
         await using var f = ConLlave();
-        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "ROTURA",
+        var id = Guid.NewGuid().ToString();
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA",
             DatosV6("ROTURA", 2, [Grupo(s.ArticuloAw, 2)], motivo: "Se cayó del caballete"))));
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
+        Assert.Equal(10 * Area, await DisponibleAsync(s.ArticuloId));
+        Assert.Empty(await MovsAsync(s.ArticuloId));
+
+        var jefe = await ContabTestKit.ClienteConPermisosAsync(f, PermisosCanonicos.AlmacenSalidasRoturaAutorizar,
+            PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales);
+        try
+        {
+            var pendientes = await ContabTestKit.Json(await jefe.GetAsync("/api/v1/almacen/salidas-rotura/app"));
+            Assert.Contains(pendientes.EnumerateArray(), p => p.GetProperty("mensajeId").GetString() == id);
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/almacen/salidas-rotura/app/{id}/autorizar");
+            req.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+            using var r = await jefe.SendAsync(req);
+            Assert.Equal(System.Net.HttpStatusCode.OK, r.StatusCode);
+        }
+        finally
+        {
+            await ContabTestKit.LimpiarClienteAsync(jefe);
+        }
         Assert.Equal(8 * Area, await DisponibleAsync(s.ArticuloId));
         var mov = Assert.Single(await MovsAsync(s.ArticuloId));
         Assert.Equal(TipoMovimiento.BajaPorDano, mov.Tipo);
@@ -517,7 +537,7 @@ public class AlmacenesAppSalidasTests
         var s = await SembrarAsync(10);
         await using var f = ConLlave();
         var grupo = new { articuloAw = s.ArticuloAw, ancho = 2440, alto = 3660, lote = "L1", piezas = 3, m2 = 26.7912m };
-        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "ROTURA",
+        var a = await Acuse(await f.CreateClient().SendAsync(Req(Guid.NewGuid().ToString(), "AJUSTE_SALIDA",
             DatosV6("ROTURA", 3, [grupo], motivo: "Rotura"))));
         Assert.Equal("RECIBIDO", a.GetProperty("estado").GetString());
         Assert.Equal(7 * Area, await DisponibleAsync(s.ArticuloId));
@@ -565,7 +585,7 @@ public class AlmacenesAppSalidasTests
         var corto = await SembrarAsync(1);
         await using var f = ConLlave();
         var id = Guid.NewGuid().ToString();
-        await Acuse(await f.CreateClient().SendAsync(Req(id, "ROTURA",
+        await Acuse(await f.CreateClient().SendAsync(Req(id, "AJUSTE_SALIDA",
             DatosV6("ROTURA", 2, [Grupo(corto.ArticuloAw, 2)], motivo: "Rotura"))));
 
         using var anonimo = await f.CreateClient().GetAsync(ruta);

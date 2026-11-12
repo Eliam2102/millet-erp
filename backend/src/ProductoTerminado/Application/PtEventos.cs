@@ -41,6 +41,24 @@ public sealed record EntregaConfirmadaEvent(Guid Empresa, DateTimeOffset Fecha, 
 public sealed record PedidoFacturadoEntregadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string Estado)
     : IntegrationEvent("producto_terminado.pedido.facturado-entregado.v1", Empresa, Fecha);
 
+/// <summary>Piezas de un pedido dentro de un traspaso, por posición (para valuar el movimiento de inventario).</summary>
+public sealed record PedidoPiezasTraspaso(Guid PedidoPtId, string NumeroPedido, IReadOnlyList<PosicionEntregada> Posiciones);
+
+/// <summary>
+/// El traspaso se autorizó y las piezas salieron de <c>SucursalOrigenId</c> hacia tránsito (M-249). Contabilidad: cargo cuenta puente «inventario por
+/// traspaso», abono inventario PT del origen. No es un préstamo.
+/// </summary>
+public sealed record TraspasoSalidaAutorizadaEvent(Guid Empresa, DateTimeOffset Fecha, Guid TraspasoId, string Folio, Guid SucursalOrigenId, Guid SucursalDestinoId, IReadOnlyList<PedidoPiezasTraspaso> Pedidos)
+    : IntegrationEvent("producto_terminado.traspaso.salida-autorizada.v1", Empresa, Fecha);
+
+/// <summary>
+/// Piezas en tránsito entraron al inventario de <c>SucursalId</c> (M-249, M-350), con lo que el puente se salda: <c>Recepcion</c> (llegaron a destino, también las que
+/// llegan tarde), <c>RegresoOrigen</c> (volvieron al PT de origen) o <c>Perdida</c> (quedan en revisión en destino para Calidad).
+/// Contabilidad: cargo inventario PT de esa sucursal, abono cuenta puente.
+/// </summary>
+public sealed record TraspasoEntradaRegistradaEvent(Guid Empresa, DateTimeOffset Fecha, Guid TraspasoId, string Folio, string Resultado, Guid SucursalId, IReadOnlyList<PedidoPiezasTraspaso> Pedidos)
+    : IntegrationEvent("producto_terminado.traspaso.entrada-registrada.v1", Empresa, Fecha);
+
 /// <summary>
 /// M-248: se corrigió una entrega confirmada antes de cerrar la liquidación. Lleva lo entregado vigente por posición (no un delta); la versión
 /// anterior queda en el historial de la entrega. Informativo: el costo de ventas de PT se valúa al cerrar F1-PT-09.

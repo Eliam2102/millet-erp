@@ -43,12 +43,14 @@ public sealed record ProformaConformidadResponse(
     string Medio,
     string? Notas,
     string? RegistradaPor,
-    DateTimeOffset RegistradaEn)
+    DateTimeOffset RegistradaEn,
+    bool Invalidada = false,
+    string? InvalidadaMotivo = null)
 {
     public static ProformaConformidadResponse Desde(ProformaConformidad c)
     {
         ArgumentNullException.ThrowIfNull(c);
-        return new(c.Id, c.ProformaPedidoId, c.Quien, c.Fecha, c.Medio.ToString(), c.Notas, c.RegistradaPorNombre, c.RegistradaEn);
+        return new(c.Id, c.ProformaPedidoId, c.Quien, c.Fecha, c.Medio.ToString(), c.Notas, c.RegistradaPorNombre, c.RegistradaEn, c.Invalidada, c.InvalidadaMotivo);
     }
 }
 

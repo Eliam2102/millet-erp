@@ -15,4 +15,6 @@ public sealed record SucursalLectura(
     string Clave,
     string Nombre,
     Guid EmpresaId,
-    bool EsActiva);
+    bool EsActiva,
+    // M-225: clave con que la app de Almacenes nombra la sucursal (CONKAL…); null si no tiene.
+    string? ClaveAw = null);

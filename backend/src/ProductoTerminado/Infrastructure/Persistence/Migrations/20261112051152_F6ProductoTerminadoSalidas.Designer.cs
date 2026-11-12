@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ProductoTerminadoDbContext))]
-    [Migration("20261112041234_F6ProductoTerminadoSalidas")]
+    [Migration("20261112051152_F6ProductoTerminadoSalidas")]
     partial class F6ProductoTerminadoSalidas
     {
         /// <inheritdoc />
@@ -1774,6 +1774,23 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AutorizadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("autorizado_at");
+
+                    b.Property<Guid?>("AutorizadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por_id");
+
+                    b.Property<string>("CartaPorteFolio")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("carta_porte_folio");
+
+                    b.Property<Guid?>("CartaPorteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("carta_porte_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1786,6 +1803,26 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<string>("Destino")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("destino");
+
+                    b.Property<string>("DestinoCodigoPostal")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("destino_codigo_postal");
+
+                    b.Property<string>("DestinoEstado")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("destino_estado");
+
+                    b.Property<decimal?>("DistanciaKm")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("distancia_km");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
@@ -1795,6 +1832,39 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("estado");
+
+                    b.Property<string>("Folio")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("folio");
+
+                    b.Property<bool>("Foranea")
+                        .HasColumnType("boolean")
+                        .HasColumnName("foranea");
+
+                    b.Property<Guid?>("OperadorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operador_id");
+
+                    b.Property<string>("OrigenCodigoPostal")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("origen_codigo_postal");
+
+                    b.Property<string>("OrigenEstado")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("origen_estado");
+
+                    b.Property<decimal?>("PesoKg")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("peso_kg");
+
+                    b.Property<Guid>("PreparadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("preparado_por_id");
 
                     b.Property<DateTimeOffset?>("RecibidoAt")
                         .HasColumnType("timestamp with time zone")
@@ -1820,6 +1890,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
 
+                    b.Property<Guid?>("VehiculoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vehiculo_id");
+
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("integer")
@@ -1827,6 +1901,10 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_traspasos_pt");
+
+                    b.HasIndex("EmpresaId", "Folio")
+                        .IsUnique()
+                        .HasDatabaseName("ix_traspasos_pt_empresa_id_folio");
 
                     b.HasIndex("EmpresaId", "Estado", "SalidaAt")
                         .HasDatabaseName("ix_traspasos_pt_empresa_id_estado_salida_at");
@@ -1839,6 +1917,11 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("Clasificacion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("clasificacion");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1856,6 +1939,16 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<string>("EvidenciaDiferencia")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidencia_diferencia");
+
+                    b.Property<string>("MotivoDiferencia")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivo_diferencia");
+
                     b.Property<Guid>("PiezaId")
                         .HasColumnType("uuid")
                         .HasColumnName("pieza_id");
@@ -1863,6 +1956,11 @@ namespace Millet.ProductoTerminado.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Recibida")
                         .HasColumnType("boolean")
                         .HasColumnName("recibida");
+
+                    b.Property<string>("Resolucion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("resolucion");
 
                     b.Property<Guid>("TraspasoPtId")
                         .HasColumnType("uuid")

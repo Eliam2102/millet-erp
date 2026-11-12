@@ -72,6 +72,7 @@ import {
 import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { VariacionBadge } from '@/features/almacen/components/VariacionBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { DescargarActaConteoButton } from '@/features/almacen/components/DescargarActaConteoButton';
 import { montoNetoConteo } from '@/features/almacen/lib/monto-neto-conteo';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { formatMoney, mxn } from '@/lib/money';
@@ -288,6 +289,7 @@ export function AprobacionConteoPage() {
                       Aplicar (generar movimientos)
                     </Button>
                   )}
+                  {aplicado && id && <DescargarActaConteoButton conteoId={id} />}
                   {aplicado && (
                     <p className="text-sm text-success-fg flex items-center gap-2">
                       <Lock className="h-4 w-4" />

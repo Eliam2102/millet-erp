@@ -24,6 +24,7 @@ import { EstadoConteo, TipoConteo, TipoConteoLabels } from '@/features/almacen/a
 import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, codigoSoporte } from '@/lib/api';
+import { DescargarActaConteoButton } from '@/features/almacen/components/DescargarActaConteoButton';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/inventarios/$id' as const;
@@ -157,6 +158,7 @@ export function InventarioDetallePage() {
                       params: { id: query.data!.id },
                     })
                   }
+                  conteoId={query.data.id}
                   onAprobar={() =>
                     navigate({
                       to: '/almacen/inventarios/$id/aprobacion',
@@ -258,6 +260,7 @@ function Acciones({
   puedeCrear,
   puedeCapturar,
   puedeAprobar,
+  conteoId,
   onIniciar,
   onCapturar,
   onAprobar,
@@ -270,6 +273,7 @@ function Acciones({
   puedeCrear: boolean;
   puedeCapturar: boolean;
   puedeAprobar: boolean;
+  conteoId: string;
   onIniciar: () => void;
   onCapturar: () => void;
   onAprobar: () => void;
@@ -337,6 +341,7 @@ function Acciones({
       </div>
     );
   }
+  if (estado === EstadoConteo.Aplicado) return <DescargarActaConteoButton conteoId={conteoId} />;
   return null;
 }
 

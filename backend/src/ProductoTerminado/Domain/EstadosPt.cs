@@ -7,11 +7,20 @@ public enum EstadoPieza { EnPT, EnTransito, Cargada, Embarcada, Entregada, EnRev
     /// <summary>M-351: dada de baja por desecho o refabricación (la refabricación es un pedido nuevo en A+W).</summary>
     Baja }
 
-public enum TipoMovimientoPieza { Alta, Reposicion, TrasladoSalida, TrasladoRecepcion, Carga, CargaRevertida, Salida, RotaEnCarga, Entrega, RechazoEnSitio, SalidaCancelada,
+public enum TipoMovimientoPieza { Alta, Reposicion, TrasladoSalida, TrasladoRecepcion, TrasladoRegreso, TrasladoPerdida, Carga, CargaRevertida, Salida, RotaEnCarga, Entrega, RechazoEnSitio, SalidaCancelada,
     Ubicacion, DanoRegistrado, DictamenDisponible, DictamenReproceso, Baja, ReingresoReposicion, EntregaCorregida }
 
-/// <summary>EnTransito (sin recibir) -> ConDiferencia (recepción parcial, faltan piezas) -> Recibido (llegaron todas).</summary>
-public enum EstadoTraspaso { EnTransito, ConDiferencia, Recibido }
+/// <summary>
+/// Preparado (documentado, las piezas aún no se mueven) -> EnTransito (autorizado por otra persona) -> ConDiferencia (recepción parcial, faltan piezas)
+/// -> Recibido (llegaron todas) o Cerrado (hubo diferencia y cada pieza quedó aclarada: llegó tarde, regresó al origen o se dio por perdida).
+/// </summary>
+public enum EstadoTraspaso { Preparado, EnTransito, ConDiferencia, Recibido, Cerrado }
+
+/// <summary>Qué le pasó a una pieza que no llegó en la recepción (M-350).</summary>
+public enum ClasificacionDiferencia { Faltante, DanadaEnTransito, EnCuarentena }
+
+/// <summary>Cómo se aclaró la diferencia: la pieza llegó tarde a destino, regresó al PT de origen o se dio por perdida (queda en revisión para Calidad).</summary>
+public enum ResolucionDiferencia { RecibidaTarde, RegresadaAlOrigen, DadaPorPerdida }
 
 public enum ResultadoEscaneo { Alta, Pospuesto, Excepcion, Reposicion }
 

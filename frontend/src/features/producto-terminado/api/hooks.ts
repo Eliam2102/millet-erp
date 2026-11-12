@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { AutorizarHojaBody, CancelarFacturaCasoBody, CasoDanoDto, CasosPagina, ConfirmarEntregaBody, CorregirEntregaBody, DictaminarCasoBody, PiezaDto, ResolverParcialBody, SolicitarParcialBody, SolicitudParcialDto, SolicitudesParcialesPagina, UbicarPiezasBody, CrearHojaSalidaBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
+import type { AutorizarHojaBody, CancelarFacturaCasoBody, CasoDanoDto, CasosPagina, ConfirmarEntregaBody, CorregirEntregaBody, CrearHojaSalidaBody, CrearTraspasoBody, DictaminarCasoBody, DiferenciaTraspasoBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezaDto, PiezasPagina, ResolverParcialBody, ResultadoEscaneo, SalidasPendientesPagina, SolicitarParcialBody, SolicitudParcialDto, SolicitudesParcialesPagina, TraspasoDto, TraspasosPagina, UbicarPiezasBody } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -74,7 +74,8 @@ export function useSalidasPendientes(f: {
   });
 }
 
-export function useTraspasos(f: { estado?: string; page?: number; pageSize?: number }) {
+/** `estado` admite varios separados por coma; `destinoId` filtra por la sucursal que recibe («Por recibir»). */
+export function useTraspasos(f: { estado?: string; destinoId?: string; page?: number; pageSize?: number }) {
   return useQuery({
     queryKey: [...ptKeys.all, 'traspasos', f],
     queryFn: async ({ signal }) =>
@@ -94,11 +95,45 @@ export function useCrearTraspaso() {
   const qc = useQueryClient();
   const keyFor = useBodyScopedIdempotencyKey();
   return useMutation({
-    mutationFn: (body: { sucursalOrigenId: string; sucursalDestinoId: string; etiquetas: string[] }) =>
+    mutationFn: (body: CrearTraspasoBody) =>
       apiRequest<TraspasoDto>(`${BASE}/traspasos`, { method: 'POST', body, idempotencyKey: keyFor(body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
   });
 }
+
+/** Autoriza el traspaso preparado (otra persona): las piezas salen a tránsito. */
+export function useAutorizarTraspaso() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: (id: string) => apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}/autorizar`, { method: 'POST', idempotencyKey: keyFor({ id }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Clasifica las piezas que no llegaron (motivo obligatorio; evidencia obligatoria si llegó dañada). */
+export function useClasificarDiferencias() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: ({ id, piezas }: { id: string; piezas: DiferenciaTraspasoBody[] }) =>
+      apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}/clasificar-diferencias`, { method: 'POST', body: { piezas }, idempotencyKey: keyFor({ id, piezas }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Aclara una pieza clasificada: regresa al origen o se da por perdida (la que llega tarde se recibe). */
+export function useAclararDiferencia() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: ({ id, piezaId, resolucion }: { id: string; piezaId: string; resolucion: 'RegresadaAlOrigen' | 'DadaPorPerdida' }) =>
+      apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}/aclarar-diferencia`, { method: 'POST', body: { piezaId, resolucion }, idempotencyKey: keyFor({ id, piezaId, resolucion }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export const EVIDENCIA_TRASPASO_URL = `${BASE}/traspasos/evidencia/blob`;
 
 /** `piezaIds` ausente = recepción total; una lista parcial deja la diferencia pendiente. */
 export function useRecibirTraspaso() {

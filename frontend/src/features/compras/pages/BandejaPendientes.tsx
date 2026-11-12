@@ -36,7 +36,10 @@ import {
 import { usePendientesAutorizacion } from '@/features/compras/api/usePendientesAutorizacion';
 import {
   useAutorizarMasivo,
+  useDevolverMasivo,
+  useRechazarMasivo,
   type AutorizacionMasivaItemResultado,
+  type AutorizacionMasivaResponse,
 } from '@/features/compras/api/useAutorizarMasivo';
 import {
   NivelAutorizacion,
@@ -61,6 +64,8 @@ import {
 } from '@/features/compras/lib/pendientes-search-schema';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
+import { ModalMotivo } from '@/features/compras/components/ModalMotivo';
 
 const FROM = '/_app/compras/pendientes/' as const;
 const SENTINEL_ALL = '__all__';
@@ -112,12 +117,21 @@ export function BandejaPendientes() {
 
   const puedeN1 = useHasPermission(PermisosCanonicos.ComprasRequisicionesAutorizarNivel1);
   const puedeN2 = useHasPermission(PermisosCanonicos.ComprasRequisicionesAutorizarNivel2);
+  const puedeRechazar = useHasPermission(PermisosCanonicos.ComprasRequisicionesRechazar);
   const autorizarMasivo = useAutorizarMasivo();
+  const rechazarMasivo = useRechazarMasivo();
+  const devolverMasivo = useDevolverMasivo();
+  const enLote =
+    autorizarMasivo.isPending || rechazarMasivo.isPending || devolverMasivo.isPending;
   const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(() => new Set());
-  const [resultados, setResultados] = useState<Record<string, AutorizacionMasivaItemResultado>>({});
+  const [resultados, setResultados] = useState<
+    Record<string, AutorizacionMasivaItemResultado & { okTexto: string }>
+  >({});
   const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
   const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>([]);
   const [confirmando, setConfirmando] = useState(false);
+  const [rechazando, setRechazando] = useState(false);
+  const [devolviendo, setDevolviendo] = useState(false);
 
   function puedeAutorizar(r: PendienteAutorizacionItemResponse): boolean {
     if (r.nivelPendiente === NivelAutorizacion.Nivel1) return puedeN1;
@@ -157,25 +171,21 @@ export function BandejaPendientes() {
     setResumen([]);
     const folioPorId = new Map(items.map((r) => [r.id, r.folio]));
     const acumulado: ResultadoAprobacionItem[] = [];
-    const porNivel = new Map<NivelAutorizacion, string[]>();
+    const porNivel = new Map<NivelAutorizacion, PendienteAutorizacionItemResponse[]>();
     for (const r of items) {
       if (r.nivelPendiente == null) continue;
-      const ids = porNivel.get(r.nivelPendiente) ?? [];
-      ids.push(r.id);
-      porNivel.set(r.nivelPendiente, ids);
+      const grupo = porNivel.get(r.nivelPendiente) ?? [];
+      grupo.push(r);
+      porNivel.set(r.nivelPendiente, grupo);
     }
-    for (const [nivel, ids] of porNivel) {
+    for (const [nivel, grupo] of porNivel) {
       try {
         const respuesta = await autorizarMasivo.mutateAsync({
-          ids,
+          items: grupo.map((r) => ({ id: r.id, version: r.version })),
           nivel,
           idempotencyKey: crypto.randomUUID(),
         });
-        const porId = Object.fromEntries(respuesta.resultados.map((x) => [x.id, x]));
-        setResultados((prev) => ({ ...prev, ...porId }));
-        acumulado.push(...resultadosConFolio(respuesta.resultados, folioPorId));
-        const okIds = new Set(respuesta.resultados.filter((x) => x.ok).map((x) => x.id));
-        setSeleccion((prev) => new Set([...prev].filter((id) => !okIds.has(id))));
+        acumulado.push(...registrarRespuesta(respuesta, folioPorId, 'Aprobada'));
       } catch {
         setErrorAprobacion(
           'No se pudo completar la aprobación. Revisa la bandeja e intenta de nuevo.',
@@ -183,6 +193,44 @@ export function BandejaPendientes() {
       }
     }
     setResumen(acumulado);
+  }
+
+  /** Muestra el resultado por fila, y saca de la selección las filas que sí se ejecutaron. */
+  function registrarRespuesta(
+    respuesta: AutorizacionMasivaResponse,
+    folioPorId: ReadonlyMap<string, string>,
+    okTexto: string,
+  ) {
+    const porId = Object.fromEntries(respuesta.resultados.map((x) => [x.id, { ...x, okTexto }]));
+    setResultados((prev) => ({ ...prev, ...porId }));
+    const okIds = new Set(respuesta.resultados.filter((x) => x.ok).map((x) => x.id));
+    setSeleccion((prev) => new Set([...prev].filter((id) => !okIds.has(id))));
+    return resultadosConFolio(respuesta.resultados, folioPorId, okTexto);
+  }
+
+  /** Rechazo o devolución en lote: un solo motivo/comentario para toda la selección (M-254). */
+  async function cerrarLote(
+    items: readonly PendienteAutorizacionItemResponse[],
+    okTexto: 'Rechazada' | 'Devuelta',
+    ejecutar: (
+      lote: { id: string; version: number }[],
+      idempotencyKey: string,
+    ) => Promise<AutorizacionMasivaResponse>,
+  ) {
+    setErrorAprobacion(null);
+    setResumen([]);
+    const folioPorId = new Map(items.map((r) => [r.id, r.folio]));
+    try {
+      const respuesta = await ejecutar(
+        items.map((r) => ({ id: r.id, version: r.version })),
+        crypto.randomUUID(),
+      );
+      setResumen(registrarRespuesta(respuesta, folioPorId, okTexto));
+    } catch {
+      setErrorAprobacion(
+        `No se pudo ${okTexto === 'Rechazada' ? 'rechazar' : 'devolver'} el lote. Revisa la bandeja e intenta de nuevo.`,
+      );
+    }
   }
 
   function setSearch(next: PendientesSearch) {
@@ -305,11 +353,33 @@ export function BandejaPendientes() {
               <Button
                 type="button"
                 size="sm"
-                disabled={autorizarMasivo.isPending}
+                disabled={enLote}
                 onClick={() => setConfirmando(true)}
               >
                 Aprobar seleccionadas ({seleccionadas.length})
               </Button>
+            )}
+            {seleccionadas.length > 0 && puedeRechazar && (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={enLote}
+                  onClick={() => setDevolviendo(true)}
+                >
+                  Devolver seleccionadas ({seleccionadas.length})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary-danger"
+                  disabled={enLote}
+                  onClick={() => setRechazando(true)}
+                >
+                  Rechazar seleccionadas ({seleccionadas.length})
+                </Button>
+              </>
             )}
             {errorAprobacion && (
               <p role="alert" className="text-sm text-danger-fg">
@@ -341,6 +411,40 @@ export function BandejaPendientes() {
             void aprobar(seleccionadas);
           }}
         />
+
+        {/* Motivo obligatorio y único para todo el lote (M-254). */}
+        <ModalMotivo
+          open={rechazando}
+          onOpenChange={setRechazando}
+          variante="rechazar"
+          folio={`(${seleccionadas.length} seleccionadas)`}
+          isPending={rechazarMasivo.isPending}
+          onConfirm={({ motivoId, motivoTexto }) => {
+            setRechazando(false);
+            void cerrarLote(seleccionadas, 'Rechazada', (items, idempotencyKey) =>
+              rechazarMasivo.mutateAsync({ items, motivoId, motivoTexto, idempotencyKey }),
+            );
+          }}
+        />
+        {devolviendo && (
+          <MotivoDialog
+            titulo={`Devolver ${seleccionadas.length} ${seleccionadas.length === 1 ? 'requisición' : 'requisiciones'} para corregir`}
+            descripcion="Vuelven a Borrador con tu comentario. Las firmas ya dadas quedan como historia y, al reenviarlas, solo se piden las que faltan."
+            etiqueta="Comentario para quien las capturó"
+            min={5}
+            max={500}
+            verbo="Devolver para corregir"
+            variante="default"
+            error={null}
+            onCerrar={() => setDevolviendo(false)}
+            onConfirmar={async (comentario) => {
+              setDevolviendo(false);
+              await cerrarLote(seleccionadas, 'Devuelta', (items, idempotencyKey) =>
+                devolverMasivo.mutateAsync({ items, comentario, idempotencyKey }),
+              );
+            }}
+          />
+        )}
 
         {query.isLoading ? (
           <TableSkeleton
@@ -540,7 +644,7 @@ export function BandejaPendientes() {
 }
 
 interface ResultadoFilaProps {
-  resultado: AutorizacionMasivaItemResultado;
+  resultado: AutorizacionMasivaItemResultado & { okTexto: string };
 }
 
 /** Resultado por fila de la aprobación masiva (accesible: role="status"). */
@@ -550,7 +654,7 @@ function ResultadoFila({ resultado }: ResultadoFilaProps) {
       role="status"
       className={resultado.ok ? 'text-xs text-success-fg' : 'text-xs text-danger-fg'}
     >
-      {resultado.ok ? 'Aprobada' : (resultado.mensaje ?? 'Error al aprobar')}
+      {resultado.ok ? resultado.okTexto : (resultado.mensaje ?? 'Error en el lote')}
     </span>
   );
 }
