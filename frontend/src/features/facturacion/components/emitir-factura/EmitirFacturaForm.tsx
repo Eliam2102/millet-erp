@@ -29,7 +29,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Info } from 'lucide-react';
 import { useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type FieldErrors } from 'react-hook-form';
 import { toast } from 'sonner';
 import { VistaPreviaButton } from '../vista-previa/VistaPreviaButton';
 import type { EmitirFacturaPrefill } from './prefill';
@@ -300,6 +300,8 @@ function FormInner({
   );
   const total = totales.subtotal + totales.iva - totales.ret;
 
+  const [pestana, setPestana] = useState('encabezado');
+  const [resumenErrores, setResumenErrores] = useState<ErrorDeCampo[]>([]);
   const errores = form.formState.errors;
   const erroresEncabezado = CAMPOS_ENCABEZADO.filter((campo) => errores[campo] != null).length;
   const erroresPosiciones =
@@ -317,8 +319,26 @@ function FormInner({
     solicitarCierre();
   }
 
+  // H-U13: un submit inválido no puede quedar mudo. Se lista cada campo con su
+  // motivo en pantalla y se abre la primera pestaña con error.
+  function alInvalido(invalidos: FieldErrors<EmitirFacturaValues>) {
+    const lista = aplanarErrores(invalidos, CAMPOS_ENCABEZADO);
+    setResumenErrores(lista);
+    if (lista.length > 0) setPestana(lista[0].pestana);
+    toast.error(
+      lista.length === 1
+        ? `Falta corregir: ${lista[0].campo} — ${lista[0].motivo}`
+        : `Hay ${lista.length} datos por corregir; el detalle está arriba del formulario.`,
+    );
+  }
+
   async function onSubmit(values: EmitirFacturaValues) {
-    if (ceBloqueado || manualSinClase) return;
+    setResumenErrores([]);
+    if (ceBloqueado) {
+      toast.error(motivoCe ?? 'Completa el embarque en Comercio exterior antes de emitir.');
+      return;
+    }
+    if (manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
       toast.error('La venta de activo fijo requiere la autorización del Director de Administración y Finanzas.');
       return;
@@ -483,7 +503,7 @@ function FormInner({
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
+    <form onSubmit={form.handleSubmit(onSubmit, alInvalido)} noValidate className="space-y-4">
       {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
       {errorVentaDirecta != null ? (
         <AvisoEnLinea
@@ -505,6 +525,26 @@ function FormInner({
         </AvisoEnLinea>
       ) : (
         <ErrorTimbradoAviso error={emitir.error} />
+      )}
+      {resumenErrores.length > 0 && (
+        <AvisoEnLinea tono="error" titulo="No se emitió: corrige estos datos">
+          <ul className="list-disc space-y-0.5 pl-5">
+            {resumenErrores.map((e) => (
+              <li key={e.ruta}>
+                <button
+                  type="button"
+                  className="underline underline-offset-2"
+                  onClick={() => setPestana(e.pestana)}
+                >
+                  {e.pestana === 'posiciones' ? 'Partidas' : e.pestana === 'totales' ? 'Totales' : 'Encabezado'}
+                  {' · '}
+                  {e.campo}
+                </button>
+                : {e.motivo}
+              </li>
+            ))}
+          </ul>
+        </AvisoEnLinea>
       )}
       {manualSinClase && (
         <AvisoEnLinea
@@ -562,7 +602,7 @@ function FormInner({
         </div>
       )}
 
-      <Tabs defaultValue="encabezado">
+      <Tabs value={pestana} onValueChange={setPestana}>
         <TabsList>
           <TabsTrigger value="encabezado">
             Encabezado
@@ -710,6 +750,74 @@ function FormInner({
       {dialogo}
     </form>
   );
+}
+
+interface ErrorDeCampo {
+  ruta: string;
+  campo: string;
+  motivo: string;
+  pestana: 'encabezado' | 'posiciones' | 'totales';
+}
+
+const ETIQUETAS_CAMPO: Record<string, string> = {
+  fraccionArancelaria: 'Fracción arancelaria',
+  unidadAduana: 'Unidad aduana',
+  cantidadAduana: 'Cant. aduana',
+  valorUnitarioAduana: 'Valor unit. aduana',
+  valorDolares: 'Valor USD',
+  descripcion: 'Descripción',
+  claveProdServSat: 'Clave SAT',
+  claveUnidadSat: 'Unidad SAT',
+  cantidad: 'Cantidad',
+  valorUnitario: 'Valor unitario',
+  descuento: 'Descuento',
+  tipoCambio: 'Tipo de cambio',
+  cceIncoterm: 'Incoterm',
+  cceClaveDePedimento: 'Clave de pedimento',
+  cceReceptorDomicilioCalle: 'Calle del receptor',
+  cceReceptorDomicilioEstado: 'Estado del receptor',
+  cceReceptorDomicilioCodigoPostal: 'C.P. del receptor',
+  cceReceptorNumRegIdTrib: 'Núm. reg. id. trib.',
+  cceReceptorPaisResidencia: 'País de residencia',
+  cceTipoOperacion: 'Tipo de operación',
+  formaPago: 'Forma de pago',
+  metodoPago: 'Método de pago',
+  receptorRfc: 'RFC del receptor',
+  receptorCodigoPostal: 'C.P. del receptor',
+  receptorRegimenFiscal: 'Régimen del receptor',
+  receptorUsoCfdi: 'Uso de CFDI',
+  moneda: 'Moneda',
+  observaciones: 'Observaciones',
+};
+
+/** Aplana el árbol de errores de RHF a una lista «campo → motivo», con la pestaña donde se corrige. */
+function aplanarErrores(
+  nodo: unknown,
+  camposEncabezado: readonly string[],
+  ruta: string[] = [],
+  salida: ErrorDeCampo[] = [],
+): ErrorDeCampo[] {
+  if (nodo == null || typeof nodo !== 'object') return salida;
+  const obj = nodo as Record<string, unknown>;
+  if (typeof obj.message === 'string' && obj.message !== '' && 'type' in obj) {
+    const raiz = ruta[0] ?? '';
+    const hoja = [...ruta].reverse().find((r) => Number.isNaN(Number(r))) ?? raiz;
+    const idx = ruta.find((r, i) => i > 0 && !Number.isNaN(Number(r)));
+    const base = ETIQUETAS_CAMPO[hoja] ?? hoja;
+    salida.push({
+      ruta: ruta.join('.'),
+      campo: raiz === 'lineas' && idx != null ? `Partida ${Number(idx) + 1} · ${base}` : base,
+      motivo: obj.message,
+      pestana:
+        raiz === 'lineas' ? 'posiciones' : raiz === 'observaciones' ? 'totales' : camposEncabezado.includes(raiz) ? 'encabezado' : 'encabezado',
+    });
+    return salida;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === 'ref') continue;
+    aplanarErrores(v, camposEncabezado, [...ruta, k], salida);
+  }
+  return salida;
 }
 
 function BadgeErrores({ cuenta }: { cuenta: number }) {
