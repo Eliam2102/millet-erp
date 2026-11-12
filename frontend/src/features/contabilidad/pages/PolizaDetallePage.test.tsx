@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { delay, http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
-import { createQueryWrapper } from '@/test/test-query-client';
+import { createQueryWrapper, createTestQueryClient } from '@/test/test-query-client';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { facturacionKeys } from '@/features/facturacion/api/keys';
 import { partida, poliza } from '../lib/__fixtures__/polizas-fix';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -187,22 +188,76 @@ describe('<PolizaDetallePage> · documento origen (C1.4)', () => {
     expect(within(tarjeta).queryByRole('button', { name: 'XML' })).not.toBeInTheDocument();
   });
 
-  it('abre el comprobante de Facturación con su permiso sin inventar si es factura, anticipo o NC', async () => {
-    servidor(poliza({ origen: 'Automatica', documentoOrigen: { modulo: 'facturacion', tipo: 'comprobante', id: 'fv1', folio: 'FIX-1', uuid: UUID } }));
+  const documentoFacturacion = (tipo = 'comprobante') => poliza({
+    origen: 'Automatica',
+    documentoOrigen: { modulo: 'facturacion', tipo, id: 'fv1', folio: 'FIX-1', uuid: UUID },
+  });
+  const arbolComprobante = (tipo: number | undefined, id = 'fv1') => ({
+    actual: { tipo, id, folio: 'FIX-1', estado: 'Timbrado', uuid: UUID, total: 116, fecha: '2026-11-12' },
+    ascendientes: [], descendientes: [],
+  });
+  const ARBOL = '*/api/v1/facturacion/comprobantes/fv1/arbol-documentos';
+
+  it.each([
+    [6, '/facturacion/facturas/fv1'],
+    [7, '/facturacion/anticipos/facturas/fv1'],
+  ])('resuelve tipo %s en el árbol antes de enlazar al documento correcto', async (tipo, ruta) => {
+    servidor(documentoFacturacion());
+    mswServer.use(http.get(ARBOL, () => HttpResponse.json(arbolComprobante(tipo))));
+    permisos(PermisosCanonicos.FacturacionFacturasLeer);
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByRole('link', { name: 'Ver documento en Facturación' })).toHaveAttribute('href', ruta);
+  });
+
+  it.each([
+    [8, 'fv1'], [undefined, 'fv1'], [99, 'fv1'], [6, 'otro-comprobante'],
+  ])('no inventa ruta para tipo %s e identidad %s', async (tipo, id) => {
+    servidor(documentoFacturacion());
+    const consulta = vi.fn(() => HttpResponse.json(arbolComprobante(tipo, id)));
+    mswServer.use(http.get(ARBOL, consulta));
+    permisos(PermisosCanonicos.FacturacionFacturasLeer);
+    const client = createTestQueryClient();
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper(client) });
+    const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
+    await waitFor(() => expect(consulta).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(client.getQueryState(facturacionKeys.arbolDocumentos('comprobante', 'fv1'))?.status).toBe('success'));
+    expect(within(tarjeta).queryByRole('link', { name: 'Ver documento en Facturación' })).not.toBeInTheDocument();
+  });
+
+  it('un error de árbol no ofrece enlace falso a factura', async () => {
+    servidor(documentoFacturacion());
+    const consulta = vi.fn(() => HttpResponse.json({ status: 500, title: 'FIX árbol fallido' }, { status: 500 }));
+    mswServer.use(http.get(ARBOL, consulta));
+    permisos(PermisosCanonicos.FacturacionFacturasLeer);
+    const client = createTestQueryClient();
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper(client) });
+    const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
+    await waitFor(() => expect(consulta).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(client.getQueryState(facturacionKeys.arbolDocumentos('comprobante', 'fv1'))?.status).toBe('error'));
+    expect(within(tarjeta).queryByRole('link', { name: 'Ver documento en Facturación' })).not.toBeInTheDocument();
+  });
+
+  it('durante carga no presupone factura y luego enlaza al anticipo', async () => {
+    servidor(documentoFacturacion());
+    mswServer.use(http.get(ARBOL, async () => { await delay(100); return HttpResponse.json(arbolComprobante(7)); }));
     permisos(PermisosCanonicos.FacturacionFacturasLeer);
     render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
     const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
-    expect(within(tarjeta).getByRole('link', { name: 'Ver documento en Facturación' })).toHaveAttribute('href', '/facturacion/facturas/fv1');
+    expect(within(tarjeta).queryByRole('link', { name: 'Ver documento en Facturación' })).not.toBeInTheDocument();
+    expect(await within(tarjeta).findByRole('link', { name: 'Ver documento en Facturación' })).toHaveAttribute('href', '/facturacion/anticipos/facturas/fv1');
   });
 
   it.each([
     ['comprobante', false], ['pedido', true],
-  ])('no ofrece enlace Facturación para tipo %s con permiso %s', async (tipo, conPermiso) => {
-    servidor(poliza({ origen: 'Automatica', documentoOrigen: { modulo: 'facturacion', tipo, id: 'fv1', folio: 'FIX-1', uuid: UUID } }));
+  ])('no consulta ni enlaza para tipo %s con permiso %s', async (tipo, conPermiso) => {
+    servidor(documentoFacturacion(tipo));
+    const consulta = vi.fn(() => HttpResponse.json(arbolComprobante(6)));
+    mswServer.use(http.get(ARBOL, consulta));
     permisos(...(conPermiso ? [PermisosCanonicos.FacturacionFacturasLeer] : []));
     render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
     const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
     expect(within(tarjeta).queryByRole('link', { name: 'Ver documento en Facturación' })).not.toBeInTheDocument();
+    expect(consulta).not.toHaveBeenCalled();
   });
 
   it('una póliza manual no muestra la tarjeta', async () => {
