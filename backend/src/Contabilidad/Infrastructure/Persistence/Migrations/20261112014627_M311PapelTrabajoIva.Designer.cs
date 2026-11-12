@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ContabilidadDbContext))]
-    [Migration("20261112145133_M321IncidenciasPosteriores")]
-    partial class M321IncidenciasPosteriores
+    [Migration("20261112014627_M311PapelTrabajoIva")]
+    partial class M311PapelTrabajoIva
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -598,6 +598,88 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("cuentas_contables_uso", "contabilidad");
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.DiferenciaFiscalIva", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AjustePolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ajuste_poliza_id");
+
+                    b.Property<string>("Causa")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("causa");
+
+                    b.Property<DateTimeOffset?>("CerradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cerrada_en");
+
+                    b.Property<Guid?>("CerradaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cerrada_por");
+
+                    b.Property<DateTimeOffset>("DetectadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("detectada_en");
+
+                    b.Property<decimal>("Diferencia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("diferencia");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("folio");
+
+                    b.Property<Guid>("FotoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("foto_id");
+
+                    b.Property<decimal>("IvaActual")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_actual");
+
+                    b.Property<decimal>("IvaFoto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("iva_foto");
+
+                    b.Property<Guid>("SaldoIvaDocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("saldo_iva_documento_id");
+
+                    b.Property<string>("Uuid")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("uuid");
+
+                    b.HasKey("Id")
+                        .HasName("pk_diferencias_fiscales_iva");
+
+                    b.HasIndex("EmpresaId", "Estado")
+                        .HasDatabaseName("ix_diferencias_fiscales_iva_estado");
+
+                    b.HasIndex("FotoId", "SaldoIvaDocumentoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_diferencias_fiscales_iva_foto_saldo");
+
+                    b.ToTable("diferencias_fiscales_iva", "contabilidad");
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.EjercicioContable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -758,134 +840,128 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.ToTable("importaciones_catalogo", "contabilidad");
                 });
 
-            modelBuilder.Entity("Millet.Contabilidad.Domain.IncidenciaPosterior", b =>
+            modelBuilder.Entity("Millet.Contabilidad.Domain.LiquidacionIvaAcuse", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
+                    b.Property<DateTimeOffset>("AdjuntadoEn")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
+                        .HasColumnName("adjuntado_en");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
+                    b.Property<Guid>("AdjuntadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("adjuntado_por");
 
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
+                    b.Property<byte[]>("Contenido")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("contenido");
 
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
-                    b.Property<short>("Estado")
-                        .HasColumnType("smallint")
-                        .HasColumnName("estado");
-
-                    b.Property<string>("Hallazgo")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("hallazgo");
-
-                    b.Property<string>("Impacto")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("impacto");
-
-                    b.Property<decimal?>("ImporteImpacto")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("importe_impacto");
-
-                    b.Property<string>("NotaResolucion")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("nota_resolucion");
-
-                    b.Property<int>("PeriodoAnio")
-                        .HasColumnType("integer")
-                        .HasColumnName("periodo_anio");
-
-                    b.Property<int>("PeriodoNumero")
-                        .HasColumnType("integer")
-                        .HasColumnName("periodo_numero");
-
-                    b.Property<Guid?>("PolizaAjusteId")
+                    b.Property<Guid>("FotoId")
                         .HasColumnType("uuid")
-                        .HasColumnName("poliza_ajuste_id");
+                        .HasColumnName("foto_id");
 
-                    b.Property<Guid?>("PolizaId")
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("nombre");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.Property<string>("TipoContenido")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tipo_contenido");
+
+                    b.HasKey("Id")
+                        .HasName("pk_liquidaciones_iva_acuse");
+
+                    b.HasIndex("FotoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_liquidaciones_iva_acuse_foto");
+
+                    b.ToTable("liquidaciones_iva_acuse", "contabilidad");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.LiquidacionIvaFoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.Property<DateTimeOffset>("CreadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creada_en");
+
+                    b.Property<Guid>("CreadaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("creada_por");
+
+                    b.Property<string>("CuadreJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("cuadre_json");
+
+                    b.Property<string>("DetalleJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("detalle_json");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("FolioPoliza")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("folio_poliza");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("integer")
+                        .HasColumnName("mes");
+
+                    b.Property<Guid>("PolizaId")
                         .HasColumnType("uuid")
                         .HasColumnName("poliza_id");
 
-                    b.Property<Guid?>("ReaperturaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reapertura_id");
-
-                    b.Property<DateTimeOffset>("RegistradaEn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("registrada_en");
-
-                    b.Property<string>("RegistradaPor")
+                    b.Property<string>("ResumenJson")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("registrada_por");
+                        .HasColumnType("jsonb")
+                        .HasColumnName("resumen_json");
 
-                    b.Property<Guid?>("RegistradaPorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("registrada_por_id");
-
-                    b.Property<short?>("Resolucion")
-                        .HasColumnType("smallint")
-                        .HasColumnName("resolucion");
-
-                    b.Property<DateTimeOffset?>("ResueltaEn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("resuelta_en");
-
-                    b.Property<string>("ResueltaPor")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("resuelta_por");
-
-                    b.Property<Guid?>("ResueltaPorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("resuelta_por_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
+                    b.Property<string>("TratamientosJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tratamientos_json");
 
                     b.HasKey("Id")
-                        .HasName("pk_incidencias_posteriores");
+                        .HasName("pk_liquidaciones_iva_foto");
 
                     b.HasIndex("PolizaId")
-                        .HasDatabaseName("ix_incidencias_posteriores_poliza_id")
-                        .HasFilter("poliza_id IS NOT NULL");
+                        .IsUnique()
+                        .HasDatabaseName("ux_liquidaciones_iva_foto_poliza");
 
-                    b.HasIndex("EmpresaId", "PeriodoAnio", "PeriodoNumero", "Estado")
-                        .HasDatabaseName("ix_incidencias_posteriores_empresa_id_periodo_anio_periodo_num");
+                    b.HasIndex("EmpresaId", "Anio", "Mes")
+                        .HasDatabaseName("ix_liquidaciones_iva_foto_mes");
 
-                    b.ToTable("incidencias_posteriores", "contabilidad", t =>
-                        {
-                            t.HasCheckConstraint("ck_incidencias_posteriores_estado", "estado BETWEEN 0 AND 1");
-
-                            t.HasCheckConstraint("ck_incidencias_posteriores_resolucion", "resolucion IS NULL OR resolucion BETWEEN 1 AND 2");
-                        });
+                    b.ToTable("liquidaciones_iva_foto", "contabilidad");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.MarcaPasoCierre", b =>
@@ -3341,13 +3417,24 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_cuentas_contables_uso_cuentas_contables_cuenta_id");
                 });
 
-            modelBuilder.Entity("Millet.Contabilidad.Domain.IncidenciaPosterior", b =>
+            modelBuilder.Entity("Millet.Contabilidad.Domain.DiferenciaFiscalIva", b =>
                 {
-                    b.HasOne("Millet.Contabilidad.Domain.Poliza", null)
+                    b.HasOne("Millet.Contabilidad.Domain.LiquidacionIvaFoto", null)
                         .WithMany()
-                        .HasForeignKey("PolizaId")
+                        .HasForeignKey("FotoId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_incidencias_posteriores_polizas_poliza_id");
+                        .IsRequired()
+                        .HasConstraintName("fk_diferencias_fiscales_iva_liquidaciones_iva_foto_foto_id");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.LiquidacionIvaAcuse", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.LiquidacionIvaFoto", null)
+                        .WithMany()
+                        .HasForeignKey("FotoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_liquidaciones_iva_acuse_liquidaciones_iva_foto_foto_id");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.MarcaPasoCierre", b =>

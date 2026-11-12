@@ -67,6 +67,9 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // C1.6: saldo de IVA por documento y su reclasificación al pagar o cobrar (base de K10.7).
     public DbSet<SaldoIvaDocumento> SaldosIvaDocumento => Set<SaldoIvaDocumento>();
     public DbSet<ReclasificacionIva> ReclasificacionesIva => Set<ReclasificacionIva>();
+    public DbSet<LiquidacionIvaFoto> LiquidacionesIvaFoto => Set<LiquidacionIvaFoto>();
+    public DbSet<LiquidacionIvaAcuse> LiquidacionesIvaAcuse => Set<LiquidacionIvaAcuse>();
+    public DbSet<DiferenciaFiscalIva> DiferenciasFiscalesIva => Set<DiferenciaFiscalIva>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
