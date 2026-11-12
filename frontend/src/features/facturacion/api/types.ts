@@ -1504,7 +1504,19 @@ export interface SustitucionReferencia {
 }
 
 /** GET /facturas/{id}/sustitucion — borrador de la sustituta con los datos de la original. */
+/** ¿La cancelación necesita la aceptación del receptor? Si no, las razones (regla fiscal). */
+export interface AceptacionCancelacionResponse {
+  requiereAceptacion: boolean;
+  razonesSinAceptacion: string[];
+  esGlobal: boolean;
+}
+
 export interface DatosSustitucionResponse {
+  motivo: string;
+  llevaRelacion04: boolean;
+  pasos: string[] | null;
+  requiereAceptacion: boolean;
+  razonesSinAceptacion: string[] | null;
   sustituyeComprobanteId: string;
   sustituyeFolio: string;
   sustituyeUuid: string;

@@ -4,7 +4,10 @@ import type { EmitirFacturaPrefill } from '@/features/facturacion/components/emi
 /** Borrador de la sustituta (FAC-08b): los datos de la original en el formulario de emisión. */
 export function prefillSustitucion(d: DatosSustitucionResponse): EmitirFacturaPrefill {
   return {
-    sustituye: { id: d.sustituyeComprobanteId, folio: d.sustituyeFolio, uuid: d.sustituyeUuid },
+    // Con motivo 02/04 la nueva va sin relación: no se manda `sustituye`.
+    sustituye: d.llevaRelacion04
+      ? { id: d.sustituyeComprobanteId, folio: d.sustituyeFolio, uuid: d.sustituyeUuid }
+      : undefined,
     sucursalId: d.sucursalId,
     clienteId: d.clienteId ?? undefined,
     receptorNombre: d.receptorNombre,

@@ -52,6 +52,16 @@ public static class ComprobantesEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // GET: ¿la cancelación necesita la aceptación del receptor? (regla fiscal; informativo).
+        group.MapGet("/{id:guid}/cancelar/aceptacion", async (
+            Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new AceptacionCancelacionQuery(id), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesSolicitar)
+        .WithName("AceptacionCancelacion")
+        .WithSummary("Si la cancelación requiere aceptación del receptor y por qué no")
+        .Produces<AceptacionCancelacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // GET: estatus de la cancelación de un comprobante.
         group.MapGet("/{id:guid}/cancelar", async (
             Guid id,
