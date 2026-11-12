@@ -33,6 +33,7 @@ import {
 } from '../api/liquidacion-iva';
 import { monto } from '../lib/polizas';
 import { RecalcularIvaDocumento } from '../components/iva/RecalcularIvaDocumento';
+import { PapelTrabajoIvaSeccion } from '../components/iva/PapelTrabajoIvaSeccion';
 
 const LADO: Record<LadoIva, string> = {
   Acreditable: 'Acreditable (proveedor)',
@@ -109,6 +110,8 @@ export function LiquidacionIvaPage() {
       )}
 
       {data && puedeCorregir && <RecalcularIvaDocumento documentos={data.documentos} />}
+
+      {data && <PapelTrabajoIvaSeccion anio={data.anio} mes={data.mes} />}
 
       <ReporteShell<DocumentoLiquidacionIva>
         reporte={reporte || undefined}
