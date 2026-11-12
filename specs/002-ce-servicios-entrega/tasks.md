@@ -67,3 +67,12 @@ Al revisar completitud: se controlan las facturas de los gastos identificados en
 ### 12-nov · evidencia contable de FR-002 y FR-007
 Antes de integrar se reprodujo una duplicación contable: la factura CE cargaba GASTO y la distribución volvía a reconocerlo, dejando100 de abono sin compensar en la cuenta por aplicar. Prueba roja1/2. Se propaga el indicador explícito CE por el evento de factura existente y su normalizador; sólo para ese documento el motor usa GASTOS_IMPORTACION_POR_APLICAR al capturar. La distribución conserva el gasto final; plantilla persistida y servicios ordinarios se conservan. Sin dependencia ni migración nueva.
 Regresión posterior:664/664 unitariasContabilidad y4/4 integración dirigida: dos variantes del circuitoHTTP real y dos contables CE/ordinaria, con reentrega. Verifica una deuda, un gasto y saldo0 en la cuenta por aplicar; el circuitoHTTP comprueba el indicador emitido por el productor real. Evidencia externa gate_contabilidad_rojo/gate_contabilidad_verde y contabilidad_unit_final. CI de esta corrección aún pendiente; no sustituye QA/SC-005.
+
+## Phase 7: Convergence
+
+Evaluación12-nov tras implementación. Inventario:10FR,5SC y12escenarios de aceptación;5puertas del plan y5principios de constitución. Código y pruebas verificadas para US1/US2; las pruebas locales no acreditan entregaQA ni aceptación. Cuatro hallazgos partial:3HIGH y1MEDIUM; ninguno missing/contradicts/unrequested adicional en el alcance construido. El defecto contable FR-002 fue reproducido y corregido antes de este corte,4/4 integración y664/664unitarias. No se declara convergencia integral.
+
+- [ ] T025 [US3] HIGH Completar CI aplicable del head definitivo y verificar integración a develop, conservando evidencia de la composición probada; continuar T016/T017 per FR-008, FR-009 y US3/AC2 (partial).
+- [ ] T026 [US3] HIGH Construir/ensayar composición QA desde versiones actuales conservando lotes, respaldos, tres migraciones y filtroCE; verificar roles/cuentas sin asignaciones silenciosas, continuando T018/T019 per FR-008 y plan: publicación/pase (partial).
+- [ ] T027 [US3] HIGH Ejecutar casoQA por interfaces con actores/folios, saldo, aplicaciones, póliza única y reversa; conservar ensayos anticipo/pedimento y fiscal/documental con sus evidencias, continuando T020/T023 per FR-007, FR-009, SC-005 y US3/AC1-2 (partial).
+- [ ] T028 [US3] MEDIUM Finalizar guía/acta y fichas con estado integrado/QA/aceptación separados; conservar lo recibido y responsables concretos, continuando T021/T024 per FR-010 y US3/AC3 (partial).
