@@ -4,14 +4,15 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { OtrPanel, OtrDetalle } from './OtrPanel';
 import { OtrBandejaPage } from '../pages/OtrBandejaPage';
-import type { OtrEnvio } from '../api/otr';
-const state = vi.hoisted(() => ({ data: [] as OtrEnvio[], mutar: vi.fn() }));
+import type { OtrEnvio, OtrRechazo } from '../api/otr';
+const state = vi.hoisted(() => ({ data: [] as OtrEnvio[], mutar: vi.fn(), rechazos: [] as OtrRechazo[] }));
 vi.mock('../api/otr', () => ({
   useOtrEnvios: () => ({ data: state.data, isError: false }),
   useOtrBandeja: () => ({ data: state.data.map((e) => ({
     id: e.id, idOrigen: e.idOrigen, version: e.version, versionAplicada: e.versionAplicada,
     sucursalId: e.sucursalId, estado: e.estado, motivoVinculacion: e.motivoVinculacion, contenido: e.contenido,
   })), isError: false }),
+  useOtrRechazos: (enabled: boolean) => ({ data: enabled ? state.rechazos : undefined, isError: false }),
   useOtrAccion: () => ({ mutateAsync: state.mutar, isPending: false, isError: false }),
   useOtrCandidatos: () => ({ data: [{ id: 'exp', folio: 'CE-EXP-DEMO' }], isError: false }),
 }));
@@ -221,4 +222,36 @@ it('consulta Cancelados sin mostrar acciones de revalidación o vinculación', (
   expect(screen.getByRole('cell', { name: 'DEMO-OTR-1' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Revalidar sucursal' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('Histórico SAP se consulta en su pestaña sin acciones de vinculación', () => {
+  state.data = [{ ...envio, estado: 4, motivoVinculacion: null }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar] });
+  render(<OtrBandejaPage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Histórico SAP\s*1/ }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('cell', { name: 'DEMO-OTR-1' })).toBeInTheDocument();
+  expect(screen.getByText('Ya facturado en SAP; sólo consulta.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('los rechazos del lector se listan con su motivo sólo para la gestión corporativa', () => {
+  state.data = [];
+  state.rechazos = [{ id: 'r1', idOrigen: '7001-C9', versionOrigen: 1792666512345, intentos: 1, motivo: 'CE_OTR_VARIOS_CLIENTES', fecha: '2026-11-12T12:00:00Z' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar] });
+  const sinTodas = render(<OtrBandejaPage />);
+  expect(screen.queryByRole('tab', { name: /Rechazados/ })).not.toBeInTheDocument();
+  sinTodas.unmount();
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Rechazados\s*1/ }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('cell', { name: '7001-C9' })).toBeInTheDocument();
+  expect(screen.getByText('La pirámide trae piezas de varios clientes.')).toBeInTheDocument();
+  expect(screen.getByText('1 rechazos')).toBeInTheDocument();
+});
+
+it('una partida omitida explica el motivo guardado', () => {
+  state.data = [{ ...envio, lineas: [{ ...envio.lineas[0], estado: 4, motivo: 'CE_OTR_CANTIDAD_CERO: sin piezas' }] }];
+  render(<OtrPanel expedienteId="exp" />);
+  expect(screen.getByText('OTR mandó la posición sin piezas; se omitió y no detiene el resto del envío.')).toBeInTheDocument();
+  expect(screen.getByText('Omitida')).toBeInTheDocument();
 });

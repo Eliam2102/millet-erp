@@ -341,6 +341,15 @@ public sealed class OtrHttpTests(ITestOutputHelper output)
         var rechazo = await dbFinal.OtrEntradasControl.SingleAsync(x => x.IdOrigen == "DEMO-OTR-1"); Assert.Equal(2, rechazo.Intentos); Assert.True(rechazo.Rechazada);
         await using var conn = new NpgsqlConnection(dbFinal.Database.GetConnectionString()); await conn.OpenAsync();
         await using var comprobar = new NpgsqlCommand("SELECT erp_resultado FROM dbo.aw_otr_envio WHERE otr_envio_id='DEMO-OTR-1'", conn); Assert.Equal("Rechazada", await comprobar.ExecuteScalarAsync());
+        // Diagnóstico 10446260: el rechazo se ve en la bandeja (pestaña Rechazados) con su motivo, sólo para la gestión de todas las sucursales.
+        using var corporativo = await e.ClienteAsync(true, leerTodas: true, gestionarTodas: true);
+        var rechazos = await Json(await corporativo.GetAsync(Base + "/rechazos"));
+        var fila = rechazos.EnumerateArray().Single(x => x.GetProperty("idOrigen").GetString() == "DEMO-OTR-1");
+        Assert.StartsWith("CE_OTR_ERROR_TECNICO", fila.GetProperty("motivo").GetString()); Assert.Equal(2, fila.GetProperty("intentos").GetInt32());
+        using var local = await e.ClienteAsync(true);
+        Assert.Empty((await Json(await local.GetAsync(Base + "/rechazos"))).EnumerateArray());
+        using var sinPermisos = await e.ClienteAsync(false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermisos.GetAsync(Base + "/rechazos")).StatusCode);
     }
     [Fact]
     public async Task Pedido_ambiguo_permanece_pendiente_antes_y_despues_de_vincular()

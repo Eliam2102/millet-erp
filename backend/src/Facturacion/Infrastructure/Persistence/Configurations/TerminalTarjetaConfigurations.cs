@@ -94,3 +94,19 @@ public sealed class FacturaBancoTerminalConfiguration : IEntityTypeConfiguration
         builder.HasIndex(e => new { e.EmpresaId, e.CfdiRecibidoId }).IsUnique().HasDatabaseName("ux_terminal_factura_banco_empresa_cfdi");
     }
 }
+
+public sealed class TerminalAfiliacionConfiguration : IEntityTypeConfiguration<TerminalAfiliacion>
+{
+    public void Configure(EntityTypeBuilder<TerminalAfiliacion> builder)
+    {
+        builder.ToTable("terminal_afiliacion");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.Afiliacion).HasMaxLength(20).IsRequired();
+        builder.Property(e => e.CodTerminal).HasMaxLength(20).IsRequired();
+        builder.Property(e => e.Descripcion).HasMaxLength(200);
+        // Una terminal de una afiliación pertenece a una sola sucursal.
+        builder.HasIndex(e => new { e.EmpresaId, e.Afiliacion, e.CodTerminal }).IsUnique()
+            .HasDatabaseName("ux_terminal_afiliacion_empresa_afiliacion_terminal");
+    }
+}

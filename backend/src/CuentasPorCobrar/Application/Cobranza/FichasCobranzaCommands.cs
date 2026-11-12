@@ -15,7 +15,8 @@ public sealed record FichaCobranzaEventoResponse(
     Guid Id, short Tipo, string TipoNombre, DateTimeOffset Fecha, string? UsuarioNombre, string Nota,
     short? Canal, short? Resultado, decimal? MontoComprometido, DateOnly? FechaComprometida,
     DateOnly? RevisionAntes, DateOnly? RevisionDespues, string? ResponsableAntes, string? ResponsableDespues,
-    Guid? CorrigeEventoId, string? NotaAnterior, string? MotivoCorreccion)
+    Guid? CorrigeEventoId, string? NotaAnterior, string? MotivoCorreccion,
+    string? EstadoPromesa = null, decimal? PagadoPromesa = null, decimal? FaltantePromesa = null)
 {
     public static FichaCobranzaEventoResponse De(FichaCobranzaEvento e) => new(
         e.Id, (short)e.Tipo, e.Tipo.ToString(), e.Fecha, e.UsuarioNombre, e.Nota, (short?)e.Canal, (short?)e.Resultado,
@@ -25,11 +26,13 @@ public sealed record FichaCobranzaEventoResponse(
 
 public sealed record FichaCobranzaResponse(
     Guid Id, Guid FacturaCarteraId, Guid ClienteId, Guid? ResponsableId, string? ResponsableNombre,
-    DateOnly? SiguienteRevision, bool Escalada, FichaCobranzaEventoResponse? UltimoEvento)
+    DateOnly? SiguienteRevision, bool Escalada, FichaCobranzaEventoResponse? UltimoEvento,
+    bool Cerrada = false, short? MotivoCierre = null, decimal? SaldoAlCerrar = null, string? ExplicacionSaldo = null)
 {
     public static FichaCobranzaResponse De(FichaCobranza f, FichaCobranzaEvento? ultimo) => new(
         f.Id, f.FacturaCarteraId, f.ClienteId, f.ResponsableId, f.ResponsableNombre, f.SiguienteRevision, f.Escalada,
-        ultimo is null ? null : FichaCobranzaEventoResponse.De(ultimo));
+        ultimo is null ? null : FichaCobranzaEventoResponse.De(ultimo),
+        f.Cerrada, (short?)f.MotivoCierre, f.SaldoAlCerrar, f.ExplicacionSaldo);
 }
 
 internal static class FichasCobranzaComun
@@ -226,12 +229,45 @@ public sealed class CorregirEventoFichaHandler(CuentasPorCobrarDbContext db, ICu
     }
 }
 
+// ── Cerrar la ficha (M-345 · s06) ───────────────────────────────────────────
+
+public sealed record CerrarFichaCommand(Guid FacturaCarteraId, MotivoCierreFicha Motivo, string? ExplicacionSaldo)
+    : IRequest<FichaCobranzaResponse>;
+
+public sealed class CerrarFichaValidator : AbstractValidator<CerrarFichaCommand>
+{
+    public CerrarFichaValidator()
+    {
+        RuleFor(c => c.FacturaCarteraId).NotEmpty();
+        RuleFor(c => c.Motivo).IsInEnum();
+        RuleFor(c => c.ExplicacionSaldo).MaximumLength(2000);
+    }
+}
+
+/// <summary>El saldo se lee de la cartera al cerrar: la ficha no confía en el que mande el cliente.</summary>
+public sealed class CerrarFichaHandler(CuentasPorCobrarDbContext db, ICurrentUserContext usuario, IClock clock)
+    : IRequestHandler<CerrarFichaCommand, FichaCobranzaResponse>
+{
+    public async Task<FichaCobranzaResponse> Handle(CerrarFichaCommand request, CancellationToken cancellationToken)
+    {
+        var usuarioId = FichasCobranzaComun.ExigirUsuario(usuario, "cierra la ficha");
+        var ficha = await FichasCobranzaComun.FichaDeAsync(db, request.FacturaCarteraId, cancellationToken)
+            ?? throw new EntityNotFoundException("FCO_NO_ENCONTRADA", "La factura aún no tiene ficha de cobranza.");
+        var factura = await db.FacturasCartera.AsNoTracking().FirstAsync(f => f.Id == request.FacturaCarteraId, cancellationToken);
+        var saldo = Math.Max(0m, factura.Total - factura.MontoPagado - factura.MontoNc);
+        var evento = ficha.Cerrar(request.Motivo, saldo, request.ExplicacionSaldo, usuarioId, usuario.UserName, clock.UtcNow);
+        db.FichaCobranzaEventos.Add(evento);
+        await db.SaveChangesAsync(cancellationToken);
+        return FichaCobranzaResponse.De(ficha, evento);
+    }
+}
+
 // ── Consultas ───────────────────────────────────────────────────────────────
 
 public sealed record FichaFacturaVencidaDto(
     Guid FacturaCarteraId, Guid ClienteId, string ClienteNombre, string Folio, string Moneda, decimal Saldo,
     DateTimeOffset FechaVencimiento, int DiasVencida, Guid? FichaId, Guid? ResponsableId, string? ResponsableNombre,
-    DateOnly? SiguienteRevision, bool Escalada, bool RevisionVencida);
+    DateOnly? SiguienteRevision, bool Escalada, bool RevisionVencida, bool Cerrada = false);
 
 /// <summary>Facturas vencidas con su ficha (o sin ella, = sin responsable). Alcance por sucursal de la factura (ADR-0051).</summary>
 public sealed record FichasCobranzaQuery(Guid? ClienteId = null, Guid? ResponsableId = null, bool SoloSinResponsable = false)
@@ -268,7 +304,7 @@ public sealed class FichasCobranzaHandler(CuentasPorCobrarDbContext db, IClock c
             x.f.Id, x.f.ClienteId!.Value, x.f.ReceptorNombre, x.f.Folio, x.f.Moneda,
             x.f.Total - x.f.MontoPagado - x.f.MontoNc, x.f.FechaVencimiento, (int)(ahora - x.f.FechaVencimiento).TotalDays,
             x.fi?.Id, x.fi?.ResponsableId, x.fi?.ResponsableNombre, x.fi?.SiguienteRevision, x.fi?.Escalada ?? false,
-            x.fi?.SiguienteRevision is DateOnly r && r < hoy)).ToList();
+            x.fi?.SiguienteRevision is DateOnly r && r < hoy, x.fi?.Cerrada ?? false)).ToList();
     }
 }
 
@@ -281,7 +317,7 @@ public sealed record FichaCobranzaDetalleQuery(Guid FacturaCarteraId)
     public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
 }
 
-public sealed class FichaCobranzaDetalleHandler(CuentasPorCobrarDbContext db)
+public sealed class FichaCobranzaDetalleHandler(CuentasPorCobrarDbContext db, IClock clock)
     : IRequestHandler<FichaCobranzaDetalleQuery, IReadOnlyList<FichaCobranzaEventoResponse>>
 {
     public async Task<IReadOnlyList<FichaCobranzaEventoResponse>> Handle(FichaCobranzaDetalleQuery request, CancellationToken cancellationToken)
@@ -292,6 +328,22 @@ public sealed class FichaCobranzaDetalleHandler(CuentasPorCobrarDbContext db)
                              where f.FacturaCarteraId == request.FacturaCarteraId
                              orderby e.Fecha descending
                              select e).ToListAsync(cancellationToken);
-        return eventos.Select(FichaCobranzaEventoResponse.De).ToList();
+        // M-345: cada promesa se muestra con su estado (vigente/cumplida/parcial/incumplida) según los pagos aplicados a la factura.
+        var hoy = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+        var pagos = eventos.Any(e => e.Tipo == TipoEventoFicha.Promesa)
+            ? (await db.MovimientosCartera.AsNoTracking()
+                .Where(m => m.FacturaCarteraId == request.FacturaCarteraId && m.Tipo == TipoMovimientoCartera.Pago && !m.Revertido)
+                .Select(m => new { m.FechaMovimiento, m.Importe }).ToListAsync(cancellationToken))
+                .Select(m => new PagoAplicado(DateOnly.FromDateTime(m.FechaMovimiento.UtcDateTime), m.Importe)).ToList()
+            : [];
+        return eventos.Select(e =>
+        {
+            var r = FichaCobranzaEventoResponse.De(e);
+            if (e.Tipo != TipoEventoFicha.Promesa || e.MontoComprometido is not > 0 || e.FechaComprometida is null) return r;
+            var desde = DateOnly.FromDateTime(e.Fecha.UtcDateTime);
+            if (e.FechaComprometida.Value < desde) return r;
+            var res = CumplimientoPromesa.Evaluar(e.MontoComprometido.Value, e.FechaComprometida.Value, desde, pagos, hoy);
+            return r with { EstadoPromesa = res.Estado.ToString(), PagadoPromesa = res.Pagado, FaltantePromesa = res.Faltante };
+        }).ToList();
     }
 }

@@ -214,6 +214,8 @@ public static class ConciliacionDiariaEndpoints
     private static async Task<IReadOnlyCollection<string>> ClavesSucursalAsync(ISucursalReadPort sucursales, Guid sucursalId, CancellationToken ct)
     {
         var s = await sucursales.ObtenerAsync(sucursalId, ct);
-        return s is null ? [] : new[] { s.Clave, s.ClaveAw }.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c!.Trim()).ToArray();
+        // ClaveAw admite alias separados por coma (Conkal: CONKAL,PERIFERICO,OBRAS): cuenta cada uno.
+        return s is null ? [] : new[] { s.Clave }.Concat(Millet.Administracion.Domain.Sucursal.ClavesAw(s.ClaveAw))
+            .Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct().ToArray();
     }
 }

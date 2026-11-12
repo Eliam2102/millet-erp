@@ -20,13 +20,14 @@ export interface FichaFacturaVencida {
   siguienteRevision: string | null;
   escalada: boolean;
   revisionVencida: boolean;
+  cerrada: boolean;
 }
 
 /** M-241: espejo de <c>FichaCobranzaEventoResponse</c> (backend). */
 export interface FichaCobranzaEvento {
   id: string;
   tipo: number;
-  tipoNombre: 'Asignacion' | 'Gestion' | 'Promesa' | 'Reprogramacion' | 'Escalamiento' | 'Correccion';
+  tipoNombre: 'Asignacion' | 'Gestion' | 'Promesa' | 'Reprogramacion' | 'Escalamiento' | 'Correccion' | 'Cierre';
   fecha: string;
   usuarioNombre: string | null;
   nota: string;
@@ -41,6 +42,10 @@ export interface FichaCobranzaEvento {
   corrigeEventoId: string | null;
   notaAnterior: string | null;
   motivoCorreccion: string | null;
+  /** M-345: solo en promesas. */
+  estadoPromesa: 'Vigente' | 'Cumplida' | 'Parcial' | 'Incumplida' | null;
+  pagadoPromesa: number | null;
+  faltantePromesa: number | null;
 }
 
 export interface FiltrosFichas {
@@ -125,4 +130,18 @@ export const useCorregirEventoFicha = () =>
   useAccionFicha<{ eventoId: string; notaCorregida: string; motivo: string }>(
     (a) => `${BASE}/eventos/${a.eventoId}/corregir`,
     (a) => sinCampo(a, 'eventoId'),
+  );
+
+/** M-345: motivos de cierre de la ficha (espejo de <c>MotivoCierreFicha</c>). */
+export const MOTIVOS_CIERRE_FICHA = [
+  { valor: 1, etiqueta: 'Pagada' },
+  { valor: 2, etiqueta: 'Acuerdo de pago' },
+  { valor: 3, etiqueta: 'Disputa' },
+  { valor: 4, etiqueta: 'Otro' },
+] as const;
+
+export const useCerrarFicha = () =>
+  useAccionFicha<{ facturaCarteraId: string; motivo: number; explicacionSaldo?: string }>(
+    (a) => `${BASE}/${a.facturaCarteraId}/cerrar`,
+    (a) => sinCampo(a, 'facturaCarteraId'),
   );

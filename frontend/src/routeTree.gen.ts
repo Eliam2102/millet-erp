@@ -60,6 +60,7 @@ import { Route as AppContabilidadImportacionRouteImport } from './routes/_app/co
 import { Route as AppContabilidadMotorRouteImport } from './routes/_app/contabilidad/motor';
 import { Route as AppContabilidadMovimientosPruebaRouteImport } from './routes/_app/contabilidad/movimientos-prueba';
 import { Route as AppContabilidadPeriodosRouteImport } from './routes/_app/contabilidad/periodos';
+import { Route as AppContabilidadIncidenciasRouteImport } from './routes/_app/contabilidad/incidencias';
 import { Route as AppContabilidadSaldosInicialesRouteImport } from './routes/_app/contabilidad/saldos-iniciales';
 import { Route as AppCxcIndexRouteImport } from './routes/_app/cxc/index';
 import { Route as AppCxpIndexRouteImport } from './routes/_app/cxp/index';
@@ -538,6 +539,11 @@ const AppContabilidadMovimientosPruebaRoute =
 const AppContabilidadPeriodosRoute = AppContabilidadPeriodosRouteImport.update({
   id: '/contabilidad/periodos',
   path: '/contabilidad/periodos',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppContabilidadIncidenciasRoute = AppContabilidadIncidenciasRouteImport.update({
+  id: '/contabilidad/incidencias',
+  path: '/contabilidad/incidencias',
   getParentRoute: () => AppRoute,
 } as any);
 const AppContabilidadSaldosInicialesRoute =
@@ -1760,6 +1766,7 @@ export interface FileRoutesByFullPath {
   '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
+  '/contabilidad/incidencias': typeof AppContabilidadIncidenciasRoute;
   '/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
@@ -2020,6 +2027,7 @@ export interface FileRoutesByTo {
   '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
+  '/contabilidad/incidencias': typeof AppContabilidadIncidenciasRoute;
   '/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
@@ -2282,6 +2290,7 @@ export interface FileRoutesById {
   '/_app/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/_app/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
+  '/_app/contabilidad/incidencias': typeof AppContabilidadIncidenciasRoute;
   '/_app/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/_app/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/_app/cxp/cfdis': typeof AppCxpCfdisRoute;
@@ -2544,6 +2553,7 @@ export interface FileRouteTypes {
     | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
+    | '/contabilidad/incidencias'
     | '/contabilidad/saldos-iniciales'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
@@ -2804,6 +2814,7 @@ export interface FileRouteTypes {
     | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
+    | '/contabilidad/incidencias'
     | '/contabilidad/saldos-iniciales'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
@@ -3065,6 +3076,7 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/motor'
     | '/_app/contabilidad/movimientos-prueba'
     | '/_app/contabilidad/periodos'
+    | '/_app/contabilidad/incidencias'
     | '/_app/contabilidad/saldos-iniciales'
     | '/_app/cxp/anticipos'
     | '/_app/cxp/cfdis'
@@ -3642,6 +3654,13 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/periodos';
       fullPath: '/contabilidad/periodos';
       preLoaderRoute: typeof AppContabilidadPeriodosRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/incidencias': {
+      id: '/_app/contabilidad/incidencias';
+      path: '/contabilidad/incidencias';
+      fullPath: '/contabilidad/incidencias';
+      preLoaderRoute: typeof AppContabilidadIncidenciasRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/saldos-iniciales': {
@@ -5165,6 +5184,7 @@ interface AppRouteChildren {
   AppContabilidadMotorRoute: typeof AppContabilidadMotorRoute;
   AppContabilidadMovimientosPruebaRoute: typeof AppContabilidadMovimientosPruebaRoute;
   AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
+  AppContabilidadIncidenciasRoute: typeof AppContabilidadIncidenciasRoute;
   AppContabilidadSaldosInicialesRoute: typeof AppContabilidadSaldosInicialesRoute;
   AppCxpAnticiposRoute: typeof AppCxpAnticiposRoute;
   AppCxpCfdisRoute: typeof AppCxpCfdisRoute;
@@ -5424,6 +5444,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppContabilidadMotorRoute: AppContabilidadMotorRoute,
   AppContabilidadMovimientosPruebaRoute: AppContabilidadMovimientosPruebaRoute,
   AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,
+  AppContabilidadIncidenciasRoute: AppContabilidadIncidenciasRoute,
   AppContabilidadSaldosInicialesRoute: AppContabilidadSaldosInicialesRoute,
   AppCxpAnticiposRoute: AppCxpAnticiposRoute,
   AppCxpCfdisRoute: AppCxpCfdisRoute,

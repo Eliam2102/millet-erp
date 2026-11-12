@@ -136,7 +136,7 @@ public sealed class FichasCobranzaTests
         Assert.Equal("Dijo que ya pagó", r.UltimoEvento.NotaAnterior);
         Assert.Equal("Nota mal capturada", r.UltimoEvento.MotivoCorreccion);
         Assert.Equal("Supervisor DEMO", r.UltimoEvento.UsuarioNombre);
-        var historial = await new FichaCobranzaDetalleHandler(db).Handle(new FichaCobranzaDetalleQuery(factura.Id), default);
+        var historial = await new FichaCobranzaDetalleHandler(db, new Reloj()).Handle(new FichaCobranzaDetalleQuery(factura.Id), default);
         Assert.Contains(historial, e => e.Id == r.UltimoEvento.Id);
     }
 
@@ -148,7 +148,7 @@ public sealed class FichasCobranzaTests
         var q = new FichasCobranzaQuery { DocumentosPermitidos = [propia.Id] };
         var filas = await new FichasCobranzaHandler(db, new Reloj()).Handle(q, default);
         Assert.Equal(propia.Id, Assert.Single(filas).FacturaCarteraId);
-        Assert.Empty(await new FichaCobranzaDetalleHandler(db).Handle(new FichaCobranzaDetalleQuery(ajena.Id) { DocumentosPermitidos = [propia.Id] }, default));
+        Assert.Empty(await new FichaCobranzaDetalleHandler(db, new Reloj()).Handle(new FichaCobranzaDetalleQuery(ajena.Id) { DocumentosPermitidos = [propia.Id] }, default));
     }
 
 
