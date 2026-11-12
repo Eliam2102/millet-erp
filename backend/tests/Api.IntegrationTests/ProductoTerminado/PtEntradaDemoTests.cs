@@ -559,8 +559,9 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
     }
 
     [Fact]
-    public async Task PT52_CA3_Reparto_con_tres_de_diez_no_se_libera_y_con_diez_queda_Liberado_por_Reparto_sin_evento_de_69()
+    public async Task PT52_CA3_Reparto_con_tres_de_diez_se_libera_por_Reparto_una_sola_vez_y_sin_evento_de_69()
     {
+        // Guadalupe, 11-nov: REPARTO no espera todas las piezas; con las que ya están en 69 pasa a 70 y sale como parcial.
         await using var ctx = await PrepararAsync();
         var n = Numero();
         await _d.FacturacionAsync(n, ctx.A, 10, condicionPago: "REPARTO");
@@ -568,8 +569,8 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
         await using var f = Host();
         await Ciclo(f);
 
-        Assert.Equal((null, null), await EstadoPedido(n));
-        Assert.Equal(0, await EventosEstado(n, "Liberado"));
+        Assert.Equal(("Liberado", MotivosPt.Reparto), await EstadoPedido(n));
+        Assert.Equal(1, await EventosEstado(n, "Liberado"));
 
         for (var i = 4; i <= 10; i++) await Escaneo(n, Etq(n, i), i, Ahora(i));
         await Ciclo(f);
