@@ -47,6 +47,8 @@ public class AnularRecepcionActivoTests
         var anulada = eventos.Publicados.OfType<RecepcionActivoAnuladaIntegrationEvent>().Single();
         (anulada.OrdenCompraId, anulada.LineaOcId, anulada.Cantidad, anulada.CantidadRecibidaAcumulada).Should().Be((Oc, Linea, 1m, 1m));
         (await RecibidoPorLineaOc.CalcularAsync(db, new P7Support.Conversion(), OcActivo(), default))[Linea].Should().Be(1m);
+        var puertoCe = new Millet.Almacen.Infrastructure.PublicAdapters.RecepcionesImportacionReadAdapter(db, new FakeOc(), new P7Support.Conversion());
+        (await puertoCe.ObtenerCantidadesRecibidasAsync(Oc, default))[Linea].Should().Be(1m);
     }
 
     [Fact]

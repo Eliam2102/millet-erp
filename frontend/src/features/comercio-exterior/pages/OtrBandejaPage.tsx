@@ -19,16 +19,16 @@ import { Badge } from '@/components/ui/badge';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { errorUsuario } from '@/lib/error-usuario';
-import { useOtrEnvios, useOtrAccion, type OtrEnvio } from '../api/otr';
+import { useOtrBandeja, useOtrAccion, type OtrFila } from '../api/otr';
 import { motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
 import { VincularOtrSheet } from '../components/OtrPanel';
 const columnas =
   'grid grid-cols-[120px_minmax(240px,1.6fr)_112px_136px_260px_172px] items-center [&>td]:min-w-0 [&>th]:min-w-0';
 export function OtrBandejaPage() {
-  const q = useOtrEnvios();
+  const q = useOtrBandeja();
   const revalidar = useOtrAccion();
   const gestionarTodas = useHasPermission(P.ComercioExteriorDocumentosGestionarTodasSucursales);
-  const [seleccion, setSeleccion] = useState<OtrEnvio>();
+  const [seleccion, setSeleccion] = useState<OtrFila>();
   const [texto, setTexto] = useState('');
   const [pagina, setPagina] = useState(0);
   const [estado, setEstado] = useState<number | undefined>(1);
