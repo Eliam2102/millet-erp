@@ -423,6 +423,40 @@ public sealed class P9SolicitudesHttpTests(WebApplicationFactory<Program> factor
     }
 
     [Fact]
+    public async Task Campana_avisa_solo_a_otro_autorizador_con_lectura_y_desaparece_al_resolver()
+    {
+        var suf = Sufijo();
+        try
+        {
+            var preparador = await Cliente(PermisosCanonicos.ContabilidadCatalogoLeer,
+                PermisosCanonicos.ContabilidadCatalogoAdministrar, PermisosCanonicos.ContabilidadCatalogoAutorizar);
+            var daf = await Daf();
+            var lector = await Cliente(PermisosCanonicos.ContabilidadCatalogoLeer);
+            var sinLectura = await Cliente(PermisosCanonicos.ContabilidadCatalogoAutorizar);
+            var pendiente = await Pendiente(await preparador.PostAsJsonAsync($"{Base}/cuentas", new {
+                codigo = Codigo(suf, "1"), nombre = "FIX aviso catálogo", naturaleza = "Deudora", cuentaControl = "Ninguna" }));
+            var sid = pendiente.GetProperty("solicitudId").GetGuid();
+            async Task<JsonElement[]> Avisos(HttpClient c) => (await Json(await c.PostAsJsonAsync(
+                "/api/v1/notificaciones/sincronizar", new { modulo = "contabilidad", pageSize = 50 })))
+                .GetProperty("items").EnumerateArray().Where(x =>
+                    x.GetProperty("aviso").GetProperty("documentoId").GetGuid() == sid).ToArray();
+            Assert.Empty(await Avisos(preparador));
+            Assert.Empty(await Avisos(lector));
+            Assert.Empty(await Avisos(sinLectura));
+            var aviso = Assert.Single(await Avisos(daf)).GetProperty("aviso");
+            Assert.Equal("/contabilidad/catalogo", aviso.GetProperty("destino").GetString());
+            var clave = aviso.GetProperty("claveOcurrencia").GetString();
+            Assert.Equal(HttpStatusCode.NoContent, (await daf.PostAsJsonAsync(
+                $"/api/v1/notificaciones/{clave}/leer", new { })).StatusCode);
+            Assert.True(Assert.Single(await Avisos(daf)).GetProperty("leido").GetBoolean());
+            Assert.Equal("Pendiente", (await Json(await daf.GetAsync($"{Base}/solicitudes/{sid}"))).GetProperty("estado").GetString());
+            Assert.Equal(HttpStatusCode.OK, (await Resolver(daf, sid)).StatusCode);
+            Assert.Empty(await Avisos(daf));
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Fact]
     public async Task Seed_DAF_tiene_permiso_de_autorizacion()
     {
         Assert.Equal(1, await Escalar<long>(factory.Services, """
