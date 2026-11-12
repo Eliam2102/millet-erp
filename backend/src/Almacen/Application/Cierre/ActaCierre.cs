@@ -72,7 +72,7 @@ public static class ActaCierre
     }
 }
 
-/// <summary>Actas de los últimos 12 periodos cerrados, la más reciente primero.</summary>
+/// <summary>Actas de los periodos cerrados, la más reciente primero.</summary>
 public sealed record ListarActasCierreQuery : IRequest<IReadOnlyList<ActaCierreResponse>>;
 
 public sealed class ListarActasCierreHandler(AlmacenDbContext db, IUsuarioReadPort usuarios)
@@ -80,7 +80,7 @@ public sealed class ListarActasCierreHandler(AlmacenDbContext db, IUsuarioReadPo
 {
     public async Task<IReadOnlyList<ActaCierreResponse>> Handle(ListarActasCierreQuery request, CancellationToken cancellationToken)
     {
-        var actas = await db.ActasCierre.AsNoTracking().OrderByDescending(a => a.Anio).ThenByDescending(a => a.Mes).Take(12).ToListAsync(cancellationToken);
+        var actas = await db.ActasCierre.AsNoTracking().OrderByDescending(a => a.Anio).ThenByDescending(a => a.Mes).ToListAsync(cancellationToken);
         var respuestas = new List<ActaCierreResponse>();
         foreach (var a in actas) respuestas.Add(await ActaCierre.ProyectarAsync(a, usuarios, cancellationToken));
         return respuestas;

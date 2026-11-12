@@ -16,7 +16,7 @@ describe('construirCsp (86e3x819w)', () => {
   });
 
   it('no permite scripts en línea ni eval', () => {
-    expect(directiva(csp, 'script-src')).toBe("script-src 'self'");
+    expect(directiva(csp, 'script-src')).toBe("script-src 'self' 'wasm-unsafe-eval'");
   });
 
   it('impide que otro sitio incruste el ERP', () => {

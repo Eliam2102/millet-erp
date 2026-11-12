@@ -234,6 +234,55 @@ export interface DecisionLiberacionResponse {
   resolucionId?: string | null;
   /** C7.3: motivo del gerente de CxC que autorizó o rechazó la pendiente. */
   motivo?: string | null;
+  /** M-238: decisión que reevaluó esta retención (null = sigue sin reevaluar). */
+  reevaluadaPorId?: string | null;
+  /** M-238: retención que esta decisión reevaluó (null = no salió de una corrección). */
+  reevaluaDecisionId?: string | null;
+}
+
+/** M-238: dato que se corrigió para volver a evaluar un pedido retenido. Mirror de <c>TipoCorreccionLiberacion</c>. */
+export const TipoCorreccionLiberacion = {
+  /** El pedido estaba ligado a un cliente equivocado. */
+  Cliente: 1,
+  /** Se corrigió la condición del cliente (línea, plazo o bloqueo). */
+  Condicion: 2,
+  /** Un cobro o movimiento mal aplicado se corrigió en cartera. */
+  SaldoAplicado: 3,
+} as const satisfies Record<string, number>;
+export type TipoCorreccionLiberacion =
+  (typeof TipoCorreccionLiberacion)[keyof typeof TipoCorreccionLiberacion];
+
+/** M-238: body de POST /liberaciones/{id}/corregir-reevaluar. */
+export interface CorregirReevaluarLiberacionBody {
+  tipo: TipoCorreccionLiberacion;
+  detalle: string;
+  /** Solo en la corrección de cliente. */
+  clienteIdCorregido?: string | null;
+}
+
+/** M-238: corrección que liga la evaluación de antes con la de después. */
+export interface CorreccionLiberacionResponse {
+  id: string;
+  pedidoRef: string;
+  decisionRetenidaId: string;
+  decisionReevaluadaId: string;
+  tipo: TipoCorreccionLiberacion;
+  detalle: string;
+  corregidaPor: string;
+  corregidaEn: string;
+}
+
+/** M-238: las dos evaluaciones (antes y después) y la corrección que las liga. */
+export interface ReevaluacionLiberacionResponse {
+  anterior: DecisionLiberacionResponse;
+  nueva: DecisionLiberacionResponse;
+  correccion: CorreccionLiberacionResponse;
+}
+
+/** M-238: una evaluación del historial del pedido y, si salió de una corrección, esa corrección. */
+export interface EvaluacionPedidoItem {
+  decision: DecisionLiberacionResponse;
+  correccion: CorreccionLiberacionResponse | null;
 }
 
 /** Body de POST /liberaciones/{id}/autorizar (C7.3). */
@@ -637,6 +686,8 @@ export const TipoAlertaCartera = {
   AutoBloqueoVencimiento: 3,
   /** Pedido a contra entrega que el chofer no liquidó en caja el día de la salida (PT5.7). */
   ContraEntregaNoLiquidada: 4,
+  /** M-372: el banco devolvió un cheque del cliente (aviso de Tesorería). */
+  ChequeRebotado: 5,
 } as const satisfies Record<string, number>;
 export type TipoAlertaCartera =
   (typeof TipoAlertaCartera)[keyof typeof TipoAlertaCartera];

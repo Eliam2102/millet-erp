@@ -1,3 +1,5 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reporteRequisicion } from '../lib/requisicion-impresion';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useContext } from 'react';
@@ -6,7 +8,7 @@ import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendie
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useParams, useMatches } from '@tanstack/react-router';
-import { History, Printer, X } from 'lucide-react';
+import { History, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollaborationIndicator, EditandoBanner } from '@/components/erp';
@@ -20,7 +22,9 @@ import { ListaLineas } from '@/features/compras/components/ListaLineas';
 import { EditorLineas } from '@/features/compras/components/EditorLineas';
 import { CubrimientoEstimadoPanel } from '@/features/compras/components/CubrimientoEstimadoPanel';
 import { usePreviewCubrimiento } from '@/features/compras/api/usePreviewCubrimiento';
-import { EstadoRequisicion } from '@/features/compras/api/types';
+import { useNecesidadRqApp } from '@/features/compras/api/useNecesidadRqApp';
+import { NecesidadRqAppPanel } from '@/features/compras/components/NecesidadRqAppPanel';
+import { EstadoRequisicion, OrigenRequisicion } from '@/features/compras/api/types';
 import { HistoricoModal } from '@/features/compras/components/HistoricoModal';
 import { DetalleErrorBoundary } from '@/features/compras/components/DetalleErrorBoundary';
 import { AccionesRequisicion } from '@/features/compras/components/AccionesRequisicion';
@@ -166,16 +170,12 @@ export function DetalleRequisicion() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <Button
+          <ImprimirReporteButton
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => window.print()}
             aria-label="Imprimir"
-          >
-            <Printer className="mr-1.5 h-4 w-4" />
-            Imprimir
-          </Button>
+           reporte={reporteRequisicion(rq, resolverNombre(rq.sucursalId))}>Imprimir</ImprimirReporteButton>
           <Button
             type="button"
             variant="ghost"
@@ -271,6 +271,9 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
   const preview = usePreviewCubrimiento(rq.id, esEnAutorizacion);
   const mostrarPreview = esEnAutorizacion && (preview.isLoading || (preview.data?.aplica ?? false));
 
+  const esDeAppAlmacenes = rq.origen === OrigenRequisicion.AlmacenesApp;
+  const necesidad = useNecesidadRqApp(rq.id, esDeAppAlmacenes);
+
   // Catálogo de artículos para resolver articuloId → "clave — nombre"
   // en la versión read-only. EditorLineas carga su propio catálogo
   // internamente.
@@ -292,6 +295,9 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
           resolverArticulo={resolverArticulo}
           isLoading={preview.isLoading}
         />
+      )}
+      {esDeAppAlmacenes && (necesidad.isLoading || (necesidad.data?.aplica ?? false)) && (
+        <NecesidadRqAppPanel lineas={necesidad.data?.lineas ?? []} isLoading={necesidad.isLoading} />
       )}
       {hayAlgunaAccion ? (
         <EditorLineas rq={rq} />

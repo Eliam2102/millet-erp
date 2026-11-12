@@ -14,6 +14,7 @@ export const AlertasSearchSchema = z.object({
       z.literal(TipoAlertaCartera.ExcesoCredito),
       z.literal(TipoAlertaCartera.AutoBloqueoVencimiento),
       z.literal(TipoAlertaCartera.ContraEntregaNoLiquidada),
+      z.literal(TipoAlertaCartera.ChequeRebotado),
     ])
     .optional(),
   clienteId: z.string().optional(),

@@ -1741,6 +1741,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("es_importacion");
 
+                    b.Property<bool>("EsServicioComercioExterior")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_servicio_comercio_exterior");
+
                     b.Property<short>("Estado")
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
@@ -2701,6 +2707,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<Guid?>("AlmacenDestinoId")
                         .HasColumnType("uuid")
                         .HasColumnName("almacen_destino_id");
+
+                    b.Property<int>("CicloAutorizacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ciclo_autorizacion");
 
                     b.Property<short>("Clasificacion")
                         .HasColumnType("smallint")

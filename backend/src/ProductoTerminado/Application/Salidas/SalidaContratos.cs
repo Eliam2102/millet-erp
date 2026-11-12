@@ -37,7 +37,11 @@ public sealed record AlbaranLineaDto(int Posicion, string? Descripcion, int Piez
 public sealed record AlbaranDto(Guid Id, string Folio, int Secuencia, string NumeroPedido, string Cliente, string? Destino, DateTimeOffset? EmitidoAt, int Total, IReadOnlyList<AlbaranLineaDto> Lineas, IReadOnlyList<string> Etiquetas,
     int Esperadas = 0, IReadOnlyList<string>? Disponibles = null, IReadOnlyList<string>? Rotas = null,
     Entregas.EntregaDto? Entrega = null, string? EstadoPedido = null,
-    bool Cancelado = false, DateTimeOffset? CanceladoAt = null, string? MotivoCancelacion = null);
+    bool Cancelado = false, DateTimeOffset? CanceladoAt = null, string? MotivoCancelacion = null, CancelacionAlbaranDto? Cancelacion = null);
+
+/// <summary>M-247: quién pidió la cancelación, quién la autorizó (ejecutó) o rechazó, y cuándo.</summary>
+public sealed record CancelacionAlbaranDto(bool Pendiente, DateTimeOffset? SolicitadaAt, Guid? SolicitadaPorId, string? MotivoSolicitud,
+    DateTimeOffset? RechazadaAt, Guid? RechazadaPorId, string? MotivoRechazo, Guid? AutorizadaPorId);
 
 public sealed record AutorizacionSalidaDto(Guid Actor, DateTimeOffset Fecha, string Nivel, string Motivo, string? Suplencia, IReadOnlyList<string> Alcance);
 

@@ -262,6 +262,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             tipoCambio: command.TipoCambio,
             sinRequisicionPrevia: false,
             esImportacion: command.EsImportacion,
+            esServicioComercioExterior: command.EsServicioComercioExterior,
             observaciones: command.Observaciones,
             fechaEntregaEsperada: command.FechaEntregaEsperada ?? cot?.FechaEntrega);
 

@@ -61,3 +61,21 @@ export type AutorizarPendienteValues = z.infer<typeof AutorizarPendienteSchema>;
 export const RechazarPendienteSchema = AutorizarPendienteSchema;
 
 export type RechazarPendienteValues = z.infer<typeof RechazarPendienteSchema>;
+
+/** M-238: corregir y reevaluar un pedido retenido. Espejo de <c>ReevaluarLiberacionRetenidaValidator</c>. */
+export const CorregirReevaluarSchema = z
+  .object({
+    tipo: z.number().int().min(1, 'Elige qué se corrigió').max(3, 'Elige qué se corrigió'),
+    detalle: z
+      .string()
+      .trim()
+      .min(5, 'Indica qué se corrigió y por qué (mínimo 5 caracteres)')
+      .max(254, 'Máximo 254 caracteres'),
+    clienteIdCorregido: z.string().optional(),
+  })
+  .refine((v) => v.tipo !== 1 || !!v.clienteIdCorregido, {
+    path: ['clienteIdCorregido'],
+    message: 'Selecciona el cliente correcto',
+  });
+
+export type CorregirReevaluarValues = z.infer<typeof CorregirReevaluarSchema>;

@@ -385,7 +385,7 @@ export function NuevaPropuestaAplicacion({
           {esRedondeo && (
             <p className="text-xs text-ink-muted" role="note">
               El depósito es {formatoMonto(-diferencia, moneda)} menor que lo aplicado. Es un redondeo de hasta $0.99: se
-              registra en la cuenta REDONDEO, sin motivo ni autorización, y la propuesta pasa directo a Tesorería.
+              registra en la cuenta REDONDEO, sin motivo, pero lo debe autorizar el Gerente de Área antes de que la propuesta llegue a Tesorería.
             </p>
           )}
           {esAjusteNoFiscal && (

@@ -130,6 +130,8 @@ public sealed class AwSolicitudesWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
+        // M-303: con el tramo detenido el worker no lee.
+        if (await Millet.SharedKernel.Application.Tramos.TramosGuard.DetenidoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwIngestaPedidos, cancellationToken)) return 0;
         var reader = sp.GetRequiredService<IAwSolicitudesReader>();
         var sender = sp.GetRequiredService<ISender>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
@@ -168,6 +170,9 @@ public sealed class AwSolicitudesWorker : BackgroundService
             }
         }
 
+        if (procesadas > 0)
+            await Millet.SharedKernel.Application.Tramos.TramosGuard.EventoCorrectoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwIngestaPedidos,
+                $"{procesadas} solicitudes procesadas; última {pendientes[^1].NumeroPedido} v{pendientes[^1].Version}", cancellationToken);
         if (pendientes.Count > 0)
             _logger.LogInformation(
                 "[AwSolicitudesWorker] Tick: {Total} pendientes, {Procesadas} procesadas; latencia cola→ERP promedio {PromedioMs} ms, máxima {MaximaMs} ms.",

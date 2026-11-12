@@ -256,6 +256,7 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
     origen: OrigenRequisicion.Manual,
     disponibilidad: DisponibilidadPendiente.Total,
     esRecurrente: false,
+    version: 3,
   };
   const itemN1: PendienteAutorizacionItemResponse = {
     ...base,
@@ -277,7 +278,7 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
         'compras.requisiciones.autorizar-nivel2',
       ],
     });
-    const llamadas: { ids: string[]; nivel: number; key: string | null }[] = [];
+    const llamadas: { ids: string[]; versiones: number[]; nivel: number; key: string | null }[] = [];
     mswServer.use(
       http.get('*/api/v1/compras/pendientes-autorizacion', () =>
         HttpResponse.json({
@@ -290,14 +291,16 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
       http.post(
         '*/api/v1/compras/requisiciones/autorizaciones-masivas',
         async ({ request }) => {
-          const body = (await request.json()) as { ids: string[]; nivel: number };
+          const body = (await request.json()) as { items: { id: string; version: number }[]; nivel: number };
+          const ids = body.items.map((i) => i.id);
           llamadas.push({
-            ids: body.ids,
+            ids,
+            versiones: body.items.map((i) => i.version),
             nivel: body.nivel,
             key: request.headers.get('Idempotency-Key'),
           });
           return HttpResponse.json({
-            resultados: body.ids.map((id) =>
+            resultados: ids.map((id) =>
               id === 'rq-n2'
                 ? {
                     id,
@@ -331,11 +334,13 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
     await waitFor(() => expect(llamadas).toHaveLength(2));
     expect(llamadas[0]).toEqual({
       ids: ['rq-n1'],
+      versiones: [3],
       nivel: NivelAutorizacion.Nivel1,
       key: expect.any(String),
     });
     expect(llamadas[1]).toEqual({
       ids: ['rq-n2'],
+      versiones: [3],
       nivel: NivelAutorizacion.Nivel2,
       key: expect.any(String),
     });
@@ -377,10 +382,10 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
       http.post(
         '*/api/v1/compras/requisiciones/autorizaciones-masivas',
         async ({ request }) => {
-          const body = (await request.json()) as { ids: string[] };
+          const body = (await request.json()) as { items: { id: string }[] };
           refrescada = true;
           return HttpResponse.json({
-            resultados: body.ids.map((id) =>
+            resultados: body.items.map((i) => i.id).map((id) =>
               id === 'rq-n2'
                 ? {
                     id,
@@ -421,5 +426,121 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
     expect(
       screen.queryByRole('status', { name: 'Resumen de aprobación' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('<BandejaPendientes> — lote seguro (M-254)', () => {
+  const item = (id: string, folio: string, version: number): PendienteAutorizacionItemResponse => ({
+    id,
+    folio,
+    folioAnio: 2026,
+    estado: EstadoRequisicion.EnAutorizacion,
+    clasificacion: Clasificacion.Servicio,
+    prioridad: Prioridad.Normal,
+    sucursalId: 's-1',
+    departamentoId: 'd-1',
+    requisitanteId: 'u-1',
+    descripcion: null,
+    fechaSolicitud: '2026-05-09T10:00:00Z',
+    fechaEntregaDeseada: null,
+    requisitanteNombre: 'Pepe Pérez',
+    departamentoNombre: 'Compras',
+    departamentoClave: 'COMPRAS',
+    situacionSurtido: null,
+    origen: OrigenRequisicion.Manual,
+    disponibilidad: DisponibilidadPendiente.Total,
+    esRecurrente: false,
+    nivelPendiente: NivelAutorizacion.Nivel1,
+    version,
+  });
+  const items = [item('rq-a', 'MID2026-000201', 7), item('rq-b', 'MID2026-000202', 9)];
+
+  function listar() {
+    mswServer.use(
+      http.get('*/api/v1/compras/pendientes-autorizacion', () =>
+        HttpResponse.json({ items, offset: 0, limit: 50, total: 2 }),
+      ),
+    );
+  }
+
+  async function seleccionarAmbas() {
+    render(<BandejaPendientes />, { wrapper: createQueryWrapper() });
+    fireEvent.click((await screen.findAllByRole('checkbox', { name: 'Seleccionar MID2026-000201' }))[0]);
+    fireEvent.click(screen.getAllByRole('checkbox', { name: 'Seleccionar MID2026-000202' })[0]);
+  }
+
+  it('aprobar: la fila que cambió muestra «Cambió, revísala» y las demás se firman', async () => {
+    listar();
+    const versiones: number[] = [];
+    mswServer.use(
+      http.post('*/api/v1/compras/requisiciones/autorizaciones-masivas', async ({ request }) => {
+        const body = (await request.json()) as { items: { id: string; version: number }[] };
+        versiones.push(...body.items.map((i) => i.version));
+        return HttpResponse.json({
+          resultados: [
+            { id: 'rq-a', ok: true, errorCodigo: null, mensaje: null },
+            { id: 'rq-b', ok: false, errorCodigo: 'RQ_CAMBIO_DESDE_SELECCION', mensaje: 'Cambió, revísala.' },
+          ],
+        });
+      }),
+    );
+
+    await seleccionarAmbas();
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprobar 2' }));
+
+    await waitFor(() => expect(versiones).toEqual([7, 9]));
+    const fila = (folio: string) =>
+      screen.getAllByText(folio).map((el) => el.closest('tr')).find((tr) => tr != null)!;
+    expect(await within(fila('MID2026-000201')).findByRole('status')).toHaveTextContent('Aprobada');
+    expect(await within(fila('MID2026-000202')).findByRole('status')).toHaveTextContent(
+      'Cambió, revísala.',
+    );
+  });
+
+  it('devolver seleccionadas: exige comentario y manda la versión de cada fila en un solo POST', async () => {
+    useAuthStore.setState({
+      permisos: ['compras.requisiciones.autorizar-nivel1', 'compras.requisiciones.rechazar'],
+    });
+    listar();
+    let cuerpo: unknown = null;
+    mswServer.use(
+      http.post('*/api/v1/compras/requisiciones/devoluciones-masivas', async ({ request }) => {
+        cuerpo = await request.json();
+        return HttpResponse.json({
+          resultados: [
+            { id: 'rq-a', ok: true, errorCodigo: null, mensaje: null },
+            { id: 'rq-b', ok: true, errorCodigo: null, mensaje: null },
+          ],
+        });
+      }),
+    );
+
+    await seleccionarAmbas();
+    fireEvent.click(screen.getByRole('button', { name: 'Devolver seleccionadas (2)' }));
+    const confirmar = await screen.findByRole('button', { name: 'Devolver para corregir' });
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Falta justificar' } });
+    fireEvent.click(confirmar);
+
+    await waitFor(() =>
+      expect(cuerpo).toEqual({
+        items: [
+          { id: 'rq-a', version: 7 },
+          { id: 'rq-b', version: 9 },
+        ],
+        comentario: 'Falta justificar',
+      }),
+    );
+    expect(await screen.findByRole('status', { name: 'Resumen de aprobación' })).toHaveTextContent(
+      '2 devueltas',
+    );
+  });
+
+  it('sin permiso de rechazar no se ofrecen rechazar ni devolver en lote', async () => {
+    listar();
+    await seleccionarAmbas();
+    expect(screen.queryByRole('button', { name: /Rechazar seleccionadas/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Devolver seleccionadas/ })).not.toBeInTheDocument();
   });
 });

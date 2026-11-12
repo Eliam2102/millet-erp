@@ -1,3 +1,6 @@
+import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
+import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { descargarPdfOrdenCompra } from '@/features/compras/ordenes/api/usePdfOrdenCompra';
 import { EnviosOcPanel } from '../components/EnviosOcPanel';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
@@ -6,7 +9,7 @@ import { IncidenciasProveedorPanel } from '../components/IncidenciasProveedorPan
 import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
-import { Compass, GitBranch, Inbox, Lock, Printer, X } from 'lucide-react';
+import { Compass, GitBranch, Inbox, Lock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -211,16 +214,14 @@ export function DetalleOrdenCompra() {
               Trazabilidad
             </Link>
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => window.print()}
-            aria-label="Imprimir"
-          >
-            <Printer className="mr-1.5 h-4 w-4" />
-            Imprimir
-          </Button>
+          <ImprimirPdfButton variant="ghost"
+            disabled={oc.estado !== EstadoOrdenCompra.Autorizada && oc.estado !== EstadoOrdenCompra.Cerrada}
+            title={oc.estado !== EstadoOrdenCompra.Autorizada && oc.estado !== EstadoOrdenCompra.Cerrada ? 'Autoriza la orden de compra antes de imprimir su PDF.' : 'Abrir el PDF de la orden de compra para imprimir.'}
+            generarPdf={async () => {
+              const pdf = await descargarPdfOrdenCompra(oc.id);
+              void ocQuery.refetch();
+              return pdf;
+            }} />
           <Button asChild variant="ghost" size="icon">
             <Link to="/compras/ordenes" search={bandejaSearch} aria-label="Cerrar">
               <X className="h-4 w-4" />
@@ -243,6 +244,7 @@ export function DetalleOrdenCompra() {
 
         <StepperAutorizacionOc
           estado={oc.estado}
+          servicioCe={oc.esServicioComercioExterior}
           // Autorizada sin firma vigente de Dirección = N2 no hizo falta (monto bajo el umbral).
           n2NoRequerido={!(oc.autorizaciones ?? []).some((a) => a.nivel === 2 && a.resultado === 1)}
         />

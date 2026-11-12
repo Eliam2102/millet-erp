@@ -29,7 +29,7 @@ export function NotaCreditoDetallePage() {
   const query = useNotaCredito(id);
 
   return (
-    <div className="space-y-4">
+    <div className="@container min-w-0 space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/notas-credito" search={search}>
@@ -105,7 +105,7 @@ export function NotaCreditoDetallePage() {
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Importes
             </h2>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm @sm:grid-cols-2 @3xl:grid-cols-4">
               <Importe
                 label="Subtotal"
                 v={query.data.subtotal}

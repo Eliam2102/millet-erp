@@ -17,7 +17,20 @@ public sealed record EntregaBody(string Receptor, IReadOnlyList<string>? Rechaza
 
 public sealed record EntregaDto(
     Guid Id, string Resultado, string Receptor, DateTimeOffset EntregadaAt, int Entregadas, int Rechazadas, string? MotivoRechazo, bool TieneFirma, bool TieneFoto,
-    IReadOnlyList<string> EtiquetasRechazadas, CobroEntregaDto? Cobro);
+    IReadOnlyList<string> EtiquetasRechazadas, CobroEntregaDto? Cobro, IReadOnlyList<EntregaVersionDto>? Versiones = null);
+
+/// <summary>M-248: versión anterior de una entrega corregida (1 = la confirmación original) y por qué se reemplazó.</summary>
+public sealed record EntregaVersionDto(int Numero, string Resultado, string Receptor, int Entregadas, int Rechazadas, string? MotivoRechazo, DateTimeOffset EntregadaAt,
+    string MotivoCorreccion, DateTimeOffset CorregidaAt, string CorregidaPor);
+
+/// <summary>
+/// M-248: corrige lo entregado y rechazado de una entrega ya confirmada, solo con la liquidación de la ruta abierta y antes del 115.
+/// Lleva motivo y evidencia nueva (firma o foto); la versión anterior se conserva completa.
+/// </summary>
+public sealed record CorregirEntregaCommand(Guid HojaId, Guid AlbaranId, string Receptor, IReadOnlyList<string>? Rechazadas, string? MotivoRechazo, string? Firma, string? Foto,
+    string MotivoCorreccion) : IRequest<Salidas.HojaSalidaDto>;
+
+public sealed record CorregirEntregaBody(string Receptor, IReadOnlyList<string>? Rechazadas, string? MotivoRechazo, string? Firma, string? Foto, string MotivoCorreccion);
 
 /// <summary>La firma y la foto (data URL) solo se piden al abrir la evidencia de una entrega, no viajan con cada hoja.</summary>
 public sealed record EntregaEvidenciaDto(string? Firma, string? Foto);

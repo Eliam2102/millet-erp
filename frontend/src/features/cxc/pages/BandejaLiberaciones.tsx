@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Ban, PenLine, Plus, ShieldCheck, Unlock, XCircle } from 'lucide-react';
+import { Ban, History, PenLine, Pencil, Plus, ShieldCheck, Unlock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -43,6 +43,8 @@ import {
   ChipResultadoLiberacion,
 } from '@/features/cxc/components/ChipsLiberacion';
 import { DecidirLiberacionSheet } from '@/features/cxc/components/DecidirLiberacionSheet';
+import { CorregirReevaluarDialog } from '@/features/cxc/components/CorregirReevaluarDialog';
+import { HistorialPedidoSheet } from '@/features/cxc/components/HistorialPedidoSheet';
 import { NuevaAutorizacionDialog } from '@/features/cxc/components/NuevaAutorizacionDialog';
 import { ReglasFirmaExcepcionSheet } from '@/features/cxc/components/ReglasFirmaExcepcionSheet';
 import { AutorizarPendienteDialog } from '@/features/cxc/components/AutorizarPendienteDialog';
@@ -162,6 +164,10 @@ function TabDecisiones({
   const usuarioActualId = useAuthStore((s) => s.user?.id ?? null);
   const [porAutorizar, setPorAutorizar] = useState<DecisionLiberacionResponse | null>(null);
   const [porRechazar, setPorRechazar] = useState<DecisionLiberacionResponse | null>(null);
+  // M-238: corregir y reevaluar una retención, e historial de evaluaciones del pedido.
+  const [porCorregir, setPorCorregir] = useState<DecisionLiberacionResponse | null>(null);
+  const [historialDe, setHistorialDe] = useState<string | null>(null);
+  const puedeDecidir = useHasPermission(PermisosCanonicos.CuentasPorCobrarLiberacionDecidir);
   const query = useDecisionesLiberacion({
     resultado: search.resultado,
     clienteId: search.clienteId,
@@ -316,6 +322,20 @@ function TabDecisiones({
                       </p>
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right">
+                      {puedeDecidir &&
+                        d.resultado === ResultadoLiberacion.Retenido &&
+                        !d.reevaluadaPorId && (
+                          <Button variant="outline" size="sm" className="mr-2" onClick={() => setPorCorregir(d)}>
+                            <Pencil className="mr-1 h-3.5 w-3.5" />
+                            Corregir y reevaluar
+                          </Button>
+                        )}
+                      {(d.reevaluadaPorId || d.reevaluaDecisionId) && (
+                        <Button variant="ghost" size="sm" className="mr-2" onClick={() => setHistorialDe(d.pedidoRef)}>
+                          <History className="mr-1 h-3.5 w-3.5" />
+                          Historial
+                        </Button>
+                      )}
                       {puedeAutorizarPendiente(d, puedeOverride, usuarioActualId) && (
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => setPorAutorizar(d)}>
@@ -341,6 +361,19 @@ function TabDecisiones({
           </div>
         )}
       </ListadoModulo>
+      <CorregirReevaluarDialog
+        decision={porCorregir}
+        onOpenChange={(open) => {
+          if (!open) setPorCorregir(null);
+        }}
+      />
+      <HistorialPedidoSheet
+        pedidoRef={historialDe}
+        nombreUsuario={nombreUsuario}
+        onOpenChange={(open) => {
+          if (!open) setHistorialDe(null);
+        }}
+      />
       <AutorizarPendienteDialog
         decision={porAutorizar}
         onOpenChange={(open) => {

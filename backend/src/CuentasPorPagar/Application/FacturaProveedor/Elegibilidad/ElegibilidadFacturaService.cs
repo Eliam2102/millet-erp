@@ -22,6 +22,8 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
             return new(neto, Math.Max(0, factura.SaldoPendiente), 0);
         var oc = await compras.ObtenerAsync(ocId, ct);
         if (oc is null) return new(0, 0, Math.Max(0, factura.SaldoPendiente));
+        if (oc.EsServicioComercioExterior && (!oc.ServicioCeNivel1Autorizado || !oc.ServicioCeNivel2Autorizado || oc.Estado is not ("Autorizada" or "Cerrada")))
+            return new(0, 0, Math.Max(0, factura.SaldoPendiente));
         await db.Entry(factura).Collection(f => f.Lineas).LoadAsync(ct);
         var disponible = oc.Lineas.ToDictionary(l => l.Id, l => l.CantidadRecibida);
         // Solo al consumir recepción: permite publicar antes de que Compras consuma el mismo evento.
@@ -39,7 +41,7 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
         }
         // 86e3tacbn: un servicio no se recibe en Almacén; cuenta como recibido solo con la OC confirmada por el área solicitante.
         foreach (var l in oc.Lineas.Where(l => l.EsServicio))
-            disponible[l.Id] = oc.ServicioConfirmado ? l.Cantidad : 0;
+            disponible[l.Id] = (oc.EsServicioComercioExterior ? oc.ServicioCeNivel2Autorizado : oc.ServicioConfirmado) ? l.Cantidad : 0;
         // 86e3tabdp: tras cancelar una recepción, lo recibido vigente de esas líneas lo fija Almacén (ya sin la cancelada). Se toma tal
         // cual, sin restar nada a lo de Compras: así el resultado no depende de si Compras ya procesó la cancelación.
         foreach (var (lineaOcId, cantidad) in recibidoVigente ?? new Dictionary<Guid, decimal>())

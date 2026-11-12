@@ -185,6 +185,20 @@ internal static class AutorizacionTestSeeding
         return (await ReadJsonAsync(resp)).GetProperty("estado").GetInt32();
     }
 
+    /// <summary>Items <c>{ id, version }</c> con la versión actual de cada RQ (selección de un lote, M-254).</summary>
+    internal static async Task<object[]> ItemsLoteAsync(HttpClient client, params Guid[] rqIds)
+    {
+        var items = new List<object>();
+        foreach (var id in rqIds)
+        {
+            var resp = await client.GetAsync($"/api/v1/compras/requisiciones/{id}");
+            resp.EnsureSuccessStatusCode();
+            var version = (await ReadJsonAsync(resp)).GetProperty("version").GetInt32();
+            items.Add(new { Id = id, Version = version });
+        }
+        return items.ToArray();
+    }
+
     /// <summary>POST /autorizaciones (firma de un nivel sobre una RQ).</summary>
     internal static Task<HttpResponseMessage> AutorizarAsync(HttpClient client, Guid rqId, int nivel) =>
         client.PostAsJsonAsync(

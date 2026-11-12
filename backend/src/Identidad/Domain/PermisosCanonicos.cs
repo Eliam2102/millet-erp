@@ -297,6 +297,8 @@ public static class PermisosCanonicos
 
     public const string AlmacenDevolucionesInternasLeer                = "almacen.devoluciones-internas.leer";
     public const string AlmacenDevolucionesInternasCapturar            = "almacen.devoluciones-internas.capturar";
+    /// <summary>M-334: autorizar o rechazar una corrección de consumo (Costos; Fernando Alejos, 11-nov).</summary>
+    public const string AlmacenCorreccionesConsumoAutorizar            = "almacen.correcciones-consumo.autorizar";
 
     public const string AlmacenDevolucionesProveedorIniciar            = "almacen.devoluciones-proveedor.iniciar";
     public const string AlmacenDevolucionesProveedorAutorizar          = "almacen.devoluciones-proveedor.autorizar";
@@ -354,6 +356,8 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarFacturasCapturar                = "cuentas_por_pagar.facturas.capturar";
     public const string CuentasPorPagarFacturasEditar                  = "cuentas_por_pagar.facturas.editar";
     public const string CuentasPorPagarFacturasCancelar                = "cuentas_por_pagar.facturas.cancelar";
+    /// <summary>M-096: aceptar la cancelación de un CFDI cuya factura ya tiene pagos (Contador General).</summary>
+    public const string CuentasPorPagarCfdiAceptarCancelacionPagada    = "cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada";
     public const string CuentasPorPagarFacturasEnviarRevision          = "cuentas_por_pagar.facturas.enviar-revision";
     public const string CuentasPorPagarFacturasLiberarRevision         = "cuentas_por_pagar.facturas.liberar-revision";
     public const string CuentasPorPagarFacturasAutorizar               = "cuentas_por_pagar.facturas.autorizar";
@@ -525,6 +529,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarCarteraLeer             = "cuentas_por_cobrar.cartera.leer";
     public const string CuentasPorCobrarAplicacionPagoProponer  = "cuentas_por_cobrar.aplicacion-pago.proponer";
     public const string CuentasPorCobrarAplicacionPagoConfirmar = "cuentas_por_cobrar.aplicacion-pago.confirmar";
+    /// <summary>M-326 parte 2: autorizar o rechazar un redondeo de cobro (hasta $0.99). Lo asigna Administración al Gerente de Área.</summary>
+    public const string CuentasPorCobrarAplicacionPagoAutorizarRedondeo = "cuentas_por_cobrar.aplicacion-pago.autorizar-redondeo";
     // C7.2 (86e3kdxy6): administrar las reglas de liberación por serie.
     public const string CuentasPorCobrarReglasSerieGestionar    = "cuentas_por_cobrar.reglas-serie.gestionar";
     // C7.7 (86e3jvv4q): conciliar la cartera a demanda; leer las corridas usa cartera.leer.
@@ -543,6 +549,8 @@ public static class PermisosCanonicos
     // TES-7 revisada (cuentas-crud): el CRUD del catálogo de cuentas dejó
     // de estar diferido a Administración; alta/edición/toggle en Tesorería.
     public const string TesoreriaCuentasAdministrar             = "tesoreria.cuentas.administrar";
+    // M-199 (Javier Canché, 9 y 10-nov): el alta o cambio de cuenta la autoriza el Director de Planeación Financiera.
+    public const string TesoreriaCuentasAutorizar               = "tesoreria.cuentas.autorizar";
     public const string TesoreriaMovimientosVer                 = "tesoreria.movimientos.ver";
     public const string TesoreriaMovimientosRegistrar           = "tesoreria.movimientos.registrar";
     public const string TesoreriaMovimientosVerCuentaCompleta   = "tesoreria.movimientos.ver-cuenta-completa";
@@ -565,6 +573,11 @@ public static class PermisosCanonicos
     public const string TesoreriaReppRegistrar                  = "tesoreria.repp.registrar";
     public const string TesoreriaConciliacionOperar             = "tesoreria.conciliacion.operar";
     public const string TesoreriaConciliacionCerrar             = "tesoreria.conciliacion.cerrar";
+    // M-202: visto bueno de Contabilidad y reapertura reservada a la Contadora General.
+    public const string TesoreriaConciliacionRevisar            = "tesoreria.conciliacion.revisar";
+    public const string TesoreriaConciliacionReabrir            = "tesoreria.conciliacion.reabrir";
+    // M-201 (Javier Canché, 11-nov): la partida en tránsito la autoriza el Director de Planeación Financiera.
+    public const string TesoreriaConciliacionAutorizarTransito  = "tesoreria.conciliacion.autorizar-transito";
     public const string TesoreriaPasivosSolicitarCancelacion    = "tesoreria.pasivos.solicitar-cancelacion";
     // TES-PR3: lectura de la bandeja de pasivos pendientes. El 01-diseño §10
     // no lo listaba (hallazgo de implementación): consultar la bandeja no
@@ -683,6 +696,8 @@ public static class PermisosCanonicos
     public const string ComercioExteriorAnticiposRevertirComprobacionSolicitar = "comercio_exterior.anticipos.revertir-comprobacion-solicitar";
     /// <summary>M-327: autorizar o no la reversa de la comprobación (Contador General, Millet 10-nov-2026). Quien solicita no autoriza.</summary>
     public const string ComercioExteriorAnticiposRevertirComprobacionAutorizar = "comercio_exterior.anticipos.revertir-comprobacion-autorizar";
+    public const string ComercioExteriorServiciosAutorizarNivel1 = "comercio_exterior.servicios.autorizar-nivel1";
+    public const string ComercioExteriorServiciosAutorizarNivel2 = "comercio_exterior.servicios.autorizar-nivel2";
     public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
     public const string ComercioExteriorContenedoresGestionar = "comercio_exterior.expedientes.contenedores-gestionar";
     public const string ComercioExteriorRelacionIvaLeer = "comercio_exterior.relacion-iva.leer";
@@ -714,6 +729,12 @@ public static class PermisosCanonicos
     public const string ProductoTerminadoSalidaAprobarContraloria = "producto_terminado.salida.aprobar-contraloria";
     public const string ProductoTerminadoSalidaAprobarCredito = "producto_terminado.salida.aprobar-credito";
     public const string ProductoTerminadoSalidaAprobarVentas = "producto_terminado.salida.aprobar-ventas";
+    // M-247: autorizar o rechazar la cancelación de un albarán ya emitido (la pide quien opera la hoja; autoriza otra persona).
+    public const string ProductoTerminadoSalidaCancelarEmitida = "producto_terminado.salida.cancelar-emitida";
+    // M-351 (Fernando, 11-nov): el daño en producto terminado lo dictamina Calidad.
+    public const string ProductoTerminadoCalidadDictaminar = "producto_terminado.calidad.dictaminar";
+    // M-303: detener y reanudar tramos de la operación (reanudar lo hace otra persona).
+    public const string CompartidoTramosGestionar = "compartido.tramos.gestionar";
 
     // U-4 (86e3yzemw): incidencias comunes del ERP; el responsable siempre ve y atiende las suyas (ADR-0051 para el bypass).
     public const string CompartidoIncidenciasVer = "compartido.incidencias.ver";
@@ -872,6 +893,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0001-0000-0000-000000000005"), CuentasPorPagarFacturasEnviarRevision,       "Enviar factura a revisión por dependencia"),
         (Guid.Parse("00000007-0001-0000-0000-000000000006"), CuentasPorPagarFacturasLiberarRevision,      "Liberar factura desde revisión (responsable del área)"),
         (Guid.Parse("00000007-0001-0000-0000-000000000007"), CuentasPorPagarFacturasAutorizar,            "Autorizar factura manualmente (override, raro)"),
+        (Guid.Parse("00000007-0001-0000-0000-000000000008"), CuentasPorPagarCfdiAceptarCancelacionPagada, "Aceptar la cancelación de un CFDI de proveedor cuya factura ya tiene pagos (Contador General; requiere el CFDI sustituto)"),
         (Guid.Parse("00000007-0002-0000-0000-000000000001"), CuentasPorPagarNotasCreditoLeer,             "Consultar notas de crédito del proveedor"),
         (Guid.Parse("00000007-0002-0000-0000-000000000002"), CuentasPorPagarNotasCreditoCapturar,         "Capturar notas de crédito del proveedor"),
         (Guid.Parse("00000007-0003-0000-0000-000000000001"), CuentasPorPagarNotasCargoLeer,               "Consultar notas de cargo internas"),
@@ -956,6 +978,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000008-0011-0000-0000-000000000001"), AlmacenMermasAutorizar,                      "Autorizar o rechazar una merma de proceso por etapa y motivo (A4.4); sin autorización queda pendiente"),
         (Guid.Parse("00000008-0012-0000-0000-000000000001"), AlmacenSalidasRoturaCapturar,                "Capturar una salida por rotura de material en el almacén (ALM-03); no afecta el saldo hasta que se autorice"),
         (Guid.Parse("00000008-0012-0000-0000-000000000002"), AlmacenSalidasRoturaAutorizar,               "Autorizar o rechazar una salida por rotura (Jefe o Gerente de almacén, distinto de quien la capturó)"),
+        (Guid.Parse("00000008-0013-0000-0000-000000000001"), AlmacenCorreccionesConsumoAutorizar,         "Autorizar o rechazar una corrección de consumo (Costos, distinto de quien la solicitó); se aplica en el mes corriente"),
         (Guid.Parse("00000008-1a01-0000-0000-000000000001"), AlmacenCierreRevisarActa,                    "Marcar como revisada el acta del cierre mensual de Almacén (Director de Administración)"),
         (Guid.Parse("00000008-1a01-0000-0000-000000000002"), AlmacenAvisosValeVencido,                    "Recibir el aviso de vale urgente vencido sin regularizar de su sucursal (Jefe de almacén)"),
         (Guid.Parse("00000008-1a01-0000-0000-000000000003"), AlmacenAvisosAjusteMayor,                    "Recibir el aviso de ajuste de inventario mayor (nivel 3) aprobado (Finanzas)"),
@@ -1024,12 +1047,14 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0004-0000-0000-000000000001"), CuentasPorCobrarCarteraLeer,             "Consultar cartera, antigüedad de saldos, estado de cuenta y alertas"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000002"), CuentasPorCobrarAplicacionPagoConfirmar, "Confirmar o rechazar propuestas de aplicación de pago (Ingresos)"),
+        (Guid.Parse("0000000a-0005-0000-0000-000000000003"), CuentasPorCobrarAplicacionPagoAutorizarRedondeo, "Autorizar o rechazar el redondeo de hasta $0.99 de un cobro (Gerente de Área, distinto de quien propone)"),
         (Guid.Parse("0000000a-0006-0000-0000-000000000001"), CuentasPorCobrarReglasSerieGestionar,    "Dar de alta, cambiar y activar o desactivar las reglas de liberación por serie"),
         (Guid.Parse("0000000a-0007-0000-0000-000000000001"), CuentasPorCobrarConciliacionEjecutar,    "Ejecutar a demanda la conciliación diaria de cartera contra facturación"),
 
         // Tesorería / Bancos (TES-PR1). Namespace 0000000b-*.
         (Guid.Parse("0000000b-0001-0000-0000-000000000001"), TesoreriaCuentasVer,                   "Consultar el catálogo de cuentas bancarias propias y sus saldos"),
         (Guid.Parse("0000000b-0001-0000-0000-000000000002"), TesoreriaCuentasAdministrar,           "Crear, editar y activar/desactivar cuentas bancarias propias"),
+        (Guid.Parse("0000000b-0001-0000-0000-000000000003"), TesoreriaCuentasAutorizar,             "Autorizar o rechazar el alta o cambio de una cuenta bancaria propia; no puede autorizarlo quien lo solicitó"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000001"), TesoreriaMovimientosVer,               "Consultar el libro de movimientos bancarios"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000002"), TesoreriaMovimientosRegistrar,         "Registrar movimientos bancarios de ingreso (alta manual)"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000003"), TesoreriaMovimientosVerCuentaCompleta, "Des-enmascarar CLABE y número de cuenta (PII, ADR-0018)"),
@@ -1050,6 +1075,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0007-0000-0000-000000000001"), TesoreriaReppRegistrar,                "Registrar REPP recibidos de proveedor (libera FALTA_REPP en CxP)"),
         (Guid.Parse("0000000b-0008-0000-0000-000000000001"), TesoreriaConciliacionOperar,           "Cargar extractos y operar el matching de conciliación bancaria"),
         (Guid.Parse("0000000b-0008-0000-0000-000000000002"), TesoreriaConciliacionCerrar,           "Cerrar conciliaciones con saldo cuadrado y generar acta (RN-7)"),
+        (Guid.Parse("0000000b-0008-0000-0000-000000000003"), TesoreriaConciliacionRevisar,          "Dar el visto bueno de Contabilidad a una conciliación firmada o devolverla a Tesorería; no puede darlo quien firmó"),
+        (Guid.Parse("0000000b-0008-0000-0000-000000000004"), TesoreriaConciliacionReabrir,          "Reabrir una conciliación bancaria cerrada con motivo (Contadora General)"),
+        (Guid.Parse("0000000b-0008-0000-0000-000000000005"), TesoreriaConciliacionAutorizarTransito, "Autorizar una partida en tránsito de la conciliación bancaria (Director de Planeación Financiera)"),
         (Guid.Parse("0000000b-0009-0000-0000-000000000001"), TesoreriaPasivosSolicitarCancelacion,  "Solicitar a CxP la cancelación de un pasivo desde la bandeja"),
         (Guid.Parse("0000000b-0009-0000-0000-000000000002"), TesoreriaPasivosVer,                   "Consultar la bandeja de pasivos autorizados pendientes de pago"),
         (Guid.Parse("0000000b-000a-0000-0000-000000000001"), TesoreriaReportesVer,                  "Consultar los reportes del módulo Tesorería (flujo de efectivo, auxiliares)"),
@@ -1109,6 +1137,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000004"), ComercioExteriorAnticiposRevertirComprobacionSolicitar, "Solicitar con motivo la reversa de un anticipo al agente ya comprobado"),
+        (Guid.Parse("0000000e-0010-0000-0000-000000000001"), ComercioExteriorServiciosAutorizarNivel1, "Primera firma de servicios de Comercio Exterior para permitir registro de pasivo"),
+        (Guid.Parse("0000000e-0010-0000-0000-000000000002"), ComercioExteriorServiciosAutorizarNivel2, "Segunda firma de servicios de Comercio Exterior por Dirección Comercial para habilitar programación de pago"),
         (Guid.Parse("0000000e-0006-0000-0000-000000000005"), ComercioExteriorAnticiposRevertirComprobacionAutorizar, "Autorizar la reversa de un anticipo al agente ya comprobado contra su saldo a favor (Contador General; no quien la solicitó)"),
         (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),
         (Guid.Parse("0000000e-0001-0000-0000-00000000000b"), ComercioExteriorContenedoresGestionar, "Gestionar contenedores y partidas"),
@@ -1136,6 +1166,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000010-0003-0000-0000-000000000003"), ProductoTerminadoSalidaAprobarContraloria, "Autorizar hoja de salida sin factura por suplencia de Contraloría"),
         (Guid.Parse("00000010-0003-0000-0000-000000000004"), ProductoTerminadoSalidaAprobarCredito, "Autorizar salida parcial de pedido por Crédito y Cobranza"),
         (Guid.Parse("00000010-0003-0000-0000-000000000005"), ProductoTerminadoSalidaAprobarVentas, "Autorizar salida parcial de pedido por suplencia de Gerencia de Ventas"),
+        (Guid.Parse("00000010-0003-0000-0000-000000000006"), ProductoTerminadoSalidaCancelarEmitida, "Autorizar o rechazar la cancelación de un albarán ya emitido"),
+        (Guid.Parse("00000010-0004-0000-0000-000000000001"), ProductoTerminadoCalidadDictaminar, "Dictaminar casos de daño, rechazo o devolución de producto terminado (Calidad)"),
+        (Guid.Parse("00000011-0002-0000-0000-000000000001"), CompartidoTramosGestionar, "Detener y reanudar tramos de la operación (reanudar lo autoriza otra persona)"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000008"), ActivosFijosDepreciacionCorrer, "Activos fijos: depreciacion.correr"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000009"), ActivosFijosDepreciacionAnular, "Activos fijos: depreciacion.anular"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000010"), ActivosFijosBajasRegistrar, "Activos fijos: bajas.registrar"),

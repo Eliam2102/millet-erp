@@ -90,6 +90,14 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
         return true;
     }
 
+    /// <summary>M-248: una corrección de entrega dejó el pedido incompleto. Solo antes del 115 (en A+W no se revierte).</summary>
+    public bool DesmarcarEntregado()
+    {
+        if (EntregadoAt is null || Estado115At is not null) return false;
+        EntregadoAt = null;
+        return true;
+    }
+
     public bool MarcarFacturado(DateTimeOffset ahora)
     {
         if (FacturadoAt is not null) return false;

@@ -155,6 +155,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         return response with
         {
             TransporteCe = transporte,
+            EsServicioComercioExterior = oc.EsServicioComercioExterior,
             CompradorNombre = nombresServicio.GetValueOrDefault(oc.CompradorTitularId),
             ServicioConfirmadoPorNombre = oc.ServicioConfirmadoPorId is Guid cp ? nombresServicio.GetValueOrDefault(cp) : null,
             ServicioNoConformePorNombre = oc.ServicioNoConformePorId is Guid np ? nombresServicio.GetValueOrDefault(np) : null,

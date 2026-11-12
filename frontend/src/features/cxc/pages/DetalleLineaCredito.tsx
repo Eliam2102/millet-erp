@@ -54,7 +54,7 @@ export function DetalleLineaCredito() {
   const query = useLineaCredito(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la línea de crédito"
@@ -112,7 +112,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* ── Sub-topbar §6.5 (sticky, no se imprime) ─────────────── */}
       <div data-print="hidden">
         <PageHeader
@@ -193,12 +193,12 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className="@container min-w-0 space-y-5">
         {/* ── Datos de la línea (+ edición inline §6.3) ─────────── */}
         <section className="rounded-md border bg-surface-card p-4" aria-label="Datos de la línea">
           <h3 className="text-sm font-medium">Datos de la línea</h3>
           {!editando ? (
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
+            <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 @sm:grid-cols-2 @3xl:grid-cols-4 text-sm">
               <Dato etiqueta="Límite">
                 <span className="font-mono tabular-nums">
                   {formatoMonto(linea.limite, linea.moneda)}
@@ -288,7 +288,7 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactN
   return (
     <div>
       <dt className="text-xs text-ink-muted">{etiqueta}</dt>
-      <dd>{children}</dd>
+      <dd className="[overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }

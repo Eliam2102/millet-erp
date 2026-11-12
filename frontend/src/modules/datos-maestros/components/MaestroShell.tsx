@@ -1,13 +1,20 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import type { ReactNode } from 'react';
 import { BarraFiltros } from '@/components/erp';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { EstatusCatalogo } from '../api/types';
 
 /**
  * Esqueleto master-detail común de Clientes, Proveedores, Artículos y Productos A+W:
- * columna de lista (más ancha en pantallas grandes) con cabecera, filtros y lista, y
+ * columna de lista compacta con cabecera, filtros y lista, y
  * panel de detalle. En móvil se alterna entre lista y detalle.
  */
 export function MaestroShell({
@@ -32,21 +39,26 @@ export function MaestroShell({
   mostrarSinSeleccionEnMovil?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      <aside
-        className={cn(
-          'relative z-10 flex flex-col gap-3 md:w-[22rem] md:shrink-0 md:overflow-hidden lg:w-[26rem] 2xl:w-[30rem]',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label={etiquetaLista}
-        data-print="hidden"
-      >
-        {cabecera}
-        {filtros}
-        <div className="flex min-h-64 flex-1 flex-col overflow-hidden rounded-md border bg-surface-card md:min-h-0">
-          {lista}
-        </div>
-      </aside>
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista={etiquetaLista}
+      lista={
+        <aside
+          className={cn(
+            'relative z-10 flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+            idActivo != null ? 'hidden md:flex' : 'flex',
+          )}
+          aria-label={etiquetaLista}
+          data-print="hidden"
+        >
+          {cabecera}
+          {filtros}
+          <div className="flex min-h-64 flex-1 flex-col overflow-hidden rounded-md border bg-surface-card md:min-h-0">
+            {lista}
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
           'relative z-0 min-w-0 flex-1 md:overflow-y-auto',
@@ -56,7 +68,7 @@ export function MaestroShell({
       >
         {idActivo == null ? sinSeleccion : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 
@@ -69,7 +81,10 @@ export function SelectEstatus({
   onChange: (v: string) => void;
 }) {
   return (
-    <Select value={valor === '' ? 'all' : valor} onValueChange={(v) => onChange(v === 'all' ? '' : v)}>
+    <Select
+      value={valor === '' ? 'all' : valor}
+      onValueChange={(v) => onChange(v === 'all' ? '' : v)}
+    >
       <SelectTrigger className="h-ctl-md w-36 text-xs" aria-label="Estado">
         <SelectValue placeholder="Estado" />
       </SelectTrigger>

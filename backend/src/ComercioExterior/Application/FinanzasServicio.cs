@@ -167,8 +167,9 @@ public sealed class FinanzasServicio(ComercioExteriorDbContext db, ExpedienteSer
             // M-327: quién pidió y quién firmó cada reversa de comprobación.
             .Concat(e.Anticipos.SelectMany(a => a.ReversasComprobacion.SelectMany(r => new[] { r.SolicitadoPor, r.FirmadoPor })))
             .Concat(e.Anticipos.Where(a => a.ReversaPendiente is not null).Select(a => a.ReversaPendiente!.SolicitadoPor)).Distinct(), ct);
-        return new(e.Version, e.EstadoFinanciero,
-        e.MotivosFinancieros().Concat(errores).ToArray(), await ConceptosAsync(e.EmpresaId, ct), e.Gastos, e.PartidasCosto, await PartidasAsync(e, ct), e.Distribuciones, e.Anticipos,
+        var pagosPendientes = await servicio.MotivosPagoServiciosAsync(e, ct);
+        return new(e.Version, pagosPendientes.Count > 0 ? string.Join("; ", pagosPendientes) : e.EstadoFinanciero,
+        e.MotivosFinancieros().Concat(pagosPendientes).Concat(errores).ToArray(), await ConceptosAsync(e.EmpresaId, ct), e.Gastos, e.PartidasCosto, await PartidasAsync(e, ct), e.Distribuciones, e.Anticipos,
             terceros.Concat(usuarios).GroupBy(x => x.Key).ToDictionary(x => x.Key, x => x.First().Value)) { Autorizaciones = firmas, IncrementablesAlInventario = IncrementablesAlInventario };
     }
     public async Task<DistribucionGasto> PreviaAsync(Guid id, int version, CancellationToken ct)

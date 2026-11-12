@@ -258,6 +258,7 @@ export const PermisosCanonicos = {
 
   AlmacenDevolucionesInternasLeer: 'almacen.devoluciones-internas.leer',
   AlmacenDevolucionesInternasCapturar: 'almacen.devoluciones-internas.capturar',
+  AlmacenCorreccionesConsumoAutorizar: 'almacen.correcciones-consumo.autorizar',
   AlmacenDevolucionesProveedorIniciar: 'almacen.devoluciones-proveedor.iniciar',
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
   AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
@@ -302,6 +303,7 @@ export const PermisosCanonicos = {
   CuentasPorPagarFacturasCapturar: 'cuentas_por_pagar.facturas.capturar',
   CuentasPorPagarFacturasEditar: 'cuentas_por_pagar.facturas.editar',
   CuentasPorPagarFacturasCancelar: 'cuentas_por_pagar.facturas.cancelar',
+  CuentasPorPagarCfdiAceptarCancelacionPagada: 'cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada',
   CuentasPorPagarFacturasEnviarRevision:
     'cuentas_por_pagar.facturas.enviar-revision',
   CuentasPorPagarFacturasLiberarRevision:
@@ -429,6 +431,11 @@ export const PermisosCanonicos = {
   TesoreriaReppRegistrar: 'tesoreria.repp.registrar',
   TesoreriaConciliacionOperar: 'tesoreria.conciliacion.operar',
   TesoreriaConciliacionCerrar: 'tesoreria.conciliacion.cerrar',
+  // M-199 / M-201 / M-202: autorización de cuentas, visto bueno de conciliación, reapertura y partidas en tránsito.
+  TesoreriaCuentasAutorizar: 'tesoreria.cuentas.autorizar',
+  TesoreriaConciliacionRevisar: 'tesoreria.conciliacion.revisar',
+  TesoreriaConciliacionReabrir: 'tesoreria.conciliacion.reabrir',
+  TesoreriaConciliacionAutorizarTransito: 'tesoreria.conciliacion.autorizar-transito',
   TesoreriaPasivosSolicitarCancelacion:
     'tesoreria.pasivos.solicitar-cancelacion',
   TesoreriaPasivosVer: 'tesoreria.pasivos.ver',
@@ -559,6 +566,8 @@ export const PermisosCanonicos = {
     'comercio_exterior.anticipos.revertir-comprobacion-solicitar',
   ComercioExteriorAnticiposRevertirComprobacionAutorizar:
     'comercio_exterior.anticipos.revertir-comprobacion-autorizar',
+  ComercioExteriorServiciosAutorizarNivel1: 'comercio_exterior.servicios.autorizar-nivel1',
+  ComercioExteriorServiciosAutorizarNivel2: 'comercio_exterior.servicios.autorizar-nivel2',
   ComercioExteriorOtrGestionar: 'comercio_exterior.otr.gestionar',
   ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
   ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',
@@ -585,6 +594,9 @@ export const PermisosCanonicos = {
   ProductoTerminadoSalidaAprobarContraloria: 'producto_terminado.salida.aprobar-contraloria',
   ProductoTerminadoSalidaAprobarCredito: 'producto_terminado.salida.aprobar-credito',
   ProductoTerminadoSalidaAprobarVentas: 'producto_terminado.salida.aprobar-ventas',
+  ProductoTerminadoSalidaCancelarEmitida: 'producto_terminado.salida.cancelar-emitida',
+  ProductoTerminadoCalidadDictaminar: 'producto_terminado.calidad.dictaminar',
+  CompartidoTramosGestionar: 'compartido.tramos.gestionar',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

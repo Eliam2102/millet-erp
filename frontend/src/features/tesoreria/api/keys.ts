@@ -61,6 +61,9 @@ export const tesoreriaKeys = {
   cuentasParaIngresos: () => [...tesoreriaKeys.cuentasAll(), 'para-ingresos'] as const,
   cuentas: (soloActivas: boolean) =>
     [...tesoreriaKeys.cuentasAll(), { soloActivas }] as const,
+  cuentasSolicitudes: (estado?: number) =>
+    [...tesoreriaKeys.cuentasAll(), 'solicitudes', { estado }] as const,
+  cuentaHistorial: (id: string) => [...tesoreriaKeys.cuentasAll(), 'historial', id] as const,
 
   // Libro de movimientos (TES-FE-PR2)
   movimientos: () => [...tesoreriaKeys.all, 'movimientos'] as const,

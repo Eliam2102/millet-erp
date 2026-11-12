@@ -15,7 +15,23 @@ export async function descargarComprobanteRecepcion(recepcionId: string, folio: 
   await descargarComprobante(`/api/v1/almacen/recepciones/${recepcionId}/comprobante`, folio);
 }
 
+/** M-224: acta del conteo aplicado (<c>GET /conteos/{id}/acta</c>), mismo patrón. */
+export async function descargarActaConteo(conteoId: string): Promise<void> {
+  await descargarComprobante(`/api/v1/almacen/conteos/${conteoId}/acta`, `acta-conteo-${conteoId}`);
+}
+
 async function descargarComprobante(ruta: string, folio: string): Promise<void> {
+  const url = URL.createObjectURL(await obtenerComprobante(ruta));
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = `${folio}.pdf`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function obtenerComprobante(ruta: string): Promise<Blob> {
   const response = await apiFetch(ruta);
   if (!response.ok) {
     let problem;
@@ -31,12 +47,5 @@ async function descargarComprobante(ruta: string, folio: string): Promise<void> 
     }
     throw new ApiError(problem, response.status);
   }
-  const url = URL.createObjectURL(await response.blob());
-  const enlace = document.createElement('a');
-  enlace.href = url;
-  enlace.download = `${folio}.pdf`;
-  document.body.appendChild(enlace);
-  enlace.click();
-  enlace.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return response.blob();
 }

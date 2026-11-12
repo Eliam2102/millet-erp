@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
-import { useConfirmarEntrega } from '../api/hooks';
+import { useConfirmarEntrega, useCorregirEntrega } from '../api/hooks';
 import { reducirFoto } from '../lib/imagen';
-import type { AlbaranDto, FormaCobroEntrega } from '../api/types';
+import type { AlbaranDto, EntregaDto, FormaCobroEntrega } from '../api/types';
+import { mensajeApi } from '../lib/errores';
 import { FirmaPad } from './FirmaPad';
 
 const FORMAS: FormaCobroEntrega[] = ['TPV', 'Efectivo', 'Transferencia', 'Cheque'];
@@ -16,12 +16,16 @@ const FORMAS: FormaCobroEntrega[] = ['TPV', 'Efectivo', 'Transferencia', 'Cheque
 /**
  * Confirmación de la entrega de un pedido desde el celular del chofer (PT5.6): quién recibe, qué piezas aceptó (las que no, se rechazan en sitio con su motivo),
  * firma o foto como evidencia y, si cobró contra entrega, el voucher. Una columna en móvil y objetivos de 44 px.
+ * Con `corregir` (M-248) corrige una entrega ya confirmada: parte de lo registrado, pide nueva evidencia y el motivo de la corrección, y deja una versión más en el historial (sin tocar el cobro).
  */
-export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId: string; albaran: AlbaranDto; onListo: () => void; onCancelar: () => void }) {
-  const confirmar = useConfirmarEntrega();
-  const [receptor, setReceptor] = useState('');
-  const [rechazadas, setRechazadas] = useState<string[]>([]);
-  const [motivo, setMotivo] = useState('');
+export function EntregaPanel({ hojaId, albaran, onListo, onCancelar, corregir }: { hojaId: string; albaran: AlbaranDto; onListo: () => void; onCancelar: () => void; corregir?: EntregaDto }) {
+  const confirmarEntrega = useConfirmarEntrega();
+  const corregirEntrega = useCorregirEntrega();
+  const confirmar = corregir ? corregirEntrega : confirmarEntrega;
+  const [receptor, setReceptor] = useState(corregir?.receptor ?? '');
+  const [rechazadas, setRechazadas] = useState<string[]>(corregir?.etiquetasRechazadas ?? []);
+  const [motivo, setMotivo] = useState(corregir?.motivoRechazo ?? '');
+  const [motivoCorreccion, setMotivoCorreccion] = useState('');
   const [firma, setFirma] = useState<string | null>(null);
   const [foto, setFoto] = useState<string | null>(null);
   const [cobra, setCobra] = useState(false);
@@ -37,7 +41,8 @@ export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId:
     !receptor.trim() && 'quién recibe',
     !firma && !foto && 'la firma o una foto',
     rechazadas.length > 0 && !motivo.trim() && 'el motivo del rechazo',
-    cobra && !(Number(monto) > 0) && 'el monto cobrado',
+    !corregir && cobra && !(Number(monto) > 0) && 'el monto cobrado',
+    corregir && (motivoCorreccion.trim().length < 5 || motivoCorreccion.trim().length > 500) && 'el motivo de la corrección (5 a 500 caracteres)',
   ].filter(Boolean) as string[];
   const resultado = rechazadas.length === 0 ? 'Entrega completa' : recibidas === 0 ? 'Rechazo total en sitio' : `Entrega parcial: ${recibidas} de ${total}`;
 
@@ -47,17 +52,15 @@ export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId:
   };
   const enviar = () => {
     setError(null);
-    confirmar
-      .mutateAsync({
-        hojaId,
-        albaranId: albaran.id,
-        body: {
-          receptor: receptor.trim(), rechazadas, motivoRechazo: rechazadas.length > 0 ? motivo.trim() : null, firma, foto,
-          cobro: cobra && recibidas > 0 ? { monto: Number(monto), formaPago: forma, referencia: referencia.trim() || null } : null,
-        },
-      })
-      .then(onListo)
-      .catch((e) => setError(mensajeErrorAccion(e)));
+    const base = { receptor: receptor.trim(), rechazadas, motivoRechazo: rechazadas.length > 0 ? motivo.trim() : null, firma, foto };
+    const envio = corregir
+      ? corregirEntrega.mutateAsync({ hojaId, albaranId: albaran.id, body: { ...base, motivoCorreccion: motivoCorreccion.trim() } })
+      : confirmarEntrega.mutateAsync({
+          hojaId,
+          albaranId: albaran.id,
+          body: { ...base, cobro: cobra && recibidas > 0 ? { monto: Number(monto), formaPago: forma, referencia: referencia.trim() || null } : null },
+        });
+    envio.then(onListo).catch((e) => setError(mensajeApi(e)));
   };
 
   return (
@@ -98,12 +101,22 @@ export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId:
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="flex min-h-11 items-center gap-3 text-sm">
-          <Checkbox aria-label="Cobré en la entrega" checked={cobra} onCheckedChange={(v) => setCobra(v === true)} />
-          Cobré en la entrega (contra entrega)
+      {corregir && (
+        <label className="flex flex-col gap-1 text-sm">
+          Motivo de la corrección
+          <Textarea className="min-h-20" maxLength={500} placeholder="Ej. se capturó mal quién recibió o se marcó una pieza que sí se aceptó" value={motivoCorreccion} onChange={(e) => setMotivoCorreccion(e.target.value)} />
+          <span className="text-xs text-ink-muted">La entrega anterior queda en el historial de versiones.</span>
         </label>
-        {cobra && (
+      )}
+
+      <div className="flex flex-col gap-2">
+        {!corregir && (
+          <label className="flex min-h-11 items-center gap-3 text-sm">
+            <Checkbox aria-label="Cobré en la entrega" checked={cobra} onCheckedChange={(v) => setCobra(v === true)} />
+            Cobré en la entrega (contra entrega)
+          </label>
+        )}
+        {!corregir && cobra && (
           <div className="grid gap-2 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs text-ink-muted">
               Monto cobrado
@@ -123,11 +136,11 @@ export function EntregaPanel({ hojaId, albaran, onListo, onCancelar }: { hojaId:
         )}
       </div>
 
-      {error && <AvisoEnLinea tono="error" titulo="No se confirmó la entrega">{error}</AvisoEnLinea>}
+      {error && <AvisoEnLinea tono="error" titulo={corregir ? 'No se corrigió la entrega' : 'No se confirmó la entrega'}>{error}</AvisoEnLinea>}
       {faltas.length > 0 && <p role="note" className="text-xs text-ink-muted">Falta: {faltas.join(', ')}.</p>}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" size="lg" className="min-h-11" onClick={onCancelar}>Cancelar</Button>
-        <Button type="button" size="lg" className="min-h-11" disabled={faltas.length > 0 || confirmar.isPending} onClick={enviar}>Confirmar entrega · {resultado}</Button>
+        <Button type="button" size="lg" className="min-h-11" disabled={faltas.length > 0 || confirmar.isPending} onClick={enviar}>{corregir ? 'Guardar corrección' : 'Confirmar entrega'} · {resultado}</Button>
       </div>
     </section>
   );

@@ -192,11 +192,11 @@ export interface SubirPackingListResponse {
  */
 export function useSubirPackingListBlob() {
   return useMutation({
-    mutationFn: async (args: { archivo: File; idempotencyKey: string }) => {
+    mutationFn: async (args: { archivo: File; idempotencyKey: string; url?: string }) => {
       const formData = new FormData();
       formData.append('archivo', args.archivo);
       const { data } = await apiRequest<SubirPackingListResponse>(
-        '/api/v1/almacen/recepciones/packing-list/blob',
+        args.url ?? '/api/v1/almacen/recepciones/packing-list/blob',
         {
           method: 'POST',
           body: formData,

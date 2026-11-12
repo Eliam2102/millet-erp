@@ -52,7 +52,7 @@ internal sealed class SucursalesTodas : IUsuarioSucursalReadPort
 /// <summary>Sin festivos; la sucursal de prueba en Mérida salvo que se indique otra zona.</summary>
 internal sealed class CalendarioFalso : IPtCalendarioSucursalesPort
 {
-    public Dictionary<Guid, SucursalCalendarioPt> Sucursales { get; } = new() { [EntornoPt.Sucursal] = new("CIR", "America/Merida") };
+    public Dictionary<Guid, SucursalCalendarioPt> Sucursales { get; } = new() { [EntornoPt.Sucursal] = new("CIR", "America/Merida", "Circuito Colonias") };
     public Task<IReadOnlyDictionary<Guid, SucursalCalendarioPt>> SucursalesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
         Task.FromResult<IReadOnlyDictionary<Guid, SucursalCalendarioPt>>(Sucursales.Where(s => ids.Contains(s.Key)).ToDictionary());
     public Task<IReadOnlySet<DateOnly>> FestivosAsync(CancellationToken ct) => Task.FromResult<IReadOnlySet<DateOnly>>(new HashSet<DateOnly>());
@@ -145,4 +145,21 @@ internal sealed class FakeSaldoPort : ISaldoPedidoReadPort
     public Dictionary<string, decimal> Saldos { get; } = new();
     public Task<decimal?> ObtenerAsync(Guid empresaId, string numeroPedido, CancellationToken ct) =>
         Task.FromResult(Saldos.TryGetValue(numeroPedido, out var s) ? (decimal?)s : null);
+}
+
+/// <summary>
+/// M-247 en las pruebas de cancelación que no tratan de la facultad: en carga cancela quien opera la hoja; emitido, lo pide quien opera y
+/// lo autoriza otra persona (<see cref="EmisorAutorizado.AprobadorId"/>).
+/// </summary>
+internal sealed class CancelacionPorEtapa(ProductoTerminadoDbContext db, PtAcceso solicita, IPedidosPtReadPort pedidos, IFacturacionSalidaPort facturacion, IClock reloj)
+{
+    public async Task<HojaSalidaDto> Handle(CancelarAlbaranSalidaCommand c, CancellationToken ct)
+    {
+        var empresa = new EmpresaFija(EntornoPt.Empresa);
+        if (!await db.Salidas.AnyAsync(s => s.Id == c.HojaId && s.Estado == Millet.ProductoTerminado.Domain.EstadoSalida.Emitida, ct))
+            return await new CancelarAlbaranSalidaHandler(db, solicita, pedidos, facturacion, empresa, reloj).Handle(c, ct);
+        await new SolicitarCancelacionAlbaranHandler(db, solicita, pedidos, empresa, reloj).Handle(new(c.HojaId, c.AlbaranId, c.Motivo), ct);
+        var autoriza = new PtAcceso(new UsuarioFijo(EmisorAutorizado.AprobadorId), new PermisosTodos(), new SucursalesTodas());
+        return await new ResolverCancelacionAlbaranHandler(db, autoriza, pedidos, facturacion, empresa, reloj).Handle(new(c.HojaId, c.AlbaranId, true, c.Motivo), ct);
+    }
 }

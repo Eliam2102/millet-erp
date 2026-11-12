@@ -711,6 +711,14 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          label: 'Cheques recibidos',
+          description:
+            'Cheques de clientes en firme pendiente: confirmar contra el estado de cuenta o registrar el rebote.',
+          to: '/tesoreria/cheques',
+          icon: Banknote,
+          permission: PermisosCanonicos.TesoreriaMovimientosVer,
+        },
+        {
           label: 'Diferencias de corte',
           description:
             'Faltantes y sobrantes del efectivo de cada corte de caja: autorizar o rechazar (deudores funcionarios y empleados).',
@@ -1473,6 +1481,22 @@ const productoTerminado: NavModulo = {
           to: '/producto-terminado/excepciones',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
+        },
+        {
+          label: 'Solicitudes de salida parcial',
+          description:
+            'Pedidos incompletos que piden salir: Crédito y Cobranza autoriza o rechaza (Gerencia de Ventas como suplente).',
+          to: '/producto-terminado/solicitudes',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Casos de daño',
+          description:
+            'Daño antes de cargar, rechazo en sitio o devolución: evidencia, dictamen de Calidad y correctivo fiscal.',
+          to: '/producto-terminado/casos',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
       ],
     },

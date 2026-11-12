@@ -8,6 +8,10 @@ import type { OtrEnvio } from '../api/otr';
 const state = vi.hoisted(() => ({ data: [] as OtrEnvio[], mutar: vi.fn() }));
 vi.mock('../api/otr', () => ({
   useOtrEnvios: () => ({ data: state.data, isError: false }),
+  useOtrBandeja: () => ({ data: state.data.map((e) => ({
+    id: e.id, idOrigen: e.idOrigen, version: e.version, versionAplicada: e.versionAplicada,
+    sucursalId: e.sucursalId, estado: e.estado, motivoVinculacion: e.motivoVinculacion, contenido: e.contenido,
+  })), isError: false }),
   useOtrAccion: () => ({ mutateAsync: state.mutar, isPending: false, isError: false }),
   useOtrCandidatos: () => ({ data: [{ id: 'exp', folio: 'CE-EXP-DEMO' }], isError: false }),
 }));
@@ -89,7 +93,7 @@ it('la bandeja muestra envíos por vincular y abre el selector de expediente', (
   state.data = [{ ...envio, estado: 1, expedienteId: null }];
   render(<OtrBandejaPage />);
   expect(screen.getByRole('heading', { name: 'Bandeja OTR' })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: 'Por vincular' })).toHaveAttribute(
+  expect(screen.getByRole('tab', { name: /Por vincular\s*1/ })).toHaveAttribute(
     'aria-selected',
     'true',
   );
@@ -97,7 +101,7 @@ it('la bandeja muestra envíos por vincular y abre el selector de expediente', (
   fireEvent.change(screen.getByLabelText(/Expediente abierto/), { target: { value: 'exp' } });
   fireEvent.click(screen.getByRole('button', { name: 'Vincular envío' }));
   expect(state.mutar).toHaveBeenCalledWith({
-    envio: state.data[0],
+    envio: expect.objectContaining({ id: envio.id, version: envio.version }),
     ruta: 'vincular',
     body: { expedienteId: 'exp' },
   });
@@ -158,14 +162,14 @@ it('filtra estados cargados y pagina diez envíos sin ofrecer vincular los ya vi
   expect(screen.getAllByRole('row')).toHaveLength(11);
   fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
   expect(screen.getByRole('cell', { name: 'OTR-PRUEBA-11' })).toBeInTheDocument();
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Vinculados' }), {
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Vinculados\s*1/ }), {
     button: 0,
     ctrlKey: false,
   });
   expect(screen.getByRole('cell', { name: 'OTR-VINCULADO' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled();
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Todos' }), { button: 0, ctrlKey: false });
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Todos\s*13/ }), { button: 0, ctrlKey: false });
   expect(screen.getByText('1–10 de 13')).toBeInTheDocument();
 });
 
@@ -173,4 +177,48 @@ it('los conflictos muestran el nombre de negocio del campo', () => {
   render(<OtrDetalle envio={envio} />);
   expect(screen.getByText(/Peso \(kg\)/)).toBeInTheDocument();
   expect(screen.queryByText(/PesoKg/)).not.toBeInTheDocument();
+});
+
+
+it.each(['CE_OTR_SUCURSAL_DESCONOCIDA', 'CE_OTR_CLIENTE_DESCONOCIDO', 'CE_OTR_OTRO'])('explica %s sin habilitar la vinculación', (motivoVinculacion) => {
+  state.data = [{ ...envio, estado: 1, motivoVinculacion, versionAplicada: 1792666512345 }];
+  render(<OtrBandejaPage />);
+  const button = screen.getByRole('button', { name: 'Vincular envío' });
+  expect(button).toBeDisabled();
+  expect(button).toHaveAccessibleDescription(/antes de vincular/);
+  expect(screen.queryByText(motivoVinculacion)).not.toBeInTheDocument();
+  expect(screen.getByRole('cell', { name: '1792666512345' })).toBeInTheDocument();
+  expect(state.mutar).not.toHaveBeenCalled();
+});
+
+
+it('la búsqueda actualiza los conteos y reinicia la paginación', () => {
+  state.data = Array.from({ length: 12 }, (_, i) => ({ ...envio, id: `busca-${i}`, idOrigen: `BUSCA-${i}`, estado: 1 }));
+  render(<OtrBandejaPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Buscar envío OTR o cliente' }), { target: { value: 'BUSCA-11' } });
+  expect(screen.getByRole('tab', { name: /Por vincular\s*1$/ })).toBeInTheDocument();
+  expect(screen.getByRole('cell', { name: 'BUSCA-11' })).toBeInTheDocument();
+  expect(screen.getByText('1–1 de 1')).toBeInTheDocument();
+});
+
+
+it('ofrece revalidar sucursal sólo con gestión corporativa y envía la versión del registro', () => {
+  state.data = [{ ...envio, estado: 1, expedienteId: null, motivoVinculacion: 'CE_OTR_SUCURSAL_DESCONOCIDA' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Revalidar sucursal' }));
+  expect(state.mutar).toHaveBeenCalledWith({ envio: expect.objectContaining({ id: envio.id, version: envio.version }), ruta: 'revalidar-sucursal' });
+  expect(state.mutar.mock.calls[0][0].envio).not.toHaveProperty('lineas');
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('consulta Cancelados sin mostrar acciones de revalidación o vinculación', () => {
+  state.data = [{ ...envio, estado: 3, motivoVinculacion: 'CE_OTR_SUCURSAL_DESCONOCIDA' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Cancelados\s*1/ }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('cell', { name: 'DEMO-OTR-1' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Revalidar sucursal' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
 });

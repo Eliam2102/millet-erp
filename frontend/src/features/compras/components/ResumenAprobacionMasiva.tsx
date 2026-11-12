@@ -15,9 +15,10 @@ interface ResumenAprobacionMasivaProps {
 export function ResumenAprobacionMasiva({ resultados, onCerrar }: ResumenAprobacionMasivaProps) {
   if (resultados.length === 0) return null;
 
+  const okTexto = resultados[0].okTexto ?? 'Aprobada';
   const aprobadas = resultados.filter((r) => r.ok);
   const errores = resultados.filter((r) => !r.ok);
-  const titulo = `${aprobadas.length} ${aprobadas.length === 1 ? 'aprobada' : 'aprobadas'} · ${errores.length} ${errores.length === 1 ? 'con error' : 'con errores'}`;
+  const titulo = `${aprobadas.length} ${okTexto.toLowerCase()}${aprobadas.length === 1 ? '' : 's'} · ${errores.length} ${errores.length === 1 ? 'con error' : 'con errores'}`;
 
   return (
     <section
@@ -35,7 +36,7 @@ export function ResumenAprobacionMasiva({ resultados, onCerrar }: ResumenAprobac
       </div>
       {aprobadas.length > 0 && (
         <div>
-          <p className="text-success-fg">Aprobadas</p>
+          <p className="text-success-fg">{okTexto}s</p>
           <ul className="ml-4 list-disc font-mono text-xs">
             {aprobadas.map((r) => (
               <li key={r.id}>{r.folio}</li>

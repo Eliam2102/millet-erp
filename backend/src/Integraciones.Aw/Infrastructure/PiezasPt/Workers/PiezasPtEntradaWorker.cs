@@ -48,7 +48,11 @@ public sealed class PiezasPtEntradaWorker(IServiceScopeFactory scopes, IOptions<
         {
             adquirido = await db.Database.SqlQueryRaw<bool>("SELECT pg_try_advisory_lock(hashtextextended({0}, 0)) AS \"Value\"", clave).SingleAsync(ct);
             if (!adquirido) return 0;
-            return await CicloAsync(sp, ct);
+            // M-303: con el tramo detenido no se lee el origen.
+            if (await Millet.SharedKernel.Application.Tramos.TramosGuard.DetenidoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.PtEscaneos, ct)) return 0;
+            var n = await CicloAsync(sp, ct);
+            await Millet.SharedKernel.Application.Tramos.TramosGuard.EventoCorrectoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.PtEscaneos, $"Ciclo completo: {n} escaneos aplicados", ct);
+            return n;
         }
         finally
         {

@@ -31,6 +31,18 @@ public sealed class AplicarNcYAnticipoTests
             redondeoAplicado: 0m,
             ahora: DateTimeOffset.UtcNow);
 
+    [Fact]
+    public void Servicio_CE_no_se_libera_a_Tesoreria_sin_segunda_firma()
+    {
+        var factura = CapturarFactura();
+        factura.IdentificarServicioComercioExterior();
+        var error = Assert.Throws<BusinessRuleException>(() => factura.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow));
+        Assert.Equal("CE_SERVICIO_SIN_SEGUNDA_FIRMA", error.Code);
+        Assert.Equal(EstadoPasivo.Capturada, factura.Estado);
+        factura.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow, servicioCeConSegundaFirma: true);
+        Assert.Equal(EstadoPasivo.Autorizada, factura.Estado);
+    }
+
     private static Domain.NotaCreditoProveedor.NotaCreditoProveedor CapturarNc(Guid? facturaOrigenId, decimal total = 500m) =>
         Domain.NotaCreditoProveedor.NotaCreditoProveedor.Capturar(
             empresaId: Guid.NewGuid(),

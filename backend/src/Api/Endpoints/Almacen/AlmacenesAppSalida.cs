@@ -39,6 +39,9 @@ public static class AlmacenesAppSalida
     /// </summary>
     public const string EntradaManual = "ENTRADA_MANUAL";
 
+    /// <summary>M-223: la ROTURA de la app entra pendiente y baja el saldo hasta que la autoriza otro usuario en el ERP.</summary>
+    public const string Rotura = "ROTURA";
+
     /// <summary>
     /// RECLAMACION_PROVEEDOR (v9): <c>lineas[]</c> con sus <c>grupos[]</c> (sin almacén: se reparte en la sucursal, primero el lote).
     /// El costo del mensaje es el de la compra en su moneda: no se usa (sale al costo de la entrada o al promedio).

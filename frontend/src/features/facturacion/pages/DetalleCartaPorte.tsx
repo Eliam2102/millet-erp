@@ -14,6 +14,10 @@ import {
 } from '@/components/ui/table';
 import type { CartaPorteDetalleResponse } from '@/features/facturacion/api/types';
 import { useCartaPorte, useSiguienteTramo } from '@/features/facturacion/api/useCartaPorte';
+import {
+  CorregirCartaPorteDialog,
+  CorreccionesCartaPorteLista,
+} from '@/features/facturacion/components/CorregirCartaPorteDialog';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { OperadorPicker } from '@/features/facturacion/components/OperadorPicker';
@@ -51,7 +55,7 @@ export function DetalleCartaPorte() {
   const query = useCartaPorte(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
@@ -86,6 +90,9 @@ export function DetalleCartaPorte() {
 function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['data']> }) {
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
   const [siguienteAbierto, setSiguienteAbierto] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  // M-354: solo una Carta Porte observada (timbrado fallido) se corrige antes de reemitir.
+  const puedeCorregir = puedeEmitir && c.estado === 'TimbradoFallido';
   // Solo desde un tramo timbrado tiene sentido crear el siguiente.
   const puedeContinuar = puedeEmitir && c.estado === 'Timbrado';
   const timbrada = c.estado === 'Timbrado' || c.estado === 'Cancelado';
@@ -100,13 +107,16 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <TimbradoFallidoBanner
         comprobanteId={c.id}
         estado={c.estado}
         errorCodigo={c.timbradoErrorCodigo}
         errorMensaje={c.timbradoErrorMensaje}
       />
+
+      <CorregirCartaPorteDialog carta={c} open={corrigiendo} onOpenChange={setCorrigiendo} />
+      <CorreccionesCartaPorteLista id={c.id} />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -142,6 +152,11 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
             <Download className="mr-1 h-4 w-4" />
             PDF
           </Button>
+          {puedeCorregir && (
+            <Button variant="outline" size="sm" onClick={() => setCorrigiendo(true)}>
+              Corregir
+            </Button>
+          )}
           {puedeContinuar && (
             <Button variant="outline" onClick={() => setSiguienteAbierto((v) => !v)}>
               <RouteIcon className="mr-2 h-4 w-4" />
@@ -155,7 +170,7 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
         <SiguienteTramoForm previa={c} onDone={() => setSiguienteAbierto(false)} />
       )}
 
-      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
         <Dato label="Origen">{c.origen}</Dato>
         <Dato label="Destino">{c.destino}</Dato>
         <Dato label="Distancia">{c.distanciaKm.toFixed(1)} km</Dato>
@@ -166,21 +181,21 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
         {c.total > 0 && <Dato label="Total">{c.total.toFixed(2)}</Dato>}
       </dl>
 
-      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
-        <div className="rounded-md border px-3 py-2 border-line">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2">
+        <div className="min-w-0 rounded-md border px-3 py-2 border-line">
           <h2 className="text-xs font-medium text-ink-muted">Vehículo</h2>
           {c.vehiculo ? (
-            <p className="text-sm">
+            <p className="text-sm [overflow-wrap:anywhere]">
               {c.vehiculo.placa} · {c.vehiculo.configVehicular} · {c.vehiculo.anioModelo}
             </p>
           ) : (
             <p className="text-sm text-ink-muted">—</p>
           )}
         </div>
-        <div className="rounded-md border px-3 py-2 border-line">
+        <div className="min-w-0 rounded-md border px-3 py-2 border-line">
           <h2 className="text-xs font-medium text-ink-muted">Operador</h2>
           {c.operador ? (
-            <p className="text-sm">
+            <p className="text-sm [overflow-wrap:anywhere]">
               {c.operador.nombre} · {c.operador.rfc} · Lic. {c.operador.numLicencia}
             </p>
           ) : (
@@ -468,9 +483,9 @@ function CampoCp({
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dd className="text-sm [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }

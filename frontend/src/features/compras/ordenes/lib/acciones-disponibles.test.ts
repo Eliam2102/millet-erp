@@ -641,3 +641,18 @@ describe('OC: quien la capturó no puede aprobarla (OC_AUTOAUTORIZACION)', () =>
     expect(accion(oc, Object.values(PermisosCanonicos), 'otro').habilitada).toBe(true);
   });
 });
+
+
+describe('Firmas de servicios COMEX', () => {
+  it.each([
+    [EstadoOrdenCompra.EnAutorizacionJefeCompras, accionAprobarNivel1, PermisosCanonicos.ComprasOrdenesAutorizarNivel1, PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1],
+    [EstadoOrdenCompra.EnAutorizacionDireccion, accionAprobarNivel2, PermisosCanonicos.ComprasOrdenesAutorizarNivel2, PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2],
+  ] as const)('%s requiere facultad CE adicional y respeta la separación de autores', (estado, accion, permisoOc, permisoCe) => {
+    const oc = makeOc({ estado, esServicioComercioExterior: true, compradorTitularId: 'capturista' });
+    expect(accion(oc, [permisoOc], 'firmante').habilitada).toBe(false);
+    expect(accion(oc, [permisoOc, permisoCe], 'firmante').habilitada).toBe(true);
+    expect(accion(oc, [permisoOc, permisoCe], 'capturista').habilitada).toBe(false);
+    expect(accionRechazar(oc, [permisoOc]).habilitada).toBe(false);
+    expect(accionRechazar(oc, [permisoOc, permisoCe]).habilitada).toBe(true);
+  });
+});

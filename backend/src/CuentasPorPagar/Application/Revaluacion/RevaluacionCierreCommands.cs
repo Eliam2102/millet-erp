@@ -50,6 +50,29 @@ public sealed class EjecutarRevaluacionCierreHandler(CuentasPorPagarDbContext db
         if (await db.RevaluacionesCierre.AnyAsync(r => r.Anio == c.Anio && r.Mes == c.Mes, cancellationToken))
             throw new ConflictException("REVALUACION_YA_EJECUTADA", $"El mes {c.Mes:00}/{c.Anio} ya se revaluó.");
 
+        var (detalles, omitidas) = await CalcularAsync(db, tiposCambio, cierre, cancellationToken);
+
+        var revaluacion = new RevaluacionCierre(empresaId, c.Anio, c.Mes, detalles);
+        db.RevaluacionesCierre.Add(revaluacion);
+        foreach (var (proveedorId, sucursalId, neto) in NetoPorProveedorYSucursal(detalles))
+            await publisher.PublishAsync(new RevaluacionCierreRegistradaIntegrationEvent(empresaId, clock.UtcNow, revaluacion.Id, proveedorId,
+                sucursalId, cierre, Math.Max(neto, 0), Math.Max(-neto, 0)), cancellationToken);
+        try { await db.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+        {
+            throw new ConflictException("REVALUACION_YA_EJECUTADA", $"El mes {c.Mes:00}/{c.Anio} ya se revaluó.");
+        }
+        return new(revaluacion.Id, c.Anio, c.Mes, revaluacion.FechaCierre, revaluacion.FechaReversa, detalles.Count,
+            revaluacion.TotalPerdida, revaluacion.TotalUtilidad, omitidas);
+    }
+
+    /// <summary>
+    /// Cálculo de solo lectura (lo usan ejecutar y la vista previa M-317): facturas abiertas en divisa, su saldo al cierre, TC de la
+    /// factura y de cierre. No registra nada ni publica eventos.
+    /// </summary>
+    internal static async Task<(List<RevaluacionDetalle> Detalles, List<RevaluacionOmitida> Omitidas)> CalcularAsync(CuentasPorPagarDbContext db,
+        ITipoCambioReadPort tiposCambio, DateOnly cierre, CancellationToken cancellationToken)
+    {
         var fin = SaldosHistoricos.FinExclusivo(cierre);
         var facturas = await db.FacturasProveedor.AsNoTracking().Include(f => f.Movimientos)
             .Where(f => f.Moneda != Mxn && f.FechaDocumento < fin && (f.FechaCancelacion == null || f.FechaCancelacion >= fin))
@@ -78,19 +101,7 @@ public sealed class EjecutarRevaluacionCierreHandler(CuentasPorPagarDbContext db
             }
             detalles.Add(new(f.Id, f.ProveedorId, f.SucursalId, f.Moneda, saldo, f.TipoCambio.Value, tc));
         }
-
-        var revaluacion = new RevaluacionCierre(empresaId, c.Anio, c.Mes, detalles);
-        db.RevaluacionesCierre.Add(revaluacion);
-        foreach (var (proveedorId, sucursalId, neto) in NetoPorProveedorYSucursal(detalles))
-            await publisher.PublishAsync(new RevaluacionCierreRegistradaIntegrationEvent(empresaId, clock.UtcNow, revaluacion.Id, proveedorId,
-                sucursalId, cierre, Math.Max(neto, 0), Math.Max(-neto, 0)), cancellationToken);
-        try { await db.SaveChangesAsync(cancellationToken); }
-        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
-        {
-            throw new ConflictException("REVALUACION_YA_EJECUTADA", $"El mes {c.Mes:00}/{c.Anio} ya se revaluó.");
-        }
-        return new(revaluacion.Id, c.Anio, c.Mes, revaluacion.FechaCierre, revaluacion.FechaReversa, detalles.Count,
-            revaluacion.TotalPerdida, revaluacion.TotalUtilidad, omitidas);
+        return (detalles, omitidas);
     }
 
     /// <summary>Diferencia neta por proveedor y sucursal (todas sus monedas); lo que queda en cero no genera póliza.</summary>
@@ -125,5 +136,53 @@ public sealed class PublicarReversasRevaluacionHandler(CuentasPorPagarDbContext 
             await db.SaveChangesAsync(cancellationToken);
         }
         return pendientes.Count;
+    }
+}
+
+public sealed record VistaPreviaRevaluacionDetalle(Guid FacturaId, Guid ProveedorId, Guid SucursalId, string Moneda, decimal Saldo, decimal TcFactura,
+    decimal TcCierre, decimal ImporteLibros, decimal ImporteCierre, decimal Diferencia);
+
+/// <summary>Lo que cada póliza (proveedor y sucursal) asentaría: pérdida = cargo a pérdida y abono al proveedor; utilidad al revés.</summary>
+public sealed record VistaPreviaRevaluacionPoliza(Guid ProveedorId, Guid SucursalId, decimal Perdida, decimal Utilidad);
+
+public sealed record VistaPreviaRevaluacionResponse(int Anio, int Mes, DateOnly FechaCierre, DateOnly FechaReversa, bool YaEjecutada,
+    IReadOnlyList<VistaPreviaRevaluacionDetalle> Detalles, IReadOnlyList<VistaPreviaRevaluacionPoliza> Polizas, decimal TotalPerdida,
+    decimal TotalUtilidad, IReadOnlyList<RevaluacionOmitida> Omitidas, IReadOnlyList<string> Avisos);
+
+/// <summary>
+/// M-317 · vista previa de la revaluación de proveedores: el cálculo y las pólizas por proveedor y sucursal sin registrar la
+/// revaluación ni publicar eventos (no toca el registro único por mes).
+/// </summary>
+public sealed record VistaPreviaRevaluacionCierreQuery(int Anio, int Mes) : IRequest<VistaPreviaRevaluacionResponse>;
+
+public sealed class VistaPreviaRevaluacionCierreValidator : AbstractValidator<VistaPreviaRevaluacionCierreQuery>
+{
+    public VistaPreviaRevaluacionCierreValidator()
+    {
+        RuleFor(c => c.Anio).InclusiveBetween(2000, 2100).WithMessage("Año inválido.");
+        RuleFor(c => c.Mes).InclusiveBetween(1, 12).WithMessage("Mes inválido.");
+    }
+}
+
+public sealed class VistaPreviaRevaluacionCierreHandler(CuentasPorPagarDbContext db, ITipoCambioReadPort tiposCambio)
+    : IRequestHandler<VistaPreviaRevaluacionCierreQuery, VistaPreviaRevaluacionResponse>
+{
+    public async Task<VistaPreviaRevaluacionResponse> Handle(VistaPreviaRevaluacionCierreQuery q, CancellationToken cancellationToken)
+    {
+        var cierre = new DateOnly(q.Anio, q.Mes, DateTime.DaysInMonth(q.Anio, q.Mes));
+        var ya = await db.RevaluacionesCierre.AnyAsync(r => r.Anio == q.Anio && r.Mes == q.Mes, cancellationToken);
+        var avisos = new List<string>();
+        if (ya) avisos.Add($"El mes {q.Mes:00}/{q.Anio} ya se revaluó: la vista previa es el cálculo con los saldos de hoy.");
+        List<RevaluacionDetalle> detalles = [];
+        List<RevaluacionOmitida> omitidas = [];
+        try { (detalles, omitidas) = await EjecutarRevaluacionCierreHandler.CalcularAsync(db, tiposCambio, cierre, cancellationToken); }
+        catch (BusinessRuleException e) { avisos.Add(e.Message); }
+        var polizas = EjecutarRevaluacionCierreHandler.NetoPorProveedorYSucursal(detalles)
+            .Select(x => new VistaPreviaRevaluacionPoliza(x.ProveedorId, x.SucursalId, Math.Max(x.Neto, 0), Math.Max(-x.Neto, 0))).ToList();
+        return new(q.Anio, q.Mes, cierre, cierre.AddDays(1), ya,
+            [.. detalles.Select(d => new VistaPreviaRevaluacionDetalle(d.FacturaProveedorId, d.ProveedorId, d.SucursalId, d.Moneda, d.Saldo, d.TcFactura,
+                d.TcCierre, d.ImporteLibros, d.ImporteCierre, d.Diferencia))],
+            polizas, detalles.Where(d => d.Diferencia > 0).Sum(d => d.Diferencia), -detalles.Where(d => d.Diferencia < 0).Sum(d => d.Diferencia),
+            omitidas, avisos);
     }
 }

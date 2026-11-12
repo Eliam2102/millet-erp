@@ -724,6 +724,11 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       const tabPosiciones = screen.getByRole('tab', { name: /Partidas/i });
       expect(tabPosiciones.querySelector('[aria-label$="errores"]')).not.toBeNull();
     });
+    // H-U13: el rechazo no es mudo; lista campo y motivo y abre la pestaña con error.
+    const aviso = await screen.findByText(/No se emitió: corrige estos datos/i);
+    expect(aviso).toBeTruthy();
+    expect(screen.getAllByText(/Partida 1/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('tab', { name: /Partidas/i }).getAttribute('data-state')).toBe('active');
   });
 
   it('Cancelar sin cambios invoca onCancel sin confirm', async () => {

@@ -8307,6 +8307,96 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         });
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Tramos.TramoOperativo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("clave");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<bool>("Detenido")
+                        .HasColumnType("boolean")
+                        .HasColumnName("detenido");
+
+                    b.Property<DateTimeOffset?>("DetenidoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("detenido_at");
+
+                    b.Property<Guid?>("DetenidoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("detenido_por_id");
+
+                    b.Property<Guid?>("IncidenciaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("incidencia_id");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoReanudacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_reanudacion");
+
+                    b.Property<DateTimeOffset?>("ReanudadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reanudado_at");
+
+                    b.Property<Guid?>("ReanudadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reanudado_por_id");
+
+                    b.Property<string>("UltimoEventoCorrecto")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("ultimo_evento_correcto");
+
+                    b.Property<DateTimeOffset?>("UltimoEventoCorrectoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultimo_evento_correcto_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tramos_operativos");
+
+                    b.HasIndex("Clave")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tramos_operativos_clave");
+
+                    b.ToTable("tramos_operativos", "compartido");
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Infrastructure.Outbox.IntegrationEventOutboxEntry", b =>
                 {
                     b.Property<Guid>("Id")
