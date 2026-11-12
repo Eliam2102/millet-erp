@@ -4,6 +4,7 @@ using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.Domain.Cancelaciones;
+using Millet.Facturacion.Domain.Ports;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -57,9 +58,10 @@ public sealed record DatosSustitucionLinea(
     decimal? TasaIvaTraslado,
     decimal? TasaRetencionIva,
     decimal? TasaRetencionIsr,
-    bool RequierePedimento);
+    bool RequierePedimento,
+    int? DecimalesCantidad = null);
 
-public sealed class DatosSustitucionHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance, IClock clock)
+public sealed class DatosSustitucionHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance, IClock clock, IProductosReadPort? productos = null)
     : IRequestHandler<DatosSustitucionQuery, DatosSustitucionResponse>
 {
     public async Task<DatosSustitucionResponse> Handle(DatosSustitucionQuery query, CancellationToken cancellationToken)
@@ -81,6 +83,12 @@ public sealed class DatosSustitucionHandler(FacturacionDbContext db, IAlcanceCaj
         var aceptacion = PoliticaAceptacionCancelacion.Evaluar(f, clock.UtcNow);
         await db.Entry(f).Collection(x => x.Lineas).LoadAsync(cancellationToken);
 
+        // El snapshot histórico permanece intacto; la precisión rige sólo el nuevo borrador.
+        var precisiones = new Dictionary<Guid, int?>();
+        if (productos is not null)
+            foreach (var id in f.Lineas.Where(l => l.ProductoId.HasValue).Select(l => l.ProductoId!.Value).Distinct())
+                precisiones[id] = (await productos.ObtenerAsync(id, cancellationToken))?.DecimalesCantidad;
+
         return new DatosSustitucionResponse(
             f.Id, f.Folio, f.Uuid!, f.SucursalId,
             await ClienteContableFacturacion.ResolverAsync(db, f, cancellationToken),
@@ -90,7 +98,8 @@ public sealed class DatosSustitucionHandler(FacturacionDbContext db, IAlcanceCaj
             f.Lineas.OrderBy(l => l.Posicion)
                 .Select(l => new DatosSustitucionLinea(
                     l.ProductoId, l.ClaveProdServSat, l.Descripcion, l.ClaveUnidadSat, l.Cantidad, l.ValorUnitario,
-                    l.Descuento, l.ObjetoImp, l.TasaIvaTraslado, l.TasaRetencionIva, l.TasaRetencionIsr, l.RequierePedimento))
+                    l.Descuento, l.ObjetoImp, l.TasaIvaTraslado, l.TasaRetencionIva, l.TasaRetencionIsr, l.RequierePedimento,
+                    l.ProductoId is Guid id ? precisiones.GetValueOrDefault(id) : null))
                 .ToList(),
             guia.Motivo, guia.LlevaRelacion04, guia.Pasos, aceptacion.RequiereAceptacion, aceptacion.RazonesSinAceptacion);
     }

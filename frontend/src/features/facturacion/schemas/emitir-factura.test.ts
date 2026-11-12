@@ -341,3 +341,26 @@ describe('EmitirFacturaSchema — observaciones', () => {
     expect(r.error?.issues.some((i) => i.path[0] === 'observaciones')).toBe(true);
   });
 });
+
+
+describe('FB48 precisión de cantidad', () => {
+  it.each([4.5, 4.9999, 1e-7])('rechaza fracción %s en concepto manual H87', (cantidad) => {
+    expect(EmitirFacturaLineaSchema.safeParse({ ...lineaValida, cantidad }).success).toBe(false);
+  });
+  it.each([['KGM', 1.125, 3], ['MTK', 1.1255, 4], ['KGM', 1e-3, 3]])(
+    'conserva fracciones válidas de %s', (claveUnidadSat, cantidad, decimalesCantidad) => {
+      const r = EmitirFacturaLineaSchema.safeParse({ ...lineaValida, productoId: '11111111-1111-4111-8111-111111111111', claveUnidadSat, cantidad, decimalesCantidad });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.cantidad).toBe(cantidad);
+    },
+  );
+  it('revalida producto con cero decimales sin deducir piezas de la clave SAT', () => {
+    const producto = { ...lineaValida, productoId: '11111111-1111-4111-8111-111111111111', claveUnidadSat: 'MTK', cantidad: 4.5, decimalesCantidad: 0 };
+    expect(EmitirFacturaLineaSchema.safeParse(producto).success).toBe(false);
+    expect(EmitirFacturaLineaSchema.safeParse({ ...producto, decimalesCantidad: 3 }).success).toBe(true);
+  });
+  it('mantiene legacy no resuelto aunque su clave SAT sea H87', () => {
+    expect(EmitirFacturaLineaSchema.safeParse({ ...lineaValida, productoId: '11111111-1111-4111-8111-111111111111', cantidad: 4.5, decimalesCantidad: null }).success).toBe(true);
+    expect(EmitirFacturaLineaSchema.safeParse({ ...lineaValida, claveUnidadSat: 'KGM', cantidad: 0.0000001 }).success).toBe(true);
+  });
+});

@@ -197,7 +197,7 @@ public sealed class EmitirFacturaVentaHandler
                 $"El período contable {anio}-{mes:D2} está cerrado; no se puede emitir.");
 
         await ValidadorProductoFiscal.ValidarAsync(command.Lineas.Select((l,i)=>new LineaFiscalAValidar(i+1,l.ProductoId,l.Descripcion,
-            l.ClaveProdServSat,l.ClaveUnidadSat,l.ObjetoImp,l.TasaIvaTraslado)),_productos,cancellationToken);
+            l.ClaveProdServSat,l.ClaveUnidadSat,l.ObjetoImp,l.TasaIvaTraslado,l.Cantidad)),_productos,cancellationToken);
         // 2. Validación local previa de catálogos SAT.
         await ValidarCatalogosSatAsync(command, cancellationToken);
         // B5: domicilio del receptor y clave de pedimento del CCE, antes de reservar folio.

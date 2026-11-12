@@ -1357,3 +1357,18 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
     expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '' }));
   });
 });
+
+
+describe('FB48 paso de piezas', () => {
+  it('disminuye cinco piezas a cuatro en vez de 4.9999', async () => {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    const { container } = render(<EmitirFacturaForm onSuccess={vi.fn()} onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(container.querySelector('input[name="lineas.0.cantidad"]')).not.toBeNull());
+    const cantidad = container.querySelector('input[name="lineas.0.cantidad"]') as HTMLInputElement;
+    expect(cantidad).toHaveAttribute('step', '1');
+    fireEvent.change(cantidad, { target: { value: '5' } });
+    cantidad.stepDown();
+    fireEvent.input(cantidad);
+    expect(cantidad.value).toBe('4');
+  });
+});

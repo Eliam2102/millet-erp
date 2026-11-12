@@ -125,7 +125,8 @@ public sealed record PedidoFacturableLineaDetalle(
     decimal? TasaRetencionIva,
     decimal? TasaRetencionIsr, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null,
     // B12: datos de aduana y peso del artículo (master) para precargar la línea de la factura de exportación.
-    string? FraccionArancelaria = null, string? UnidadAduana = null, decimal? PesoUnitarioKg = null);
+    string? FraccionArancelaria = null, string? UnidadAduana = null, decimal? PesoUnitarioKg = null,
+    Guid? UnidadMedidaId = null, string? UnidadMedida = null, int? DecimalesCantidad = null);
 
 public sealed class PedidoFacturableDetalleHandler
     : IRequestHandler<PedidoFacturableDetalleQuery, PedidoFacturableDetalleResponse>
@@ -216,7 +217,8 @@ public sealed class PedidoFacturableDetalleHandler
                     // A+W o resuelta al capturar) manda sobre la del master.
                     l.TasaIva ?? master?.TasaIvaTraslado,
                     master?.TasaRetencionIva, master?.TasaRetencionIsr, l.Referencia, l.PesoKg, l.AreaPie2,
-                    master?.FraccionArancelaria, master?.UnidadAduana, master?.PesoUnitarioKg);
+                    master?.FraccionArancelaria, master?.UnidadAduana, master?.PesoUnitarioKg,
+                    master?.UnidadMedidaId, master?.UnidadMedida, master?.DecimalesCantidad);
             })
             .ToList();
 

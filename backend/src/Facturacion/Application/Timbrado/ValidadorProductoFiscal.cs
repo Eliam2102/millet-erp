@@ -1,8 +1,9 @@
 using Millet.Facturacion.Domain.Ports;
+using Millet.SharedKernel.Application.UnidadesMedida;
 using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Facturacion.Application.Timbrado;
 
-public sealed record LineaFiscalAValidar(int Linea,Guid? ProductoId,string Descripcion,string? ClaveProdServSat,string? ClaveUnidadSat,string? ObjetoImp,decimal? TasaIvaTraslado);
+public sealed record LineaFiscalAValidar(int Linea,Guid? ProductoId,string Descripcion,string? ClaveProdServSat,string? ClaveUnidadSat,string? ObjetoImp,decimal? TasaIvaTraslado,decimal? Cantidad=null);
 public sealed record ProductoFiscalFaltante(int Linea,Guid? ProductoId,string Producto,IReadOnlyList<string> Campos);
 public sealed class ProductosFiscalesIncompletosException(IReadOnlyList<ProductoFiscalFaltante> productos)
     : BusinessRuleException("PRODUCTOS_FISCALES_INCOMPLETOS", "No se puede timbrar. "+string.Join("; ",productos.Select(p=>$"Línea {p.Linea}, producto {p.Producto}: falta {string.Join(", ",p.Campos)}"))+". Completa la ficha fiscal en Datos maestros → Productos A+W.")
@@ -19,21 +20,27 @@ public static class ValidadorProductoFiscal
     public static async Task ValidarAsync(IEnumerable<LineaFiscalAValidar> lineas,IProductosReadPort? productos,CancellationToken ct)
     {
         var faltantes=new List<ProductoFiscalFaltante>(); var cache=new Dictionary<Guid,ProductoFiscalLectura?>();
+        BusinessRuleException? cantidadInvalida=null;
         foreach(var l in lineas)
         {
             var campos=Faltantes(l.ClaveProdServSat,l.ClaveUnidadSat,l.ObjetoImp,l.TasaIvaTraslado).ToList(); var nombre=l.Descripcion;
+            int? decimales=l.ProductoId is null && l.ClaveUnidadSat?.Trim().ToUpperInvariant().TrimEnd('.')=="H87" ? 0 : null;
             if(l.ProductoId is {} id && productos is not null)
             {
                 if(!cache.TryGetValue(id,out var p)) { p=await productos.ObtenerAsync(id,ct); cache[id]=p; }
                 if(p is null) campos.Add("Producto en el maestro fiscal");
                 else
                 {
-                    nombre=p.Descripcion; campos.AddRange(Faltantes(p.ClaveProdServSat,p.ClaveUnidadSat,p.ObjetoImp,p.TasaIvaTraslado));
+                    nombre=p.Descripcion; decimales=p.DecimalesCantidad; campos.AddRange(Faltantes(p.ClaveProdServSat,p.ClaveUnidadSat,p.ObjetoImp,p.TasaIvaTraslado));
                     if(p.EstadoFiscal=="FiscalPendiente" && campos.Count==0) campos.Add("Confirmación de la ficha fiscal");
                 }
             }
+            if(l.Cantidad is decimal cantidad && decimales is int d && !DecimalesUnidad.EsValida(cantidad,d))
+                cantidadInvalida ??= new BusinessRuleException(DecimalesUnidad.CodigoError,
+                    $"Línea {l.Linea}, producto {nombre}: la unidad permite máximo {d} decimales; corrige la cantidad {cantidad} sin redondearla.");
             if(campos.Count>0) faltantes.Add(new(l.Linea,l.ProductoId,nombre,campos.Distinct().ToArray()));
         }
         if(faltantes.Count>0) throw new ProductosFiscalesIncompletosException(faltantes);
+        if(cantidadInvalida is not null) throw cantidadInvalida;
     }
 }

@@ -77,4 +77,9 @@ describe('prefillSustitucion (FAC-08b)', () => {
     expect(p.sustituye).toBeUndefined();
     expect(p.receptorRfc).toBe('AAA010101AAA');
   });
+  it('conserva cantidad histórica y precisión del maestro para el nuevo borrador', () => {
+    const p = prefillSustitucion({ ...datos, lineas: [{ ...datos.lineas[0], productoId: 'producto-kg', cantidad: 1.125, decimalesCantidad: 3 }] });
+    expect(p.lineas?.[0]).toMatchObject({ productoId: 'producto-kg', cantidad: 1.125, decimalesCantidad: 3 });
+  });
+
 });
