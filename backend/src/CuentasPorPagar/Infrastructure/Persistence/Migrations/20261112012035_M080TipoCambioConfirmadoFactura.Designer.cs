@@ -1093,6 +1093,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("area");
 
+                    b.Property<Guid?>("AutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por");
+
                     b.Property<Guid>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
@@ -1152,6 +1156,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ResponsableId")
                         .HasColumnType("uuid")
                         .HasColumnName("responsable_id");
+
+                    b.Property<Guid?>("SustitutoCfdiId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sustituto_cfdi_id");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
