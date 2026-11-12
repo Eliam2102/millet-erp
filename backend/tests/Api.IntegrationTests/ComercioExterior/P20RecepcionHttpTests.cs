@@ -21,11 +21,12 @@ public sealed class P20RecepcionHttpTests
     [Fact]
     public async Task Recepcion_real_nueve_de_diez_genera_incidencia_y_bloquea_cierre() => await VerificarRecepcion(9, false, false);
     [Theory]
-    [InlineData(9, false)]
-    [InlineData(10, false)]
-    [InlineData(15, true)]
-    public async Task Partida_repartida_se_concilia_con_recepcion_real(decimal cantidad, bool variosExpedientes) => await VerificarRecepcion(cantidad, variosExpedientes, true);
-    private static async Task VerificarRecepcion(decimal cantidad, bool variosExpedientes, bool repartir)
+    [InlineData(9, false, false)]
+    [InlineData(10, false, false)]
+    [InlineData(15, true, false)]
+    [InlineData(15, true, true)]
+    public async Task Partida_repartida_se_concilia_con_recepcion_real(decimal cantidad, bool variosExpedientes, bool predecesorCerrado) => await VerificarRecepcion(cantidad, variosExpedientes, true, predecesorCerrado);
+    private static async Task VerificarRecepcion(decimal cantidad, bool variosExpedientes, bool repartir, bool predecesorCerrado = false)
     {
         await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync();
         using var cliente = await escenario.ClienteAsync(true, permisosAlmacen: true);
@@ -86,9 +87,23 @@ public sealed class P20RecepcionHttpTests
             e.AgregarParticipante(Guid.NewGuid(), "Naviera ficticia", TipoParticipante.Naviera, null, PapelParticipante.Captura, null, null);
             e.RegistrarEmbarque(c, new(2026, 10, 13), new(2026, 10, 15));
             e.GuardarContenedor(contenedorExtra, new("P22-EXTRA", null, null, "P22-EXTRA-BL", null, null, null, null, ModalidadTransporte.Maritimo));
+            if (predecesorCerrado)
+            {
+                e.ReconciliarRecepcion(e.PartidasImportacion.Single().Id, 10, new(2026, 10, 15), new(2026, 10, 19), escenario.Responsable, DateTimeOffset.UtcNow);
+                ce.Entry(e).Property(x => x.Estado).CurrentValue = EstadoExpediente.Cerrado;
+                var cancelado = new Expediente(Guid.NewGuid(), e.EmpresaId, "CE-CANCELADO", TipoExpediente.Importacion, e.SucursalId, "Muestra cancelada", ocId, e.IncotermId, "USD", escenario.Responsable, []);
+                var guia = Guid.NewGuid();
+                cancelado.GuardarContenedor(guia, new("P22-CANCELADO", null, null, "BL-CANCELADO", null, null, null, null, ModalidadTransporte.Maritimo));
+                cancelado.AsignarPartidaImportacion(guia, linea, 1, 10, 20, "PZA", escenario.Responsable);
+                cancelado.AgregarParticipante(Guid.NewGuid(), "Agente ficticio", TipoParticipante.AgenteAduanal, null, PapelParticipante.Captura, null, null);
+                cancelado.AgregarParticipante(Guid.NewGuid(), "Naviera ficticia", TipoParticipante.Naviera, null, PapelParticipante.Captura, null, null);
+                cancelado.RegistrarEmbarque(guia, new(2026, 10, 13), new(2026, 10, 15));
+                cancelado.Cancelar("Ensayo de expediente cancelado");
+                ce.Expedientes.Add(cancelado);
+            }
             await ce.SaveChangesAsync();
         }
-        if (segundoExpediente is Guid destino)
+        if (!predecesorCerrado && segundoExpediente is Guid destino)
         {
             using var estado = await cliente.GetAsync($"/api/v1/comercio-exterior/expedientes/{destino}/contenedores"); estado.EnsureSuccessStatusCode();
             var contenedores = await estado.Content.ReadFromJsonAsync<JsonElement>();
@@ -138,6 +153,12 @@ public sealed class P20RecepcionHttpTests
             var partidas = await ce.Set<PartidaImportacion>().Where(p => p.OcLineaId == linea).ToListAsync();
             Assert.Equal(10m, partidas.Where(p => p.ExpedienteId == otro).Sum(p => p.CantidadRecibida));
             Assert.Equal(5m, partidas.Where(p => p.ExpedienteId == expediente).Sum(p => p.CantidadRecibida));
+            if (predecesorCerrado)
+            {
+                var cancelado = await ce.Expedientes.Include(e => e.PartidasImportacion).SingleAsync(e => e.Folio == "CE-CANCELADO");
+                Assert.Null(cancelado.PartidasImportacion.Single().CantidadRecibida);
+                Assert.Equal(EstadoExpediente.Cerrado, (await ce.Expedientes.SingleAsync(e => e.Id == otro)).Estado);
+            }
         }
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/comercio-exterior/expedientes/{expediente}/cerrar-fisico") { Content = JsonContent.Create(new { }) };
         request.Headers.TryAddWithoutValidation("If-Match", consulta.Headers.ETag!.Tag);
