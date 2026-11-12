@@ -38,6 +38,8 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.Property(e => e.TipoCambio).HasPrecision(12, 6);
         builder.Property(e => e.FechaValor).IsRequired();
         builder.Property(e => e.ReferenciaBancaria).HasMaxLength(120);
+        builder.Property(e => e.MotivoDuplicado).HasMaxLength(500);
+        builder.Property(e => e.MotivoTipoCambio).HasMaxLength(300);
         builder.Property(e => e.DestinoBanco).HasMaxLength(120);
         builder.Property(e => e.DestinoNumeroCuenta).HasMaxLength(40);
         builder.Property(e => e.DestinoTitular).HasMaxLength(254);

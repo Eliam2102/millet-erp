@@ -187,8 +187,14 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
             services.AddSingleton<Millet.Tesoreria.Domain.Ports.IPeriodoContablePort, PeriodoSaldoFixture>();
         }));
         var (client, _) = await Login(appConPeriodo);
-        var crear = await Post(client, $"{Tes}/cuentas", new { banco = "Banco ficticio P5", numeroCuenta = DateTime.UtcNow.Ticks.ToString(), moneda = "MXN", sucursal = "Ejemplo P5", titular = "Millet ficticio", finalidad = "Pruebas", firmantes = "Firmante ficticio" });
-        crear.EnsureSuccessStatusCode(); var cuenta = (await crear.Content.ReadFromJsonAsync<CuentaSaldoResponse>())!;
+        // M-199: el alta por API queda como solicitud por autorizar; aquí se siembra la cuenta ya autorizada.
+        var cuenta = new CuentaBancaria(Empresa, "Banco ficticio P5", DateTime.UtcNow.Ticks.ToString(), null, "MXN");
+        using (var siembra = factory.Services.CreateScope())
+        using (siembra.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var tes = siembra.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+            tes.CuentasBancarias.Add(cuenta); await tes.SaveChangesAsync();
+        }
         _cuentas.Add(cuenta.Id);
         (await Post(client, $"{Tes}/cuentas/{cuenta.Id}/saldo-inicial", new { saldo = 1000, fechaCorte = Fecha.AddDays(-1), motivo = "Carga ficticia P5" }, cuenta.Version)).StatusCode.Should().Be(HttpStatusCode.NoContent);
         var ingreso = await Post(client, $"{Tes}/movimientos", new { cuentaBancariaId = cuenta.Id, monto = 100, fechaValor = Fecha });

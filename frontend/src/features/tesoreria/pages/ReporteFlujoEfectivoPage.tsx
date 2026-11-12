@@ -23,6 +23,15 @@ function hoyIso(): string {
   return hoyLocalISO();
 }
 
+/** Renglón de cuadre (saldo final contra conciliación y Contabilidad): fondo propio y texto en negritas. */
+function claseFilaFlujo(fila: Record<string, unknown>): string | undefined {
+  return fila.tipo === 'cuadre'
+    ? 'bg-info-bg font-medium text-info-fg'
+    : fila.tipo === 'total'
+      ? 'bg-surface-muted/50 font-medium'
+      : undefined;
+}
+
 /**
  * <c>Reporte de flujo de efectivo</c> (TES-FE-PR6, ADR-0036 / TES-6):
  * ingresos y egresos clasificados por concepto sobre
@@ -87,8 +96,9 @@ export function ReporteFlujoEfectivoPage() {
           titulo={<>Flujo de efectivo</>}
           descripcion={
             <>
-              Ingresos y egresos por concepto (Operación / Inversión / Financiamiento). Catálogo de
-              conceptos provisional.
+              Ingresos y egresos por concepto (Operación, Inversión, Financiamiento y traspasos entre
+              cuentas propias). Al final de cada cuenta, el cuadre compara el saldo final contra la
+              conciliación y Contabilidad.
             </>
           }
         />
@@ -102,6 +112,7 @@ export function ReporteFlujoEfectivoPage() {
         onRetry={() => query.refetch()}
         filtrosUi={filtrosUi}
         nombreArchivo="flujo-efectivo-tesoreria"
+        claseFila={claseFilaFlujo}
       />
     </div>
   );

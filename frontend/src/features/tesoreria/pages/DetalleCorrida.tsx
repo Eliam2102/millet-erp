@@ -3,6 +3,8 @@ import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { mensajeApi } from '@/features/tesoreria/lib/mensaje-api';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,7 @@ import { adaptarReporteTesoreria } from '@/features/tesoreria/lib/reporte-tesore
 import {
   obtenerOficioCorrida,
   useCerrarCorrida,
+  useAjustarImporteCorrida,
   useAutorizarCorrida,
   useCancelarCorrida,
   useCorrida,
@@ -55,6 +58,8 @@ export function DetalleCorrida({ id }: { id: string }) {
   const rechazar = useRechazarCorrida();
   const cancelar = useCancelarCorrida();
   const cerrar = useCerrarCorrida();
+  const ajustarImporte = useAjustarImporteCorrida();
+  const [errorImporte, setErrorImporte] = useState<{ id: string; mensaje: string } | null>(null);
   const puedeEjecutar = useHasPermission(PermisosCanonicos.TesoreriaCorridasEjecutar);
   const [descargando, setDescargando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -82,7 +87,9 @@ export function DetalleCorrida({ id }: { id: string }) {
   const abierta = c.estado === 'Borrador' || c.estado === 'EnAutorizacion';
 
   function alError(error: unknown, fallback: string) {
-    if (esApiError(error)) setAviso(errorUsuario(error));
+    // Saldo insuficiente: el mensaje trae saldo y total; se muestra tal cual y se queda en pantalla.
+    if (esApiError(error) && error.code === 'CORRIDA_SALDO_INSUFICIENTE') setAviso(mensajeApi(error, fallback));
+    else if (esApiError(error)) setAviso(errorUsuario(error));
     else toast.error(fallback);
   }
 
@@ -126,6 +133,19 @@ export function DetalleCorrida({ id }: { id: string }) {
     } finally {
       setDescargando(false);
     }
+  }
+
+  function guardarImporte(facturaProveedorId: string, importe: number) {
+    setErrorImporte(null);
+    const body = { id: c.id, facturaProveedorId, importe, versionEsperada: c.version };
+    ajustarImporte.mutate(
+      { ...body, idempotencyKey: keyFor({ accion: 'importe', ...body }) },
+      {
+        onSuccess: () => toast.success('Importe a pagar actualizado'),
+        onError: (e) =>
+          setErrorImporte({ id: facturaProveedorId, mensaje: mensajeApi(e, 'No se pudo cambiar el importe.') }),
+      },
+    );
   }
 
   function cerrarCorrida() {
@@ -303,7 +323,7 @@ export function DetalleCorrida({ id }: { id: string }) {
                   <TableHead>Vence</TableHead>
                   <TableHead className="text-right">Bruto</TableHead>
                   <TableHead className="text-right">Retenciones</TableHead>
-                  <TableHead className="text-right">Neto</TableHead>
+                  <TableHead className="text-right">{c.estado === 'Borrador' && puedeCrear ? 'Importe a pagar' : 'Neto'}</TableHead>
                   <TableHead>Pago</TableHead>
                 </TableRow>
               </TableHeader>
@@ -314,7 +334,21 @@ export function DetalleCorrida({ id }: { id: string }) {
                     <TableCell className="text-xs">{l.fechaVencimiento ? formatoFecha(l.fechaVencimiento) : '—'}</TableCell>
                     <TableCell className="text-right"><MoneyDisplay amount={l.bruto} currency={c.moneda} /></TableCell>
                     <TableCell className="text-right"><MoneyDisplay amount={l.retenciones} currency={c.moneda} /></TableCell>
-                    <TableCell className="text-right"><MoneyDisplay amount={l.neto} currency={c.moneda} /></TableCell>
+                    <TableCell className="text-right">
+                      {c.estado === 'Borrador' && puedeCrear ? (
+                        <ImporteAPagar
+                          key={`${l.facturaProveedorId}-${l.neto}`}
+                          valorActual={l.neto}
+                          moneda={c.moneda}
+                          folio={l.folioProveedor ?? l.facturaProveedorId}
+                          pendiente={ajustarImporte.isPending}
+                          error={errorImporte?.id === l.facturaProveedorId ? errorImporte.mensaje : null}
+                          onGuardar={(n) => guardarImporte(l.facturaProveedorId, n)}
+                        />
+                      ) : (
+                        <MoneyDisplay amount={l.neto} currency={c.moneda} />
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs">
                       {l.ejecutada ? (
                         <>
@@ -382,6 +416,56 @@ export function DetalleCorrida({ id }: { id: string }) {
         pending={cancelar.isPending}
         onConfirm={(m) => conMotivo('cancelar', m)}
       />
+    </div>
+  );
+}
+
+/** M-264 · captura del importe a pagar de una línea; guarda al salir del campo o con Enter. */
+function ImporteAPagar({
+  valorActual,
+  moneda,
+  folio,
+  pendiente,
+  error,
+  onGuardar,
+}: {
+  valorActual: number;
+  moneda: string;
+  folio: string;
+  pendiente: boolean;
+  error: string | null;
+  onGuardar: (importe: number) => void;
+}) {
+  const [texto, setTexto] = useState(String(valorActual));
+  const numero = Number(texto);
+  const invalido = texto.trim() === '' || !Number.isFinite(numero) || numero <= 0;
+  const idError = `importe-error-${folio}`;
+  function confirmar() {
+    if (invalido || numero === valorActual) return;
+    onGuardar(numero);
+  }
+  return (
+    <div className="ml-auto flex w-40 flex-col items-end gap-1">
+      <Input
+        type="number"
+        inputMode="decimal"
+        min="0.01"
+        step="0.01"
+        className="text-right tabular-nums"
+        aria-label={`Importe a pagar de la factura ${folio} en ${moneda}`}
+        aria-invalid={invalido || !!error}
+        aria-describedby={invalido || error ? idError : undefined}
+        value={texto}
+        disabled={pendiente}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={confirmar}
+        onKeyDown={(e) => e.key === 'Enter' && confirmar()}
+      />
+      {(invalido || error) && (
+        <p id={idError} role="alert" className="text-xs text-danger-fg">
+          {error ?? 'El importe debe ser mayor que cero.'}
+        </p>
+      )}
     </div>
   );
 }

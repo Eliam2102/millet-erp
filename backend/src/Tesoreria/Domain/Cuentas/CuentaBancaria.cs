@@ -88,8 +88,10 @@ public sealed class CuentaBancaria : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     public void ActualizarInventario(string? sucursal, string? finalidad, string? titular, string? firmantes)
     {
-        Sucursal = sucursal?.Trim(); Finalidad = finalidad?.Trim();
-        Titular = titular?.Trim(); Firmantes = firmantes?.Trim();
+        // Vacío = sin dato: así un guardado sin cambios no genera una solicitud de cambio (M-199).
+        static string? N(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        Sucursal = N(sucursal); Finalidad = N(finalidad);
+        Titular = N(titular); Firmantes = N(firmantes);
     }
 
     public void RegistrarSaldoInicial(decimal saldo, DateOnly fechaCorte, string motivo)

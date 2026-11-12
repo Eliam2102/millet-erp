@@ -30,7 +30,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { TipoCambioPagoCampo } from './TipoCambioPagoCampo';
-import { errorTipoCambioPago, tipoCambioPagoParaEnviar } from '@/features/tesoreria/lib/tipo-cambio-pago';
+import {
+  errorMotivoTipoCambio,
+  errorTipoCambioPago,
+  motivoTipoCambioParaEnviar,
+  tipoCambioPagoParaEnviar,
+} from '@/features/tesoreria/lib/tipo-cambio-pago';
 import { Link } from '@tanstack/react-router';
 import { useCuentasProveedorPago, useRegistrarPago } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
@@ -69,6 +74,7 @@ export function RegistrarPagoSheet({
   const [referencia, setReferencia] = useState('');
   // TES-09: TC del pago capturado (null = el del catálogo a la fecha valor).
   const [tipoCambio, setTipoCambio] = useState<string | null>(null);
+  const [motivoTipoCambio, setMotivoTipoCambio] = useState('');
   const [cuentaProvOverride, setCuentaProvOverride] = useState<string | null>(null);
   // Rechazo 422 de cuenta del proveedor: visible y persistente (no solo toast).
   const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
@@ -132,7 +138,8 @@ export function RegistrarPagoSheet({
                 ? 'Revisa los importes a pagar'
                 : referencia.trim() === ''
                   ? 'Captura la referencia que dio el banco'
-                  : errorTipoCambioPago(moneda, tipoCambio);
+                  : (errorTipoCambioPago(moneda, tipoCambio) ??
+                    errorMotivoTipoCambio(moneda, tipoCambio, motivoTipoCambio));
 
   function confirmar() {
     if (
@@ -149,6 +156,7 @@ export function RegistrarPagoSheet({
       fechaValor,
       referenciaBancaria: referencia.trim(),
       tipoCambioPago: tipoCambioPagoParaEnviar(moneda, tipoCambio),
+      motivoTipoCambio: motivoTipoCambioParaEnviar(moneda, tipoCambio, motivoTipoCambio),
       aplicaciones: pasivos.map((p) => ({
         facturaProveedorId: p.facturaProveedorId,
         importe: Number(importes[p.facturaProveedorId]),
@@ -206,6 +214,7 @@ export function RegistrarPagoSheet({
       setErrorCuenta(null);
       setFechaValor(hoyLocalISO());
       setTipoCambio(null);
+      setMotivoTipoCambio('');
     }
     onOpenChange(next);
   }
@@ -393,6 +402,8 @@ export function RegistrarPagoSheet({
                   fecha={fechaValor}
                   value={tipoCambio}
                   onChange={setTipoCambio}
+                  motivo={motivoTipoCambio}
+                  onMotivoChange={setMotivoTipoCambio}
                 />
               </FormCampo>
             )}

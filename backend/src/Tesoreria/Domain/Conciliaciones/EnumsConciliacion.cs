@@ -1,12 +1,14 @@
 namespace Millet.Tesoreria.Domain.Conciliaciones;
 
 /// <summary>
-/// Estado de la conciliación bancaria (§5 DDL: 1=Abierta 2=Cerrada).
+/// Estado de la conciliación bancaria (§5 DDL: 1=Abierta 2=Cerrada 3=PendienteVistoBueno).
+/// M-202: Tesorería firma → PendienteVistoBueno; Contabilidad da el visto bueno → Cerrada.
 /// </summary>
 public enum EstadoConciliacion : short
 {
     Abierta = 1,
     Cerrada = 2,
+    PendienteVistoBueno = 3,
 }
 
 /// <summary>

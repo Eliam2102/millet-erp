@@ -543,6 +543,8 @@ public static class PermisosCanonicos
     // TES-7 revisada (cuentas-crud): el CRUD del catálogo de cuentas dejó
     // de estar diferido a Administración; alta/edición/toggle en Tesorería.
     public const string TesoreriaCuentasAdministrar             = "tesoreria.cuentas.administrar";
+    // M-199 (Javier Canché, 9 y 10-nov): el alta o cambio de cuenta la autoriza el Director de Planeación Financiera.
+    public const string TesoreriaCuentasAutorizar               = "tesoreria.cuentas.autorizar";
     public const string TesoreriaMovimientosVer                 = "tesoreria.movimientos.ver";
     public const string TesoreriaMovimientosRegistrar           = "tesoreria.movimientos.registrar";
     public const string TesoreriaMovimientosVerCuentaCompleta   = "tesoreria.movimientos.ver-cuenta-completa";
@@ -565,6 +567,11 @@ public static class PermisosCanonicos
     public const string TesoreriaReppRegistrar                  = "tesoreria.repp.registrar";
     public const string TesoreriaConciliacionOperar             = "tesoreria.conciliacion.operar";
     public const string TesoreriaConciliacionCerrar             = "tesoreria.conciliacion.cerrar";
+    // M-202: visto bueno de Contabilidad y reapertura reservada a la Contadora General.
+    public const string TesoreriaConciliacionRevisar            = "tesoreria.conciliacion.revisar";
+    public const string TesoreriaConciliacionReabrir            = "tesoreria.conciliacion.reabrir";
+    // M-201 (Javier Canché, 11-nov): la partida en tránsito la autoriza el Director de Planeación Financiera.
+    public const string TesoreriaConciliacionAutorizarTransito  = "tesoreria.conciliacion.autorizar-transito";
     public const string TesoreriaPasivosSolicitarCancelacion    = "tesoreria.pasivos.solicitar-cancelacion";
     // TES-PR3: lectura de la bandeja de pasivos pendientes. El 01-diseño §10
     // no lo listaba (hallazgo de implementación): consultar la bandeja no
@@ -1030,6 +1037,7 @@ public static class PermisosCanonicos
         // Tesorería / Bancos (TES-PR1). Namespace 0000000b-*.
         (Guid.Parse("0000000b-0001-0000-0000-000000000001"), TesoreriaCuentasVer,                   "Consultar el catálogo de cuentas bancarias propias y sus saldos"),
         (Guid.Parse("0000000b-0001-0000-0000-000000000002"), TesoreriaCuentasAdministrar,           "Crear, editar y activar/desactivar cuentas bancarias propias"),
+        (Guid.Parse("0000000b-0001-0000-0000-000000000003"), TesoreriaCuentasAutorizar,             "Autorizar o rechazar el alta o cambio de una cuenta bancaria propia; no puede autorizarlo quien lo solicitó"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000001"), TesoreriaMovimientosVer,               "Consultar el libro de movimientos bancarios"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000002"), TesoreriaMovimientosRegistrar,         "Registrar movimientos bancarios de ingreso (alta manual)"),
         (Guid.Parse("0000000b-0002-0000-0000-000000000003"), TesoreriaMovimientosVerCuentaCompleta, "Des-enmascarar CLABE y número de cuenta (PII, ADR-0018)"),
@@ -1050,6 +1058,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0007-0000-0000-000000000001"), TesoreriaReppRegistrar,                "Registrar REPP recibidos de proveedor (libera FALTA_REPP en CxP)"),
         (Guid.Parse("0000000b-0008-0000-0000-000000000001"), TesoreriaConciliacionOperar,           "Cargar extractos y operar el matching de conciliación bancaria"),
         (Guid.Parse("0000000b-0008-0000-0000-000000000002"), TesoreriaConciliacionCerrar,           "Cerrar conciliaciones con saldo cuadrado y generar acta (RN-7)"),
+        (Guid.Parse("0000000b-0008-0000-0000-000000000003"), TesoreriaConciliacionRevisar,          "Dar el visto bueno de Contabilidad a una conciliación firmada o devolverla a Tesorería; no puede darlo quien firmó"),
+        (Guid.Parse("0000000b-0008-0000-0000-000000000004"), TesoreriaConciliacionReabrir,          "Reabrir una conciliación bancaria cerrada con motivo (Contadora General)"),
+        (Guid.Parse("0000000b-0008-0000-0000-000000000005"), TesoreriaConciliacionAutorizarTransito, "Autorizar una partida en tránsito de la conciliación bancaria (Director de Planeación Financiera)"),
         (Guid.Parse("0000000b-0009-0000-0000-000000000001"), TesoreriaPasivosSolicitarCancelacion,  "Solicitar a CxP la cancelación de un pasivo desde la bandeja"),
         (Guid.Parse("0000000b-0009-0000-0000-000000000002"), TesoreriaPasivosVer,                   "Consultar la bandeja de pasivos autorizados pendientes de pago"),
         (Guid.Parse("0000000b-000a-0000-0000-000000000001"), TesoreriaReportesVer,                  "Consultar los reportes del módulo Tesorería (flujo de efectivo, auxiliares)"),

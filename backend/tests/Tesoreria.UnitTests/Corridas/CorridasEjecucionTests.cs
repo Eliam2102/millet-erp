@@ -29,6 +29,7 @@ public sealed class CorridasEjecucionTests
     {
         var db = Db();
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
         var pasivos = items.Select(x => CorridaPagoDominioTests.Pasivo(x.Proveedor, x.Monto, x.Monto, 0m, 0m, empresa: Empresa)).ToList();
         db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.AddRange(pasivos); await db.SaveChangesAsync();
         var c = await new CrearCorridaHandler(db, new EmpresaContext(), new User(Armador), new Proveedores(), new Clock())
@@ -132,6 +133,7 @@ public sealed class CorridasEjecucionTests
     {
         await using var db = Db();
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
         var p = CorridaPagoDominioTests.Pasivo(Guid.NewGuid(), 100m, 100m, 0m, 0m, empresa: Empresa);
         db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.Add(p); await db.SaveChangesAsync();
         var c = await new CrearCorridaHandler(db, new EmpresaContext(), new User(Armador), new Proveedores(), new Clock()).Handle(new(cuenta.Id, [p.FacturaProveedorId]), default);
@@ -182,6 +184,7 @@ public sealed class CorridasEjecucionTests
     {
         await using var db = Db();
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(10_000_000m, new DateOnly(2000, 1, 1), "Saldo para la corrida (M-264: sin saldo se bloquea)");
         var p = CorridaPagoDominioTests.Pasivo(Guid.NewGuid(), 100m, 100m, 0m, 0m, empresa: Empresa);
         db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.Add(p); await db.SaveChangesAsync();
         var c = await new CrearCorridaHandler(db, new EmpresaContext(), new User(Armador), new Proveedores(), new Clock()).Handle(new(cuenta.Id, [p.FacturaProveedorId]), default);
