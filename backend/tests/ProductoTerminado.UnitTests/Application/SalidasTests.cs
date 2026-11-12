@@ -63,6 +63,20 @@ public sealed class SalidasTests
             Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
         public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
+
+        public Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct) => Task.FromResult(CartaPorteVigente);
+        public bool CartaPorteVigente { get; set; }
+        public List<(Guid FacturaId, IReadOnlyList<(int Posicion, int Piezas)> Piezas)> NotasDevolucion { get; } = [];
+        public Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct)
+        {
+            NotasDevolucion.Add((facturaId, piezas));
+            return Task.FromResult(new DocumentoFiscalPt(Guid.NewGuid(), "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
+        }
+        public string EstadoNota { get; set; } = "Timbrado";
+        public Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct) =>
+            Task.FromResult(new DocumentoFiscalPt(facturaId, "F-1", "CancelacionPendiente", true));
+        public Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct) =>
+            Task.FromResult<DocumentoFiscalPt?>(new DocumentoFiscalPt(id, "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
     }
 
     private static readonly DateTimeOffset Ahora = new(2026, 11, 5, 12, 0, 0, TimeSpan.Zero);
@@ -82,7 +96,7 @@ public sealed class SalidasTests
         public MarcarPiezaRotaHojaHandler Rota() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public ConfirmarEntregaHandler Entrega() => new(T.Db, Acceso, T.Pedidos, T.Eventos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
         public AplicarFacturaPedidoHandler Factura() => new(T.Db, Facturacion, T.Eventos, new RelojFijo(Ahora));
-        public CancelarAlbaranSalidaHandler CancelarAlbaran() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
+        public CancelacionPorEtapa CancelarAlbaran() => new(T.Db, Acceso, T.Pedidos, Facturacion, new RelojFijo(Ahora));
         public ConciliarCobroEntregaHandler Conciliar() => new(T.Db, T.Pedidos, new RelojFijo(Ahora));
         public void Dispose() => T.Dispose();
     }

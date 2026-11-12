@@ -334,14 +334,15 @@ internal static class CancelacionAlbaran
             if (s.CartaPorteId is { } cp && await facturacion.CartaPorteVigenteAsync(cp, ct))
                 throw new BusinessRuleException("PT_SALIDA_CON_CARTA_PORTE", $"La hoja lleva la Carta Porte {s.CartaPorteFolio} vigente: cancélela primero en Facturación.");
         }
-        // Valida separación de funciones y solicitud antes de tocar Facturación.
-        s.CancelarAlbaran(albaran.Id, motivo, actor, ahora);
-        if (s.Estado != EstadoSalida.Borrador && albaran.EmitidoAt is not null)
+        // Separación de funciones y solicitud se validan antes de tocar Facturación; el albarán se cancela solo si Facturación lo descartó.
+        s.ValidarCancelacionAlbaran(albaran.Id, actor);
+        if (s.Estado == EstadoSalida.Emitida && albaran.EmitidoAt is not null)
         {
             var rFacturacion = await facturacion.CancelarSalidaAsync(albaran.Folio, motivo, ct);
             if (rFacturacion.EnRevision)
                 throw new BusinessRuleException("PT_ALBARAN_YA_FACTURADO", "El albarán ya cuenta con factura timbrada ante el SAT; debe cancelarse primero el CFDI.");
         }
+        s.CancelarAlbaran(albaran.Id, motivo, actor, ahora);
 
         var ids = albaran.Piezas.Select(p => p.PiezaId).ToList();
         foreach (var pz in await db.Piezas.Where(p => ids.Contains(p.Id)).ToListAsync(ct))

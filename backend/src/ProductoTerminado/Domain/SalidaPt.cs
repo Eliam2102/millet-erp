@@ -110,6 +110,14 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     /// </summary>
     public void CancelarAlbaran(Guid albaranId, string motivo, Guid usuarioId, DateTimeOffset ahora)
     {
+        var albaran = ValidarCancelacionAlbaran(albaranId, usuarioId);
+        albaran.Cancelar(motivo, usuarioId, ahora);
+        if (_albaranes.Count > 0 && _albaranes.All(a => a.Cancelado)) Estado = EstadoSalida.Cancelada;
+    }
+
+    /// <summary>Las reglas de <see cref="CancelarAlbaran"/> sin cambiar nada: se llama antes de pedirle a Facturación que descarte la salida.</summary>
+    public AlbaranPt ValidarCancelacionAlbaran(Guid albaranId, Guid usuarioId)
+    {
         var albaran = Albaran(albaranId);
         if (albaran.Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
         if (Estado == EstadoSalida.Cancelada) throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
@@ -120,8 +128,9 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
             if (albaran.CancelacionSolicitadaPorId == usuarioId)
                 throw new BusinessRuleException("PT_SALIDA_SEPARACION_FUNCIONES", "Quien pidió la cancelación no puede autorizarla.");
         }
-        albaran.Cancelar(motivo, usuarioId, ahora);
-        if (_albaranes.Count > 0 && _albaranes.All(a => a.Cancelado)) Estado = EstadoSalida.Cancelada;
+        if (albaran.Entregado) throw new BusinessRuleException("PT_ALBARAN_YA_ENTREGADO", "El albarán ya fue entregado en ruta; no se puede cancelar.");
+        if (albaran.Liquidado) throw new BusinessRuleException("PT_ALBARAN_YA_LIQUIDADO", "El albarán ya fue liquidado en caja; no se puede cancelar.");
+        return albaran;
     }
 
     /// <summary>M-247: pide cancelar un albarán ya emitido (aún no entregado ni liquidado), con motivo.</summary>
