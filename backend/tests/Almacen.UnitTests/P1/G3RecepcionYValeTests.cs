@@ -82,6 +82,45 @@ public sealed class G3RecepcionYValeTests
         ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
     }
 
+    private static Task<RegistrarRecepcionResponse> ConCanal(P1Fixture f, CfdiFake cxp, Guid? cfdi, string? uuid, string? motivo = null) =>
+        new RegistrarRecepcionConFacturaHandler(f.Db, f.Oc, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true),
+            new P7Support.Conversion(), cxp, new ProveedorRfcFake())
+            .Handle(new(f.DocumentoId, P1Fixture.Fecha, cfdi, uuid, null, [Linea(f)], MotivoDuplicado: motivo), default);
+
+    [Fact]
+    public async Task N11_misma_factura_por_CFDI_del_sistema_y_luego_por_folio_fiscal_impreso_pide_motivo()
+    {
+        await using var f = new P1Fixture();
+        var cxp = CfdiFake.Valido();
+        var cfdi = Guid.NewGuid();
+        cxp.Uuids[cfdi] = "69d2595a-3114-46af-a37f-f854d713c418";
+        var primera = await ConCanal(f, cxp, cfdi, null);
+
+        var ex = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Incidencias.IncidenciaRechazoException>(
+            () => ConCanal(f, cxp, null, "69D2595A-3114-46AF-A37F-F854D713C418"));
+
+        ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
+        ex.Solicitud.Detalle.Should().Contain(primera.Folio);
+        (await f.Db.Movimientos.CountAsync()).Should().Be(1);
+        await ConCanal(f, cxp, null, "69D2595A-3114-46AF-A37F-F854D713C418", "Factura impresa de la segunda entrega");
+        (await f.Db.Movimientos.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task N11_misma_factura_por_folio_fiscal_impreso_y_luego_por_CFDI_del_sistema_pide_motivo()
+    {
+        await using var f = new P1Fixture();
+        var cxp = CfdiFake.Valido();
+        var cfdi = Guid.NewGuid();
+        cxp.Uuids[cfdi] = "ECCC0A95-704C-4BFD-90D4-D779611D27E8";
+        await ConCanal(f, cxp, null, "eccc0a95-704c-4bfd-90d4-d779611d27e8");
+
+        var ex = await Assert.ThrowsAnyAsync<BusinessRuleException>(() => ConCanal(f, cxp, cfdi, null));
+
+        ex.Code.Should().Be("RECEPCION_YA_RECIBIDA");
+        (await f.Db.Movimientos.CountAsync()).Should().Be(1);
+    }
+
     [Fact]
     public async Task Otra_remision_sin_remision_o_recepcion_cancelada_no_pide_motivo()
     {

@@ -26,9 +26,13 @@ public sealed class CfdiFake(CfdiRecibidoLectura? cfdi) : ICxpDocumentosReadPort
         IReadOnlyCollection<Guid> facturaIds, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
 
+    /// <summary>UUID fiscal que el fake responde por cada CFDI del repositorio (N-11: duplicado entre canales).</summary>
+    public Dictionary<Guid, string> Uuids { get; } = [];
+
     public Task<IReadOnlyDictionary<Guid, string>> ObtenerUuidsFiscalesCfdiAsync(
         IReadOnlyCollection<Guid> cfdiRecibidoIds, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(
+            Uuids.Where(u => cfdiRecibidoIds.Contains(u.Key)).ToDictionary(u => u.Key, u => u.Value));
 
     public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosNotaCreditoAsync(
         IReadOnlyCollection<Guid> notaCreditoIds, CancellationToken cancellationToken) =>
