@@ -125,10 +125,7 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
         if (proveedorId is null)
             return Error($"No existe un proveedor con clave A+W {s.ProveedorClaveAw}.");
 
-        var sucursal = await _maestros.Sucursales.AsNoTracking()
-            .Where(x => x.Clave == s.SucursalCodigo || x.ClaveAw == s.SucursalCodigo)
-            .Select(x => new { x.Id, x.Clave }).FirstOrDefaultAsync(ct);
-        if (sucursal is null)
+        if (await SucursalPorClaveApp.BuscarAsync(_maestros, s.SucursalCodigo, ct) is not { } sucursal)
             return Error($"No existe la sucursal '{s.SucursalCodigo}'.");
 
         var claves = s.Lineas.Select(l => l.ArticuloAw).Distinct().ToList();
