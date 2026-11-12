@@ -41,8 +41,8 @@ public sealed class FirmasServiciosHttpTests
         using var creada = await capturista.PostAsJsonAsync("/api/v1/compras/ordenes/", cabecera);
         Assert.Equal(HttpStatusCode.Created, creada.StatusCode);
         var id = (await creada.Content.ReadFromJsonAsync<Millet.Compras.Application.Oc.CrearOrdenCompraVacia.CrearOrdenCompraVaciaResponse>())!.Id;
-        using var lineaCreada = await capturista.PostAsJsonAsync($"/api/v1/compras/ordenes/{id}/lineas", new { articuloId, cantidad = 1, unidadMedida = "SRV", precioUnitario = 100, departamentoSolicitanteId = departamentoId });
-        Assert.Equal(HttpStatusCode.Created, lineaCreada.StatusCode);
+        using var lineaCreada = await capturista.PostAsJsonAsync($"/api/v1/compras/ordenes/{id}/lineas", new { articuloId, cantidad = 1, unidadMedida = "SRV", precioUnitario = 100, departamentoSolicitanteId = departamentoId, centroCostoId = Guid.Parse("0000000c-0005-0000-0000-000000000001") });
+        Assert.True(lineaCreada.StatusCode == HttpStatusCode.Created, await lineaCreada.Content.ReadAsStringAsync());
         using (var scope = e.Scope())
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
