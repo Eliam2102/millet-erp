@@ -1685,6 +1685,118 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.ToTable("recuentos_conteo", "almacen");
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Correcciones.CorreccionConsumo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DecididoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decidido_at");
+
+                    b.Property<Guid?>("DecididoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decidido_por");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DevolucionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("devolucion_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("FolioDevolucion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("folio_devolucion");
+
+                    b.Property<string>("FolioSalida")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("folio_salida");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observaciones");
+
+                    b.Property<Guid>("SalidaOrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("salida_origen_id");
+
+                    b.Property<Guid>("SolicitadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitado_por");
+
+                    b.Property<Guid>("SubAlmacenDestinoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sub_almacen_destino_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_correcciones_consumo");
+
+                    b.HasIndex("SalidaOrigenId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_correcciones_consumo_salida_pendiente")
+                        .HasFilter("estado = 'PENDIENTE'");
+
+                    b.HasIndex("EmpresaId", "Estado")
+                        .HasDatabaseName("ix_correcciones_consumo_empresa_id_estado");
+
+                    b.ToTable("correcciones_consumo", "almacen");
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.DevolucionesProveedor.DevolucionAProveedor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4007,6 +4119,39 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_lineas_conteo_ubicaciones_ubicacion_id");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Correcciones.CorreccionConsumo", b =>
+                {
+                    b.OwnsMany("Millet.Almacen.Domain.Correcciones.CorreccionConsumoLinea", "Lineas", b1 =>
+                        {
+                            b1.Property<Guid>("CorreccionConsumoId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<decimal>("Cantidad")
+                                .HasPrecision(14, 4);
+
+                            b1.Property<Guid>("LineaSalidaOrigenId");
+
+                            b1.Property<Guid>("UbicacionId");
+
+                            b1.HasKey("CorreccionConsumoId", "__synthesizedOrdinal")
+                                .HasName("pk_correcciones_consumo");
+
+                            b1.ToTable("correcciones_consumo", "almacen");
+
+                            b1
+                                .ToJson("lineas")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CorreccionConsumoId")
+                                .HasConstraintName("fk_correcciones_consumo_correcciones_consumo_correccion_consumo");
+                        });
+
+                    b.Navigation("Lineas");
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.DevolucionesProveedor.EvidenciaDevolucionProveedor", b =>
