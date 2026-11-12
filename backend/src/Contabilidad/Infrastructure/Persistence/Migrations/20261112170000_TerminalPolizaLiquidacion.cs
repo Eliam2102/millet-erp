@@ -11,7 +11,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations;
 /// Plantilla: cargo banco de la terminal por el neto, comisión (601.75) e IVA pendiente de pago; abono «COBROS T/C, T/D» por el bruto.
 /// </summary>
 [DbContext(typeof(ContabilidadDbContext))]
-[Migration("20261112150000_TerminalPolizaLiquidacion")]
+[Migration("20261112170000_TerminalPolizaLiquidacion")]
 public sealed class TerminalPolizaLiquidacion : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""
