@@ -1327,6 +1327,9 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Facturacion.Infrastructure.Workers.AwSolicitudesOptions.SectionName));
 builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.AwSolicitudesWorker>();
+// Diagnóstico OTR 10446260: pedidos A+W ya facturados en SAP (estatus >= corte) no se importan ni se vinculan. Apagado por omisión.
+builder.Services.AddOptions<Millet.Facturacion.Domain.Ports.HistoricoSapOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Facturacion.Domain.Ports.HistoricoSapOptions.SectionName));
 
 // PR5 (ADR-0048 D3): worker que drena los reintentos del write-back síncrono por
 // solicitud (ingesta_control → tabla-puente). TR-01: ya NO escribe uuid/estado por

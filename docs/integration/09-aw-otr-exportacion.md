@@ -89,6 +89,26 @@ versión aunque su contenido sea el mismo; (3) 45 pirámides mezclan clientes y 
 
 Regla del 890 (Guadalupe Polanco, 6-nov): en OTR no se modifica un envío cancelado, se cancela y se crea uno nuevo; el ERP trata la cancelación y el alta nueva como envíos distintos. No existe diccionario de OTR; booking y BL viven sólo en el ERP (Janette Niquete). `EstatusRutaExcluidos` (por omisión `50`) y `EstatusRutaCancelada` (por omisión `890`) siguen siendo opciones. Una ruta que sale del conjunto leído (por ejemplo, vuelve a 50) no se interpreta como cancelación.
 
+**Pedidos con expedición parcial, ceros e histórico SAP (diagnóstico 10446260, 12-nov).**
+
+- *Reparto a pedidos hijo.* Las piezas de OTR llevan el pedido de origen aunque salgan con el albarán de un hijo
+  `DOK_TYP = 'Expedición parcial'` (TI 11-nov). Por cada posición del origen, el lector reparte primero a los hijos
+  (`REF_AUSLIEF_AUFTR_ID/POS`, sin `OR_AVBEREICH = 'RECLAMACIONES'`), cada uno hasta su `PP_MENGE`, y el resto al origen.
+  Usa las piezas de la misma posición en pirámides anteriores (ruta y contenedor menores, sin rutas excluidas ni
+  canceladas) para no llenar dos veces al mismo hijo. El ERP vuelve a validar K3. Necesita SELECT sobre
+  `MILMAIN.SYSADM.BW_AUFTR_POS` (script 22, pendiente de TI); sin él, todo va al origen como antes.
+- *Cantidad cero.* Una partida con cantidad 0 ya no rechaza la pirámide: se guarda `Omitida` con
+  `CE_OTR_CANTIDAD_CERO` y no se propone. Una negativa sigue rechazando el envío.
+- *Histórico SAP* (`IntegracionesAw:HistoricoSap`, apagado por omisión, corte `EstatusDesde` = 115). Encendido, las
+  partidas de pedidos con estatus igual o mayor quedan `Omitida` con `CE_OTR_HISTORICO_SAP`, y un envío cuyas partidas
+  son todas históricas queda en `Histórico SAP`: visible, no se vincula (`CE_OTR_HISTORICO_SAP`) ni se factura. La
+  misma opción hace que la ingesta de pedidos rechace el alta de un pedido en ese estatus (motivo `HistoricoSap` en la
+  bandeja de importación). Tratamiento propuesto, pendiente de confirmar con Facturación.
+- *Rechazos visibles.* Las entradas que el lector rechaza en definitiva (`otr_entrada_control`) se listan en la pestaña
+  «Rechazados» de la bandeja OTR (`GET /api/v1/comercio-exterior/otr/rechazos`), con id, versión, intentos y motivo.
+  Sólo para quien gestiona OTR en todas las sucursales (un rechazo no tiene sucursal).
+- *Posición inexistente.* Se valida antes que la unidad: `CE_OTR_POSICION_INEXISTENTE` en vez de `CE_OTR_UNIDAD_DISTINTA`.
+
 **Supuestos por validar en UAT con Comercio Exterior:** `bultos` = `SUM(POS_QTY)` y unidad de línea `H87` no están confirmados por Millet.
 
 ## Contrato de entrada (origen Demo)
@@ -181,7 +201,8 @@ A+W las acusara. Se retiró: A+W no lee esa tabla. La tabla `comercio_exterior.o
 conserva sólo como historial y ya no crece. Si Millet necesita ver el booking en OTR, iría como un
 tipo nuevo en `aw_retorno`, que aplica el servicio de Windows de TI (fuera de alcance hoy).
 
-La bandeja del lanzador inicia en Por vincular y permite consultar también Vinculados y Cancelados.
+La bandeja del lanzador inicia en Por vincular y permite consultar también Vinculados, Cancelados, Histórico SAP y
+Rechazados (esta última sólo con gestión OTR en todas las sucursales).
 
 ## Encendido, Demo y operación
 
