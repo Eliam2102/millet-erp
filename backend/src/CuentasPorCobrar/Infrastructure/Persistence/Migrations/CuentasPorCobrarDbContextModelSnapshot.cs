@@ -338,7 +338,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
 
                     b.ToTable("propuesta_aplicacion_pago", "cuentas_por_cobrar", t =>
                         {
-                            t.HasCheckConstraint("ck_propuesta_aplicacion_ajuste_no_positivo", "ajuste_no_fiscal <= 0");
+                            t.HasCheckConstraint("ck_propuesta_aplicacion_ajuste_rango", "ajuste_no_fiscal <= 0 OR (COALESCE(tipo_ajuste, 0) = 3 AND ajuste_no_fiscal <= 0.99)");
 
                             t.HasCheckConstraint("ck_propuesta_aplicacion_estado", "estado IN (1, 2, 3)");
 
