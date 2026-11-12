@@ -14,13 +14,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { CanalCobranza, ResultadoCobranza } from '@/features/cxc/api/types';
+import { MOTIVOS_CIERRE_FICHA } from '@/features/cxc/api/useFichasCobranza';
 import { ETIQUETA_CANAL_COBRANZA, ETIQUETA_RESULTADO_COBRANZA } from '@/features/cxc/lib/glosario';
 
 /**
  * M-241 (CXC-GESTION): un diálogo para las acciones de la ficha de cobranza de una factura vencida — asignar responsable, registrar
  * gestión (una promesa fija la siguiente revisión), reprogramar, escalar a supervisor y corregir una gestión. Todas dejan rastro.
  */
-export type ModoFicha = 'responsable' | 'gestion' | 'reprogramar' | 'escalar' | 'corregir';
+export type ModoFicha = 'responsable' | 'gestion' | 'reprogramar' | 'escalar' | 'corregir' | 'cerrar';
 
 export interface PersonaOpcion {
   id: string;
@@ -36,6 +37,7 @@ export interface DatosFicha {
   monto?: number;
   fecha?: string;
   motivo?: string;
+  motivoCierre?: number;
 }
 
 interface Props {
@@ -71,6 +73,11 @@ const TEXTOS: Record<ModoFicha, { titulo: string; descripcion: string; accion: s
     descripcion: 'El supervisor pasa a ser el responsable de la ficha y queda el rastro de quién escaló y por qué.',
     accion: 'Escalar',
   },
+  cerrar: {
+    titulo: 'Cerrar ficha',
+    descripcion: 'Cierra la ficha con su motivo. Si la factura aún tiene saldo, la ficha no cierra sin explicar qué pasó con él.',
+    accion: 'Cerrar ficha',
+  },
   corregir: {
     titulo: 'Corregir gestión',
     descripcion: 'La gestión original no se edita: se agrega una corrección con quién la hizo, por qué y la nota anterior.',
@@ -87,16 +94,17 @@ export function FichaCobranzaDialog({ open, onOpenChange, modo, objetivo, person
   const [monto, setMonto] = useState('');
   const [fecha, setFecha] = useState('');
   const [motivo, setMotivo] = useState('');
+  const [motivoCierre, setMotivoCierre] = useState<number>(MOTIVOS_CIERRE_FICHA[0].valor);
 
   const esPromesa = modo === 'gestion' && resultado === ResultadoCobranza.PromesaPago;
-  const pideMotivo = modo !== 'gestion';
+  const pideMotivo = modo !== 'gestion' && modo !== 'cerrar';
   const pidePersona = modo === 'responsable' || modo === 'escalar';
   const pideFecha = modo === 'reprogramar' || esPromesa;
   const montoNum = Number(monto);
   const valido =
     (!pidePersona || personaId !== '') &&
     (!pideMotivo || modo === 'responsable' || motivo.trim().length > 0) &&
-    (modo === 'responsable' || modo === 'reprogramar' || modo === 'escalar' || nota.trim().length > 0) &&
+    (modo === 'responsable' || modo === 'reprogramar' || modo === 'escalar' || modo === 'cerrar' || nota.trim().length > 0) &&
     (!pideFecha || fecha !== '') &&
     (!esPromesa || (monto.trim() !== '' && montoNum > 0));
 
@@ -119,6 +127,7 @@ export function FichaCobranzaDialog({ open, onOpenChange, modo, objetivo, person
       monto: esPromesa ? montoNum : undefined,
       fecha: pideFecha ? fecha : undefined,
       motivo: motivo.trim() || undefined,
+      motivoCierre: modo === 'cerrar' ? motivoCierre : undefined,
     });
   }
 
@@ -201,6 +210,27 @@ export function FichaCobranzaDialog({ open, onOpenChange, modo, objetivo, person
                 <Label htmlFor="ficha-nota" className="text-xs">{modo === 'corregir' ? 'Nota corregida *' : 'Nota *'}</Label>
                 <TextAreaField value={nota} onChange={(v) => setNota(v ?? '')} maxLength={2000} textareaProps={{ id: 'ficha-nota' }} />
               </FormCampo>
+            )}
+            {modo === 'cerrar' && (
+              <>
+                <FormCampo span={12} className="space-y-1">
+                  <Label htmlFor="ficha-motivo-cierre" className="text-xs">Motivo del cierre *</Label>
+                  <select
+                    id="ficha-motivo-cierre"
+                    value={motivoCierre}
+                    onChange={(e) => setMotivoCierre(Number(e.target.value))}
+                    className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                  >
+                    {MOTIVOS_CIERRE_FICHA.map((m) => (
+                      <option key={m.valor} value={m.valor}>{m.etiqueta}</option>
+                    ))}
+                  </select>
+                </FormCampo>
+                <FormCampo span={12} className="space-y-1">
+                  <Label htmlFor="ficha-explicacion" className="text-xs">Explicación del saldo pendiente (obligatoria si queda saldo)</Label>
+                  <TextAreaField value={motivo} onChange={(v) => setMotivo(v ?? '')} maxLength={2000} textareaProps={{ id: 'ficha-explicacion' }} />
+                </FormCampo>
+              </>
             )}
             {pideMotivo && (
               <FormCampo span={12} className="space-y-1">
