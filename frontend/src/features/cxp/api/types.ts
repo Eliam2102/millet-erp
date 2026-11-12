@@ -338,6 +338,7 @@ export interface FacturaDetalle {
   version: number;
   lineas: FacturaLinea[];
   /** Etiquetas resueltas server-side (ADR-0042); null si no resuelven. */
+  proveedorClave?: string | null;
   proveedorNombre: string | null;
   sucursalNombre: string | null;
   /** 86e3tactf: bloqueo total del proveedor y, con el motivo 13, quién pidió no pagar la factura. */

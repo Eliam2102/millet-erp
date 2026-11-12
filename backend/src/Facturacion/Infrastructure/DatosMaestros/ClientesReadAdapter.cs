@@ -31,7 +31,7 @@ public sealed class ClientesReadAdapter : IClientesReadPort
                 c.CodigoPostalFiscal, c.UsoCfdiDefault, c.FormaPagoDefault,
                 c.MetodoPagoDefault, c.MonedaDefault, c.EsGenerico, c.Estatus == EstatusCatalogo.Activo,
                 c.NumRegIdTrib, c.PaisResidencia, c.DomicilioExtranjeroCalle,
-                c.DomicilioExtranjeroEstado, c.DomicilioExtranjeroCodigoPostal))
+                c.DomicilioExtranjeroEstado, c.DomicilioExtranjeroCodigoPostal, c.Clave))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -45,7 +45,8 @@ public sealed class ClientesReadAdapter : IClientesReadPort
             .Select(c => new ClienteFiscalLectura(
                 c.Id, c.Rfc, c.RazonSocial, c.RegimenFiscal,
                 c.CodigoPostalFiscal, c.UsoCfdiDefault, c.FormaPagoDefault,
-                c.MetodoPagoDefault, c.MonedaDefault, c.EsGenerico, c.Estatus == EstatusCatalogo.Activo))
+                c.MetodoPagoDefault, c.MonedaDefault, c.EsGenerico, c.Estatus == EstatusCatalogo.Activo,
+                null, null, null, null, null, c.Clave))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

@@ -8,7 +8,7 @@ import { esContado } from '../lib/es-contado';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
 
-const escenario = vi.hoisted(() => ({ cancelada: false, contado: false, ce: false, n2: false }));
+const escenario = vi.hoisted(() => ({ cancelada: false, contado: false, ce: false, n2: false, clave: undefined as string | null | undefined }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
   useSearch: () => ({}),
@@ -33,6 +33,8 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
     data: {
       id: 'factura-ficticia-p3',
       proveedorId: 'proveedor',
+      proveedorNombre: escenario.clave === undefined ? null : 'Proveedor de prueba',
+      proveedorClave: escenario.clave,
       sucursalId: 'sucursal',
       folioProveedor: 'P3-FICTICIA',
       serieProveedor: null,
@@ -88,8 +90,9 @@ vi.mock('@/features/cxp/components/AdjuntarEvidenciaSheet', () => ({
 vi.mock('@/features/cxp/components/EvidenciasList', () => ({ EvidenciasList: () => null }));
 
 beforeEach(() => {
-  escenario.ce = false; escenario.n2 = false;
+  escenario.ce = false; escenario.n2 = false; escenario.clave = undefined;
   mswServer.use(
+    http.get("*/api/v1/contabilidad/polizas/por-documento", () => HttpResponse.json({ items: [], total: 0, offset: 0, limit: 10 })),
     http.get('*/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
       HttpResponse.json([]),
     ),
@@ -157,4 +160,29 @@ it('pasivo CE espera a Dirección Comercial antes de enviarlo a Tesorería', () 
   unmount(); escenario.n2 = true;
   render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
   expect(screen.getByRole('button', { name: 'Enviar a Tesorería' })).toBeEnabled();
+});
+
+describe('A21 identidad de proveedor en detalle', () => {
+  it.each(['PROV-001', 'PROV-002', null])('muestra clave %s y nombre al consultar factura', (clave) => {
+    escenario.clave = clave;
+    render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.getByText(clave ?? 'Sin código')).toBeVisible();
+    expect(screen.getByText(/Proveedor de prueba/)).toBeVisible();
+  });
+});
+
+
+it('integra la póliza del proveedor mediante su identidad canónica', async () => {
+  escenario.cancelada = false; escenario.ce = false;
+  const consultas: URL[] = [];
+  mswServer.use(http.get('*/api/v1/contabilidad/polizas/por-documento', ({ request }) => {
+    consultas.push(new URL(request.url));
+    return HttpResponse.json({ items: [{ id: 'poliza-p-21', folio: 'EG-000021', fecha: '2026-11-12', estado: 'Autorizada', polizaAnuladaId: null, anuladaPorPolizaId: null, polizaRelacionadaId: null, relacion: null }], total: 1, offset: 0, limit: 10 });
+  }));
+  render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByRole('link', { name: 'EG-000021' })).toHaveAttribute('href', '/contabilidad/polizas/poliza-p-21');
+  expect(consultas.length).toBeGreaterThan(0);
+  expect(consultas[0].searchParams.get('modulo')).toBe('cuentas_por_pagar');
+  expect(consultas[0].searchParams.get('tipo')).toBe('factura_proveedor');
+  expect(consultas[0].searchParams.get('documentoId')).toBe('factura-ficticia-p3');
 });

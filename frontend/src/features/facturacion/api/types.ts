@@ -1464,6 +1464,7 @@ export interface ComprobanteDetalleResponse {
   estado: string;
   uuid: string | null;
   receptorRfc: string;
+  clienteClave?: string | null;
   receptorNombre: string;
   moneda: string;
   subtotal: number;

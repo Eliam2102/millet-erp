@@ -29,6 +29,8 @@ const TEXTO_TIPO: Record<string, string> = {
  */
 export function DocumentoOrigenCard({ documento: d }: { documento: DocumentoOrigen }) {
   const esFacturaCxp = d.modulo === 'cuentas_por_pagar' && d.tipo === 'factura_proveedor';
+  const esComprobante = d.modulo === 'facturacion' && d.tipo === 'comprobante';
+  const puedeFacturacion = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const puedeFacturas = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasLeer);
   const puedeCfdis = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisLeer);
   const factura = useFactura(esFacturaCxp && puedeFacturas ? d.id : undefined);
@@ -73,6 +75,12 @@ export function DocumentoOrigenCard({ documento: d }: { documento: DocumentoOrig
           <dd className="break-all font-mono text-xs">{uuid ?? 'Sin UUID'}</dd>
         </div>
       </dl>
+
+      {esComprobante && puedeFacturacion && (
+        <Link to="/facturacion/facturas/$id" params={{ id: d.id }} className="mt-3 inline-block text-sm font-medium text-brand hover:underline">
+          Ver documento en Facturación
+        </Link>
+      )}
 
       {esFacturaCxp && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-divider pt-3" data-print="hidden">

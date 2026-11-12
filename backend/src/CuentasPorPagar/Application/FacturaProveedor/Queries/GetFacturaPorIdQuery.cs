@@ -65,7 +65,7 @@ public sealed record FacturaDetalleResponse(
     bool ProveedorBloqueado = false,
     string? ProveedorMotivoBloqueo = null,
     Guid? SolicitanteRevisionId = null,
-    bool EsServicioComercioExterior = false, bool ServicioCeSegundaFirma = false);
+    bool EsServicioComercioExterior = false, bool ServicioCeSegundaFirma = false, string? ProveedorClave = null);
 
 /// <summary>Revisión por área en curso (C-06): motivo, área, fecha de envío y plazo en días hábiles.</summary>
 public sealed record RevisionVigenteResponse(
@@ -199,6 +199,7 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
                 l.Cantidad, l.ClaveUnidad, l.PrecioUnitario, l.Importe, l.Descuento,
                 l.LineaOcId, l.ConceptoContableId)).ToList(),
             ProveedorNombre: proveedor?.RazonSocial,
+            ProveedorClave: proveedor?.Clave,
             SucursalNombre: sucursal is null ? null : $"{sucursal.Codigo} · {sucursal.Nombre}",
             Elegible: elegibilidad.ElegiblePendiente, Retenido: elegibilidad.Retenido,
             RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal,

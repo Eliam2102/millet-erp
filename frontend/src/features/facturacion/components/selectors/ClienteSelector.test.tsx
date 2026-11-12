@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -68,4 +69,19 @@ describe('<ClienteSelector> · búsqueda por palabras (86e3tfdx8)', () => {
     });
     expect(screen.getByText('CLI-9 · Cliente guardado')).toBeInTheDocument();
   });
+  it('A21 conserva código y nombre seleccionados cuando los resultados vuelven a vaciarse', async () => {
+    mswServer.use(http.get('*/api/v1/facturacion/catalogos/clientes', ({ request }) =>
+      HttpResponse.json(new URL(request.url).searchParams.get('q') ? [cliente(1, 'Nombre igual'), cliente(2, 'Nombre igual')] : []),
+    ));
+    function Controlado() {
+      const [id, setId] = useState<string | null>(null);
+      return <ClienteSelector value={id} onChange={item => setId(item?.id ?? null)} />;
+    }
+    render(<Controlado />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Seleccionar cliente' }));
+    fireEvent.change(screen.getByLabelText('Buscar cliente'), { target: { value: 'igual' } });
+    fireEvent.click(await screen.findByRole('option', { name: /CLI-2/ }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Seleccionar cliente' })).toHaveTextContent('CLI-2 · Nombre igual'));
+  });
+
 });

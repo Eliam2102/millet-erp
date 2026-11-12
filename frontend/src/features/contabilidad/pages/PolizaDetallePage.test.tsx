@@ -187,6 +187,24 @@ describe('<PolizaDetallePage> · documento origen (C1.4)', () => {
     expect(within(tarjeta).queryByRole('button', { name: 'XML' })).not.toBeInTheDocument();
   });
 
+  it('abre el comprobante de Facturación con su permiso sin inventar si es factura, anticipo o NC', async () => {
+    servidor(poliza({ origen: 'Automatica', documentoOrigen: { modulo: 'facturacion', tipo: 'comprobante', id: 'fv1', folio: 'FIX-1', uuid: UUID } }));
+    permisos(PermisosCanonicos.FacturacionFacturasLeer);
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
+    expect(within(tarjeta).getByRole('link', { name: 'Ver documento en Facturación' })).toHaveAttribute('href', '/facturacion/facturas/fv1');
+  });
+
+  it.each([
+    ['comprobante', false], ['pedido', true],
+  ])('no ofrece enlace Facturación para tipo %s con permiso %s', async (tipo, conPermiso) => {
+    servidor(poliza({ origen: 'Automatica', documentoOrigen: { modulo: 'facturacion', tipo, id: 'fv1', folio: 'FIX-1', uuid: UUID } }));
+    permisos(...(conPermiso ? [PermisosCanonicos.FacturacionFacturasLeer] : []));
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
+    expect(within(tarjeta).queryByRole('link', { name: 'Ver documento en Facturación' })).not.toBeInTheDocument();
+  });
+
   it('una póliza manual no muestra la tarjeta', async () => {
     servidor(poliza());
     permisos();
