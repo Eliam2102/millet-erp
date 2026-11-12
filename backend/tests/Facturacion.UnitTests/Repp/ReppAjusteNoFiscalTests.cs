@@ -48,4 +48,23 @@ public sealed class ReppAjusteNoFiscalTests
             .Should().Equal(new RelacionRepp(a, 6_000m), new RelacionRepp(b, 4_000m));
         EmitirReppDesdePagoConfirmadoHandler.RelacionFiscal(null, 100m).Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task M326_un_excedente_de_040_no_va_en_el_REP_que_relaciona_solo_lo_aplicado()
+    {
+        using var db = new FacturacionDbContext(new DbContextOptionsBuilder<FacturacionDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new FakeEmpresaContext(Empresa));
+        var factura = Guid.NewGuid();
+        var payload = new PagoClienteConfirmadoPayload(Empresa, Ahora, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            10_000.40m, "MXN", new(2026, 11, 20), "DEP-EX", [new(factura, 10_000m)]);
+
+        await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora))
+            .Handle(new EmitirReppDesdePagoConfirmadoCommand(Guid.NewGuid(), payload), default);
+
+        db.ChangeTracker.Clear();
+        var pendiente = await db.ReppPendientes.Include(p => p.Facturas).SingleAsync();
+        pendiente.Monto.Should().Be(10_000m, "el excedente de redondeo no lleva CFDI");
+        var relacion = pendiente.Facturas.Select(f => new RelacionRepp(f.FacturaVentaId, f.Importe)).ToArray();
+        pendiente.Invoking(p => p.ValidarRelacion(relacion)).Should().NotThrow();
+    }
 }
