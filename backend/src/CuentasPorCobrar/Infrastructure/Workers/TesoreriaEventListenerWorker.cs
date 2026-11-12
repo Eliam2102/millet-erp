@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Millet.CuentasPorCobrar.Application.Alertas;
 using Millet.CuentasPorCobrar.Application.EventListeners;
 using Millet.CuentasPorCobrar.Domain.Eventos;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
@@ -145,6 +146,13 @@ public sealed class TesoreriaEventListenerWorker : BackgroundService, ILocalInte
                         ?? throw new JsonException("Evento vacío.");
                     await mediator.Send(new ResolverPropuestaTesoreriaCommand(eventId, p.EmpresaId,
                         p.PropuestaId, p.RechazadaPor, p.OcurridoEn, null, p.Motivo), cancellationToken);
+                    break;
+                }
+                case RegistrarAlertaChequeRebotadoHandler.EventType:
+                {
+                    var p = JsonSerializer.Deserialize<ChequeRebotadoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Evento vacío.");
+                    await mediator.Send(new RegistrarAlertaChequeRebotadoCommand(eventId, p), cancellationToken);
                     break;
                 }
 

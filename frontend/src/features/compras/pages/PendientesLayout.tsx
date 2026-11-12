@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { RecurrenciaContext } from '@/features/compras/components/recurrencia-context';
 import { useMemo, type ReactNode } from 'react';
@@ -105,62 +106,69 @@ export function PendientesLayout({ idActivo, detalle }: PendientesLayoutProps) {
   const hayFiltros = search.departamentoId != null || (search.q != null && search.q.length > 0);
 
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:shrink-0 md:overflow-hidden',
-          // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
-          idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de pendientes"
-        data-print="hidden"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <PageHeader titulo="Pendientes" />
-        </div>
-
-        <div
-          className="flex flex-wrap items-center gap-2"
-          role="search"
-          aria-label="Filtros de bandeja de pendientes"
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista="pendientes"
+      lista={
+        <aside
+          className={cn(
+            'flex min-h-0 flex-col gap-3 md:shrink-0 md:overflow-hidden',
+            // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
+            idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
+            idActivo != null ? 'hidden md:flex' : 'flex',
+          )}
+          aria-label="Lista de pendientes"
+          data-print="hidden"
         >
-          {verTodosDepartamentos && (
-            <Select value={search.departamentoId ?? SENTINEL_ALL} onValueChange={handleDeptoChange}>
-              <SelectTrigger
-                aria-label="Filtrar por departamento"
-                className="h-9 w-full gap-1 font-medium"
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <PageHeader titulo="Pendientes" />
+          </div>
+
+          <div
+            className="flex flex-wrap items-center gap-2"
+            role="search"
+            aria-label="Filtros de bandeja de pendientes"
+          >
+            {verTodosDepartamentos && (
+              <Select
+                value={search.departamentoId ?? SENTINEL_ALL}
+                onValueChange={handleDeptoChange}
               >
-                <SelectValue placeholder="Todos los departamentos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SENTINEL_ALL}>Todos los departamentos</SelectItem>
-                {Array.from(deptosMap.values()).map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.clave} · {d.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+                <SelectTrigger
+                  aria-label="Filtrar por departamento"
+                  className="h-9 w-full gap-1 font-medium"
+                >
+                  <SelectValue placeholder="Todos los departamentos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SENTINEL_ALL}>Todos los departamentos</SelectItem>
+                  {Array.from(deptosMap.values()).map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.clave} · {d.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
-          {hayFiltros && (
-            <Button type="button" variant="ghost" size="sm" onClick={handleLimpiar}>
-              Limpiar
-            </Button>
-          )}
-        </div>
+            {hayFiltros && (
+              <Button type="button" variant="ghost" size="sm" onClick={handleLimpiar}>
+                Limpiar
+              </Button>
+            )}
+          </div>
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          <RenderListaContent
-            query={query}
-            items={itemsFiltrados}
-            idActivo={idActivo}
-            search={search}
-          />
-        </div>
-      </aside>
-
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            <RenderListaContent
+              query={query}
+              items={itemsFiltrados}
+              idActivo={idActivo}
+              search={search}
+            />
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
           '@container min-w-0 flex-1 md:overflow-y-auto',
@@ -178,7 +186,7 @@ export function PendientesLayout({ idActivo, detalle }: PendientesLayoutProps) {
           </RecurrenciaContext.Provider>
         )}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

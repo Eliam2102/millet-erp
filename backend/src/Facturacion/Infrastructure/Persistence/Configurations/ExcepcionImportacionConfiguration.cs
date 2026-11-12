@@ -23,6 +23,9 @@ public sealed class ExcepcionImportacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.PedidoRef).HasMaxLength(60).IsRequired();
         builder.Property(e => e.Motivo).HasConversion<short>().IsRequired();
         builder.Property(e => e.Detalle).HasMaxLength(1000);
+        builder.Property(e => e.Campo).HasMaxLength(60);
+        builder.Property(e => e.ValorRecibido).HasMaxLength(100);
+        builder.Property(e => e.ValorEsperado).HasMaxLength(100);
         builder.Property(e => e.Resuelto).IsRequired();
         builder.Property(e => e.ResueltoPor);
         builder.Property(e => e.ResueltoAt);

@@ -55,16 +55,40 @@ public sealed record DecisionLiberacionResponse(
     decimal? PorcentajeCobertura = null,
     Guid? DecisionOrigenId = null,
     Guid? ResolucionId = null,
-    string? Motivo = null);
+    string? Motivo = null,
+    Guid? ReevaluadaPorId = null,
+    Guid? ReevaluaDecisionId = null);
 
 internal static class DecisionLiberacionMapper
 {
     /// <param name="resolucionId">C7.3: decisión que resolvió esta pendiente (si la hay).</param>
-    public static DecisionLiberacionResponse ToResponse(DecisionLiberacion d, Guid? resolucionId = null) =>
+    /// <param name="reevaluadaPorId">M-238: decisión que reevaluó esta retención (si la hay).</param>
+    /// <param name="reevaluaDecisionId">M-238: retención que esta decisión reevaluó (si salió de una corrección).</param>
+    public static DecisionLiberacionResponse ToResponse(
+        DecisionLiberacion d, Guid? resolucionId = null, Guid? reevaluadaPorId = null, Guid? reevaluaDecisionId = null) =>
         new(d.Id, d.PedidoRef, d.ClienteId, d.Moneda, d.MontoPedido,
             d.CreditoDisponibleSnapshot, d.Resultado, d.ReglaAplicada,
             d.OverrideId, d.DecididoPor, d.DecididoEn,
-            d.PorcentajeCobertura, d.DecisionOrigenId, resolucionId, d.Motivo);
+            d.PorcentajeCobertura, d.DecisionOrigenId, resolucionId, d.Motivo, reevaluadaPorId, reevaluaDecisionId);
+
+    /// <summary>M-238: mapas retención → decisión que la reevaluó, y decisión nueva → retención que reevaluó.</summary>
+    public static (Dictionary<Guid, Guid> PorRetenida, Dictionary<Guid, Guid> PorNueva) Reevaluaciones(
+        IEnumerable<CorreccionLiberacion> correcciones)
+    {
+        var lista = correcciones.ToList();
+        return (lista.ToDictionary(c => c.DecisionRetenidaId, c => c.DecisionReevaluadaId),
+                lista.ToDictionary(c => c.DecisionReevaluadaId, c => c.DecisionRetenidaId));
+    }
+
+    public static async Task<(Dictionary<Guid, Guid> PorRetenida, Dictionary<Guid, Guid> PorNueva)> ReevaluacionesAsync(
+        CuentasPorCobrarDbContext db, IReadOnlyCollection<Guid> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0) return ([], []);
+        var correcciones = await db.CorreccionesLiberacion.AsNoTracking()
+            .Where(c => ids.Contains(c.DecisionRetenidaId) || ids.Contains(c.DecisionReevaluadaId))
+            .ToListAsync(ct);
+        return Reevaluaciones(correcciones);
+    }
 
     public static DecisionLiberacionEmitidaEvent ToEvent(DecisionLiberacion d) =>
         new(EmpresaId: d.EmpresaId,
@@ -179,6 +203,19 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
             throw new ForbiddenException("USUARIO_NO_IDENTIFICADO",
                 "No se pudo identificar al usuario que decide.");
 
+        var decision = await EvaluarAsync(command, empresaId, usuarioId, cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return DecisionLiberacionMapper.ToResponse(decision);
+    }
+
+    /// <summary>
+    /// Cascada serie → crédito → override (sin guardar): agrega la decisión, consume el override y publica el evento.
+    /// La reusa «corregir y reevaluar» (M-238) para que haya una sola cascada; quien llama hace el SaveChanges.
+    /// </summary>
+    internal async Task<DecisionLiberacion> EvaluarAsync(
+        DecidirLiberacionCommand command, Guid empresaId, Guid usuarioId, CancellationToken cancellationToken)
+    {
         var ahora = _clock.UtcNow;
 
         // Snapshot de crédito: SIEMPRE se calcula, incluso si la serie decide
@@ -314,9 +351,7 @@ public sealed class DecidirLiberacionHandler : IRequestHandler<DecidirLiberacion
         _db.DecisionesLiberacion.Add(decision);
 
         await _eventos.PublishAsync(DecisionLiberacionMapper.ToEvent(decision), cancellationToken);
-
-        await _db.SaveChangesAsync(cancellationToken);
-        return DecisionLiberacionMapper.ToResponse(decision);
+        return decision;
     }
 
     /// <summary>R2: motivo de la retención de una serie que siempre libera cuando el cliente está bloqueado por vencimiento.</summary>
@@ -377,9 +412,14 @@ public sealed class ListarDecisionesLiberacionHandler
             items.Where(d => d.Resultado == ResultadoLiberacion.PendienteAutorizacion).Select(d => d.Id).ToList(),
             cancellationToken);
 
+        var (porRetenida, porNueva) = await DecisionLiberacionMapper.ReevaluacionesAsync(
+            _db, items.Select(d => d.Id).ToList(), cancellationToken);
+
         return new PagedResponse<DecisionLiberacionResponse>(
             items.Select(d => DecisionLiberacionMapper.ToResponse(
-                d, resoluciones.TryGetValue(d.Id, out var r) ? r : null)).ToList(),
+                d, resoluciones.TryGetValue(d.Id, out var r) ? r : null,
+                porRetenida.TryGetValue(d.Id, out var p) ? p : null,
+                porNueva.TryGetValue(d.Id, out var o) ? o : null)).ToList(),
             offset, limit, total);
     }
 }

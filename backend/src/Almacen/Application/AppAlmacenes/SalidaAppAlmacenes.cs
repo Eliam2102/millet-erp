@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Cierre;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Revision;
 using Millet.Almacen.Domain.Catalogo;
+using Millet.Almacen.Domain.Conteos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Almacen.Application.AppAlmacenes;
 
@@ -47,11 +51,26 @@ public static class SalidaAppAlmacenes
     /// para la suma de sus partidas, el mensaje queda <see cref="EnRevision"/> y no se crea ningún movimiento.
     /// Todas las partidas comparten sucursal (la del primer elemento). Con <paramref name="origen"/> (v9: cancelación de entrada,
     /// reclamación) cada partida sale al costo con que entró en el original (<see cref="CostoOrigenApp"/>); si no está, al promedio.
+    /// M-333: el movimiento lleva la fecha del hecho (<paramref name="fecha"/>, la del sobre de la app; sin ella, hoy). Con esa fecha en
+    /// un mes cerrado (inventario o Contabilidad) o con el almacén en conteo anual, el mensaje queda <see cref="EnRevision"/> con el
+    /// motivo, sin mover saldo: la corrección se hace en el mes corriente con un ajuste (Fernando, 10-nov).
     /// </summary>
     public static async Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId,
-        IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null)
+        IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null,
+        DateOnly? fecha = null, IPeriodoContableReadPort? periodo = null)
     {
+        var dia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        try
+        {
+            if (periodo is null) await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, dia, ct);
+            else await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, dia, periodo, ct);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return (EnRevision, null, $"{ex.Message} La corrección se registra en el mes corriente con un ajuste.");
+        }
+
         var original = await CostoOrigenApp.LeerAsync(db, origen, ct);
         if (original.Count > 0)
             salidas = salidas.Select(s => s with
@@ -61,13 +80,16 @@ public static class SalidaAppAlmacenes
         var (partidas, estado, error) = await RepartirAsync(db, salidas, ct);
         if (partidas is null) return (estado, null, error);
 
+        var subs = partidas.Select(p => p.SubAlmacenId).Distinct().ToList();
+        if (await db.Set<BloqueoInventario>().AsNoTracking().AnyAsync(b => subs.Contains(b.SubAlmacenId) && b.Activo && b.BloqueaSalidas, ct))
+            return (EnRevision, null, "El almacén está en conteo anual; las salidas quedan bloqueadas hasta que se aplique o rechace el conteo.");
+
         // Un movimiento solo lleva líneas de un sub-almacén: uno por (tipo, motivo, sub-almacén) tocado.
         var folios = new List<string>();
-        var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
         foreach (var grupo in partidas.GroupBy(l => (l.Salida.Tipo, l.Salida.Motivo, l.SubAlmacenId)))
         {
             var s = grupo.First().Salida;
-            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
+            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, dia, grupo.Key.Motivo,
                 grupo.Select(l => l.Linea).ToList(), ct, s.MotivoClave);
             await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
                 events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), ct);

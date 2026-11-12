@@ -14,9 +14,14 @@ public static class OtrEndpoints
         var g = app.MapGroup("/api/v1/comercio-exterior/otr").WithTags("Comercio exterior · OTR").RequireAuthorization();
         g.MapGet("/", async ([FromQuery] Guid? expedienteId, OtrServicio servicio, CancellationToken ct) => Results.Ok(await servicio.ListarAsync(expedienteId, ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorExpedientesLeer);
+        g.MapGet("/bandeja", async (OtrServicio servicio, CancellationToken ct) => Results.Ok(await servicio.BandejaAsync(ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorExpedientesLeer);
         var envio = g.MapGroup("/{id:guid}").WithDocumentoSucursalScope("envio_otr", "comercio_exterior.documentos")
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorOtrGestionar);
         envio.MapGet("/expedientes", async (Guid id, OtrServicio servicio, CancellationToken ct) => Results.Ok(await servicio.CandidatosAsync(id, ct)));
+        envio.MapPost("/revalidar-sucursal", async (Guid id, HttpRequest req, HttpResponse res, IMediator mediator, CancellationToken ct) =>
+            Version(req) is int v ? Respuesta(await mediator.Send(new RevalidarSucursalEnvioOtr(id, v), ct), res) : SinVersion())
+            .WithMetadata(new RequireIdempotencyKeyAttribute());
         envio.MapPost("/vincular", async (Guid id, Vinculo body, HttpRequest req, HttpResponse res, IMediator mediator, CancellationToken ct) =>
             Version(req) is int v ? Respuesta(await mediator.Send(new VincularEnvioOtr(id, v, body.ExpedienteId), ct), res) : SinVersion())
             .WithMetadata(new RequireIdempotencyKeyAttribute());

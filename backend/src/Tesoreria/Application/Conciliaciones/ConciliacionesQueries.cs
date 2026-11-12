@@ -163,7 +163,7 @@ public sealed class ObtenerConciliacionDetalleHandler(TesoreriaDbContext db)
             c.PeriodoMes,
             c.SaldoExtracto,
             saldoLibros,
-            c.SaldoExtracto - saldoLibros,
+            c.SaldoExtracto - (saldoLibros - c.TransitoLibros),
             c.Estado,
             c.CerradaPor,
             c.CerradaEn,
@@ -173,7 +173,10 @@ public sealed class ObtenerConciliacionDetalleHandler(TesoreriaDbContext db)
             c.ActaGeneradaEn,
             lineasDtos,
             bitacoraDtos,
-            movDtos);
+            movDtos,
+            c.VistoBuenoPor,
+            c.VistoBuenoEn,
+            c.PartidasLibro.OrderBy(p => p.FechaValor).Select(ConciliacionMapper.ToTransitoLibro).ToList());
     }
 }
 
@@ -194,8 +197,8 @@ public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db,
             .FirstOrDefaultAsync(c => c.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException("CONCILIACION_NO_ENCONTRADA", "No se encontró la conciliación.");
 
-        if (conciliacion.Estado != EstadoConciliacion.Cerrada)
-            throw new BusinessRuleException("CONCILIACION_NO_CERRADA", "El acta solo está disponible para conciliaciones cerradas.");
+        if (conciliacion.Estado == EstadoConciliacion.Abierta)
+            throw new BusinessRuleException("CONCILIACION_NO_CERRADA", "El acta solo está disponible para conciliaciones firmadas.");
 
         var cuenta = await db.CuentasBancarias
             .AsNoTracking()
@@ -214,7 +217,13 @@ public sealed class DescargarActaConciliacionHandler(TesoreriaDbContext db,
                 l.Monto,
                 l.Sentido.ToString(),
                 l.PartidaTransitoTipo?.ToString() ?? "Otro",
-                l.PartidaTransitoResponsable ?? "No asignado"))
+                l.PartidaTransitoResponsable ?? "No asignado",
+                l.PartidaTransitoCausa,
+                l.PartidaTransitoFechaPrevista))
+            
+            .Concat(conciliacion.PartidasLibro.Select(p => new DatosPartidaTransito(
+                p.FechaValor, "Movimiento en libros que el banco aún no refleja", p.Referencia, Math.Abs(p.Monto),
+                p.Monto > 0 ? "Ingreso" : "Egreso", p.Tipo.ToString(), "Director de Planeación Financiera", p.Causa, p.FechaPrevista)))
             .ToList();
 
         var datosActa = new DatosActaConciliacion(

@@ -45,6 +45,13 @@ public sealed class CorridaPagoLinea : BaseEntity, IAuditable
 
     internal void Liberar() => Viva = false;
 
+    /// <summary>M-264: importe a pagar de la factura (igual o menor que su saldo); el desglose se recalcula en proporción.</summary>
+    internal void Programar(decimal importe, PasivoPendientePago pasivo)
+    {
+        ImporteProgramado = importe;
+        (Bruto, Retenciones) = pasivo.Desglose(importe);
+    }
+
     internal void MarcarEjecutada(string referencia, DateOnly fecha)
     {
         Ejecutada = true; ReferenciaBancaria = referencia; FechaEjecucion = fecha;

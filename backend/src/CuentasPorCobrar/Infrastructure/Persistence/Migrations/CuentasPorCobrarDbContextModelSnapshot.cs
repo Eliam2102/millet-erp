@@ -109,7 +109,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_alerta_cartera_atencion_consistente", "(atendida = TRUE AND atendida_por IS NOT NULL AND atendida_en IS NOT NULL) OR (atendida = FALSE AND atendida_por IS NULL AND atendida_en IS NULL)");
 
-                            t.HasCheckConstraint("ck_alerta_cartera_tipo", "tipo IN (1, 2, 3, 4)");
+                            t.HasCheckConstraint("ck_alerta_cartera_tipo", "tipo IN (1, 2, 3, 4, 5)");
                         });
                 });
 
@@ -1275,6 +1275,94 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_autorizacion_credito_no_autoconsumo", "supervisor_usuario_id != beneficiario_usuario_id");
 
                             t.HasCheckConstraint("ck_autorizacion_credito_uso_consistente", "(estado = 2 AND decision_liberacion_id IS NOT NULL) OR (estado != 2 AND decision_liberacion_id IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorCobrar.Domain.Liberacion.CorreccionLiberacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CorregidaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("corregida_en");
+
+                    b.Property<Guid>("CorregidaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("corregida_por");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("DecisionReevaluadaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decision_reevaluada_id");
+
+                    b.Property<Guid>("DecisionRetenidaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decision_retenida_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Detalle")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("detalle");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("PedidoRef")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("pedido_ref");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_correccion_liberacion");
+
+                    b.HasIndex("DecisionReevaluadaId")
+                        .HasDatabaseName("ix_correccion_liberacion_reevaluada");
+
+                    b.HasIndex("DecisionRetenidaId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_correccion_liberacion_retenida");
+
+                    b.HasIndex("PedidoRef")
+                        .HasDatabaseName("ix_correccion_liberacion_pedido");
+
+                    b.ToTable("correccion_liberacion", "cuentas_por_cobrar", t =>
+                        {
+                            t.HasCheckConstraint("ck_correccion_liberacion_distintas", "decision_retenida_id != decision_reevaluada_id");
+
+                            t.HasCheckConstraint("ck_correccion_liberacion_tipo", "tipo IN (1, 2, 3)");
                         });
                 });
 

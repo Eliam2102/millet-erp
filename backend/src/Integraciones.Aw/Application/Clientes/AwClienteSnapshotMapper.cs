@@ -67,6 +67,8 @@ public static class AwClienteSnapshotMapper
             Rfc: aplicarFiscalesDeOrigen ? RfcValido(f.UstId) : null,
             CodigoPostalFiscal: aplicarFiscalesDeOrigen ? CpValido(f.Plz) : null,
             MonedaDefault: monedaNormalizada,
+            // M-294: Tax ID del extranjero (EXTERNE_KNR); se guarda al crear y completa uno vacío al sincronizar.
+            NumRegIdTrib: Limpiar(f.ExterneKnr) is { Length: <= 40 } taxId ? taxId : null,
             Telefono: Limpiar(f.Tlf1),
             Email: Limpiar(f.Mail),
             MandantOrigen: f.Mandant,

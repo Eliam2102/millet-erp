@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
@@ -57,12 +58,15 @@ interface Props {
 /** Detalle de plantilla recurrente (P3 master-detail, K10.4): datos, partidas fijas, calendario de aplicaciones y acciones. */
 export function PlantillaRecurrenteDetallePage({ id, search }: Props) {
   return (
-    <div className="flex min-h-0 flex-1">
-      <ListaCompacta idActivo={id} search={search} />
+    <MaestroDetalle
+      seleccionado
+      etiquetaLista="plantillas recurrentes"
+      lista={<ListaCompacta idActivo={id} search={search} />}
+    >
       <div className="min-w-0 flex-1">
         <DetallePlantilla id={id} search={search} />
       </div>
-    </div>
+    </MaestroDetalle>
   );
 }
 
@@ -414,7 +418,9 @@ function TablaPartidas({ partidas }: { partidas: PartidaPlantilla[] }) {
   const etiquetas = useEtiquetasCuentas(partidas.map((x) => x.cuentaId));
   const sucursales = useSucursalesMovimiento();
   const nombreSucursal = (x: PartidaPlantilla) =>
-    x.sucursalNombre ?? sucursales.data?.find((s) => s.id === x.sucursalId)?.nombre ?? 'Sin sucursal';
+    x.sucursalNombre ??
+    sucursales.data?.find((s) => s.id === x.sucursalId)?.nombre ??
+    'Sin sucursal';
   const totalCargos = partidas.reduce((s, x) => s + x.cargo, 0);
   const totalAbonos = partidas.reduce((s, x) => s + x.abono, 0);
   return (
@@ -447,7 +453,9 @@ function TablaPartidas({ partidas }: { partidas: PartidaPlantilla[] }) {
                 <TableRow key={`${i}-${x.cuentaId}`} className="border-b border-line-row align-top">
                   <TableCell className="px-3 py-2 text-xs text-ink-muted">{i + 1}</TableCell>
                   <TableCell className="px-3 py-2">
-                    <span className="font-mono text-xs">{cuenta?.codigo ?? <span className="text-ink-muted">Sin cuenta</span>}</span>
+                    <span className="font-mono text-xs">
+                      {cuenta?.codigo ?? <span className="text-ink-muted">Sin cuenta</span>}
+                    </span>
                     {cuenta?.nombre && (
                       <span className="block text-xs text-ink-muted">{cuenta.nombre}</span>
                     )}

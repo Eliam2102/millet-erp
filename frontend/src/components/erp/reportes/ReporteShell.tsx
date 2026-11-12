@@ -70,6 +70,8 @@ export interface ReporteShellProps<TFila> {
    * pantalla: no se imprime ni entra a PDF/Excel.
    */
   accionFila?: (row: TFila) => ReactNode;
+  /** Clase extra por fila (p. ej. para resaltar renglones de cuadre); no afecta PDF/Excel. */
+  claseFila?: (row: TFila) => string | undefined;
   /** Encabezado accesible de la columna de acción. Default: «Acciones». */
   etiquetaAccion?: string;
   /** Filas visibles; las exportaciones conservan el reporte completo. */
@@ -90,6 +92,7 @@ export function ReporteShell<TFila>({
   nombreArchivo,
   accionFila,
   etiquetaAccion = 'Acciones',
+  claseFila,
   filasVisibles,
   notasExport,
   nivelTitulo = 'h1',
@@ -97,27 +100,23 @@ export function ReporteShell<TFila>({
   const Titulo = nivelTitulo;
   const getCelda =
     obtenerCelda ??
-    ((row: TFila, clave: string) =>
-      (row as unknown as Record<string, unknown>)[clave]);
+    ((row: TFila, clave: string) => (row as unknown as Record<string, unknown>)[clave]);
 
   const [descargandoPdf, setDescargandoPdf] = useState(false);
   const [descargandoExcel, setDescargandoExcel] = useState(false);
 
-  const paraExport = reporte && notasExport
-    ? { ...reporte, filtrosAplicados: { ...reporte.filtrosAplicados, ...notasExport } }
-    : reporte;
+  const paraExport =
+    reporte && notasExport
+      ? { ...reporte, filtrosAplicados: { ...reporte.filtrosAplicados, ...notasExport } }
+      : reporte;
 
   async function descargarPdf() {
     if (paraExport == null) return;
     setDescargandoPdf(true);
     try {
-      const { descargarReportePdf } = await import(
-        '@/components/erp/reportes/exporters/reporte-pdf-exporter'
-      );
-      await descargarReportePdf(
-        paraExport,
-        nombreArchivo ?? slugify(paraExport.titulo),
-      );
+      const { descargarReportePdf } =
+        await import('@/components/erp/reportes/exporters/reporte-pdf-exporter');
+      await descargarReportePdf(paraExport, nombreArchivo ?? slugify(paraExport.titulo));
     } catch (err) {
       toast.error('No se pudo generar el PDF', {
         description: err instanceof Error ? err.message : String(err),
@@ -131,13 +130,9 @@ export function ReporteShell<TFila>({
     if (paraExport == null) return;
     setDescargandoExcel(true);
     try {
-      const { descargarReporteExcel } = await import(
-        '@/components/erp/reportes/exporters/reporte-excel-exporter'
-      );
-      await descargarReporteExcel(
-        paraExport,
-        nombreArchivo ?? slugify(paraExport.titulo),
-      );
+      const { descargarReporteExcel } =
+        await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
+      await descargarReporteExcel(paraExport, nombreArchivo ?? slugify(paraExport.titulo));
     } catch (err) {
       toast.error('No se pudo generar el Excel', {
         description: err instanceof Error ? err.message : String(err),
@@ -148,7 +143,7 @@ export function ReporteShell<TFila>({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {filtrosUi && (
         <div data-print="hidden" className="rounded-md border bg-muted/30 p-3">
           {filtrosUi}
@@ -173,10 +168,8 @@ export function ReporteShell<TFila>({
       ) : (
         <>
           <header className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <Titulo className="text-2xl font-semibold tracking-tight">
-                {reporte.titulo}
-              </Titulo>
+            <div className="min-w-0 [overflow-wrap:anywhere]">
+              <Titulo className="text-2xl font-semibold tracking-tight">{reporte.titulo}</Titulo>
               <p className="text-xs text-muted-foreground">
                 Generado: {new Date(reporte.generadoEn).toLocaleString('es-MX')}
               </p>
@@ -190,7 +183,7 @@ export function ReporteShell<TFila>({
                 </p>
               )}
             </div>
-            <div data-print="hidden" className="flex gap-2">
+            <div data-print="hidden" className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -219,12 +212,7 @@ export function ReporteShell<TFila>({
                 )}
                 PDF
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.print()}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
                 <Printer className="mr-2 h-4 w-4" />
                 Imprimir
               </Button>
@@ -241,9 +229,7 @@ export function ReporteShell<TFila>({
                       style={c.anchoPx ? { width: `${c.anchoPx}px` } : undefined}
                       className={cn(
                         'px-3 py-2 font-medium',
-                        c.tipo === 'numero' || c.tipo === 'moneda'
-                          ? 'text-right'
-                          : 'text-left',
+                        c.tipo === 'numero' || c.tipo === 'moneda' ? 'text-right' : 'text-left',
                       )}
                     >
                       {c.etiqueta}
@@ -268,14 +254,13 @@ export function ReporteShell<TFila>({
                   </tr>
                 ) : (
                   (filasVisibles ?? reporte.filas).map((fila, i) => (
-                    <tr key={i} className="border-t">
+                    <tr key={i} className={cn('border-t', claseFila?.(fila))}>
                       {reporte.columnas.map((c) => (
                         <td
                           key={c.clave}
                           className={cn(
                             'px-3 py-2',
-                            (c.tipo === 'numero' || c.tipo === 'moneda') &&
-                              'text-right font-mono',
+                            (c.tipo === 'numero' || c.tipo === 'moneda') && 'text-right font-mono',
                             c.tipo === 'texto' && 'truncate',
                           )}
                         >
@@ -325,12 +310,13 @@ export function ReporteShell<TFila>({
 }
 
 function slugify(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // tildes
-    .replace(/[^a-zA-Z0-9-_]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase()
-    .slice(0, 80) || 'reporte';
+  return (
+    s
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '') // tildes
+      .replace(/[^a-zA-Z0-9-_]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase()
+      .slice(0, 80) || 'reporte'
+  );
 }
-
