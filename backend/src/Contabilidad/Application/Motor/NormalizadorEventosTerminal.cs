@@ -18,11 +18,49 @@ namespace Millet.Contabilidad.Application.Motor;
 public static partial class NormalizadorEventos
 {
     public const string FacturaBancoTerminalLigada = "facturacion.terminal.factura-banco-ligada.v1";
+    public const string TerminalLiquidacionRegistrada = "facturacion.terminal.liquidacion-registrada.v1";
 
     public static readonly (string Modulo, string Tipo) DocFacturaBancoTerminal = ("facturacion", "factura_banco_terminal");
+    public static readonly (string Modulo, string Tipo) DocLiquidacionTerminal = ("facturacion", "liquidacion_terminal");
 
-    private static EventoContable? NormalizarTerminal(string tipo, Guid eventoId, string payload) =>
-        tipo == FacturaBancoTerminalLigada ? FacturaBancoTerminal(eventoId, payload) : null;
+    private static EventoContable? NormalizarTerminal(string tipo, Guid eventoId, string payload) => tipo switch
+    {
+        FacturaBancoTerminalLigada => FacturaBancoTerminal(eventoId, payload),
+        TerminalLiquidacionRegistrada => LiquidacionTerminal(eventoId, payload),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Póliza de la liquidación de la terminal de tarjetas (una por folio del banco). Contabilidad del 11-nov: la comisión de los cobros
+    /// con TPV va a la cuenta 601.75 (rol <c>COMISIONES_TPV</c>); las demás comisiones bancarias siguen en 701.10
+    /// (<c>COMISIONES_BANCARIAS</c>). Cargo: banco por el neto, comisión e IVA pendiente; abono: «COBROS T/C, T/D» por el bruto.
+    /// <para>
+    /// Sucursal (supuesto a validar): la de las ventas liquidadas; si el folio trae ventas de varias sucursales, la de mayor importe
+    /// (la póliza lleva una sola sucursal). Fecha contable = el día que el banco liquidó. Un folio al que se agregan ventas después
+    /// publica un evento nuevo solo con lo agregado, con el mismo documento y su propia llave: no duplica.
+    /// </para>
+    /// </summary>
+    private static EventoContable LiquidacionTerminal(Guid eventoId, string payload)
+    {
+        var l = Leer<LiquidacionTerminalContrato>(payload);
+        if (l.LiquidacionId == Guid.Empty)
+            throw new EventoIlegibleException($"{TerminalLiquidacionRegistrada} sin liquidación.");
+        var sucursal = (l.Ventas ?? []).GroupBy(v => v.SucursalId).OrderByDescending(g => g.Sum(v => v.Importe))
+            .Select(g => (Guid?)g.Key).FirstOrDefault();
+        return new(TerminalLiquidacionRegistrada, eventoId, l.EmpresaId, l.Fecha,
+            Doc(DocLiquidacionTerminal, l.LiquidacionId, l.FolioLiquidacion), sucursal, null, null, null, null, "MXN", null,
+            new Dictionary<string, decimal?>
+            {
+                ["Bruto"] = l.Bruto, ["Comision"] = l.Comision, ["IvaComision"] = l.IvaComision, ["Neto"] = l.Neto,
+            },
+            [], payload);
+    }
+
+    /// <summary>Espejo de <c>TerminalLiquidacionRegistradaIntegrationEvent</c> (Facturación), solo lo que usa Contabilidad.</summary>
+    private sealed record LiquidacionTerminalContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid LiquidacionId, string? FolioLiquidacion,
+        DateOnly Fecha, decimal Bruto, decimal Comision, decimal IvaComision, decimal Neto, IReadOnlyList<VentaLiquidadaContrato>? Ventas);
+
+    private sealed record VentaLiquidadaContrato(Guid SucursalId, decimal Importe);
 
     private static EventoContable FacturaBancoTerminal(Guid eventoId, string payload)
     {
