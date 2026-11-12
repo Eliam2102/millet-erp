@@ -36,7 +36,24 @@ public interface IFacturacionSalidaPort
     /// pedido de exportación, retenidas en PendientePedimento. Sin factura así, el pedido no aparece.
     /// </summary>
     Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct);
+
+    /// <summary>M-247: la Carta Porte de la hoja sigue vigente (timbrada o en proceso, no cancelada ni descartada). Con ella vigente no se cancela un albarán.</summary>
+    Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct);
+
+    /// <summary>
+    /// M-352: nota de crédito de devolución (relación 03, afecta inventario) por las piezas devueltas de cada posición, sobre la factura
+    /// timbrada. El importe es el de la factura por pieza (neto de descuento, con impuestos). Facturación valida saldo y periodo.
+    /// </summary>
+    Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct);
+
+    /// <summary>M-352: pide la cancelación de la factura (la autoriza el Contador General en Facturación).</summary>
+    Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct);
+
+    /// <summary>M-352: estado vigente del documento ligado al caso. <c>Pendiente</c>: la nota aún no se timbra o la factura aún no se cancela.</summary>
+    Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct);
 }
+
+public sealed record DocumentoFiscalPt(Guid Id, string? Folio, string Estado, bool Pendiente);
 
 public sealed record FacturaPedidoSalida(Guid PedidoFacturableId, bool Exportacion, bool PendientePedimento, DateTimeOffset? FechaTimbrado);
 

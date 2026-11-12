@@ -14,7 +14,8 @@ public sealed record EmitirNotaCreditoBonificacionCommand(
     decimal? TasaIva,
     string? Descripcion,
     ReembolsoClienteRequest? Reembolso = null,
-    string? Comentarios = null) : IRequest<EmitirNotaCreditoBonificacionResponse>;
+    string? Comentarios = null,
+    bool Devolucion = false) : IRequest<EmitirNotaCreditoBonificacionResponse>;
 
 /// <summary>
 /// F6.3: «Devolver dinero al cliente». Al quedar timbrada la NC se pide a Tesorería el reembolso por su total, con esta

@@ -18,6 +18,9 @@ internal static class SalidaMapeo
         var total = s.Albaranes.Sum(a => a.Piezas.Count);
         var entregas = s.Estado == EstadoSalida.Emitida ? await db.Entregas.AsNoTracking().Where(e => e.SalidaPtId == s.Id).ToListAsync(ct) : [];
         var pendientes = s.Estado == EstadoSalida.Emitida ? s.Albaranes.Count(a => a.Piezas.Count > 0 && !a.Cancelado) - entregas.Count : 0;
+        var entregaIds = entregas.Select(e => e.Id).ToList();
+        var versiones = await db.EntregaVersiones.AsNoTracking().Where(v => entregaIds.Contains(v.EntregaPtId))
+            .Select(v => new { v.EntregaPtId, v.Numero, v.Resultado, v.Receptor, v.Entregadas, v.Rechazadas, v.MotivoRechazo, v.EntregadaAt, v.MotivoCorreccion, v.CorregidaAt, v.CorregidaPor }).ToListAsync(ct);
         var cabecera = new HojaSalidaDto(s.Id, s.Folio, s.SucursalId, s.Destino, s.Foranea, s.VehiculoId, s.OperadorId, s.Estado.ToString(), s.CreadaAt, s.EmitidaAt, s.CartaPorteFolio, s.Albaranes.Count, total, [], yaEmitida, pendientes);
         if (!detalle) return cabecera;
 
@@ -45,10 +48,14 @@ internal static class SalidaMapeo
                 entregas.FirstOrDefault(e => e.AlbaranPtId == a.Id) is { } en
                     ? new EntregaDto(en.Id, en.Resultado.ToString(), en.Receptor, en.EntregadaAt, en.Entregadas, en.Rechazadas, en.MotivoRechazo, en.Firma is not null, en.Foto is not null,
                         mias.Where(p => p.Estado == EstadoPieza.EnRevision).Select(p => p.Etiqueta).ToList(),
-                        en.CobroMonto is { } monto ? new CobroEntregaDto(monto, en.CobroForma ?? "", en.CobroReferencia, en.CobroConciliadoAt) : null)
+                        en.CobroMonto is { } monto ? new CobroEntregaDto(monto, en.CobroForma ?? "", en.CobroReferencia, en.CobroConciliadoAt) : null,
+                        versiones.Where(v => v.EntregaPtId == en.Id).OrderBy(v => v.Numero).Select(v => new EntregaVersionDto(v.Numero, v.Resultado.ToString(), v.Receptor,
+                            v.Entregadas, v.Rechazadas, v.MotivoRechazo, v.EntregadaAt, v.MotivoCorreccion, v.CorregidaAt, v.CorregidaPor)).ToList())
                     : null,
                 pedido.Estado115At is not null ? "115" : pedido.EntregadoAt is not null ? "Entregado" : pedido.EnRutaAt is not null ? "71" : null,
-                a.Cancelado, a.CanceladoAt, a.MotivoCancelacion);
+                a.Cancelado, a.CanceladoAt, a.MotivoCancelacion,
+                a.CancelacionSolicitadaAt is null && !a.Cancelado ? null : new CancelacionAlbaranDto(a.CancelacionPendiente, a.CancelacionSolicitadaAt, a.CancelacionSolicitadaPorId,
+                    a.MotivoSolicitudCancelacion, a.CancelacionRechazadaAt, a.CancelacionRechazadaPorId, a.MotivoRechazoCancelacion, a.CanceladoPorId));
         }).ToList();
         return cabecera with { Albaranes = albaranes };
     }
@@ -85,6 +92,9 @@ internal static class ReglasHoja
         var salieron = await db.Piezas.AsNoTracking().Where(p => pedidoIds.Contains(p.PedidoPtId) && YaSalieron.Contains(p.Estado))
             .GroupBy(p => new { p.PedidoPtId, p.Posicion }).Select(g => new { g.Key.PedidoPtId, g.Key.Posicion, Piezas = g.Count() }).ToListAsync(ct);
         var facturas = await facturacion.FacturasDePedidosAsync([.. pedidos.Values.Select(p => p.PedidoFacturableId)], ct);
+        // M-245: lo que sale dentro de una salida parcial ya autorizada en el pedido no vuelve a pedir autorización en la hoja.
+        var autorizadas = (await db.SolicitudesParciales.AsNoTracking().Where(x => pedidoIds.Contains(x.PedidoPtId) && x.Estado == EstadoSolicitudPt.Autorizada)
+            .Select(x => new { x.PedidoPtId, x.PiezaIds }).ToListAsync(ct)).GroupBy(x => x.PedidoPtId).ToDictionary(g => g.Key, g => g.SelectMany(x => x.PiezaIds).ToHashSet());
 
         List<string> sinFactura = [], parciales = [];
         foreach (var a in conPiezas)
@@ -94,7 +104,7 @@ internal static class ReglasHoja
             if (!ReglasSalidaPt.TieneFactura(facturas.Where(f => f.PedidoFacturableId == pedido.PedidoFacturableId)
                     .Select(f => (f.PendientePedimento, f.Exportacion, f.FechaTimbrado is { } t ? FechaContable.HoyLocal(t) : (DateOnly?)null)), hoy))
                 sinFactura.Add(clave);
-            if (ReglasSalidaPt.EsParcial(pedido.Posiciones.Select(x => (x.PiezasEsperadas, a.Piezas.Count(p => posicionDe[p.PiezaId] == x.Posicion),
+            if (!(autorizadas.TryGetValue(pedido.Id, out var ok) && a.Piezas.All(p => ok.Contains(p.PiezaId))) && ReglasSalidaPt.EsParcial(pedido.Posiciones.Select(x => (x.PiezasEsperadas, a.Piezas.Count(p => posicionDe[p.PiezaId] == x.Posicion),
                     salieron.Where(y => y.PedidoPtId == pedido.Id && y.Posicion == x.Posicion).Sum(y => y.Piezas)))))
                 parciales.Add(clave);
         }
@@ -163,6 +173,9 @@ public sealed class CrearHojaSalidaHandler(ProductoTerminadoDbContext db, PtAcce
             var delPedido = p.Etiquetas.Select(e => piezas[e.Trim()]).ToList();
             if (delPedido.Any(x => x.PedidoPtId != pedido.Id))
                 throw new BusinessRuleException("PT_SALIDA_PIEZA_OTRO_PEDIDO", $"Alguna pieza no pertenece al pedido {pedido.NumeroPedido}.");
+            // M-245: de un pedido incompleto solo salen las piezas de su salida parcial autorizada.
+            if (await SalidaParcial.PermitidasAsync(db, pedido, cancellationToken) is { } permitidas && delPedido.Any(x => !permitidas.Contains(x.Id)))
+                throw new BusinessRuleException("PT_PIEZA_NO_AUTORIZADA", $"El pedido {pedido.NumeroPedido} está incompleto: solo salen las piezas de su salida parcial autorizada.");
             var albaran = salida.AgregarAlbaran(pedido, delPedido.Select(x => x.Id).ToList());
             foreach (var pz in delPedido)
             {
@@ -281,71 +294,113 @@ public sealed class CancelarHojaSalidaHandler(ProductoTerminadoDbContext db, PtA
 public sealed class CancelarAlbaranSalidaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion,
     ICurrentEmpresaContext empresa, IClock clock) : IRequestHandler<CancelarAlbaranSalidaCommand, HojaSalidaDto>
 {
+    /// <summary>En carga (hoja en Borrador) lo cancela quien opera la hoja. Emitido: <see cref="AutorizarCancelacionAlbaranHandler"/> (M-247).</summary>
     public async Task<HojaSalidaDto> Handle(CancelarAlbaranSalidaCommand c, CancellationToken cancellationToken)
     {
         await acceso.ExigirPermisoAsync(PermisosCanonicos.ProductoTerminadoExcepcionesGestionar, cancellationToken);
         var s = await SalidaMapeo.Completa(db).FirstOrDefaultAsync(x => x.Id == c.HojaId, cancellationToken)
             ?? throw new EntityNotFoundException("PT_SALIDA_NO_ENCONTRADA", "No existe la hoja de salida.");
         await acceso.VerificarSucursalAsync(s.SucursalId, PermisosCanonicos.ProductoTerminadoExcepcionesGestionarTodasSucursales, cancellationToken);
-        var albaran = s.Albaranes.FirstOrDefault(a => a.Id == c.AlbaranId)
+        await CancelacionAlbaran.EjecutarAsync(db, facturacion, s, c.AlbaranId, c.Motivo, acceso.Actor, clock.UtcNow, cancellationToken);
+        return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
+    }
+}
+
+/// <summary>
+/// M-247 · cancelación de un albarán por etapa. En carga: libera la carga. Emitido: sin entrega, sin liquidación, sin factura timbrada, sin 72
+/// enviado y con la Carta Porte ya cancelada; las piezas regresan a PT con su movimiento y Facturación descarta la salida facturable.
+/// Entregado o liquidado: no se cancela (corrección de entrega o caso de devolución).
+/// </summary>
+internal static class CancelacionAlbaran
+{
+    public static async Task EjecutarAsync(ProductoTerminadoDbContext db, IFacturacionSalidaPort facturacion, SalidaPt s, Guid albaranId, string motivo, Guid actor,
+        DateTimeOffset ahora, CancellationToken ct)
+    {
+        var albaran = s.Albaranes.FirstOrDefault(a => a.Id == albaranId)
             ?? throw new BusinessRuleException("PT_ALBARAN_NO_PERTENECE_A_SALIDA", "El albarán no pertenece a esta hoja de salida.");
-
-        if (albaran.Cancelado)
-            throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
-
-        if (s.Estado == EstadoSalida.Cancelada)
-            throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
-
-        if (albaran.Entregado || await db.Entregas.AnyAsync(e => e.AlbaranPtId == albaran.Id, cancellationToken))
+        if (albaran.Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
+        if (s.Estado == EstadoSalida.Cancelada) throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
+        if (albaran.Entregado || await db.Entregas.AnyAsync(e => e.AlbaranPtId == albaran.Id, ct))
             throw new BusinessRuleException("PT_ALBARAN_YA_ENTREGADO", "El albarán ya fue entregado en ruta; no se puede cancelar.");
-
-        if (albaran.Liquidado || await db.Liquidaciones.AnyAsync(l => l.SalidaPtId == s.Id && l.Estado == EstadoLiquidacion.Cerrada && l.Albaranes.Any(a => a.AlbaranPtId == albaran.Id), cancellationToken))
+        if (albaran.Liquidado || await db.Liquidaciones.AnyAsync(l => l.SalidaPtId == s.Id && l.Estado == EstadoLiquidacion.Cerrada && l.Albaranes.Any(a => a.AlbaranPtId == albaran.Id), ct))
             throw new BusinessRuleException("PT_ALBARAN_YA_LIQUIDADO", "El albarán ya fue liquidado en caja; no se puede cancelar.");
 
-        // Candado con Facturación: si la salida ya fue emitida, consultar a Facturación si cuenta con factura timbrada ante el SAT
+        var pedido = await db.PedidosPt.FirstAsync(p => p.Id == albaran.PedidoPtId, ct);
         if (s.Estado == EstadoSalida.Emitida)
         {
-            var rFacturacion = await facturacion.CancelarSalidaAsync(albaran.Folio, c.Motivo, cancellationToken);
+            // El 72 no se revierte en A+W (TI, 11-nov): con él enviado el albarán ya no es cancelable.
+            if (pedido.Estado72At is not null)
+                throw new BusinessRuleException("PT_ALBARAN_CON_72", "El pedido ya se informó a A+W en 72 (no se revierte): el albarán no se cancela; use corrección de entrega o caso de devolución.");
+            if (s.CartaPorteId is { } cp && await facturacion.CartaPorteVigenteAsync(cp, ct))
+                throw new BusinessRuleException("PT_SALIDA_CON_CARTA_PORTE", $"La hoja lleva la Carta Porte {s.CartaPorteFolio} vigente: cancélela primero en Facturación.");
+        }
+        // Valida separación de funciones y solicitud antes de tocar Facturación.
+        s.CancelarAlbaran(albaran.Id, motivo, actor, ahora);
+        if (s.Estado != EstadoSalida.Borrador && albaran.EmitidoAt is not null)
+        {
+            var rFacturacion = await facturacion.CancelarSalidaAsync(albaran.Folio, motivo, ct);
             if (rFacturacion.EnRevision)
                 throw new BusinessRuleException("PT_ALBARAN_YA_FACTURADO", "El albarán ya cuenta con factura timbrada ante el SAT; debe cancelarse primero el CFDI.");
         }
 
-        var ahora = clock.UtcNow;
-        var usuarioId = acceso.Actor;
-        s.CancelarAlbaran(albaran.Id, c.Motivo, usuarioId, ahora);
-
-        // Reversa de cada pieza amparada en el albarán
         var ids = albaran.Piezas.Select(p => p.PiezaId).ToList();
-        var piezas = await db.Piezas.Where(p => ids.Contains(p.Id)).ToListAsync(cancellationToken);
-        foreach (var pz in piezas)
+        foreach (var pz in await db.Piezas.Where(p => ids.Contains(p.Id)).ToListAsync(ct))
         {
             var anterior = pz.Estado;
             pz.RevertirSalida();
-            db.Movimientos.Add(MovimientoPieza.SalidaCancelada(pz, anterior, albaran.Id, c.Motivo, ahora, acceso.Actor.ToString()));
+            db.Movimientos.Add(MovimientoPieza.SalidaCancelada(pz, anterior, albaran.Id, motivo, ahora, actor.ToString()));
         }
 
-        // Ajuste de estatus del pedido: si estaba en 71 y ya no tiene otros albaranes vigentes emitidos, regresa a 70
-        var pedido = await db.PedidosPt.FirstOrDefaultAsync(p => p.Id == albaran.PedidoPtId, cancellationToken);
-        if (pedido is not null && pedido.EnRutaAt is not null)
+        // Si estaba en ruta (71) y ya no tiene otros albaranes emitidos vigentes, regresa a 70.
+        if (pedido.EnRutaAt is not null)
         {
-            var otrosAlbaranesVigentes = await (
-                from a in db.Albaranes
-                join sh in db.Salidas on a.SalidaPtId equals sh.Id
-                where a.PedidoPtId == pedido.Id
-                   && a.Id != albaran.Id
-                   && a.CanceladoAt == null
-                   && a.EmitidoAt != null
-                   && sh.Estado != EstadoSalida.Cancelada
-                select a.Id
-            ).AnyAsync(cancellationToken);
-
-            if (!otrosAlbaranesVigentes)
-            {
-                pedido.RegresarALiberado();
-            }
+            var otros = await (from a in db.Albaranes join sh in db.Salidas on a.SalidaPtId equals sh.Id
+                               where a.PedidoPtId == pedido.Id && a.Id != albaran.Id && a.CanceladoAt == null && a.EmitidoAt != null && sh.Estado != EstadoSalida.Cancelada
+                               select a.Id).AnyAsync(ct);
+            if (!otros) pedido.RegresarALiberado();
         }
+        await db.SaveChangesAsync(ct);
+    }
+}
 
+/// <summary>M-247: pide cancelar un albarán emitido (lo hace quien opera la hoja).</summary>
+public sealed record SolicitarCancelacionAlbaranCommand(Guid HojaId, Guid AlbaranId, string Motivo) : IRequest<HojaSalidaDto>;
+
+/// <summary>M-247: autoriza (ejecuta) o rechaza la cancelación pedida. Otra persona, con <c>producto_terminado.salida.cancelar-emitida</c>.</summary>
+public sealed record ResolverCancelacionAlbaranCommand(Guid HojaId, Guid AlbaranId, bool Autorizar, string Motivo) : IRequest<HojaSalidaDto>;
+
+public sealed class SolicitarCancelacionAlbaranHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, ICurrentEmpresaContext empresa, IClock clock)
+    : IRequestHandler<SolicitarCancelacionAlbaranCommand, HojaSalidaDto>
+{
+    public async Task<HojaSalidaDto> Handle(SolicitarCancelacionAlbaranCommand c, CancellationToken cancellationToken)
+    {
+        await acceso.ExigirPermisoAsync(PermisosCanonicos.ProductoTerminadoExcepcionesGestionar, cancellationToken);
+        var s = await SalidaMapeo.Completa(db).FirstOrDefaultAsync(x => x.Id == c.HojaId, cancellationToken)
+            ?? throw new EntityNotFoundException("PT_SALIDA_NO_ENCONTRADA", "No existe la hoja de salida.");
+        await acceso.VerificarSucursalAsync(s.SucursalId, PermisosCanonicos.ProductoTerminadoExcepcionesGestionarTodasSucursales, cancellationToken);
+        if (await db.Entregas.AnyAsync(e => e.AlbaranPtId == c.AlbaranId, cancellationToken))
+            throw new BusinessRuleException("PT_ALBARAN_YA_ENTREGADO", "El albarán ya fue entregado: se corrige la entrega o se registra la devolución, no se cancela.");
+        s.SolicitarCancelacionAlbaran(c.AlbaranId, c.Motivo, acceso.Actor, clock.UtcNow);
         await db.SaveChangesAsync(cancellationToken);
+        return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
+    }
+}
+
+public sealed class ResolverCancelacionAlbaranHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IFacturacionSalidaPort facturacion,
+    ICurrentEmpresaContext empresa, IClock clock) : IRequestHandler<ResolverCancelacionAlbaranCommand, HojaSalidaDto>
+{
+    public async Task<HojaSalidaDto> Handle(ResolverCancelacionAlbaranCommand c, CancellationToken cancellationToken)
+    {
+        await acceso.ExigirPermisoAsync(PermisosCanonicos.ProductoTerminadoSalidaCancelarEmitida, cancellationToken);
+        var s = await SalidaMapeo.Completa(db).FirstOrDefaultAsync(x => x.Id == c.HojaId, cancellationToken)
+            ?? throw new EntityNotFoundException("PT_SALIDA_NO_ENCONTRADA", "No existe la hoja de salida.");
+        await acceso.VerificarSucursalAsync(s.SucursalId, PermisosCanonicos.ProductoTerminadoExcepcionesGestionarTodasSucursales, cancellationToken);
+        if (c.Autorizar) await CancelacionAlbaran.EjecutarAsync(db, facturacion, s, c.AlbaranId, c.Motivo, acceso.Actor, clock.UtcNow, cancellationToken);
+        else
+        {
+            s.RechazarCancelacionAlbaran(c.AlbaranId, c.Motivo, acceso.Actor, clock.UtcNow);
+            await db.SaveChangesAsync(cancellationToken);
+        }
         return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresa.Current ?? throw new UnauthorizedAccessException(), s, true, false, cancellationToken);
     }
 }

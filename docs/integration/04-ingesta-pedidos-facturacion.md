@@ -207,11 +207,14 @@ Del catálogo de productos A+W: `producto_ref`, `descripcion`,
 `unidad_medida` normalizada. Claves SAT **no existen en A+W** — las asigna el
 master del ERP (`compartido.producto_aw`) vía mapeo de unidad + UI.
 
-### 3.6 `vw_erp_albaran_pos` (descuento de PT por albarán de A+W) · propuesta 10-nov
+### 3.6 `vw_erp_albaran_pos` (descuento de PT por albarán de A+W) · v2 11-nov
 
 El albarán se queda en A+W; el ERP solo emite la hoja de salida (Geovany, 10-nov). En A+W el albarán es un dato de la
 cabecera (`BW_AUFTR_KOPF.NR_LIEFERSCHEIN` y `DATUM_LIEFERSCHEIN`, Jorge Toache 10-nov). DDL en
-[`20_create_vista_albaran.sql`](../operacion/aw-integracion-scripts/20_create_vista_albaran.sql), pendiente de visto bueno de TI.
+[`20_create_vista_albaran.sql`](../operacion/aw-integracion-scripts/20_create_vista_albaran.sql). TI dio el visto bueno el 11-nov con
+tres ajustes ya aplicados en la v2: piezas por `KO_TEILFAK` (factura parcial) y no por entregado parcial a secas; el
+departamento `RECLAMACIONES` no se remapea al pedido de origen; `DOK_TYP` contra el catálogo `KA_DOK_TYP.BEZ`. Pendiente de
+TI: crearla en MILLET_INTEGRACION_DEV. Mientras tanto el lector sigue apagado (`AlbaranAwHabilitado=false`).
 
 - Una fila por albarán y posición: `numero_pedido`, `numero_posicion` (donde se produjeron las piezas: lote de PT
   pedido-posición), `pedido_albaran`, `posicion_albaran`, `piezas`, `albaran_folio`, `albaran_fecha`, `estatus_pedido`.

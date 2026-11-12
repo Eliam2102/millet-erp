@@ -16,6 +16,14 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
     public EstadoPieza Estado { get; private set; }
     public DateTimeOffset EscaneadaAt { get; private set; }
     public Guid EscaneoId { get; private set; }
+    /// <summary>M-251: null = «por ubicar» (escaneada, sin confirmar dónde quedó físicamente).</summary>
+    public AlmacenPt? Almacen { get; private set; }
+    /// <summary>M-251: lugar dentro del almacén (pirámide, caballete, zona), opcional.</summary>
+    public string? Lugar { get; private set; }
+    public DateTimeOffset? UbicadaAt { get; private set; }
+    public Guid? UbicadaPorId { get; private set; }
+    /// <summary>M-251: costo de la pieza; null = costo pendiente hasta la valuación de PT (F1-PT-09).</summary>
+    public decimal? Costo { get; private set; }
 
     private PiezaPt() { }
 
@@ -48,6 +56,56 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
         if (Estado != EstadoPieza.EnTransito) throw new BusinessRuleException("PT_PIEZA_NO_EN_TRANSITO", $"La pieza {Etiqueta} no está en tránsito.");
         Estado = EstadoPieza.EnPT;
         SucursalId = sucursalDestinoId;
+        QuitarUbicacion();
+    }
+
+    /// <summary>M-251: confirma dónde quedó la pieza dentro de PT. Se puede reubicar mientras siga en PT.</summary>
+    public void Ubicar(AlmacenPt almacen, string? lugar, Guid actor, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoPieza.EnPT) throw new BusinessRuleException("PT_PIEZA_NO_EN_PT", $"La pieza {Etiqueta} no está en PT: solo se ubica lo que está físicamente aquí.");
+        var limpio = string.IsNullOrWhiteSpace(lugar) ? null : lugar.Trim();
+        if (limpio is { Length: > 100 }) throw new BusinessRuleException("PT_UBICACION_INVALIDA", "El lugar dentro del almacén tiene máximo 100 caracteres.");
+        (Almacen, Lugar, UbicadaAt, UbicadaPorId) = (almacen, limpio, ahora, actor);
+    }
+
+    private void QuitarUbicacion() => (Almacen, Lugar, UbicadaAt, UbicadaPorId) = (null, null, null, null);
+
+    /// <summary>M-351: queda segregada en revisión mientras Calidad dictamina (desde PT, rota al cargar, rechazada en sitio o devuelta por el cliente).</summary>
+    public void SegregarPorDano()
+    {
+        if (Estado is not (EstadoPieza.EnPT or EstadoPieza.EnRevision or EstadoPieza.Entregada))
+            throw new BusinessRuleException("PT_PIEZA_NO_SEGREGABLE", $"La pieza {Etiqueta} está {Estado}: solo se registra daño de piezas en PT, rechazadas en sitio o entregadas que regresaron.");
+        Estado = EstadoPieza.EnRevision;
+        QuitarUbicacion();
+    }
+
+    /// <summary>M-351: aplica el dictamen de Calidad sobre una pieza en revisión.</summary>
+    public void AplicarDictamen(DictamenCalidadPt dictamen)
+    {
+        if (Estado != EstadoPieza.EnRevision) throw new BusinessRuleException("PT_PIEZA_NO_EN_REVISION", $"La pieza {Etiqueta} no está en revisión.");
+        Estado = dictamen switch
+        {
+            DictamenCalidadPt.RegresarDisponible => EstadoPieza.EnPT,
+            DictamenCalidadPt.Reproceso => EstadoPieza.EnReproceso,
+            _ => EstadoPieza.Baja,
+        };
+    }
+
+    /// <summary>A+W la volvió a terminar con la misma etiqueta (reproceso o reposición de una baja): regresa a PT por ubicar.</summary>
+    public bool ReingresarPorReposicion(Guid sucursalId)
+    {
+        if (Estado is not (EstadoPieza.EnReproceso or EstadoPieza.Baja)) return false;
+        Estado = EstadoPieza.EnPT;
+        SucursalId = sucursalId;
+        QuitarUbicacion();
+        return true;
+    }
+
+    /// <summary>M-248: corrige el resultado de la entrega confirmada (entregada ↔ rechazada en sitio).</summary>
+    public void CorregirEntrega(bool rechazada)
+    {
+        if (Estado is not (EstadoPieza.Entregada or EstadoPieza.EnRevision)) throw new BusinessRuleException("PT_PIEZA_NO_ENTREGADA", $"La pieza {Etiqueta} no está entregada ni rechazada en sitio.");
+        Estado = rechazada ? EstadoPieza.EnRevision : EstadoPieza.Entregada;
     }
 
     /// <summary>Entra al camión. La pieza que PT5.4 ya cargó se acepta tal cual.</summary>
@@ -73,6 +131,8 @@ public sealed class PiezaPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelon
     public void RevertirSalida()
     {
         if (Estado is not (EstadoPieza.Embarcada or EstadoPieza.Cargada)) throw new BusinessRuleException("PT_PIEZA_NO_SALIDA", $"La pieza {Etiqueta} no está embarcada ni cargada.");
+        // Lo que ya había salido regresa al andén: se vuelve a ubicar (M-251).
+        if (Estado == EstadoPieza.Embarcada) QuitarUbicacion();
         Estado = EstadoPieza.EnPT;
     }
 

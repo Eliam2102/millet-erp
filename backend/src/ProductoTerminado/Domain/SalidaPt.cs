@@ -104,16 +104,38 @@ public sealed class SalidaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
         Estado = EstadoSalida.Cancelada;
     }
 
-    /// <summary>Cancela un albarán emitido o en borrador de la hoja de salida (PT5.8 / §11).</summary>
+    /// <summary>
+    /// Cancela un albarán (PT5.8 / §11, M-247). En carga (hoja en Borrador) lo cancela quien opera la hoja; emitido, solo con una solicitud
+    /// pendiente y lo ejecuta otra persona (quien autoriza). Entregado o liquidado ya no se cancela.
+    /// </summary>
     public void CancelarAlbaran(Guid albaranId, string motivo, Guid usuarioId, DateTimeOffset ahora)
     {
-        var albaran = _albaranes.FirstOrDefault(a => a.Id == albaranId)
-            ?? throw new BusinessRuleException("PT_ALBARAN_NO_PERTENECE_A_SALIDA", "El albarán no pertenece a esta hoja de salida.");
+        var albaran = Albaran(albaranId);
         if (albaran.Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
         if (Estado == EstadoSalida.Cancelada) throw new BusinessRuleException("PT_SALIDA_CANCELADA", "La hoja de salida está cancelada.");
+        if (Estado == EstadoSalida.Emitida)
+        {
+            if (albaran.CancelacionSolicitadaAt is null || albaran.CancelacionRechazadaAt is not null)
+                throw new BusinessRuleException("PT_ALBARAN_CANCELACION_SIN_SOLICITUD", "Un albarán emitido se cancela con una solicitud y la autorización de otra persona.");
+            if (albaran.CancelacionSolicitadaPorId == usuarioId)
+                throw new BusinessRuleException("PT_SALIDA_SEPARACION_FUNCIONES", "Quien pidió la cancelación no puede autorizarla.");
+        }
         albaran.Cancelar(motivo, usuarioId, ahora);
         if (_albaranes.Count > 0 && _albaranes.All(a => a.Cancelado)) Estado = EstadoSalida.Cancelada;
     }
+
+    /// <summary>M-247: pide cancelar un albarán ya emitido (aún no entregado ni liquidado), con motivo.</summary>
+    public void SolicitarCancelacionAlbaran(Guid albaranId, string motivo, Guid actor, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoSalida.Emitida) throw new BusinessRuleException("PT_ALBARAN_EN_CARGA", "Un albarán en carga se cancela directo desde la hoja; la solicitud es para albaranes emitidos.");
+        Albaran(albaranId).SolicitarCancelacion(ReglasSalidaPt.MotivoValido(motivo), actor, ahora);
+    }
+
+    public void RechazarCancelacionAlbaran(Guid albaranId, string motivo, Guid actor, DateTimeOffset ahora) =>
+        Albaran(albaranId).RechazarCancelacion(ReglasSalidaPt.MotivoValido(motivo), actor, ahora);
+
+    private AlbaranPt Albaran(Guid albaranId) => _albaranes.FirstOrDefault(a => a.Id == albaranId)
+        ?? throw new BusinessRuleException("PT_ALBARAN_NO_PERTENECE_A_SALIDA", "El albarán no pertenece a esta hoja de salida.");
 }
 
 /// <summary>Albarán por pedido: las piezas cargadas de ese pedido en la hoja.</summary>
@@ -136,6 +158,14 @@ public sealed class AlbaranPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBel
     public bool Entregado => EntregadoAt is not null;
     public DateTimeOffset? LiquidadoAt { get; private set; }
     public bool Liquidado => LiquidadoAt is not null;
+    /// <summary>M-247: historial de la solicitud de cancelación (quién pidió, quién rechazó; quien autorizó queda en <see cref="CanceladoPorId"/>).</summary>
+    public DateTimeOffset? CancelacionSolicitadaAt { get; private set; }
+    public Guid? CancelacionSolicitadaPorId { get; private set; }
+    public string? MotivoSolicitudCancelacion { get; private set; }
+    public DateTimeOffset? CancelacionRechazadaAt { get; private set; }
+    public Guid? CancelacionRechazadaPorId { get; private set; }
+    public string? MotivoRechazoCancelacion { get; private set; }
+    public bool CancelacionPendiente => CancelacionSolicitadaAt is not null && CancelacionRechazadaAt is null && !Cancelado;
     public IReadOnlyCollection<AlbaranPtPieza> Piezas => _piezas;
 
     private AlbaranPt() { }
@@ -151,6 +181,23 @@ public sealed class AlbaranPt : BaseEntity, IAuditable, IPerteneceAEmpresa, IBel
     internal void MarcarEntregado(DateTimeOffset ahora) => EntregadoAt = ahora;
 
     internal void MarcarLiquidado(DateTimeOffset ahora) => LiquidadoAt = ahora;
+
+    internal void SolicitarCancelacion(string motivo, Guid actor, DateTimeOffset ahora)
+    {
+        if (Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán ya está cancelado.");
+        if (CancelacionPendiente) throw new BusinessRuleException("PT_ALBARAN_CANCELACION_PENDIENTE", "Ya hay una solicitud de cancelación pendiente para este albarán.");
+        if (Entregado) throw new BusinessRuleException("PT_ALBARAN_YA_ENTREGADO", "El albarán ya fue entregado: se corrige la entrega o se registra la devolución, no se cancela.");
+        if (Liquidado) throw new BusinessRuleException("PT_ALBARAN_YA_LIQUIDADO", "El albarán ya fue liquidado en caja; no se puede cancelar.");
+        (CancelacionSolicitadaAt, CancelacionSolicitadaPorId, MotivoSolicitudCancelacion) = (ahora, actor, motivo);
+        (CancelacionRechazadaAt, CancelacionRechazadaPorId, MotivoRechazoCancelacion) = (null, null, null);
+    }
+
+    internal void RechazarCancelacion(string motivo, Guid actor, DateTimeOffset ahora)
+    {
+        if (!CancelacionPendiente) throw new BusinessRuleException("PT_ALBARAN_CANCELACION_SIN_SOLICITUD", "No hay solicitud de cancelación pendiente.");
+        if (actor == CancelacionSolicitadaPorId) throw new BusinessRuleException("PT_SALIDA_SEPARACION_FUNCIONES", "Quien pidió la cancelación no puede resolverla.");
+        (CancelacionRechazadaAt, CancelacionRechazadaPorId, MotivoRechazoCancelacion) = (ahora, actor, motivo);
+    }
 
     internal void Cancelar(string motivo, Guid usuarioId, DateTimeOffset ahora)
     {

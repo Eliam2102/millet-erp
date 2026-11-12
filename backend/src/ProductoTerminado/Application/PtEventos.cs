@@ -40,3 +40,11 @@ public sealed record EntregaConfirmadaEvent(Guid Empresa, DateTimeOffset Fecha, 
 /// <summary>El pedido está facturado y entregado: pasa a 115 (una sola vez). Es el aviso que A+W consume (el acuse en A+W es de U1.5).</summary>
 public sealed record PedidoFacturadoEntregadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string Estado)
     : IntegrationEvent("producto_terminado.pedido.facturado-entregado.v1", Empresa, Fecha);
+
+/// <summary>
+/// M-248: se corrigió una entrega confirmada antes de cerrar la liquidación. Lleva lo entregado vigente por posición (no un delta); la versión
+/// anterior queda en el historial de la entrega. Informativo: el costo de ventas de PT se valúa al cerrar F1-PT-09.
+/// </summary>
+public sealed record EntregaCorregidaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string AlbaranFolio, int Version,
+    IReadOnlyList<PosicionEntregada> Entregadas, int Rechazadas, string Motivo)
+    : IntegrationEvent("producto_terminado.entrega.corregida.v1", Empresa, Fecha);
