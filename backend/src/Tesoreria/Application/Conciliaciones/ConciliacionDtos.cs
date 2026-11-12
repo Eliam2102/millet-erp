@@ -52,7 +52,9 @@ public sealed record ExtractoLineaResponse(
     IReadOnlyList<Guid> CandidatosRevisionIds,
     bool PartidaTransito,
     PartidaTransitoTipo? PartidaTransitoTipo,
-    string? PartidaTransitoResponsable);
+    string? PartidaTransitoResponsable,
+    string? PartidaTransitoCausa = null,
+    DateOnly? PartidaTransitoFechaPrevista = null);
 
 public sealed record BitacoraConciliacionResponse(
     Guid Id,
@@ -95,4 +97,13 @@ public sealed record ConciliacionDetalleResponse(
     DateTimeOffset? ActaGeneradaEn,
     IReadOnlyList<ExtractoLineaResponse> Lineas,
     IReadOnlyList<BitacoraConciliacionResponse> Bitacora,
-    IReadOnlyList<MovimientoBancarioConciliacionDto> MovimientosPeriodo);
+    IReadOnlyList<MovimientoBancarioConciliacionDto> MovimientosPeriodo,
+    Guid? VistoBuenoPor = null,
+    DateTimeOffset? VistoBuenoEn = null,
+    IReadOnlyList<PartidaTransitoLibroResponse>? MovimientosEnTransito = null,
+    string? VistoBuenoPorNombre = null);
+
+/// <summary>M-201: movimiento de libros en tránsito (monto con signo: ingreso positivo, egreso negativo).</summary>
+public sealed record PartidaTransitoLibroResponse(
+    Guid MovimientoBancarioId, DateOnly FechaValor, string? Referencia, decimal Monto, PartidaTransitoTipo Tipo,
+    string Causa, DateOnly FechaPrevista, Guid AutorizadaPor, DateTimeOffset AutorizadaEn);

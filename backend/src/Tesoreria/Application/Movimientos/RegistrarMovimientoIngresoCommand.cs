@@ -26,7 +26,11 @@ public sealed record RegistrarMovimientoIngresoCommand(
     Guid? BeneficiarioRef = null,
     Guid? SucursalId = null,
     // 86e3tfdve: cuenta del cliente que pagó (CtaOrdenante del REP); opcional.
-    string? CuentaOrdenante = null) : IRequest<MovimientoBancarioResponse>;
+    string? CuentaOrdenante = null,
+    // M-201: un ingreso igual a otro vivo (cuenta, fecha valor, importe y referencia) se rechaza con 409
+    // salvo que se confirme con motivo; puede haber dos depósitos iguales legítimos el mismo día.
+    bool ConfirmarDuplicado = false,
+    string? MotivoDuplicado = null) : IRequest<MovimientoBancarioResponse>;
 
 public sealed class RegistrarMovimientoIngresoValidator : AbstractValidator<RegistrarMovimientoIngresoCommand>
 {
@@ -42,6 +46,8 @@ public sealed class RegistrarMovimientoIngresoValidator : AbstractValidator<Regi
             .NotNull()
             .When(c => c.BeneficiarioRef is not null)
             .WithMessage("Si se indica la referencia del beneficiario, el tipo es obligatorio.");
+        RuleFor(c => c.MotivoDuplicado).NotEmpty().WithMessage("El motivo es obligatorio.")
+            .Length(10, 400).When(c => c.ConfirmarDuplicado);
     }
 }
 
@@ -69,6 +75,20 @@ public sealed class RegistrarMovimientoIngresoHandler
         RegistrarMovimientoIngresoCommand command, CancellationToken cancellationToken)
     {
         var movimiento = await CrearAsync(command, cancellationToken);
+        var referencia = MovimientoBancario.NormalizarReferencia(command.ReferenciaBancaria);
+        var existente = await _db.MovimientosBancarios.AsNoTracking()
+            .Where(m => m.CuentaBancariaId == command.CuentaBancariaId && m.Sentido == SentidoMovimiento.Ingreso
+                && m.FechaValor == command.FechaValor && m.Monto == command.Monto && m.ReferenciaBancaria == referencia
+                && m.ContramovimientoDe == null
+                && !_db.MovimientosBancarios.Any(r => r.ContramovimientoDe == m.Id))
+            .Select(m => (Guid?)m.Id).FirstOrDefaultAsync(cancellationToken);
+        if (existente is Guid folio)
+        {
+            if (!command.ConfirmarDuplicado)
+                throw new ConflictException("MOV_POSIBLE_DUPLICADO",
+                    $"Ya existe el ingreso {folio} con la misma cuenta, fecha, importe y referencia. Si es otro depósito, confírmalo con el motivo.");
+            movimiento.AnotarDuplicadoConfirmado(command.MotivoDuplicado!, folio);
+        }
         _db.MovimientosBancarios.Add(movimiento);
         await _db.SaveChangesAsync(cancellationToken);
         return MovimientoBancarioMapper.ToResponse(movimiento);

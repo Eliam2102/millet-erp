@@ -69,7 +69,7 @@ export function DevolucionProveedorDetallePage() {
   const [registrarSalidaOpen, setRegistrarSalidaOpen] = useState(false);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/devoluciones" search={{}}>
@@ -134,7 +134,7 @@ export function DevolucionProveedorDetallePage() {
             }
           />
 
-          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat [overflow-wrap:anywhere] @sm:grid-cols-2 @3xl:grid-cols-4">
             {/* Razón social resuelta en backend (ADR-0042); si el puerto no
                 resolvió, cae al id truncado (nunca el GUID completo). */}
             <Campo

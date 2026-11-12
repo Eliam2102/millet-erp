@@ -156,8 +156,12 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
 
         // ---------- 7. Pago desde Tesoreria ----------
         var cuentaResp = await b.PostAsJsonAsync("/api/v1/tesoreria/cuentas", new { banco = "Banco DEMO", numeroCuenta = DateTime.UtcNow.Ticks.ToString(), moneda = "MXN", sucursal = "MID", titular = "Millet DEMO", finalidad = "Pagos", firmantes = "DEMO" });
-        await Ok(cuentaResp, "B crea cuenta bancaria");
-        var cuentaId = (await J(cuentaResp)).GetProperty("id").GetGuid();
+        await Ok(cuentaResp, "B solicita el alta de la cuenta bancaria");
+        // M-199: el alta la autoriza otra persona con la facultad (Director de Planeación Financiera).
+        using var dpf = await ClienteConPermisosAsync(app, "tesoreria.cuentas.autorizar");
+        var aprobada = await dpf.PostAsync($"/api/v1/tesoreria/cuentas/solicitudes/{(await J(cuentaResp)).GetProperty("id").GetGuid()}/aprobar", null);
+        await Ok(aprobada, "DPF autoriza el alta");
+        var cuentaId = (await J(aprobada)).GetProperty("cuentaBancariaId").GetGuid();
         await Ok(await b.PostAsJsonAsync("/api/v1/tesoreria/pagos", new
         {
             CuentaBancariaId = cuentaId, FechaValor = hoy, ReferenciaBancaria = "DEMO-PAGO",

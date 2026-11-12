@@ -49,7 +49,8 @@ public sealed record RegistrarPagoACuentaCommand(
     string? ReferenciaBancaria = null,
     Guid? ConceptoId = null,
     // TES-09: TC que aplicó el banco (solo moneda distinta de MXN); null = el del catálogo K10.6 a la fecha valor.
-    decimal? TipoCambioPago = null) : IRequest<PagoACuentaResponse>;
+    decimal? TipoCambioPago = null,
+    string? MotivoTipoCambio = null) : IRequest<PagoACuentaResponse>;
 
 public sealed class RegistrarPagoACuentaValidator : AbstractValidator<RegistrarPagoACuentaCommand>
 {
@@ -64,6 +65,9 @@ public sealed class RegistrarPagoACuentaValidator : AbstractValidator<RegistrarP
             .MaximumLength(120);
         RuleFor(c => c.TipoCambioPago).Must(TipoCambioDelPago.EsValido)
             .WithMessage("El TC del pago debe ser mayor a cero y con 6 decimales como máximo.");
+        // M-265b (Laura Cerón, 10-nov): el TC es editable, pero capturarlo a mano pide el motivo y queda en el movimiento.
+        RuleFor(c => c.MotivoTipoCambio).NotEmpty().When(c => c.TipoCambioPago is not null)
+            .WithMessage("Indica por qué capturas el tipo de cambio a mano.").MaximumLength(300);
     }
 }
 
@@ -171,7 +175,7 @@ public sealed class RegistrarPagoACuentaHandler
             creadoPor: usuarioId,
             ahora: _clock.UtcNow);
         // TES-09: el TC se fija al pagar; la liga tardía lo manda en el evento sin volver a resolverlo.
-        await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken);
+        await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken, command.MotivoTipoCambio);
 
         _db.MovimientosBancarios.Add(movimiento);
         await _db.SaveChangesAsync(cancellationToken);

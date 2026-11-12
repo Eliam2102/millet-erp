@@ -3,6 +3,7 @@ import { BarraFiltros, PaginacionTabla } from '@/components/erp';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
+  TableContainer,
   TableHeader,
   TableBody,
   TableRow,
@@ -321,74 +322,76 @@ function PanelVigentesTabla({ items, deptosMap, usuariosMap, onRevocar }: PanelV
   const offset = Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / 10) - 1)) * 10;
   return (
     <div className="flex min-h-0 flex-col">
-      <Table className="w-full text-sm">
-        <TableHeader className="bg-surface-muted/50">
-          <TableRow>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="depto"
-                label="Departamento"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader columnKey="rol" label="Rol" current={sort} onSortChange={setSort} />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="usuario"
-                label="Usuario"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="vigenteDesde"
-                label="Vigente desde"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-right font-medium">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="[&_tr]:h-12">
-          {itemsOrdenados.slice(offset, offset + 10).map((a) => (
-            <TableRow key={a.id} className="border-t">
-              <TableCell className="px-3 py-2">{a.depto}</TableCell>
-              <TableCell className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</TableCell>
-              <TableCell className="px-3 py-2">{a.usuario}</TableCell>
-              <TableCell className="px-3 py-2">
-                <DateTimeDisplay value={a.vigenteDesde} />
-              </TableCell>
-              <TableCell className="px-3 py-2 text-right">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    onRevocar({
-                      id: a.id,
-                      departamentoId: a.departamentoId,
-                      rol: a.rol,
-                      usuarioId: a.usuarioId,
-                      vigenteDesde: a.vigenteDesde,
-                      designadoPor: a.designadoPor,
-                      motivo: a.motivo,
-                    })
-                  }
-                  className="text-danger-fg hover:bg-danger-bg hover:text-danger-fg"
-                  aria-label={`Revocar aprobador ${a.id}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TableCell>
+      <TableContainer maxHeightClassName="">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="depto"
+                  label="Departamento"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader columnKey="rol" label="Rol" current={sort} onSortChange={setSort} />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="usuario"
+                  label="Usuario"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="vigenteDesde"
+                  label="Vigente desde"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-right font-medium">Acciones</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody className="[&_tr]:h-12">
+            {itemsOrdenados.slice(offset, offset + 10).map((a) => (
+              <TableRow key={a.id} className="border-t">
+                <TableCell className="px-3 py-2">{a.depto}</TableCell>
+                <TableCell className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</TableCell>
+                <TableCell className="px-3 py-2">{a.usuario}</TableCell>
+                <TableCell className="px-3 py-2">
+                  <DateTimeDisplay value={a.vigenteDesde} />
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      onRevocar({
+                        id: a.id,
+                        departamentoId: a.departamentoId,
+                        rol: a.rol,
+                        usuarioId: a.usuarioId,
+                        vigenteDesde: a.vigenteDesde,
+                        designadoPor: a.designadoPor,
+                        motivo: a.motivo,
+                      })
+                    }
+                    className="text-danger-fg hover:bg-danger-bg hover:text-danger-fg"
+                    aria-label={`Revocar aprobador ${a.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
       <PaginacionTabla
         total={itemsOrdenados.length}
         offset={offset}
@@ -496,69 +499,71 @@ function PanelHistoricoTabla({ items, deptosMap, usuariosMap }: PanelHistoricoTa
   const offset = Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / 10) - 1)) * 10;
   return (
     <div className="flex min-h-0 flex-col">
-      <Table className="w-full text-sm">
-        <TableHeader className="bg-surface-muted/50">
-          <TableRow>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="depto"
-                label="Departamento"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader columnKey="rol" label="Rol" current={sort} onSortChange={setSort} />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="usuario"
-                label="Usuario"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="vigenteDesde"
-                label="Vigente desde"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </TableHead>
-            <TableHead className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="vigenteHasta"
-                label="Cerró"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="[&_tr]:h-12">
-          {itemsOrdenados.slice(offset, offset + 10).map((a) => {
-            const vigente = a.vigenteHasta == null;
-            return (
-              <TableRow key={a.id} className={cn('border-t', vigente && 'bg-success-bg/50')}>
-                <TableCell className="px-3 py-2">{a.depto}</TableCell>
-                <TableCell className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</TableCell>
-                <TableCell className="px-3 py-2">{a.usuario}</TableCell>
-                <TableCell className="px-3 py-2">
-                  <DateTimeDisplay value={a.vigenteDesde} />
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  {vigente ? (
-                    <Badge variant="success">Vigente</Badge>
-                  ) : (
-                    <DateTimeDisplay value={a.vigenteHasta} />
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+      <TableContainer maxHeightClassName="">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="depto"
+                  label="Departamento"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader columnKey="rol" label="Rol" current={sort} onSortChange={setSort} />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="usuario"
+                  label="Usuario"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="vigenteDesde"
+                  label="Vigente desde"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="vigenteHasta"
+                  label="Cerró"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="[&_tr]:h-12">
+            {itemsOrdenados.slice(offset, offset + 10).map((a) => {
+              const vigente = a.vigenteHasta == null;
+              return (
+                <TableRow key={a.id} className={cn('border-t', vigente && 'bg-success-bg/50')}>
+                  <TableCell className="px-3 py-2">{a.depto}</TableCell>
+                  <TableCell className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</TableCell>
+                  <TableCell className="px-3 py-2">{a.usuario}</TableCell>
+                  <TableCell className="px-3 py-2">
+                    <DateTimeDisplay value={a.vigenteDesde} />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    {vigente ? (
+                      <Badge variant="success">Vigente</Badge>
+                    ) : (
+                      <DateTimeDisplay value={a.vigenteHasta} />
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
       <PaginacionTabla
         total={itemsOrdenados.length}
         offset={offset}
@@ -608,10 +613,7 @@ function RevocarConfirm({
     );
   }
 
-  const dept =
-    aprobador != null
-      ? (deptosMap.get(aprobador.departamentoId)?.nombre ?? '—')
-      : '';
+  const dept = aprobador != null ? (deptosMap.get(aprobador.departamentoId)?.nombre ?? '—') : '';
   const user =
     aprobador != null ? nombreUsuarioOGuion(usuariosMap.get(aprobador.usuarioId)?.nombre) : '';
 

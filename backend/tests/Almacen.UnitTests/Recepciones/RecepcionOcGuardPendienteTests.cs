@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Recepciones;
+using Millet.Almacen.Infrastructure.PublicAdapters;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
@@ -91,6 +92,33 @@ public class RecepcionOcGuardPendienteTests
         await RegistrarDevolucionAsync(db, oc, primeraLineaMov, 10m, EstadoDevolucionProveedor.Rechazada);
         recibido = await RecibidoPorLineaOc.CalcularAsync(db, conversion, oc, CancellationToken.None);
         recibido[lineaOcId].Should().Be(70m);
+    }
+
+    [Fact]
+    public async Task Puerto_CE_resta_devoluciones_convierte_unidad_y_excluye_cancelada()
+    {
+        await using var db = NuevaDb();
+        var linea = Guid.NewGuid();
+        var modelo = NuevaOc(linea);
+        var oc = modelo with { Lineas = [modelo.Lineas[0] with { UnidadMedida = "CAJA" }] };
+        await RegistrarEntradaAsync(db, oc, linea, 40m, 1);
+        await RegistrarEntradaAsync(db, oc, linea, 60m, 2);
+        var entrada = await db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Lineas.Any(l => l.Cantidad == 40m));
+        await RegistrarDevolucionAsync(db, oc, entrada.Lineas.Single().Id, 30m, EstadoDevolucionProveedor.Registrada);
+        await RegistrarDevolucionAsync(db, oc, entrada.Lineas.Single().Id, 10m, EstadoDevolucionProveedor.Rechazada);
+        var puerto = new RecepcionesImportacionReadAdapter(db, new Compras(oc), new P7Support.Conversion(10));
+        Assert.Equal(7m, (await puerto.ObtenerCantidadesRecibidasAsync(oc.Id, default))[linea]);
+        var cancelada = await db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Lineas.Any(l => l.Cantidad == 60m));
+        cancelada.CancelarRecepcion("Corrección ficticia");
+        await db.SaveChangesAsync();
+        Assert.Equal(1m, (await puerto.ObtenerCantidadesRecibidasAsync(oc.Id, default))[linea]);
+    }
+
+    private sealed class Compras(OcLectura oc) : IComprasOcReadPort
+    {
+        public Task<OcLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OcLectura?>(id == oc.Id ? oc : null);
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
+            => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     }
 
     private static InMemoryAlmacenDbContext NuevaDb()

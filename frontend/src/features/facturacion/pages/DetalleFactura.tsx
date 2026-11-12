@@ -72,7 +72,7 @@ export function DetalleFactura() {
   const query = useComprobante(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la factura"
@@ -141,7 +141,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
       {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
         <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor || <span className="text-ink-muted">—</span>}</dd></div>
@@ -324,9 +324,9 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         puedeRetirar={puedeCancelar}
       />
 
-      <div className="space-y-5">
+      <div className="@container min-w-0 space-y-5">
         <section className="space-y-4">
-          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
             <Dato label="Receptor">
               <div>{f.receptorNombre}</div>
               <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>
@@ -388,7 +388,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         </section>
 
         <section className="space-y-4">
-          <div className="space-y-5">
+          <div className="@container min-w-0 space-y-5">
             <ResumenImportes
               moneda={f.moneda}
               subtotal={f.subtotal}
@@ -992,9 +992,9 @@ function NcBonificacionForm({
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dd className="text-sm [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }

@@ -35,7 +35,7 @@ export function DetalleRepp() {
   const query = useRepp(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
@@ -81,7 +81,7 @@ function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <TimbradoFallidoBanner
         comprobanteId={r.id}
         estado={r.estado}
@@ -118,7 +118,7 @@ function Contenido({ r }: { r: NonNullable<ReturnType<typeof useRepp>['data']> }
         {r.uuid && <p className="font-mono text-xs text-ink-muted">UUID {r.uuid}</p>}
       </div>
 
-      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
         <Dato label="Receptor">{r.receptorNombre}</Dato>
         <Dato label="Moneda del pago">{r.monedaPago}</Dato>
         <Dato label="Fecha de pago">{new Date(r.fechaPago).toLocaleString('es-MX')}</Dato>
@@ -198,9 +198,9 @@ function CuentaEnmascarada({ valor }: { valor?: string | null }) {
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dd className="text-sm [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }

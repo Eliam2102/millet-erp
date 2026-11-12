@@ -255,7 +255,7 @@ public sealed class P5ReglasHandlersTests
     public async Task Cuenta_duplicada_no_expone_numero_completo()
     {
         await using var db = Db(); var cuenta = Cuenta(db); await db.SaveChangesAsync();
-        var handler = new CrearCuentaBancariaHandler(db, new EmpresaContext(), new Permisos(true));
+        var handler = new CrearCuentaBancariaHandler(db, new EmpresaContext(), new User(), new Clock(), null!);
         var act = () => handler.Handle(new(cuenta.Banco, cuenta.NumeroCuenta, null, "MXN"), default);
         var error = await act.Should().ThrowAsync<ConflictException>().Where(e => e.Code == "CTA_NUMERO_DUPLICADO");
         error.Which.Message.Should().Contain(Clabe.Enmascarar(cuenta.NumeroCuenta)).And.NotContain(cuenta.NumeroCuenta);

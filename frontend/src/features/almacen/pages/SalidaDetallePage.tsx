@@ -25,6 +25,7 @@ import { EstadoMovimiento, type SalidaDetalle } from '@/features/almacen/api/typ
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
+import { CorreccionesConsumoSeccion } from '@/features/almacen/components/CorreccionesConsumoSeccion';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { ubicacionLabel } from '@/features/almacen/components/impresion/salida-display';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
@@ -49,7 +50,7 @@ export function SalidaDetallePage() {
   const [regularizarOpen, setRegularizarOpen] = useState(false);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/salidas" search={{}}>
@@ -109,7 +110,7 @@ export function SalidaDetallePage() {
             mono
           />
 
-          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat [overflow-wrap:anywhere] @sm:grid-cols-2 @3xl:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
@@ -244,6 +245,9 @@ export function SalidaDetallePage() {
               total={query.data.lineas.reduce((total, linea) => total + linea.montoTotalMxn, 0)}
             />
           </section>
+
+          {/* M-334 / M-331: correcciones de consumo (Costos autoriza; se aplican en el mes corriente). */}
+          <CorreccionesConsumoSeccion salida={query.data} />
 
           {/* U-4: vale por rectificar (ALM-vale-08) o diferencia de firma, conteo o acuse del surtido (ALM-salida-07). */}
           {query.data.esPorVale ? (
