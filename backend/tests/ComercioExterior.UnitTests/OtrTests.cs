@@ -147,4 +147,34 @@ public sealed class OtrTests
         Assert.Equal(EstadoOtrEnvio.Cancelado, o.Estado); Assert.Equal(EstadoPartida.RequiereRevision, partida.Estado); Assert.Equal("Importado", p.Estado);
         Codigo("CE_OTR_CANCELADO", () => o.Vincular(e)); Codigo("CE_OTR_CANCELADO", () => o.Aplicar(3, Contenido()));
     }
+    [Fact]
+    public void M445_cancelacion_890_libera_el_contenedor_y_el_reemplazo_toma_la_cantidad_sin_duplicar()
+    {
+        var cancelado = Envio(); var e = Expediente(); cancelado.Vincular(e); e.GuardarContenedor(cancelado.ContenedorId!.Value, cancelado.Conciliar(null, Ahora));
+        var p = new PedidoEmbarcable(Guid.NewGuid(), "DEMO-PED", Cliente, "DEMO", Sucursal, true, "Importado", 1, [new(1, null, "DEMO", 10, "H87")], null, null);
+        e.AsignarPartida(cancelado.ContenedorId.Value, p, 1, 10, Actor); var anterior = e.Partidas.Single(); cancelado.Lineas.Single().Proponer(anterior.Id);
+        cancelado.Aplicar(2, Contenido() with { Cancelado = true });
+        Assert.True(e.CancelarContenedorOtr(cancelado.ContenedorId.Value, tieneFactura: false));
+        cancelado.CerrarPorContenedorCancelado();
+        Assert.Equal(EstadoContenedor.Cancelado, e.Contenedor(cancelado.ContenedorId.Value).Estado);
+        Assert.StartsWith("CE_OTR_CANCELADO", cancelado.Lineas.Single(l => l.PartidaId == anterior.Id).Motivo);
+        var reemplazo = new OtrEnvio(Empresa, "DEMO-OTR-REEMPLAZO"); reemplazo.Aplicar(1, Contenido());
+        reemplazo.Vincular(e); e.GuardarContenedor(reemplazo.ContenedorId!.Value, reemplazo.Conciliar(null, Ahora));
+        e.AsignarPartida(reemplazo.ContenedorId.Value, p, 1, 10, Actor);
+        Assert.Equal(EstadoOtrEnvio.Cancelado, cancelado.Estado); Assert.Equal(EstadoOtrEnvio.Vinculado, reemplazo.Estado);
+        Assert.Equal(10, e.Partidas.Where(x => e.Contenedor(x.ContenedorId).Estado == EstadoContenedor.Activo && x.Estado != EstadoPartida.Liberada).Sum(x => x.Cantidad));
+    }
+    [Fact]
+    public void M445_cancelacion_890_con_factura_conserva_el_contenedor_en_revision()
+    {
+        var cancelado = Envio(); var e = Expediente(); cancelado.Vincular(e); e.GuardarContenedor(cancelado.ContenedorId!.Value, cancelado.Conciliar(null, Ahora));
+        var p = new PedidoEmbarcable(Guid.NewGuid(), "DEMO-PED", Cliente, "DEMO", Sucursal, true, "Importado", 1, [new(1, null, "DEMO", 10, "H87")], null, null);
+        e.AsignarPartida(cancelado.ContenedorId.Value, p, 1, 10, Actor); var anterior = e.Partidas.Single();
+        cancelado.Aplicar(2, Contenido() with { Cancelado = true });
+        Assert.False(e.CancelarContenedorOtr(cancelado.ContenedorId.Value, tieneFactura: true));
+        Assert.Equal(EstadoContenedor.Activo, e.Contenedor(cancelado.ContenedorId.Value).Estado); Assert.Equal(EstadoPartida.RequiereRevision, anterior.Estado);
+        var reemplazo = new OtrEnvio(Empresa, "DEMO-OTR-REEMPLAZO"); reemplazo.Aplicar(1, Contenido());
+        reemplazo.Vincular(e); e.GuardarContenedor(reemplazo.ContenedorId!.Value, reemplazo.Conciliar(null, Ahora));
+        Codigo("CE_CANTIDAD_EXCEDE_PEDIDO", () => e.AsignarPartida(reemplazo.ContenedorId.Value, p, 1, 10, Actor));
+    }
 }
