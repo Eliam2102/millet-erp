@@ -102,9 +102,9 @@ export function ExcepcionesPage() {
             ) : items.length === 0 ? (
               <EmptyState title="Sin excepciones abiertas" />
             ) : (
-              <Table className="grid min-w-0 text-sm">
-                <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
-                  <TableRow className={`${columnas} h-9`}>
+              <Table className="grid min-w-[1100px] text-sm">
+                <TableHeader className="h-auto min-h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
+                  <TableRow className={`${columnas} min-h-9`}>
                     {['Etiqueta', 'Pedido', 'Posición', 'N.º de pieza', 'Estación', 'Área', 'Registrado', 'Motivo', 'Intentos', 'Acciones'].map(
                       (x) => (
                         <TableHead key={x} className="px-3">

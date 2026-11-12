@@ -1,6 +1,8 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.PublicPorts;
+using Millet.Contabilidad.Domain;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -49,7 +51,7 @@ public sealed record CrearCuentaBancariaCommand(
     string Moneda,
     string? CuentaContableRef = null,
     string? PerfilExtracto = null, string? Sucursal = null, string? Finalidad = null,
-    string? Titular = null, string? Firmantes = null) : IRequest<CuentaSaldoResponse>;
+    string? Titular = null, string? Firmantes = null) : IRequest<SolicitudCuentaResponse>;
 
 public sealed class CrearCuentaBancariaValidator : AbstractValidator<CrearCuentaBancariaCommand>
 {
@@ -68,53 +70,37 @@ public sealed class CrearCuentaBancariaValidator : AbstractValidator<CrearCuenta
     }
 }
 
-public sealed class CrearCuentaBancariaHandler
-    : IRequestHandler<CrearCuentaBancariaCommand, CuentaSaldoResponse>
+public sealed class CrearCuentaBancariaHandler(
+    TesoreriaDbContext db, ICurrentEmpresaContext currentEmpresa, ICurrentUserContext currentUser, IClock clock,
+    ICuentaContableReadPort cuentasContables)
+    : IRequestHandler<CrearCuentaBancariaCommand, SolicitudCuentaResponse>
 {
-    private readonly TesoreriaDbContext _db;
-    private readonly ICurrentEmpresaContext _currentEmpresa;
-    private readonly ICurrentUserPermissions _permissions;
-
-    public CrearCuentaBancariaHandler(
-        TesoreriaDbContext db,
-        ICurrentEmpresaContext currentEmpresa,
-        ICurrentUserPermissions permissions)
+    public async Task<SolicitudCuentaResponse> Handle(CrearCuentaBancariaCommand command, CancellationToken cancellationToken)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _permissions = permissions;
-    }
+        if (currentEmpresa.Current is not Guid empresaId)
+            throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "El usuario no tiene una empresa seleccionada.");
 
-    public async Task<CuentaSaldoResponse> Handle(
-        CrearCuentaBancariaCommand command, CancellationToken cancellationToken)
-    {
-        if (_currentEmpresa.Current is not Guid empresaId)
-            throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
-                "El usuario no tiene una empresa seleccionada.");
-
-        // El constructor valida y normaliza vía VOs (NumeroCuenta/Clabe).
-        var cuenta = new CuentaBancaria(
-            empresaId,
-            command.Banco,
-            command.NumeroCuenta,
-            string.IsNullOrWhiteSpace(command.Clabe) ? null : command.Clabe,
-            command.Moneda,
+        // El constructor valida y normaliza vía VOs (NumeroCuenta/Clabe); la cuenta no se guarda hasta aprobar (M-199).
+        var cuenta = new CuentaBancaria(empresaId, command.Banco, command.NumeroCuenta,
+            string.IsNullOrWhiteSpace(command.Clabe) ? null : command.Clabe, command.Moneda,
             string.IsNullOrWhiteSpace(command.CuentaContableRef) ? null : command.CuentaContableRef.Trim(),
             string.IsNullOrWhiteSpace(command.PerfilExtracto) ? null : command.PerfilExtracto.Trim());
-
-        // Pre-chequeo amable del único (empresa_id, numero_cuenta); el índice
-        // ux_cuenta_bancaria_empresa_numero respalda ante carreras.
-        var duplicada = await _db.CuentasBancarias
-            .AnyAsync(c => c.NumeroCuenta == cuenta.NumeroCuenta, cancellationToken);
-        if (duplicada)
-            throw new ConflictException("CTA_NUMERO_DUPLICADO",
-                $"Ya existe una cuenta bancaria con el número '{Clabe.Enmascarar(cuenta.NumeroCuenta)}' en la empresa.");
-
         cuenta.ActualizarInventario(command.Sucursal, command.Finalidad, command.Titular, command.Firmantes);
-        _db.CuentasBancarias.Add(cuenta);
-        await _db.SaveChangesAsync(cancellationToken);
+        await CuentaContableBancos.ValidarAsync(cuentasContables, cuenta.CuentaContableRef, cancellationToken);
 
-        var verCompleta = await _permissions.TieneAsync(
-            PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, cancellationToken);
-        return CuentaBancariaMapper.ToResponse(cuenta, 0m, verCompleta);
+        // Pre-chequeo amable del único (empresa_id, numero_cuenta), también contra altas pendientes.
+        var datos = SolicitudCuentaBancaria.Datos(cuenta);
+        var pendientes = await db.SolicitudesCuentaBancaria.AsNoTracking()
+            .Where(s => s.Tipo == TipoSolicitudCuenta.Alta && s.Estado == EstadoSolicitudCuenta.Pendiente).ToListAsync(cancellationToken);
+        if (await db.CuentasBancarias.AnyAsync(c => c.NumeroCuenta == cuenta.NumeroCuenta, cancellationToken)
+            || pendientes.Any(s => s.DatosPropuestos.NumeroCuenta == cuenta.NumeroCuenta))
+            throw new ConflictException("CTA_NUMERO_DUPLICADO",
+                $"Ya existe una cuenta bancaria o un alta pendiente con el número '{Clabe.Enmascarar(cuenta.NumeroCuenta)}' en la empresa.");
+
+        var solicitud = SolicitudCuentaBancaria.Alta(empresaId, datos, currentUser.UserId ?? Guid.Empty, clock.UtcNow);
+        db.SolicitudesCuentaBancaria.Add(solicitud);
+        await db.SaveChangesAsync(cancellationToken);
+        return SolicitudCuentaMapper.ToResponse(solicitud);
     }
 }
 
@@ -129,7 +115,7 @@ public sealed record ActualizarCuentaBancariaCommand(
     string? CuentaContableRef,
     string? PerfilExtracto,
     int VersionEsperada, string? Sucursal = null, string? Finalidad = null,
-    string? Titular = null, string? Firmantes = null) : IRequest<CuentaSaldoResponse>;
+    string? Titular = null, string? Firmantes = null) : IRequest<SolicitudCuentaResponse>;
 
 public sealed class ActualizarCuentaBancariaValidator : AbstractValidator<ActualizarCuentaBancariaCommand>
 {
@@ -152,60 +138,41 @@ public sealed class ActualizarCuentaBancariaValidator : AbstractValidator<Actual
     }
 }
 
-public sealed class ActualizarCuentaBancariaHandler
-    : IRequestHandler<ActualizarCuentaBancariaCommand, CuentaSaldoResponse>
+public sealed class ActualizarCuentaBancariaHandler(
+    TesoreriaDbContext db, ICurrentUserContext currentUser, IClock clock, ICuentaContableReadPort cuentasContables)
+    : IRequestHandler<ActualizarCuentaBancariaCommand, SolicitudCuentaResponse>
 {
-    private readonly TesoreriaDbContext _db;
-    private readonly ICurrentUserPermissions _permissions;
-
-    public ActualizarCuentaBancariaHandler(TesoreriaDbContext db, ICurrentUserPermissions permissions)
+    public async Task<SolicitudCuentaResponse> Handle(ActualizarCuentaBancariaCommand command, CancellationToken cancellationToken)
     {
-        _db = db; _permissions = permissions;
-    }
-
-    public async Task<CuentaSaldoResponse> Handle(
-        ActualizarCuentaBancariaCommand command, CancellationToken cancellationToken)
-    {
-        var cuenta = await _db.CuentasBancarias
+        var cuenta = await db.CuentasBancarias.AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == command.CuentaId, cancellationToken)
-            ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
-                $"No se encontró la cuenta bancaria '{command.CuentaId}'.");
+            ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA", $"No se encontró la cuenta bancaria '{command.CuentaId}'.");
         if (cuenta.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(CuentaBancaria), cuenta.Id);
+        if (await db.SolicitudesCuentaBancaria.AnyAsync(s => s.CuentaBancariaId == cuenta.Id && s.Estado == EstadoSolicitudCuenta.Pendiente, cancellationToken))
+            throw new ConflictException("CTA_SOLICITUD_PENDIENTE", "La cuenta ya tiene un cambio pendiente de autorizar.");
 
         var monedaNueva = command.Moneda.Trim().ToUpperInvariant();
-        decimal saldo = 0m;
-        var tieneMovimientos = false;
-        var agregado = await _db.MovimientosBancarios.AsNoTracking()
-            .Where(m => m.CuentaBancariaId == cuenta.Id)
-            .GroupBy(m => m.CuentaBancariaId)
-            .Select(g => new
-            {
-                Saldo = g.Sum(m => m.Sentido == SentidoMovimiento.Ingreso ? m.Monto : -m.Monto),
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-        if (agregado is not null)
-        {
-            saldo = agregado.Saldo;
-            tieneMovimientos = true;
-        }
-
+        var tieneMovimientos = await db.MovimientosBancarios.AnyAsync(m => m.CuentaBancariaId == cuenta.Id, cancellationToken);
         if (monedaNueva != cuenta.Moneda && (tieneMovimientos || cuenta.SaldoInicial is not null))
             throw new BusinessRuleException("CTA_MONEDA_CON_MOVIMIENTOS",
                 "No se puede cambiar la moneda de una cuenta con movimientos registrados.");
 
+        // Se arma la versión propuesta sobre una copia sin seguimiento: la cuenta vigente no cambia hasta aprobar (M-199).
+        var vigentes = SolicitudCuentaBancaria.Datos(cuenta);
         cuenta.ActualizarInventario(command.Sucursal, command.Finalidad, command.Titular, command.Firmantes);
         cuenta.ActualizarDatos(command.Banco, monedaNueva, command.CuentaContableRef, command.PerfilExtracto);
-        if (command.LimpiarClabe)
-            cuenta.CambiarClabe(null);
-        else if (!string.IsNullOrWhiteSpace(command.Clabe))
-            cuenta.CambiarClabe(command.Clabe);
+        if (command.LimpiarClabe) cuenta.CambiarClabe(null);
+        else if (!string.IsNullOrWhiteSpace(command.Clabe)) cuenta.CambiarClabe(command.Clabe);
+        var propuestos = SolicitudCuentaBancaria.Datos(cuenta);
+        if (propuestos.CuentaContableRef != vigentes.CuentaContableRef)
+            await CuentaContableBancos.ValidarAsync(cuentasContables, propuestos.CuentaContableRef, cancellationToken);
 
-        await _db.SaveChangesAsync(cancellationToken);
-
-        var verCompleta = await _permissions.TieneAsync(
-            PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, cancellationToken);
-        return CuentaBancariaMapper.ToResponse(cuenta, saldo, verCompleta);
+        var original = await db.CuentasBancarias.AsNoTracking().FirstAsync(c => c.Id == cuenta.Id, cancellationToken);
+        var solicitud = SolicitudCuentaBancaria.Cambio(original, propuestos, currentUser.UserId ?? Guid.Empty, clock.UtcNow);
+        db.SolicitudesCuentaBancaria.Add(solicitud);
+        await db.SaveChangesAsync(cancellationToken);
+        return SolicitudCuentaMapper.ToResponse(solicitud);
     }
 }
 

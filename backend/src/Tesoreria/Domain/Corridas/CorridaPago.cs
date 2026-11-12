@@ -80,6 +80,22 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
         return linea;
     }
 
+    /// <summary>
+    /// M-264: paga solo una parte de la factura. El importe es mayor que cero y no excede el saldo del pasivo; lo que no se paga
+    /// queda disponible para otra corrida al cerrar esta.
+    /// </summary>
+    public void AjustarImporte(PasivoPendientePago pasivo, decimal importe)
+    {
+        Exigir(EstadoCorridaPago.Borrador, "ajustar importes de");
+        var l = _lineas.FirstOrDefault(x => x.FacturaProveedorId == pasivo.FacturaProveedorId)
+            ?? throw new BusinessRuleException("CORRIDA_LINEA_NO_ENCONTRADA", "El pasivo no está en la corrida.");
+        if (importe <= 0 || importe > pasivo.SaldoPendiente)
+            throw new BusinessRuleException("CORRIDA_IMPORTE_INVALIDO",
+                $"El importe a pagar debe ser mayor que cero y no exceder el saldo de la factura ({pasivo.SaldoPendiente:N2}).");
+        l.Programar(importe, pasivo);
+        Recalcular();
+    }
+
     public void QuitarLinea(Guid facturaProveedorId)
     {
         Exigir(EstadoCorridaPago.Borrador, "quitar pasivos de");

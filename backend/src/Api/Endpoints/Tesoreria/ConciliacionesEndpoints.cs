@@ -64,13 +64,14 @@ public static class ConciliacionesEndpoints
             CancellationToken ct) =>
         {
             var res = await mediator.Send(new ObtenerConciliacionDetalleQuery(id), ct);
-            var ids = res.Bitacora.Select(b => b.UsuarioId).Distinct().ToArray();
+            var ids = res.Bitacora.Select(b => b.UsuarioId).Append(res.VistoBuenoPor ?? Guid.Empty).Distinct().ToArray();
             var nombres = await identidadDb.Usuarios.AsNoTracking()
                 .Where(u => ids.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id, u => u.Nombre, ct);
             return Results.Ok(res with
             {
-                Bitacora = res.Bitacora.Select(b => b with { UsuarioNombre = nombres.GetValueOrDefault(b.UsuarioId) }).ToList()
+                Bitacora = res.Bitacora.Select(b => b with { UsuarioNombre = nombres.GetValueOrDefault(b.UsuarioId) }).ToList(),
+                VistoBuenoPorNombre = res.VistoBuenoPor is Guid vb ? nombres.GetValueOrDefault(vb) : null,
             });
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)
@@ -209,15 +210,37 @@ public static class ConciliacionesEndpoints
                 request.ExtractoLineaId,
                 request.Tipo,
                 request.Responsable,
-                request.AutorizadaPor);
+                request.Causa,
+                request.FechaPrevistaResolucion);
 
             var res = await mediator.Send(command, ct);
             return Results.Ok(res);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionOperar)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionAutorizarTransito)
         .WithName("MarcarPartidaTransito")
         .Produces<ExtractoLineaResponse>(StatusCodes.Status200OK);
+
+        // 9b. Movimiento de libros en tránsito: cheque no cobrado o depósito del último día (M-201, Javier Canché 11-nov)
+        conciliaciones.MapPost("/{id:guid}/movimientos-transito", async (Guid id, [FromBody] MovimientoTransitoRequest request,
+            IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new MarcarMovimientoTransitoCommand(id, request.MovimientoBancarioId, request.Tipo,
+                request.Causa, request.FechaPrevistaResolucion), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionAutorizarTransito)
+        .WithName("MarcarMovimientoTransito")
+        .Produces<PartidaTransitoLibroResponse>(StatusCodes.Status200OK);
+
+        conciliaciones.MapDelete("/{id:guid}/movimientos-transito/{movimientoId:guid}", async (Guid id, Guid movimientoId,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new QuitarMovimientoTransitoCommand(id, movimientoId), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionAutorizarTransito)
+        .WithName("QuitarMovimientoTransito")
+        .Produces(StatusCodes.Status204NoContent);
 
         // 10. Cerrar conciliación (Solo cierra con diferencia 0 y genera acta, RN-7)
         conciliaciones.MapPost("/{id:guid}/cerrar", async (
@@ -247,8 +270,24 @@ public static class ConciliacionesEndpoints
             return Results.Ok(res);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionCerrar)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionReabrir)
         .WithName("ReabrirConciliacion")
+        .Produces<ConciliacionResumenResponse>(StatusCodes.Status200OK);
+
+        // 11b. Visto bueno de Contabilidad (M-202)
+        conciliaciones.MapPost("/{id:guid}/visto-bueno", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DarVistoBuenoConciliacionCommand(id), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionRevisar)
+        .WithName("VistoBuenoConciliacion")
+        .Produces<ConciliacionResumenResponse>(StatusCodes.Status200OK);
+
+        // 11c. Contabilidad devuelve a Tesorería con motivo (M-202)
+        conciliaciones.MapPost("/{id:guid}/devolver", async (Guid id, [FromBody] ReabrirConciliacionRequest request, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DevolverConciliacionCommand(id, request.Motivo), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaConciliacionRevisar)
+        .WithName("DevolverConciliacion")
         .Produces<ConciliacionResumenResponse>(StatusCodes.Status200OK);
 
         // 12. Descargar acta de conciliación en PDF
@@ -301,7 +340,8 @@ public sealed record MarcarPartidaTransitoRequest(
     Guid ExtractoLineaId,
     PartidaTransitoTipo Tipo,
     string Responsable,
-    Guid? AutorizadaPor = null);
+    string Causa,
+    DateOnly FechaPrevistaResolucion);
 
 public sealed record CerrarConciliacionRequest(
     string FirmanteNombre,
@@ -309,3 +349,9 @@ public sealed record CerrarConciliacionRequest(
 
 public sealed record ReabrirConciliacionRequest(
     string Motivo);
+
+public sealed record MovimientoTransitoRequest(
+    Guid MovimientoBancarioId,
+    PartidaTransitoTipo Tipo,
+    string Causa,
+    DateOnly FechaPrevistaResolucion);

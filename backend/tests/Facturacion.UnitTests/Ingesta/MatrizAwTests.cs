@@ -65,6 +65,24 @@ public sealed class MatrizAwTests
     // ---- Alta ----
 
     [Fact]
+    public async Task Alta_con_dato_que_el_dominio_rechaza_va_a_la_bandeja_y_no_se_reintenta()
+    {
+        // 86e40b4mp: antes la excepción salía del handler, no había write-back y la solicitud se releía cada tick.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var wb = new FakeAwWriteBackPort();
+        var datos = Datos() with { Lineas = [new LineaPedidoAw("PRD-1", " ", "01010101", "H87", 2m, 100m, 0m, false)] };
+
+        var resp = await Handler(db, wb, datos, Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta)), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        wb.Ultimo!.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        (await db.ExcepcionesImportacion.SingleAsync()).Detalle.Should().StartWith("PEDIDO_LINEA_DESCRIPCION_VACIA");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task Alta_con_cliente_crea_pedido_control_y_snapshot()
     {
         var empresaId = Guid.NewGuid();

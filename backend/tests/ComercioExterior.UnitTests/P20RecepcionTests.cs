@@ -20,6 +20,41 @@ public sealed class P20RecepcionTests
     }
     private static void Recibir(Expediente e, decimal recibida, Guid? evento = null) => e.ConciliarRecepcion(evento ?? Guid.NewGuid(), e.PartidasImportacion.Single().Id, recibida, Viernes, Viernes.AddDays(4), Capturista, Ahora);
     [Theory]
+    [InlineData(9)]
+    [InlineData(10)]
+    public void Otro_aviso_con_el_mismo_neto_no_repite_historia_ni_invalida_revision(decimal cantidad)
+    {
+        var e = Crear(); Recibir(e, cantidad);
+        var revision = e.RevisionContenido;
+        var historial = e.Incidencias.Sum(i => i.Historial.Count);
+        Recibir(e, cantidad);
+        Assert.Equal(revision, e.RevisionContenido);
+        Assert.Equal(historial, e.Incidencias.Sum(i => i.Historial.Count));
+        Assert.Equal(2, e.PartidasImportacion.Single().EventosRecepcion.Length);
+    }
+    [Fact]
+    public void Guia_cancelada_conserva_ancla_historica_sin_repetir_la_misma_diferencia()
+    {
+        var e = Crear();
+        var primera = e.PartidasImportacion.Single();
+        var guia = Guid.NewGuid();
+        e.GuardarContenedor(guia, new("CONT-SEGUNDO", null, null, "BL-SEGUNDO", null, null, null, null, ModalidadTransporte.Maritimo));
+        e.AsignarPartidaImportacion(guia, primera.OcLineaId, 1, 9, 20, "PZA", Actor);
+        e.RegistrarEmbarque(guia, Viernes, Viernes);
+        e.ReconciliarRecepcion(primera.Id, 18, Viernes, Viernes.AddDays(4), Capturista, Ahora);
+        var ancla = e.PartidasImportacion.OrderBy(p => p.Id).First();
+        var segunda = e.PartidasImportacion.OrderBy(p => p.Id).Last();
+        var neto = segunda.Cantidad - 1;
+        Assert.Equal(neto, segunda.CantidadRecibida);
+        e.CancelarContenedor(ancla.ContenedorId, "Cancelación de muestra", false);
+        var revision = e.RevisionContenido;
+        var historia = e.Incidencias.Single().Historial.Count;
+        e.ReconciliarRecepcion(segunda.Id, neto, Viernes, Viernes.AddDays(4), Capturista, Ahora);
+        Assert.Equal(revision, e.RevisionContenido);
+        Assert.Equal(historia, e.Incidencias.Single().Historial.Count);
+        Assert.Equal(1m, e.Incidencias.Single().DiferenciaCantidad);
+    }
+    [Theory]
     [InlineData(9, TipoIncidencia.MercanciaFaltante)]
     [InlineData(11, TipoIncidencia.MercanciaSobrante)]
     public void Diferencia_crea_incidencia_con_responsable_y_bloqueo(decimal recibida, TipoIncidencia tipo)

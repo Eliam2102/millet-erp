@@ -192,6 +192,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
             conversiones.Add(await Recepciones.RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, rq!.Lineas.Single(l => l.LineaId == input.LineaRqId).UnidadMedida ?? "PZA", variante, cancellationToken));
         }
+        // M-335: la salida de vidrio por medida es consumo de materia prima; no se captura en el ERP si ya viene de la app.
+        if (variantes.Any(v => v is not null))
+            await AppAlmacenes.OrigenCapturaMpReglas.ExigirErpAsync(_db, Domain.AppAlmacenes.OrigenCapturaMp.Consumo, cancellationToken);
         var lineasDocumento = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         await ValidarRqAsync(rq, lineasDocumento, i => conversiones[i].CantidadBase, cancellationToken);
 

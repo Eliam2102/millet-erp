@@ -106,7 +106,7 @@ public sealed class TraspasoTests
     }
 
     [Fact]
-    public async Task Caso2_el_flujo_de_efectivo_no_cuenta_el_traspaso_pero_los_saldos_si_se_mueven()
+    public async Task Caso2_el_traspaso_entra_al_flujo_en_su_renglon_y_no_cambia_el_neto_por_moneda()
     {
         using var db = Db();
         var a = Cuenta("BBVA", "00000004468"); var b = Cuenta("Santander", "00000008138");
@@ -119,8 +119,11 @@ public sealed class TraspasoTests
         var rep = await new FlujoEfectivoReporteHandler(db, new Reloj())
             .Handle(new FlujoEfectivoReporteQuery(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31)), default);
 
-        rep.Filas.Where(f => (string?)f["tipo"] == "movimiento").Should().ContainSingle()
-            .Which["ingresos"].Should().Be(100_000m);
+        // Javier Canché (9 y 11-nov): los traspasos entre cuentas propias sí entran al flujo.
+        var traspasos = rep.Filas.Where(f => (string?)f["clasificacion"] == "Traspasos entre cuentas propias").ToList();
+        traspasos.Should().HaveCount(2);
+        traspasos.Single(f => (Guid?)f["cuentaId"] == a.Id)["egresos"].Should().Be(50_000m);
+        traspasos.Single(f => (Guid?)f["cuentaId"] == b.Id)["ingresos"].Should().Be(50_000m);
         rep.Filas.Single(f => (string?)f["tipo"] == "total")["neto"].Should().Be(100_000m);
         rep.Filas.Single(f => (string?)f["tipo"] == "saldoFinal" && (Guid?)f["cuentaId"] == a.Id)["neto"].Should().Be(50_000m);
         rep.Filas.Single(f => (string?)f["tipo"] == "saldoFinal" && (Guid?)f["cuentaId"] == b.Id)["neto"].Should().Be(50_000m);

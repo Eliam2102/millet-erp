@@ -1906,6 +1906,7 @@ Millet.Api.Endpoints.Almacen.TamboresLineaEndpoints.MapTamboresLineaEndpoints(ap
 Millet.Api.Endpoints.Almacen.TallerEndpoints.MapTallerEndpoints(app);
 Millet.Api.Endpoints.Almacen.MermasProcesoEndpoints.MapMermasProcesoEndpoints(app);
 Millet.Api.Endpoints.Almacen.SalidasRoturaEndpoints.MapSalidasRoturaEndpoints(app);
+Millet.Api.Endpoints.Almacen.OrigenCapturaMpEndpoints.MapOrigenCapturaMpEndpoints(app);
 Millet.Api.Endpoints.Almacen.ConciliacionDiariaEndpoints.MapConciliacionDiariaEndpoints(app);
 
 // === Almacén — Recepciones Variante A (F2-PR2) + Saldos materializados ===
@@ -2205,6 +2206,7 @@ Millet.Api.Endpoints.Tesoreria.ReportesEndpoints.MapTesoreriaReportesEndpoints(a
 
 // === Tesorería — Conciliación bancaria, emparejamiento multinivel, alta y acta (T9.2, 86e3ke6ne) ===
 Millet.Api.Endpoints.Tesoreria.ConciliacionesEndpoints.MapTesoreriaConciliacionesEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.ChequesEndpoints.MapTesoreriaChequesEndpoints(app);
 
 // === SignalR hubs (CollaborationHub Sprint 1, ADR-0001 + ADR-0012 Capa 2) ===
 // /hubs/compras: canal de colaboración del módulo. Auth requerida — el

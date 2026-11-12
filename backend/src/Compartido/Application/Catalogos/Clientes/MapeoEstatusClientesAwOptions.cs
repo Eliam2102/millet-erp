@@ -18,7 +18,8 @@ public sealed class MapeoEstatusClientesAwOptions
         && Version.Length <= 8 && Version.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'));
 
     public bool TieneCodigoSinMapeo(int? estado, int? bloqueo) => Habilitado
-        ? estado is { } e && !KzStatus.ContainsKey(e) || bloqueo is { } b && !KzGesperrt.ContainsKey(b)
+        // Jorge (10-nov): el estatus es KZ_GESPERRT; KZ_STATUS sin mapa configurado no se usa ni deja pendiente.
+        ? estado is { } e && KzStatus.Count > 0 && !KzStatus.ContainsKey(e) || bloqueo is { } b && !KzGesperrt.ContainsKey(b)
         // Conserva el diagnóstico previo: cualquier KZ_STATUS informado está
         // pendiente; un KZ_GESPERRT cero sin estado no abre un pendiente nuevo.
         : estado is not null || bloqueo is not null and not 0;

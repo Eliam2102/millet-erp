@@ -38,6 +38,8 @@ public sealed class ExtractoLineaConfiguration : IEntityTypeConfiguration<Extrac
         builder.Property(e => e.PartidaTransitoTipo).HasConversion<short>();
         builder.Property(e => e.PartidaTransitoResponsable).HasMaxLength(150);
         builder.Property(e => e.PartidaTransitoAutorizadaPor);
+        builder.Property(e => e.PartidaTransitoCausa).HasMaxLength(300);
+        builder.Property(e => e.PartidaTransitoFechaPrevista);
 
         var jsonOptions = (JsonSerializerOptions?)null;
         builder.Property(e => e.CandidatosRevisionIds)
@@ -54,8 +56,11 @@ public sealed class ExtractoLineaConfiguration : IEntityTypeConfiguration<Extrac
         builder.HasIndex(e => new { e.ConciliacionId, e.NumeroLinea })
             .HasDatabaseName("ix_extracto_linea_conciliacion_numero");
 
+        // M-205: respaldo en BD del dedupe por hash (CargarLineas ya lo evita en código).
         builder.HasIndex(e => new { e.ConciliacionId, e.LineaHash })
-            .HasDatabaseName("ix_extracto_linea_hash");
+            .HasDatabaseName("ux_extracto_linea_hash")
+            .IsUnique()
+            .HasFilter("linea_hash IS NOT NULL");
 
         builder.HasIndex(e => e.MatchMovimientoId)
             .HasDatabaseName("ix_extracto_linea_match_movimiento_id");
