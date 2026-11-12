@@ -1772,7 +1772,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         decimal cantidadAcumulada,
         DateTimeOffset ocurridoEn)
     {
-        ValidarEstadoParaRegistrarMovimiento();
+        // N1 de servicio CE permite capturar el pasivo mientras Dirección aún debe firmar.
+        if (!EsServicioComercioExterior || Estado != EstadoOrdenCompra.EnAutorizacionDireccion)
+            ValidarEstadoParaRegistrarMovimiento();
         var linea = BuscarLineaOLanzar(lineaId);
         linea.SetCantidadFacturada(cantidadAcumulada);
         return RecalcularSubEstadosYAjustarEstado(ocurridoEn);

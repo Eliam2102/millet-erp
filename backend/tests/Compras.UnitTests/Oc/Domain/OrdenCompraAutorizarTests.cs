@@ -216,4 +216,18 @@ public class OrdenCompraAutorizarTests
         Assert.Equal(4, oc.Autorizaciones.Count);
     }
 
+    [Fact]
+    public void Facturacion_servicio_CE_despues_de_N1_no_adelanta_N2_ni_admite_pago()
+    {
+        var oc = NewOcConLineaBorrador(servicioCe: true);
+        var ahora = DateTimeOffset.UtcNow;
+        oc.EnviarAAutorizacion(ahora);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), ahora);
+        var resultado = oc.RegistrarFacturacionLinea(oc.Lineas.Single().Id, oc.Lineas.Single().Cantidad, ahora);
+        Assert.Equal(EstadoOrdenCompra.EnAutorizacionDireccion, oc.Estado);
+        Assert.Equal(SubEstadoFacturacion.Completa, oc.SubEstadoFacturacion);
+        Assert.Null(resultado.Cerrada);
+        Assert.Equal("OC_MOVIMIENTO_ESTADO_INVALIDO", Assert.Throws<BusinessRuleException>(() => oc.RegistrarPago(1, ahora)).Code);
+    }
+
 }

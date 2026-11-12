@@ -84,6 +84,7 @@ public sealed class FirmasServiciosHttpTests
         using var capturada = await cxpClient.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas/", captura);
         Assert.Equal(HttpStatusCode.Created, capturada.StatusCode);
         var factura = await capturada.Content.ReadFromJsonAsync<Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaConOc.CapturarFacturaConOcResponse>();
+        await ComunicarAComprasAsync(e, factura!.Id, "cuentas_por_pagar.factura.registrada.v1");
         async Task<HttpResponseMessage> Liberar()
         {
             using var scope = e.Scope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -133,6 +134,7 @@ public sealed class FirmasServiciosHttpTests
             var anteriorId = factura!.Id;
             factura = await sustituta.Content.ReadFromJsonAsync<Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaConOc.CapturarFacturaConOcResponse>();
             Assert.NotEqual(anteriorId, factura!.Id);
+            await ComunicarAComprasAsync(e, factura.Id, "cuentas_por_pagar.factura.registrada.v1");
             using var sinNuevaSegunda = await Liberar();
             Assert.Equal(HttpStatusCode.UnprocessableEntity, sinNuevaSegunda.StatusCode);
             using var nuevaSegunda = await Firma(n2, 2);
@@ -158,6 +160,18 @@ public sealed class FirmasServiciosHttpTests
         Assert.Equal(Millet.CuentasPorPagar.Domain.FacturaProveedor.EstadoPasivo.Autorizada, pasivo.Estado);
         await VerificarPagosAsync(e, factura.Id);
     }
+    private static async Task ComunicarAComprasAsync(ExpedientesHttpTests.Escenario e, Guid facturaId, string tipo, Guid? aplicacionId = null)
+    {
+        using var scope = e.Scope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var cxp = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>();
+        var evento = (await cxp.OutboxEntries.Where(x => x.EventType == tipo).ToListAsync())
+            .Single(x => x.Payload.Contains(facturaId.ToString()) && (aplicacionId is null || x.Payload.Contains(aplicacionId.Value.ToString())));
+        using var worker = new Millet.Compras.Infrastructure.Workers.CxpEventListenerWorker(null!, scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<Millet.Compras.Infrastructure.Workers.CxpEventListenerWorker>.Instance);
+        var consumidor = (Millet.SharedKernel.Application.Integration.ILocalIntegrationEventConsumer)worker;
+        await consumidor.ConsumirLocalAsync(evento.EventType, evento.Id, evento.Payload, default);
+        await consumidor.ConsumirLocalAsync(evento.EventType, evento.Id, evento.Payload, default);
+    }
+
     private static async Task VerificarPagosAsync(ExpedientesHttpTests.Escenario e, Guid facturaId)
     {
         const string pagos = "/api/v1/tesoreria/pagos";
@@ -252,6 +266,8 @@ public sealed class FirmasServiciosHttpTests
             var consumidor = (Millet.SharedKernel.Application.Integration.ILocalIntegrationEventConsumer)worker;
             await consumidor.ConsumirLocalAsync(evento.EventType, evento.Id, evento.Payload, default);
             await consumidor.ConsumirLocalAsync(evento.EventType, evento.Id, evento.Payload, default);
+            await ComunicarAComprasAsync(e, facturaId, "cuentas_por_pagar.factura.pago-aplicado.v1",
+                tipo == "tesoreria.pago-factura-proveedor.aplicado.v1" ? movimiento : evento.Id);
         }
         var aplicaciones = new List<Guid>();
         foreach (var importe in new[] { 40m, 76m })
@@ -266,6 +282,11 @@ public sealed class FirmasServiciosHttpTests
             await Proyectar("tesoreria.pago-factura-proveedor.aplicado.v1", aplicacion);
             Assert.Equal(importe == 40 ? 76 : 0, await Saldo());
             await Cierre(importe == 76);
+            using var scopeOc = e.Scope(); using var alcanceOc = scopeOc.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var cxpOc = scopeOc.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>();
+            var ocId = (await cxpOc.FacturasProveedor.SingleAsync(x => x.Id == facturaId)).OrdenCompraId;
+            Assert.Equal(importe == 76 ? EstadoOrdenCompra.Cerrada : EstadoOrdenCompra.Autorizada,
+                (await scopeOc.ServiceProvider.GetRequiredService<ComprasDbContext>().OrdenesCompra.SingleAsync(x => x.Id == ocId)).Estado);
         }
         using var reversa = await tesClient.PostAsJsonAsync($"{pagos}/{aplicaciones[0]}/revertir", new { motivo = "Reversa ficticia para comprobar cierre CE" });
         Assert.True(reversa.IsSuccessStatusCode, await reversa.Content.ReadAsStringAsync());
@@ -275,6 +296,8 @@ public sealed class FirmasServiciosHttpTests
         Assert.Equal(40, await Saldo());
         await Cierre(false);
         using var final = e.Scope(); using var alcance = final.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var facturaFinal = await final.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>().FacturasProveedor.SingleAsync(x => x.Id == facturaId);
+        Assert.Equal(EstadoOrdenCompra.Autorizada, (await final.ServiceProvider.GetRequiredService<ComprasDbContext>().OrdenesCompra.SingleAsync(x => x.Id == facturaFinal.OrdenCompraId)).Estado);
         Assert.False(await final.ServiceProvider.GetRequiredService<Millet.Tesoreria.Infrastructure.Persistence.TesoreriaDbContext>()
             .AutorizacionesPagoComercioExterior.AnyAsync(x => x.FacturaProveedorId == facturaId));
     }

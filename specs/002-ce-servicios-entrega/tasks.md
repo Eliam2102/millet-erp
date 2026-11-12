@@ -9,26 +9,26 @@ Tests: requeridas para lógica de autorización/dinero y demostración de flujo.
 
 ## Phase 2: Foundational
 - [x] T003 Integrar el paquete local reutilizado en rama de implementación basada en developfresco; revisar backend/src/Api/Program.cs, infra/modules/servicebus.bicep y permisosbackend/frontend preservando lotes entrantes.
-- [ ] T004 Reconciliar las3migraciones/snapshots en backend/src/{Compras,CuentasPorPagar,Identidad}/Infrastructure/ y ensayar actualización/históricos; no asignar roles reales.
+- [x] T004 Reconciliar las3migraciones/snapshots en backend/src/{Compras,CuentasPorPagar,Identidad}/Infrastructure/ y ensayar actualización/históricos; no asignar roles reales.
 - [x] T005 Preservar helper backend/src/Compras/Application/Listar/PendientesAutorizacionLectura.cs y extender consumidores listadoOC/ComprasFuenteAvisos coherentes con facultadesCE; no restaurar filtroduplicado antiguo.
 
 ## Phase 3: US1 · Servicio a crédito
 Goal: N1→pasivo→N2→Tesorería con unafactura.
 Independent test: circuitoHTTPcompleto sin insertar la factura entre firmas.
 - [x] T006 [US1] Reutilizar guards/dominio/captura/liberación preparados en backend/src/Compras/Application/Oc/FirmasServicioCeGuard.cs y backend/src/CuentasPorPagar/Application/FacturaProveedor/; no reconstruirlos.
-- [ ] T007 [US1] Añadir circuitoHTTPreal a backend/tests/Api.IntegrationTests/ComercioExterior/FirmasServiciosHttpTests.cs con capturaCxP y liberaciónHTTP; comprobar una deuda y efectoTesorería.
-- [ ] T008 [US1] Añadir regresión cancelación/sustitución de factura despuésN2 en backend/tests/Api.IntegrationTests/ComercioExterior/FirmasServiciosHttpTests.cs y P3FacturaConOcTests.cs; probar vigencia y reintento.
-- [ ] T009 [US1] Si T008 falla, corregir sólo guarda/vigencia compartida en backend/src/Api/Infrastructure/Adapters/FacturaServicioCeReadAdapter.cs, Compras/Oc/Autorizar y CxP/AutorizarFactura; conservar identidad/historia y no inventar regla adicional.
-- [ ] T010 [US1] Ejecutar negativos de rol/personas/empresa/sucursal/duplicado/incompleta/históricos y comprasordinarias en backend/tests/{Compras,CuentasPorPagar}.UnitTests y Api.IntegrationTests/ComercioExterior/.
-- [ ] T011 [US1] Verificar indicador/etiquetasN1/N2 y Enviar aTesorería con UI existente en frontend/src/features/compras/ordenes/ y frontend/src/features/cxp/pages/FacturaDetallePage.p3.test.tsx; incluir bandeja/avisos afectadosporT005.
+- [x] T007 [US1] Añadir circuitoHTTPreal a backend/tests/Api.IntegrationTests/ComercioExterior/FirmasServiciosHttpTests.cs con capturaCxP y liberaciónHTTP; comprobar una deuda y efectoTesorería.
+- [x] T008 [US1] Añadir regresión cancelación/sustitución de factura despuésN2 en backend/tests/Api.IntegrationTests/ComercioExterior/FirmasServiciosHttpTests.cs y P3FacturaConOcTests.cs; probar vigencia y reintento.
+- [x] T009 [US1] Si T008 falla, corregir sólo guarda/vigencia compartida en backend/src/Api/Infrastructure/Adapters/FacturaServicioCeReadAdapter.cs, Compras/Oc/Autorizar y CxP/AutorizarFactura; conservar identidad/historia y no inventar regla adicional.
+- [x] T010 [US1] Ejecutar negativos de rol/personas/empresa/sucursal/duplicado/incompleta/históricos y comprasordinarias en backend/tests/{Compras,CuentasPorPagar}.UnitTests y Api.IntegrationTests/ComercioExterior/.
+- [x] T011 [US1] Verificar indicador/etiquetasN1/N2 y Enviar aTesorería con UI existente en frontend/src/features/compras/ordenes/ y frontend/src/features/cxp/pages/FacturaDetallePage.p3.test.tsx; incluir bandeja/avisos afectadosporT005.
 
 ## Phase 4: US2 · Servicios pagados y cierre
 Goal: no cerrarIMPO con deuda, reversa o lectura no verificable.
 Independent test: impago→40pagado→100pagado→reversa y proyecciónpendiente por flujo deTesorería.
-- [ ] T012 [US2] Reutilizar backend/src/ComercioExterior/Application/CierreServiciosCeServicio.cs y adaptadores FacturaGastoReadAdapter/PagosFacturaCeReadAdapter; revisar enlacesfactura/gasto y control de completitud antes de inferir cero servicios.
-- [ ] T013 [US2] Extender backend/tests/Api.IntegrationTests/ComercioExterior/CierreServiciosHttpTests.cs para pago/aplicación/reversa porHTTP deTesorería, proyección/evento y relectura; no sustituir pago por NotaCredito en el caso que afirma probar banco.
-- [ ] T014 [US2] Probar ambos puntos cerrar-financiero/cerrar, incluyendo reversa después del cierrefinanciero y antesGerencia, EXPO, facturaausente/otraempresa/proveedor/sucursal y moneda en backend/tests/ComercioExterior.UnitTests/CierreServiciosCeTests.cs y CierreServiciosHttpTests.cs.
-- [ ] T015 [US2] Corregir sólo fallas demostradas en backend/src/ComercioExterior/Application/{ExpedienteHandlers,ExpedienteServicio,FinanzasServicio}.cs y puertoslectura; verificar detalle/UI explica proyección sin sugerir otro pago.
+- [x] T012 [US2] Reutilizar backend/src/ComercioExterior/Application/CierreServiciosCeServicio.cs y adaptadores FacturaGastoReadAdapter/PagosFacturaCeReadAdapter; revisar enlacesfactura/gasto y control de completitud antes de inferir cero servicios.
+- [x] T013 [US2] Extender backend/tests/Api.IntegrationTests/ComercioExterior/CierreServiciosHttpTests.cs para pago/aplicación/reversa porHTTP deTesorería, proyección/evento y relectura; no sustituir pago por NotaCredito en el caso que afirma probar banco.
+- [x] T014 [US2] Probar ambos puntos cerrar-financiero/cerrar, incluyendo reversa después del cierrefinanciero y antesGerencia, EXPO, facturaausente/otraempresa/proveedor/sucursal y moneda en backend/tests/ComercioExterior.UnitTests/CierreServiciosCeTests.cs y CierreServiciosHttpTests.cs.
+- [x] T015 [US2] Corregir sólo fallas demostradas en backend/src/ComercioExterior/Application/{ExpedienteHandlers,ExpedienteServicio,FinanzasServicio}.cs y puertoslectura; verificar detalle/UI explica proyección sin sugerir otro pago.
 
 ## Phase 5: US3 · Entrega y junta
 Goal: sólo demostrarlo como listo tras evidenciaactual.
@@ -56,3 +56,10 @@ MVP=US1+US2 probados, porque unservicioa crédito sin pago/cierre no resuelve el
 
 ## Ejecución en curso
 Rama fix/ce-servicios-circuito sobre954a52c7a. Paquete incorporado por tresvías; conflicto de bandeja resuelto preservando helper y extendiendo avisos. Regresión roja de facultadCE reproducida,27dirigidas verdes. HTTP inicial firmas/captura/liberación y cierre:3/3. Sustitución trasN2 reproducida enrojo; guarda y devolución al ciclo de corrección añadidas,37CxPverdes. Ampliación de pagosHTTP/reversa y demásgates todavía pendientes; noCI,merge niQA. Evidencia fuera delrepo.
+
+### 12-nov · circuito HTTP con eventos de producción aprobado
+Guardas de cierre y sustitución probadas con creación/línea/transmisión/retransmisión de OC por HTTP, N1, captura real de factura, N2 de otro actor, liberación, gasto CE, pagos40+76 y reversa40. Los consumidores de producción reciben los eventos realmente emitidos, reentregados dos veces: factura registrada entre N1/N2 y pagos/reversa de CxP hacia Compras. OC cierra con total y reabre con reversa; financiero y aprobación final vuelven a rechazar deuda. Nuevo ciclo de sustitución conserva4firmas y una sola factura vigente. Gate_eventos_completos:2/2 aprobadas,16contextos migrados, build0errores/0advertencias. La base física/distribución del ensayo financiero es preparación ficticia explícita; no sustituye el ensayo físico/documental P25 ni QA.
+
+Se reprodujo primero en rojo OC_MOVIMIENTO_ESTADO_INVALIDO al comunicar el pasivo trasN1. Se permite sólo facturación del servicioCE en EnAutorizacionDireccion; pago/recepción conservan sus guardas.975/975Compras aprobadas. El suiteCE previo terminó85/86, única falla en identificador de reversa de la prueba, corregida y comprobada en el ensayo completo; no se presenta esa corrida como verde. Frontend contrato de permisos5/5 tras completar los2 códigos nuevos. Las demás1166UI y832CxP/334API/252CE/472Tesorería conservan su evidencia de esta composición; no se suman como una corrida global nueva. CI remoto y QA aún pendientes, no completarT016/T017/T020.
+
+Al revisar completitud: se controlan las facturas de los gastos identificados en el expediente. Un servicio sin vínculo no puede asignarse por inferencia a otro expediente; la revisión operativa de completitud y el casoQA permanecen explícitos, sin bloquear históricos ni crear un registro universal paralelo. Modelos objetivo reconciliados con snapshots y migraciones aditivas/defaultfalse ensayadas sin asignaciones reales.
