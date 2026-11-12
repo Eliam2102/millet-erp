@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRequest } from '@/lib/api';
@@ -41,6 +41,22 @@ describe('Consulta contextual del centro', () => {
   it('un error oculta datos anteriores', async () => {
     const { result } = renderHook(() => useCentroAvisos({ condicion: 'Todas' }), { wrapper }); await waitFor(() => expect(result.current.data).toBeDefined());
     request.mockRejectedValue(new Error('403')); await act(async () => { await result.current.refetch(); }); await waitFor(() => expect(result.current.isError).toBe(true)); expect(result.current.data).toBeUndefined();
+  });
+  it('informa el fallo sin conexión y recupera los avisos al reconectar', async () => {
+    const { result } = renderHook(() => useCentroAvisos({ condicion: 'Todas' }), { wrapper });
+    await waitFor(() => expect(result.current.data?.totalAccionesConocidas).toBe(35));
+    try {
+      act(() => onlineManager.setOnline(false));
+      request.mockRejectedValue(new TypeError('Failed to fetch'));
+      act(() => { void result.current.refetch(); });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.data).toBeUndefined();
+    } finally {
+      request.mockImplementation(async path => ({ data: String(path).endsWith('preferencia-sonido') ? { habilitado: false } : respuesta() }) as never);
+      act(() => onlineManager.setOnline(true));
+    }
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.totalAccionesConocidas).toBe(35);
   });
   it('leer envía sucursal sin ejecutar workflow', async () => {
     const { result } = renderHook(() => useCentroAvisos({ condicion: 'Todas' }), { wrapper }); await waitFor(() => expect(result.current.data).toBeDefined());
