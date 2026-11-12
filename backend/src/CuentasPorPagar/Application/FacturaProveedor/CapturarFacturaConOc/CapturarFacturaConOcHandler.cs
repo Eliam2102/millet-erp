@@ -138,7 +138,12 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 "OC_NO_ENCONTRADA",
                 $"No se encontró la OC '{command.OrdenCompraId}' en el módulo Compras.");
 
-        if (!string.Equals(oc.Estado, "Autorizada", StringComparison.OrdinalIgnoreCase) &&
+        var servicioCeConPrimeraFirma = oc.EsServicioComercioExterior && oc.ServicioCeNivel1Autorizado
+            && oc.Lineas.Count > 0 && oc.Lineas.All(l => l.EsServicio)
+            && oc.Estado is "EnAutorizacionDireccion" or "Autorizada" or "Cerrada";
+        if (oc.EsServicioComercioExterior && !servicioCeConPrimeraFirma)
+            throw new BusinessRuleException("CE_SERVICIO_SIN_PRIMERA_FIRMA", "Comercio Exterior debe registrar la primera firma de la orden antes de capturar el pasivo.");
+        if (!servicioCeConPrimeraFirma && !string.Equals(oc.Estado, "Autorizada", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(oc.Estado, "EnRecepcion", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(oc.Estado, "Recibida", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(oc.Estado, "EnFacturacion", StringComparison.OrdinalIgnoreCase))
@@ -146,6 +151,17 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             throw new BusinessRuleException(
                 "OC_ESTADO_NO_FACTURABLE",
                 $"La OC '{oc.Folio}' está en estado '{oc.Estado}' y no permite captura de factura.");
+        }
+
+        if (oc.EsServicioComercioExterior)
+        {
+            if (await _db.FacturasProveedor.AnyAsync(f => f.OrdenCompraId == oc.Id && f.Estado != EstadoPasivo.Cancelada, cancellationToken))
+                throw new BusinessRuleException("CE_SERVICIO_FACTURA_EXISTENTE", "La orden de servicio CE ya tiene una factura vigente. Corrija o cancele esa factura antes de volver a capturarla.");
+            if (oc.ServicioCeNivel2Autorizado && await _db.FacturasProveedor.AnyAsync(f => f.OrdenCompraId == oc.Id && f.Estado == EstadoPasivo.Cancelada, cancellationToken))
+                throw new BusinessRuleException("CE_SERVICIO_REAUTORIZACION_REQUERIDA", "La factura de este servicio fue cancelada después de autorizarse. Espere su devolución a corrección en Compras y vuelva a transmitir la orden para revisar la factura sustituta; no reutilice la segunda firma anterior.");
+            var cantidades = command.Lineas.Where(l => l.LineaOcId != null).GroupBy(l => l.LineaOcId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Cantidad));
+            if (command.Lineas.Any(l => l.LineaOcId == null) || cantidades.Count != oc.Lineas.Count || oc.Lineas.Any(l => cantidades.GetValueOrDefault(l.Id) != l.Cantidad))
+                throw new BusinessRuleException("CE_SERVICIO_FACTURA_INCOMPLETA", "Cada orden de servicio CE corresponde a una factura completa. Revise sus partidas con Comercio Exterior.");
         }
 
         if (oc.ProveedorId != command.ProveedorId)
@@ -309,6 +325,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             diferenciaContraOc: Math.Abs(diferencia),
             redondeoAplicado: redondeo,
             ahora: ahora);
+
+        if (oc.EsServicioComercioExterior) factura.IdentificarServicioComercioExterior();
 
         // 86e3pdmee: si no se captura el concepto, se usa la retención esperada del proveedor.
         factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion ?? proveedor?.ConceptoRetencion);

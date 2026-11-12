@@ -90,6 +90,7 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         builder.Property(e => e.Total).HasPrecision(18, 4).IsRequired();
 
         builder.Property(e => e.OrdenCompraId);
+        builder.Property(e => e.EsServicioComercioExterior).HasDefaultValue(false).IsRequired();
         builder.Property(e => e.RecepcionId);
         builder.Property(e => e.EncargadoComprasSnapshot);
 

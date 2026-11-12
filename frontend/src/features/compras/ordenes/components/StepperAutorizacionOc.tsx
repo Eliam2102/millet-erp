@@ -30,6 +30,7 @@ export interface StepperAutorizacionOcProps {
   estado: EstadoOrdenCompra;
   /** Autorizada sin firma de Dirección (monto bajo el umbral N2): el paso N2 se pinta «no requerido». */
   n2NoRequerido?: boolean;
+  servicioCe?: boolean;
   /** Override de clases del contenedor exterior. */
   className?: string;
 }
@@ -108,10 +109,12 @@ const CONECTOR_BG: Record<EstadoPaso, string> = {
 export function StepperAutorizacionOc({
   estado,
   n2NoRequerido = false,
+  servicioCe = false,
   className,
 }: StepperAutorizacionOcProps) {
-  const pasos = derivarPasos(estado).map((p) =>
-    p.id === 'n2' && n2NoRequerido && p.estado === 'completo'
+  const pasos = derivarPasos(estado).map((p) => servicioCe && p.id === 'n1' ? { ...p, label: 'Comercio Exterior (N1)' }
+    : servicioCe && p.id === 'n2' ? { ...p, label: 'Dirección Comercial (N2)' } : p).map((p) =>
+    p.id === 'n2' && !servicioCe && n2NoRequerido && p.estado === 'completo'
       ? { ...p, estado: 'noRequerido' as const, label: 'Dirección (N2) · no requerido' }
       : p,
   );

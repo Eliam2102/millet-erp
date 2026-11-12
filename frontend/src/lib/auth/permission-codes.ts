@@ -566,6 +566,8 @@ export const PermisosCanonicos = {
     'comercio_exterior.anticipos.revertir-comprobacion-solicitar',
   ComercioExteriorAnticiposRevertirComprobacionAutorizar:
     'comercio_exterior.anticipos.revertir-comprobacion-autorizar',
+  ComercioExteriorServiciosAutorizarNivel1: 'comercio_exterior.servicios.autorizar-nivel1',
+  ComercioExteriorServiciosAutorizarNivel2: 'comercio_exterior.servicios.autorizar-nivel2',
   ComercioExteriorOtrGestionar: 'comercio_exterior.otr.gestionar',
   ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
   ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',

@@ -61,8 +61,10 @@ public sealed class ListarPendientesAutorizacionOcHandler
             var usuarioId = _user?.UserId ?? throw new UnauthorizedAccessException("Sin usuario autenticado.");
             var n1 = _permisos is not null && await _permisos.TieneAsync("compras.ordenes.autorizar-nivel1", cancellationToken);
             var n2 = _permisos is not null && await _permisos.TieneAsync("compras.ordenes.autorizar-nivel2", cancellationToken);
+            var ceN1 = _permisos is not null && await _permisos.TieneAsync(Millet.Identidad.Domain.PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1, cancellationToken);
+            var ceN2 = _permisos is not null && await _permisos.TieneAsync(Millet.Identidad.Domain.PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2, cancellationToken);
             // Los avisos son tareas que puede firmar esta persona, no sus propias OCs.
-            query = PendientesAutorizacionLectura.OrdenesAccionables(query, usuarioId, n1, n2);
+            query = PendientesAutorizacionLectura.OrdenesAccionables(query, usuarioId, n1, n2, ceN1, ceN2);
         }
 
         var total = await query.CountAsync(cancellationToken);
@@ -155,6 +157,7 @@ public sealed class ListarPendientesAutorizacionOcHandler
                 ProveedorConocido = proveedoresConocidos.Contains(i.ProveedorId),
                 // Persistido al enviar a autorización (matriz de nivel); no se recalcula aquí.
                 RequiereNivel2 = oc.RequiereNivel2,
+                EsServicioComercioExterior = oc.EsServicioComercioExterior,
             };
         }).ToList();
     }

@@ -243,6 +243,7 @@ export function DetalleOrdenCompra() {
 
         <StepperAutorizacionOc
           estado={oc.estado}
+          servicioCe={oc.esServicioComercioExterior}
           // Autorizada sin firma vigente de Dirección = N2 no hizo falta (monto bajo el umbral).
           n2NoRequerido={!(oc.autorizaciones ?? []).some((a) => a.nivel === 2 && a.resultado === 1)}
         />
