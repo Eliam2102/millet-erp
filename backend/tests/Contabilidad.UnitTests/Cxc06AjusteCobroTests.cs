@@ -117,6 +117,28 @@ public class Cxc06AjusteCobroTests
     }
 
     [Fact]
+    public void M326b_Excedente_de_040_se_abona_a_redondeo_y_la_poliza_cuadra()
+    {
+        // Depósito 10,000.40 aplicado 10,000: bancos 10,000.40 = clientes 10,000 + redondeo 0.40.
+        var e = Pago(10_000.40m, 10_000m);
+
+        e.Importes["Total"].Should().Be(10_000.40m);
+        e.Importes["Aplicado"].Should().Be(10_000m);
+        e.Importes["ExcedenteRedondeo"].Should().Be(0.40m);
+        e.Importes["Ajuste"].Should().Be(0m);
+        (e.Importes["Aplicado"]! + e.Importes["ExcedenteRedondeo"]!).Should().Be(e.Importes["Total"]);
+    }
+
+    [Fact]
+    public void M326b_Con_saldo_a_favor_o_pago_exacto_no_hay_excedente_de_redondeo()
+    {
+        Pago(10_000m, 10_000m).Importes["ExcedenteRedondeo"].Should().Be(0m);
+        var conSaldo = Pago(10_005m, 10_000m, saldoAFavor: 5m);
+        conSaldo.Importes["ExcedenteRedondeo"].Should().Be(0m);
+        conSaldo.Importes["Aplicado"].Should().Be(10_005m);
+    }
+
+    [Fact]
     public void M326_El_evento_trae_el_campo_de_redondeo_en_cero_si_no_hay_ajuste()
     {
         var e = Pago(10_000m, 10_000m);
