@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -124,35 +125,38 @@ export function OrdenesCompraLayout({ idActivo, detalle }: OrdenesCompraLayoutPr
   }
 
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      {/* ── Master (lista) ────────────────────────────── */}
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:shrink-0 md:overflow-hidden',
-          // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
-          idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de órdenes de compra"
-        data-print="hidden"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <PageHeader titulo="Bandeja de OCs" />
-          {canCrear && (
-            <Button size="sm" onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
-              <Plus className="mr-1 h-4 w-4" />
-              Nueva
-            </Button>
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista="órdenes"
+      lista={
+        <aside
+          className={cn(
+            'flex min-h-0 flex-col gap-3 md:shrink-0 md:overflow-hidden',
+            // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
+            idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
+            idActivo != null ? 'hidden md:flex' : 'flex',
           )}
-        </div>
+          aria-label="Lista de órdenes de compra"
+          data-print="hidden"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <PageHeader titulo="Bandeja de OCs" />
+            {canCrear && (
+              <Button size="sm" onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
+                <Plus className="mr-1 h-4 w-4" />
+                Nueva
+              </Button>
+            )}
+          </div>
 
-        <FiltrosBandejaOc search={search} onChange={setSearch} />
+          <FiltrosBandejaOc search={search} onChange={setSearch} />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          <RenderListaContent query={ordenesQuery} items={itemsFiltrados} idActivo={idActivo} />
-        </div>
-      </aside>
-
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            <RenderListaContent query={ordenesQuery} items={itemsFiltrados} idActivo={idActivo} />
+          </div>
+        </aside>
+      }
+    >
       {/* ── Detail panel ──────────────────────────────── */}
       <section
         className={cn(
@@ -163,7 +167,7 @@ export function OrdenesCompraLayout({ idActivo, detalle }: OrdenesCompraLayoutPr
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 
