@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArticuloSelector, EmptyState } from '@/components/erp';
+import { PosicionesTraslado } from '@/features/almacen/components/PosicionesTraslado';
 import { ArbolSaldos } from '@/features/almacen/components/ArbolSaldos';
 import { useAlmacenes, useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { NivelNodoJerarquia } from '@/features/almacen/api/types';
@@ -198,6 +199,7 @@ export function SaldosJerarquiaPage() {
           description="En modo artículo, el árbol muestra dónde vive el artículo elegido: su distribución por sucursal, almacén, sub-almacén y rack."
         />
       )}
+      {modo === 'articulo' && search.articuloId && <PosicionesTraslado articuloId={search.articuloId} />}
     </div>
   );
 }

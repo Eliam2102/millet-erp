@@ -181,6 +181,7 @@ export const almacenKeys = {
 
   // Salida por rotura en almacén (ALM-03)
   salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,
+  roturasApp: () => [...almacenKeys.all, 'salidas-rotura', 'app'] as const,
   motivosRotura: () => [...almacenKeys.all, 'salidas-rotura', 'motivos'] as const,
   dimensionesRotura: (ubicacionId: string, fecha: string) =>
     [...almacenKeys.all, 'salidas-rotura', 'dimensiones', ubicacionId, fecha] as const,
@@ -189,7 +190,8 @@ export const almacenKeys = {
 
   // Conciliación diaria contra A+W (A4.6)
   conciliacion: {
-    existencia: (almacenId: string) => [...almacenKeys.all, 'conciliacion', 'existencia', almacenId] as const,
+    existencia: (almacenId: string, fecha: string) => [...almacenKeys.all, 'conciliacion', 'existencia', almacenId, fecha] as const,
+    eventosDelDia: (almacenId: string, fecha: string) => [...almacenKeys.all, 'conciliacion', 'eventos-del-dia', almacenId, fecha] as const,
     diferencias: () => [...almacenKeys.all, 'conciliacion', 'diferencias'] as const,
     corridas: () => [...almacenKeys.all, 'conciliacion', 'corridas'] as const,
   },

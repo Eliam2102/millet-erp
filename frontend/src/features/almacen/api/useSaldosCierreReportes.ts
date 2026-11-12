@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, ApiError } from '@/lib/api';
+import { apiFetch } from '@/lib/auth/api-client';
 import {
   almacenKeys,
   type AlfakHistorialFiltros,
@@ -286,5 +287,52 @@ export function useReporteExistenciaMpCnk(filtros: MpCnkFiltros) {
       );
       return data;
     },
+  });
+}
+
+/**
+ * M-231: posiciones con existencia de un artículo, con `saldoId` y `version`. La versión es un long (UtcTicks, ~6e17) que
+ * JSON.parse redondea: se lee como texto para devolverla intacta al trasladar.
+ */
+export function usePosicionesTraslado(articuloId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...almacenKeys.saldos(), 'posiciones-traslado', articuloId ?? ''] as const,
+    enabled: !!articuloId,
+    queryFn: async ({ signal }) => {
+      const response = await apiFetch(`/api/v1/almacen/saldos/por-ubicacion?${buildQuery({ articuloId })}`, { signal });
+      if (!response.ok) {
+        const problem = await response.json().catch(() => ({ type: 'about:blank', title: response.statusText, status: response.status }));
+        throw new ApiError(problem, response.status);
+      }
+      const texto = (await response.text()).replace(/"version":\s*(\d+)/g, '"version":"$1"');
+      return JSON.parse(texto) as SaldoUbicacionItem[];
+    },
+  });
+}
+
+export interface TrasladarPosicionCommand {
+  saldoId: string;
+  /** Texto con los dígitos exactos de `version` (ver `usePosicionesTraslado`). */
+  version: string;
+  cantidad: number;
+  ubicacionDestinoId: string;
+  motivo?: string | null;
+}
+
+export function useTrasladarPosicion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { command: TrasladarPosicionCommand; idempotencyKey: string }) => {
+      const { version, ...resto } = args.command;
+      if (!/^\d+$/.test(version)) throw new Error('Versión de saldo inválida.');
+      // La versión viaja como número exacto: JSON.stringify no puede emitir un long sin perder dígitos.
+      const body = JSON.stringify({ ...resto, version: '__V__' }).replace('"__V__"', version);
+      const { data } = await apiRequest<{ movimientoId: string; folio: string; folioEntrada: string | null }>(
+        '/api/v1/almacen/saldos/traslados-posicion',
+        { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: almacenKeys.all }),
   });
 }
