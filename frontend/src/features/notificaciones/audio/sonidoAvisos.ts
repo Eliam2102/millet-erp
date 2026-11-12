@@ -42,26 +42,38 @@ export function crearSonidoAvisos(contexto: string) {
     async sincronizar(cursor: string, hayNovedades: boolean, fuentes: { id: string; estado: string }[]) {
       if (!/^\d+$/.test(cursor)) return;
       const recuperada = fuentes.some(f => f.estado === 'Complete' && fuentesPrevias.get(f.id) !== 'Complete');
-      const silencioso = inicial || recuperada;
+      const primeraConsulta = inicial;
+      const silencioso = primeraConsulta || recuperada;
       inicial = false;
       fuentesPrevias = new Map(fuentes.map(f => [f.id, f.estado]));
       const secuencia = BigInt(cursor);
       const nuevaLocal = secuencia > ultimaDeteccionLocal;
       if (nuevaLocal) ultimaDeteccionLocal = secuencia;
       // El baseline pertenece a esta pestaña; solo un intento audible consume el cursor compartido.
-      if (!nuevaLocal || silencioso || !hayNovedades || !soportado() || disposed || audioBloqueado) return;
-      await navigator.locks.request(key, async () => {
-        if (disposed || !habilitado || document.visibilityState !== 'visible' || !navigator.onLine || audioBloqueado) return;
+      if (silencioso && (nuevaLocal || hayNovedades)) return primeraConsulta
+        ? 'Se cargaron los pendientes sin tono. Los avisos siguientes pueden sonar.'
+        : 'Se recuperó un origen de avisos; esta consulta fue silenciosa.';
+      if (!hayNovedades) return nuevaLocal ? 'La consulta no detectó un aviso nuevo sin leer; no emitió tono.' : undefined;
+      if (!nuevaLocal) return 'Se evitó repetir un aviso ya consultado en esta pestaña.';
+      if (!soportado()) return 'Este navegador no permite el sonido automático.';
+      if (disposed) return 'La sesión cambió; vuelve a probar el sonido.';
+      if (audioBloqueado) return 'El navegador detuvo el sonido; pulsa Probar sonido de nuevo.';
+      return await navigator.locks.request(key, async () => {
+        if (disposed) return 'La sesión cambió; vuelve a probar el sonido.';
+        if (!habilitado) return 'El sonido está apagado para los avisos.';
+        if (document.visibilityState !== 'visible') return 'El ERP estaba en segundo plano cuando llegó el aviso.';
+        if (!navigator.onLine) return 'Se perdió la conexión cuando llegó el aviso.';
+        if (audioBloqueado) return 'El navegador detuvo el sonido; pulsa Probar sonido de nuevo.';
         if (!audio || audio.state !== 'running') {
           audioBloqueado = true;
           throw new Error('Activa o prueba el sonido en este navegador. Los avisos visuales continúan.');
         }
         const previo = localStorage.getItem(key) ?? '0';
         if (!/^\d+$/.test(previo)) throw new Error('No se pudo recuperar la preferencia de sonido. Vuelve a probarlo.');
-        if (secuencia <= BigInt(previo)) return;
+        if (secuencia <= BigInt(previo)) return 'Se evitó repetir un sonido ya registrado en este navegador.';
         // Reservar el intento antes de sonar evita duplicados incluso si falla o se cierra esta pestaña.
         localStorage.setItem(key, cursor);
-        try { await tono(); }
+        try { await tono(); return 'Se reprodujo la alerta sonora.'; }
         catch (error) { audioBloqueado = true; throw error; }
       });
     },
