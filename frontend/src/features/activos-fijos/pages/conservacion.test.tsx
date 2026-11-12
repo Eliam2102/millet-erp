@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   conteo: null as Conteo | null,
   rutas: [] as string[],
 }));
+vi.mock('@/features/catalogos/api', () => ({ useSucursales: () => ({ data: { items: [{ id: 'conkal', nombre: 'Conkal' }] } }) }));
 vi.mock('../api/hooks', () => ({
   useGuardarActivo: () => ({ mutate: state.mutate, isPending: false, error: null }),
 }));

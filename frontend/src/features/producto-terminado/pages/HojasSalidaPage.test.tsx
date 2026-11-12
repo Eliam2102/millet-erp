@@ -1,3 +1,4 @@
+import * as imprimirPdf from '@/components/erp/reportes/imprimir-pdf';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -78,14 +79,15 @@ describe('HojasSalidaPage', () => {
   it('el detalle muestra la hoja con pedidos, clientes y secuencia, e imprime', () => {
     state.lista.mockReturnValue({ data: { items: [hoja('Emitida')], total: 1 }, isLoading: false, isError: false, refetch: vi.fn() });
     state.detalle.mockReturnValue({ data: detalle });
-    const imprimir = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    const imprimir = vi.spyOn(imprimirPdf, 'abrirPdfParaImprimir').mockResolvedValue(undefined);
     render(<HojasSalidaPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Ver o reimprimir albaranes' }));
     expect(screen.getByText('Constructora Peninsular')).toBeInTheDocument();
     expect(screen.getByText('260001')).toBeInTheDocument();
     expect(screen.getByText(/20 pzas · partida 1 · Templado 6 mm/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Imprimir hoja de salida/ }));
-    expect(imprimir).toHaveBeenCalled();
+    expect(imprimir).toHaveBeenCalledOnce();
+    expect(imprimir).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it('sin obra en el pedido, el albarán muestra el destino de la hoja (M14)', () => {

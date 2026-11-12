@@ -1,5 +1,6 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reporteTraspaso } from '../lib/documentos-impresion';
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { Button } from '@/components/ui/button';
@@ -86,9 +87,7 @@ export function TraspasoDetallePanel({ id, nombre, operar }: { id: string; nombr
           </p>
           {preparado && <p className="text-ink-muted">Pendiente de autorización: las piezas siguen en el PT de origen.</p>}
         </div>
-        <Button data-print="hidden" variant="outline" size="sm" onClick={() => window.print()}>
-          <Printer className="size-4" aria-hidden="true" /> Imprimir hoja de traslado
-        </Button>
+        <ImprimirReporteButton data-print="hidden" variant="outline" size="sm" reporte={reporteTraspaso(t, nombre)}>Imprimir hoja de traslado</ImprimirReporteButton>
       </div>
       {error && (
         <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">

@@ -1,3 +1,5 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reportePlantilla } from '../lib/documentos-impresion';
 import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -11,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { CheckCheck, Pause, Pencil, Play, Printer, RotateCcw, X } from 'lucide-react';
+import { CheckCheck, Pause, Pencil, Play, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/erp';
@@ -135,6 +137,8 @@ const TEXTO_ACCION: Record<AccionPlantilla, { haciendo: string; hecho: string }>
 function DetallePlantilla({ id, search }: Props) {
   const consulta = usePlantillaRecurrente(id);
   const p = consulta.data;
+  const etiquetasImpresion = useEtiquetasCuentas(p?.partidas.map(x => x.cuentaId) ?? []);
+  const sucursalesImpresion = useSucursalesMovimiento();
   const usuarioId = useAuthStore((s) => s.user?.id ?? null);
   const puedeAdministrar = useHasPermission(PermisosCanonicos.ContabilidadRecurrentesAdministrar);
   const puedeAutorizar = useHasPermission(PermisosCanonicos.ContabilidadRecurrentesAutorizar);
@@ -265,14 +269,11 @@ function DetallePlantilla({ id, search }: Props) {
               {textoBoton('activar', 'Activar')}
             </Button>
           )}
-          <Button
+          <ImprimirReporteButton
             variant="ghost"
-            size="icon"
+            size="sm"
             aria-label="Imprimir plantilla"
-            onClick={() => window.print()}
-          >
-            <Printer className="size-4" strokeWidth={1.6} aria-hidden="true" />
-          </Button>
+           reporte={reportePlantilla(p, id => { const c = etiquetasImpresion.get(id); return c ? `${c.codigo} ${c.nombre}` : id; }, id => sucursalesImpresion.data?.find(s => s.id === id)?.nombre ?? id)}>Imprimir</ImprimirReporteButton>
           {cerrar}
         </span>
       </div>
