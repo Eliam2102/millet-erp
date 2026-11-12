@@ -672,7 +672,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
               </p>
             </div>
           ) : (
-            <Table className="block min-w-[912px]">
+            <Table className="block min-w-[1126px]">
               <TableHeader className="block">
                 <TableRow className={columnas}>
                   {[

@@ -30,7 +30,7 @@ interface ArbolSaldosProps {
 
 export function ArbolSaldos({ nodoTipo, nodoId, articuloId, incluirVacios }: ArbolSaldosProps) {
   return (
-    <ul role="tree" className="space-y-0.5 text-sm">
+    <ul role="tree" className="min-w-full space-y-0.5 text-sm">
       <ListaHijos
         nodoTipo={nodoTipo}
         nodoId={nodoId}
@@ -135,7 +135,7 @@ function FilaNodo({ nodo, nivel, articuloId, incluirVacios, autoExpandir }: Fila
   return (
     <li role="treeitem" aria-expanded={expandible ? open : undefined}>
       <div
-        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-surface-muted/50"
+        className="flex min-w-max items-center gap-2 rounded px-2 py-1 hover:bg-surface-muted/50"
         style={{ paddingLeft: nivel * 20 + 8 }}
       >
         {expandible ? (
@@ -154,8 +154,12 @@ function FilaNodo({ nodo, nivel, articuloId, incluirVacios, autoExpandir }: Fila
           <span className="h-5 w-5 shrink-0" aria-hidden="true" />
         )}
 
-        <span className="font-mono text-xs">{nodo.clave}</span>
-        {nodo.nombre && <span className="truncate text-xs text-ink-muted">{nodo.nombre}</span>}
+        <span className="shrink-0 whitespace-nowrap font-mono text-xs">{nodo.clave}</span>
+        {nodo.nombre && (
+          <span className="min-w-0 max-w-64 truncate text-xs text-ink-muted" title={nodo.nombre}>
+            {nodo.nombre}
+          </span>
+        )}
         {nodo.esDefault && (
           <Badge variant="outline" className="shrink-0 text-2xs">
             ÚNICA
