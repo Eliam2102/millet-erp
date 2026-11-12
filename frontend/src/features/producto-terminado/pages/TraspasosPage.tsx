@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableContainer, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSucursales } from '@/features/catalogos/api';
 import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -58,7 +58,7 @@ export function TraspasosPage() {
   const alternar = (id: string) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
 
   return (
-    <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
+    <main className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-auto text-sm">
       <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Traspasos' }]} />
       <PageHeader
         titulo="Traspasos entre sucursales"
@@ -93,6 +93,7 @@ export function TraspasosPage() {
       ) : (lista.data?.items.length ?? 0) === 0 ? (
         <EmptyState title="No hay traspasos." />
       ) : (
+        <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Traspasos entre sucursales" tabIndex={0}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -112,7 +113,7 @@ export function TraspasosPage() {
                 <TableCell><Badge variant={estadoUi[t.estado].tono}>{estadoUi[t.estado].texto}</Badge></TableCell>
                 <TableCell><DateTimeDisplay value={t.salidaAt} variant="datetime" /></TableCell>
                 <TableCell className="tabular-nums">{t.pendientes} de {t.total}</TableCell>
-                <TableCell className="flex gap-2">
+                <TableCell className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => { setAbierto(abierto === t.id ? null : t.id); setMarcadas([]); }}>
                     {abierto === t.id ? 'Ocultar piezas' : 'Ver piezas'}
                   </Button>
@@ -124,13 +125,14 @@ export function TraspasosPage() {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
       {abierto && detalle.data && (
         <section aria-label="Piezas del traspaso" className="flex flex-col gap-2 rounded-lg bg-surface-card p-4 shadow-card-flat">
           <h2 className="font-medium">Piezas del traspaso</h2>
           <ul className="flex flex-col gap-1">
             {detalle.data.piezas.map((p) => (
-              <li key={p.piezaId} className="flex items-center gap-2">
+              <li key={p.piezaId} className="flex flex-wrap items-center gap-2 [overflow-wrap:anywhere]">
                 {operar && !p.recibida ? (
                   <Checkbox aria-label={`Recibir ${p.etiqueta}`} checked={marcadas.includes(p.piezaId)} onCheckedChange={() => alternar(p.piezaId)} />
                 ) : null}
