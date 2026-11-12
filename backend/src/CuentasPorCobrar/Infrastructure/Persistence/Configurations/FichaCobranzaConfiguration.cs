@@ -9,13 +9,19 @@ public sealed class FichaCobranzaConfiguration : IEntityTypeConfiguration<FichaC
 {
     public void Configure(EntityTypeBuilder<FichaCobranza> builder)
     {
-        builder.ToTable("ficha_cobranza");
+        builder.ToTable("ficha_cobranza", t =>
+        {
+            t.HasCheckConstraint("ck_ficha_cobranza_motivo_cierre", "motivo_cierre IS NULL OR motivo_cierre IN (1, 2, 3, 4)");
+        });
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).ValueGeneratedNever();
         builder.Property(e => e.EmpresaId).IsRequired();
         builder.Property(e => e.FacturaCarteraId).IsRequired();
         builder.Property(e => e.ClienteId).IsRequired();
         builder.Property(e => e.ResponsableNombre).HasMaxLength(200);
+        builder.Property(e => e.MotivoCierre).HasConversion<short?>();
+        builder.Property(e => e.SaldoAlCerrar).HasPrecision(14, 2);
+        builder.Property(e => e.ExplicacionSaldo).HasMaxLength(2000);
         builder.HasOne<FacturaCartera>().WithMany().HasForeignKey(e => e.FacturaCarteraId).OnDelete(DeleteBehavior.Restrict);
         // Una sola ficha por factura.
         builder.HasIndex(e => e.FacturaCarteraId).IsUnique().HasDatabaseName("ux_ficha_cobranza_factura");
@@ -30,7 +36,7 @@ public sealed class FichaCobranzaEventoConfiguration : IEntityTypeConfiguration<
     {
         builder.ToTable("ficha_cobranza_evento", t =>
         {
-            t.HasCheckConstraint("ck_ficha_cobranza_evento_tipo", "tipo IN (1, 2, 3, 4, 5, 6)");
+            t.HasCheckConstraint("ck_ficha_cobranza_evento_tipo", "tipo IN (1, 2, 3, 4, 5, 6, 7)");
         });
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).ValueGeneratedNever();

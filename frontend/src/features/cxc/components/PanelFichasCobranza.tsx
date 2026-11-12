@@ -10,6 +10,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useUsuarios } from '@/features/catalogos/api';
 import {
   useAsignarResponsableFicha,
+  useCerrarFicha,
   useCorregirEventoFicha,
   useEscalarFicha,
   useEventosFicha,
@@ -23,6 +24,8 @@ import { FichaCobranzaDialog, type DatosFicha, type ModoFicha } from '@/features
 const importe = (v: number) => v.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const mensajeError = (err: unknown) =>
   esApiError(err) ? (err.problem.detail ?? err.problem.title) : err instanceof Error ? err.message : String(err);
+
+const ETIQUETA_PROMESA = { Vigente: 'Promesa vigente', Cumplida: 'Promesa cumplida', Parcial: 'Promesa parcial', Incumplida: 'Promesa incumplida' } as const;
 
 interface Objetivo {
   modo: ModoFicha;
@@ -50,7 +53,8 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
   const reprogramar = useReprogramarFicha();
   const escalar = useEscalarFicha();
   const corregir = useCorregirEventoFicha();
-  const pendiente = asignar.isPending || gestion.isPending || reprogramar.isPending || escalar.isPending || corregir.isPending;
+  const cerrar = useCerrarFicha();
+  const pendiente = asignar.isPending || gestion.isPending || reprogramar.isPending || escalar.isPending || corregir.isPending || cerrar.isPending;
 
   function confirmar(d: DatosFicha) {
     if (!objetivo) return;
@@ -77,6 +81,9 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
         break;
       case 'escalar':
         escalar.mutate({ facturaCarteraId: id, supervisorId: d.personaId!, supervisorNombre: d.personaNombre ?? null, motivo: d.motivo! }, opciones);
+        break;
+      case 'cerrar':
+        cerrar.mutate({ facturaCarteraId: id, motivo: d.motivoCierre!, explicacionSaldo: d.motivo }, opciones);
         break;
       case 'corregir':
         corregir.mutate({ eventoId: objetivo.eventoId!, notaCorregida: d.nota!, motivo: d.motivo! }, opciones);
@@ -124,6 +131,7 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
                 <TableCell>
                   {f.responsableNombre ?? (f.fichaId ? '—' : <Badge variant="outline">Sin responsable</Badge>)}
                   {f.escalada && <Badge className="ml-2" variant="outline">Escalada</Badge>}
+                  {f.cerrada && <Badge className="ml-2" variant="outline">Cerrada</Badge>}
                 </TableCell>
                 <TableCell>
                   {f.siguienteRevision ? formatDate(f.siguienteRevision) : '—'}
@@ -133,7 +141,7 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
                   <Button size="sm" variant="ghost" onClick={() => setHistorial(historial === f.facturaCarteraId ? null : f.facturaCarteraId)}>
                     Historial
                   </Button>
-                  {puedeRegistrar && (
+                  {puedeRegistrar && !f.cerrada && (
                     <>
                       <Button size="sm" variant="outline" onClick={() => setObjetivo({ modo: 'gestion', factura: f })}>Gestión</Button>
                       <Button size="sm" variant="outline" onClick={() => setObjetivo({ modo: 'responsable', factura: f })}>Responsable</Button>
@@ -141,6 +149,7 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
                         <>
                           <Button size="sm" variant="outline" onClick={() => setObjetivo({ modo: 'reprogramar', factura: f })}>Reprogramar</Button>
                           <Button size="sm" variant="outline" onClick={() => setObjetivo({ modo: 'escalar', factura: f })}>Escalar</Button>
+                          <Button size="sm" variant="outline" onClick={() => setObjetivo({ modo: 'cerrar', factura: f })}>Cerrar</Button>
                         </>
                       )}
                     </>
@@ -162,6 +171,14 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
                 return (
                   <li key={e.id}>
                     <span className="font-medium">{e.tipoNombre}</span> · {formatDate(e.fecha)} · {e.usuarioNombre ?? '—'}
+                    {e.estadoPromesa && (
+                      <Badge className="ml-2" variant="outline">
+                        {ETIQUETA_PROMESA[e.estadoPromesa]}
+                        {e.estadoPromesa !== 'Vigente' && e.faltantePromesa != null && e.faltantePromesa > 0
+                          ? ` · falta ${importe(e.faltantePromesa)}`
+                          : ''}
+                      </Badge>
+                    )}
                     <div className="text-ink-muted">
                       {e.nota}
                       {e.responsableAntes || e.responsableDespues ? ` (${e.responsableAntes ?? '—'} → ${e.responsableDespues ?? '—'})` : ''}

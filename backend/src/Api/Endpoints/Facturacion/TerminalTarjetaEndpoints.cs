@@ -66,6 +66,31 @@ public static class TerminalTarjetaEndpoints
         .WithSummary("Vuelve a emparejar las ventas sin emparejar con los cobros de caja")
         .Produces<CargaTerminalResponse>();
 
+        // ---- M-111: catálogo terminal ↔ afiliación ↔ sucursal ----
+        group.MapGet("/terminales", async ([FromQuery] bool? incluirInactivas, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new TerminalesAfiliacionQuery(incluirInactivas ?? false), ct)))
+        .WithName("ListarTerminalesAfiliacion")
+        .Produces<IReadOnlyList<TerminalAfiliacionResponse>>();
+
+        group.MapGet("/terminales/sin-catalogar", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new TerminalesSinCatalogarQuery(), ct)))
+        .WithName("ListarTerminalesSinCatalogar")
+        .WithSummary("Afiliación y terminal que traen los archivos cargados y aún no tienen sucursal")
+        .Produces<IReadOnlyList<TerminalSinCatalogarResponse>>();
+
+        group.MapPut("/terminales", async (GuardarTerminalAfiliacionCommand body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(body, ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("GuardarTerminalAfiliacion")
+        .WithSummary("Da de alta (o reasigna) la terminal de una afiliación en una sucursal")
+        .Produces<TerminalAfiliacionResponse>();
+
+        group.MapPost("/terminales/{id:guid}/desactivar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DesactivarTerminalAfiliacionCommand(id), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("DesactivarTerminalAfiliacion")
+        .Produces<TerminalAfiliacionResponse>();
+
         // ---- Parte B (86e3xt2q8): factura mensual del banco ligada a los cargos ----
         group.MapGet("/factura-banco/candidatos", async (
             [FromQuery] int anio, [FromQuery] int mes, [FromQuery] string? rfcEmisor, IMediator mediator, CancellationToken ct) =>

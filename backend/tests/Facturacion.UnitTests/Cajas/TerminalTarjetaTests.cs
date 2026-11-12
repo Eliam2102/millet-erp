@@ -222,8 +222,8 @@ public sealed class TerminalTarjetaTests
         [.. new UTF8Encoding(true).GetPreamble(), .. Encoding.UTF8.GetBytes(EncabezadoStatement + "\r\n" + string.Join("\r\n", filas) + "\r\n")];
 
     private static string FilaStatement(string afiliacion, string terminal, string arn, string aut, string venta, string comision, string iva,
-        string tipo = "Venta", string hora = "5:38:00pm") =>
-        $"\"-\",\"03/11/2026\",\"{hora}\",\"{afiliacion}\",\"COMERCIO DE PRUEBA\",\"{tipo}\",\"Visa\",\"{terminal}\",\"Débito\"," +
+        string tipo = "Venta", string hora = "5:38:00pm", string fecha = "03/11/2026") =>
+        $"\"-\",\"{fecha}\",\"{hora}\",\"{afiliacion}\",\"COMERCIO DE PRUEBA\",\"{tipo}\",\"Visa\",\"{terminal}\",\"Débito\"," +
         $"\"Doméstico\",\"4000-00XX-XXXX-1234\",\"{arn}\t\",\"{aut}\",\"MXN\",100.00,{venta},{comision},\"1.00%\",{iva}";
 
     [Fact]
@@ -318,6 +318,66 @@ public sealed class TerminalTarjetaTests
         utc.Kind.Should().Be(DateTimeKind.Utc);
         HoraTerminal.DiaLocal(utc, null).Should().Be(new DateOnly(2026, 10, 1));
         HoraTerminal.DiaLocal(utc, "America/Tijuana").Should().Be(new DateOnly(2026, 10, 1));
+    }
+
+    // ---- M-111: catálogo terminal ↔ afiliación ↔ sucursal ----
+    private static TerminalAfiliacionHandlers Catalogo(FacturacionDbContext db) =>
+        new(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort());
+
+    private static byte[] VentaStatement(string afiliacion, string terminal) =>
+        Statement(FilaStatement(afiliacion, terminal, "70000000000000000000009", "345678", "1000", "-10", "-1.6",
+            hora: "12:30:00pm", fecha: "01/10/2026"));
+
+    [Fact]
+    public async Task Con_catalogo_la_venta_solo_se_empareja_con_cobros_de_la_sucursal_de_su_terminal()
+    {
+        using var db = NewDb();
+        await CobrarTarjetaAsync(db, 1_000m, "345678");
+        await Catalogo(db).Handle(new GuardarTerminalAfiliacionCommand("1111111", "TERM0001", Guid.NewGuid(), null), default);
+
+        var ajena = await Cargar(db, new FakeIntegrationEventPublisher(), VentaStatement("1111111", "TERM0001"));
+
+        ajena.SinEmparejar.Should().Be(1, "la terminal pertenece a otra sucursal que la del cobro");
+
+        // Se corrige el catálogo a la sucursal del cobro y el reintento empareja.
+        await Catalogo(db).Handle(new GuardarTerminalAfiliacionCommand("1111111", "TERM0001", SucursalId, "Terminal de prueba"), default);
+        var reintento = await Handlers(db, new FakeIntegrationEventPublisher()).Handle(new ReemparejarTerminalCommand(), default);
+
+        reintento.Emparejados.Should().Be(1);
+        (await db.TransaccionesTerminal.SingleAsync()).SucursalId.Should().Be(SucursalId);
+    }
+
+    [Fact]
+    public async Task Sin_terminal_en_el_catalogo_el_emparejamiento_sigue_como_antes_y_se_lista_para_darla_de_alta()
+    {
+        using var db = NewDb();
+        await CobrarTarjetaAsync(db, 1_000m, "345678");
+
+        var r = await Cargar(db, new FakeIntegrationEventPublisher(), VentaStatement("2222222", "TERM0002"));
+
+        r.Emparejados.Should().Be(1);
+        var pendientes = await Catalogo(db).Handle(new TerminalesSinCatalogarQuery(), default);
+        pendientes.Should().ContainSingle().Which.Should().BeEquivalentTo(new TerminalSinCatalogarResponse("2222222", "TERM0002", 1));
+
+        await Catalogo(db).Handle(new GuardarTerminalAfiliacionCommand("2222222", "TERM0002", SucursalId, null), default);
+        (await Catalogo(db).Handle(new TerminalesSinCatalogarQuery(), default)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Guardar_dos_veces_la_misma_terminal_la_reasigna_y_desactivar_la_oculta()
+    {
+        using var db = NewDb();
+        var otra = Guid.NewGuid();
+        var primera = await Catalogo(db).Handle(new GuardarTerminalAfiliacionCommand(" 3333333 ", "TERM0003", SucursalId, null), default);
+        var segunda = await Catalogo(db).Handle(new GuardarTerminalAfiliacionCommand("3333333", "TERM0003", otra, "Reasignada"), default);
+
+        segunda.Id.Should().Be(primera.Id);
+        (await db.TerminalesAfiliacion.CountAsync()).Should().Be(1);
+        segunda.SucursalId.Should().Be(otra);
+
+        await Catalogo(db).Handle(new DesactivarTerminalAfiliacionCommand(primera.Id), default);
+        (await Catalogo(db).Handle(new TerminalesAfiliacionQuery(), default)).Should().BeEmpty();
+        (await Catalogo(db).Handle(new TerminalesAfiliacionQuery(true), default)).Should().ContainSingle();
     }
 
     // ---- helpers ----

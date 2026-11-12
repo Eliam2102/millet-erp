@@ -1260,6 +1260,14 @@ const moduloContabilidad: NavModulo = {
           permission: PermisosCanonicos.ContabilidadRecurrentesLeer,
         },
         {
+          label: 'Incidencias posteriores',
+          description:
+            'Lo que se encontró después de autorizar una póliza o cerrar un periodo: se registra, queda pendiente en el cierre y se resuelve con su póliza de ajuste o reapertura acotada.',
+          to: '/contabilidad/incidencias',
+          icon: AlertTriangle,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
           label: 'Motor contable',
           description:
             'Pólizas automáticas de los documentos de otros módulos: cuentas de cada rol, plantillas por evento y eventos rechazados.',
