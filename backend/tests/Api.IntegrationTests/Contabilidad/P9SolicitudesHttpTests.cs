@@ -224,6 +224,136 @@ public sealed class P9SolicitudesHttpTests(WebApplicationFactory<Program> factor
     }
 
     [Fact]
+    public async Task Dos_altas_independientes_pendientes_se_autorizan_sin_rehacer_la_segunda()
+    {
+        var suf = Sufijo();
+        try
+        {
+            var contador = await Contador();
+            var daf = await Daf();
+            var a = await Pendiente(await contador.PostAsJsonAsync($"{Base}/cuentas", new {
+                codigo = Codigo(suf, "1"), nombre = "FIX raíz AF", naturaleza = "Deudora", cuentaControl = "Ninguna" }));
+            var b = await Pendiente(await contador.PostAsJsonAsync($"{Base}/cuentas", new {
+                codigo = Codigo(suf, "2"), nombre = "FIX otra raíz", naturaleza = "Deudora", cuentaControl = "Ninguna" }));
+            Assert.Equal(HttpStatusCode.OK, (await Resolver(daf, a.GetProperty("solicitudId").GetGuid())).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await Resolver(daf, b.GetProperty("solicitudId").GetGuid())).StatusCode);
+            Assert.Equal("FIX raíz AF", (await Obtener(contador, a.GetProperty("id").GetGuid())).GetProperty("nombre").GetString());
+            Assert.Equal("FIX otra raíz", (await Obtener(contador, b.GetProperty("id").GetGuid())).GetProperty("nombre").GetString());
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Theory]
+    [InlineData("Cambio")]
+    [InlineData("desactivar")]
+    [InlineData("reactivar")]
+    public async Task Operacion_individual_pendiente_tolera_cambio_ajeno(string operacion)
+    {
+        var suf = Sufijo();
+        try
+        {
+            var contador = await Contador();
+            var daf = await Daf();
+            var cuenta = await CrearCuenta(contador, Codigo(suf, "1"));
+            if (operacion == "reactivar")
+            {
+                using var baja = new HttpRequestMessage(HttpMethod.Post, $"{Base}/cuentas/{cuenta.GetProperty("id").GetGuid()}/desactivar");
+                baja.Headers.TryAddWithoutValidation("If-Match", Etag(cuenta));
+                var previa = await Pendiente(await contador.SendAsync(baja));
+                Assert.Equal(HttpStatusCode.OK, (await Resolver(daf, previa.GetProperty("solicitudId").GetGuid())).StatusCode);
+                cuenta = await Obtener(contador, cuenta.GetProperty("id").GetGuid());
+            }
+            JsonElement propuesta;
+            if (operacion == "Cambio") propuesta = await Cambiar(contador, cuenta, "FIX nombre revisado");
+            else
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Post, $"{Base}/cuentas/{cuenta.GetProperty("id").GetGuid()}/{operacion}");
+                req.Headers.TryAddWithoutValidation("If-Match", Etag(cuenta));
+                propuesta = await Pendiente(await contador.SendAsync(req));
+            }
+            await CrearCuenta(contador, Codigo(suf, "2"));
+            Assert.Equal(HttpStatusCode.OK, (await Resolver(daf, propuesta.GetProperty("solicitudId").GetGuid())).StatusCode);
+            var vigente = await Obtener(contador, cuenta.GetProperty("id").GetGuid());
+            if (operacion == "Cambio") Assert.Equal("FIX nombre revisado", vigente.GetProperty("nombre").GetString());
+            else Assert.Equal(operacion == "reactivar", vigente.GetProperty("activa").GetBoolean());
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Fact]
+    public async Task Importacion_pendiente_tolera_alta_ajena_sin_duplicar_lote()
+    {
+        var suf = Sufijo();
+        try
+        {
+            var contador = await Contador();
+            var daf = await Daf();
+            var cuerpo = Fix.Request($"codigo;nombre;naturaleza\n{Codigo(suf, "100.00.00.00")};FIX lote;Deudora\n", $"FIX-{suf}");
+            var propuesta = await Pendiente(await contador.PostAsJsonAsync($"{Base}/importaciones", cuerpo));
+            await CrearCuenta(contador, Codigo(suf, "200.00.00.00"));
+            Assert.Equal(HttpStatusCode.OK, (await Resolver(daf, propuesta.GetProperty("solicitudId").GetGuid())).StatusCode);
+            var repetida = await Json(await contador.PostAsJsonAsync($"{Base}/importaciones", cuerpo));
+            Assert.True(repetida.GetProperty("idempotente").GetBoolean());
+            Assert.Equal(1, await Contar(factory.Services, "importaciones_catalogo", $"fuente = 'FIX-{suf}'"));
+            Assert.Equal(2, await Contar(factory.Services, "cuentas_contables", $"codigo LIKE 'FIX-{suf}-%'"));
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Fact]
+    public async Task Descendiente_nuevo_no_incluido_en_la_propuesta_impide_reparentar_sin_efectos_parciales()
+    {
+        var suf = Sufijo();
+        try
+        {
+            var contador = await Contador();
+            var daf = await Daf();
+            var raiz = await CrearCuenta(contador, Codigo(suf, "1"));
+            var destino = await CrearCuenta(contador, Codigo(suf, "2"));
+            var hija = await CrearCuenta(contador, Codigo(suf, "1.1"), padreId: raiz.GetProperty("id").GetGuid());
+            raiz = await Obtener(contador, raiz.GetProperty("id").GetGuid());
+            using var cambio = new HttpRequestMessage(HttpMethod.Put, $"{Base}/cuentas/{raiz.GetProperty("id").GetGuid()}")
+            { Content = JsonContent.Create(new { nombre = "FIX mover rama", padreId = destino.GetProperty("id").GetGuid(),
+                naturaleza = "Deudora", tipo = "Titulo", cuentaControl = "Ninguna" }) };
+            cambio.Headers.TryAddWithoutValidation("If-Match", Etag(raiz));
+            var propuesta = await Pendiente(await contador.SendAsync(cambio));
+            var nueva = await CrearCuenta(contador, Codigo(suf, "1.2"), padreId: raiz.GetProperty("id").GetGuid());
+            var sid = propuesta.GetProperty("solicitudId").GetGuid();
+            var conflicto = await Resolver(daf, sid);
+            Assert.Equal(HttpStatusCode.Conflict, conflicto.StatusCode);
+            Assert.Equal("CONTAB_SOLICITUD_CATALOGO_CAMBIO", await Code(conflicto));
+            Assert.Equal("Pendiente", (await Json(await daf.GetAsync($"{Base}/solicitudes/{sid}"))).GetProperty("estado").GetString());
+            Assert.Equal(JsonValueKind.Null, (await Obtener(contador, raiz.GetProperty("id").GetGuid())).GetProperty("padreId").ValueKind);
+            foreach (var id in new[] { hija.GetProperty("id").GetGuid(), nueva.GetProperty("id").GetGuid() })
+                Assert.Equal(2, (await Obtener(contador, id)).GetProperty("nivel").GetInt32());
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Fact]
+    public async Task Importacion_que_ahora_actualizaria_una_cuenta_no_revisada_no_deja_lote_ni_cambios()
+    {
+        var suf = Sufijo();
+        try
+        {
+            var contador = await Contador();
+            var daf = await Daf();
+            var codigo = Codigo(suf, "100.00.00.00");
+            var cuerpo = Fix.Request($"codigo;nombre;naturaleza\n{codigo};FIX propuesta lote;Deudora\n", $"FIX-{suf}");
+            var propuesta = await Pendiente(await contador.PostAsJsonAsync($"{Base}/importaciones", cuerpo));
+            var cuenta = await CrearCuenta(contador, codigo, "FIX alta posterior");
+            var sid = propuesta.GetProperty("solicitudId").GetGuid();
+            var conflicto = await Resolver(daf, sid);
+            Assert.Equal(HttpStatusCode.Conflict, conflicto.StatusCode);
+            Assert.Equal("CONTAB_SOLICITUD_CATALOGO_CAMBIO", await Code(conflicto));
+            Assert.Equal("Pendiente", (await Json(await daf.GetAsync($"{Base}/solicitudes/{sid}"))).GetProperty("estado").GetString());
+            Assert.Equal("FIX alta posterior", (await Obtener(contador, cuenta.GetProperty("id").GetGuid())).GetProperty("nombre").GetString());
+            Assert.Equal(0, await Contar(factory.Services, "importaciones_catalogo", $"fuente = 'FIX-{suf}'"));
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Fact]
     public async Task Catalogo_cambiado_devuelve_conflicto_y_conserva_la_solicitud_pendiente()
     {
         var suf = Sufijo();
