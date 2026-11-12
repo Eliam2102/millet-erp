@@ -36,6 +36,8 @@ export interface SucursalListItem {
   nombre: string;
   tipo: TipoSucursal;
   estatus: EstatusCatalogo;
+  /** Domicilio operativo para copiar a la OC; ausente en servidores anteriores. */
+  direccionEntrega?: string | null;
 }
 
 /** Mirror de <c>DepartamentoListItem</c>. */
