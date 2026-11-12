@@ -8,7 +8,7 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Facturacion.Application.Cajas.Terminal;
 
 /// <summary>
-/// Lee el archivo de la terminal de tarjetas. Acepta dos layouts (ver
+/// Lee el archivo de la terminal de tarjetas. Acepta tres layouts (ver
 /// <see cref="TerminalTarjetaOptions"/>) y usa el primero cuyos encabezados
 /// encuentre: el OneGMR TRST de Getnet (CSV, fechas ISO, una fila por transacción
 /// liquidada, renglón final <c>ENDOFFILE_…</c>) o el «Transacciones por día» del
@@ -24,15 +24,16 @@ public static partial class LectorArchivoTerminal
         var texto = Decodificar(contenido);
         var filas = texto.Contains("<tr", StringComparison.OrdinalIgnoreCase) ? FilasHtml(texto) : FilasCsv(texto);
 
-        var perfiles = new[] { (Columnas: opciones.ColumnasGmr, Gmr: true), (Columnas: opciones.Columnas, Gmr: false) };
+        var perfiles = new[] { (Columnas: opciones.ColumnasGmr, Gmr: true), (Columnas: opciones.Columnas, Gmr: false),
+            (Columnas: opciones.ColumnasStatement, Gmr: false) };
         foreach (var (c, gmr) in perfiles)
         {
-            string[] obligatorias = [c.NoOperacion, c.Fecha, c.Importe, c.Estatus, c.Autorizacion];
+            string[] obligatorias = [c.NoOperacion, c.Fecha, c.Importe, c.Autorizacion, .. c.Estatus is null ? [] : new[] { c.Estatus }];
             var encabezado = filas.FindIndex(f => obligatorias.All(o => f.Contains(o, StringComparer.OrdinalIgnoreCase)));
             if (encabezado >= 0) return Convertir(filas, encabezado, c, gmr, fechaArchivo, opciones);
         }
-        var esperadas = new[] { opciones.Columnas, opciones.ColumnasGmr }
-            .Select(c => string.Join(", ", c.NoOperacion, c.Fecha, c.Importe, c.Estatus, c.Autorizacion));
+        var esperadas = new[] { opciones.Columnas, opciones.ColumnasGmr, opciones.ColumnasStatement }
+            .Select(c => string.Join(", ", new[] { c.NoOperacion, c.Fecha, c.Importe, c.Estatus, c.Autorizacion }.OfType<string>()));
         throw new BusinessRuleException("TERMINAL_ENCABEZADOS",
             $"El archivo no trae las columnas esperadas: {string.Join(" o bien ", esperadas)}.");
     }
@@ -62,14 +63,21 @@ public static partial class LectorArchivoTerminal
             if (operacion is null || string.Equals(operacion, c.NoOperacion, StringComparison.OrdinalIgnoreCase)
                 || operacion.StartsWith("ENDOFFILE", StringComparison.OrdinalIgnoreCase)) continue;
             var tipo = Valor(fila, c.TipoMovimiento);
+            var tiposVenta = c.TiposVenta ?? [opciones.TipoMovimientoVenta];
             if (c.TipoMovimiento is not null && tipo is not null
-                && !string.Equals(tipo, opciones.TipoMovimientoVenta, StringComparison.OrdinalIgnoreCase)) continue;
+                && !tiposVenta.Contains(tipo, StringComparer.OrdinalIgnoreCase)) continue;
             var importe = Monto(Valor(fila, c.Importe))
                 ?? throw new BusinessRuleException("TERMINAL_IMPORTE", $"La operación {operacion} no trae un importe válido.");
             var estatus = Valor(fila, c.Estatus);
-            var aprobada = gmr
+            var aprobada = c.Estatus is null
+                ? true
+                : gmr
                 ? opciones.EstatusAprobadosGmr.Contains(estatus ?? "", StringComparer.OrdinalIgnoreCase)
                 : string.Equals(estatus, opciones.EstatusAprobada, StringComparison.OrdinalIgnoreCase);
+            // El statement trae comisión e IVA en negativo (cargo al comercio); aquí van como importes positivos.
+            var comision = Monto(Valor(fila, c.Comision)) is { } com ? Math.Abs(com) : (decimal?)null;
+            var iva = Monto(Valor(fila, c.IvaComision)) is { } iv ? Math.Abs(iv) : (decimal?)null;
+            var neto = Monto(Valor(fila, c.Neto)) ?? (c.Neto is null && comision is not null && iva is not null ? importe - comision - iva : null);
             renglones.Add(new RenglonTerminal(
                 operacion,
                 Fecha(Valor(fila, c.Fecha), Valor(fila, c.Hora), fechaArchivo, operacion),
@@ -77,13 +85,15 @@ public static partial class LectorArchivoTerminal
                 Moneda(Valor(fila, c.Moneda)),
                 Ultimos4(Valor(fila, c.Ultimos4)),
                 Valor(fila, c.Autorizacion),
-                estatus,
+                estatus ?? (aprobada ? "Aprobada" : null),
                 aprobada,
-                Monto(Valor(fila, c.Comision)),
-                Monto(Valor(fila, c.IvaComision)),
-                Monto(Valor(fila, c.Neto)),
+                comision,
+                iva,
+                neto,
                 Valor(fila, c.FolioLiquidacion),
-                FechaIso(Valor(fila, c.FechaLiquidacion))));
+                FechaIso(Valor(fila, c.FechaLiquidacion)),
+                Valor(fila, c.Afiliacion),
+                Valor(fila, c.CodTerminal)));
         }
         return renglones;
     }
@@ -170,6 +180,9 @@ public static partial class LectorArchivoTerminal
             if (DateTime.TryParseExact(iso, ["yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd"], CultureInfo.InvariantCulture,
                     DateTimeStyles.None, out var gmr))
                 return gmr;
+            if (hora is not null && DateTime.TryParseExact($"{valor.Split(' ')[0]} {hora}", ["dd/MM/yyyy h:mm:sstt", "dd/MM/yyyy h:mm:ss tt"],
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out var ampm))
+                return ampm;
             if (DateTime.TryParseExact(valor, ["dd/MM/yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy"], Mx,
                     DateTimeStyles.None, out var completa))
                 return completa;
