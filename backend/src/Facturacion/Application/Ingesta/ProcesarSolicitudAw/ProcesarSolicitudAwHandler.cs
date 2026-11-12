@@ -40,6 +40,7 @@ public sealed class ProcesarSolicitudAwHandler
     private readonly IMasterProvisioningPort _masterProvisioning;
     private readonly IClock _clock;
     private readonly AwSolicitudesOptions _opciones;
+    private readonly HistoricoSapOptions _historicoSap;
 
     public ProcesarSolicitudAwHandler(
         FacturacionDbContext db,
@@ -49,7 +50,8 @@ public sealed class ProcesarSolicitudAwHandler
         IProductosReadPort productos,
         IMasterProvisioningPort masterProvisioning,
         IClock clock,
-        IOptions<AwSolicitudesOptions> opciones)
+        IOptions<AwSolicitudesOptions> opciones,
+        IOptions<HistoricoSapOptions>? historicoSap = null)
     {
         _db = db;
         _reader = reader;
@@ -59,6 +61,7 @@ public sealed class ProcesarSolicitudAwHandler
         _masterProvisioning = masterProvisioning;
         _clock = clock;
         _opciones = opciones.Value;
+        _historicoSap = historicoSap?.Value ?? new HistoricoSapOptions();
     }
 
     public async Task<ProcesarSolicitudAwResponse> Handle(
@@ -154,6 +157,16 @@ public sealed class ProcesarSolicitudAwHandler
                 lectura.EsperaConfiguracion, hash: string.Empty,
                 marcarControlExcepcion: true, pedidoId: null, estadoFacturacion: null, ahora, ct, lectura.Diferencia);
 
+        // Pedido ya facturado en SAP (p. ej. 10446260 en 115): no entra como facturable para no facturarlo dos veces.
+        if (_historicoSap.EsHistorico(datos.EstadoOrigen))
+        {
+            var detalle = $"HISTORICO_SAP: el pedido está en estatus {datos.EstadoOrigen} de A+W; desde {_historicoSap.EstatusDesde} ya se facturó en SAP y no se importa como facturable";
+            (await ObtenerOAbrirExcepcionAsync(empresaId, sol.NumeroPedido, MotivoExcepcion.HistoricoSap, detalle, ct))
+                .Actualizar(MotivoExcepcion.HistoricoSap, detalle);
+            UpsertControl(control, empresaId, sol, Hash(datos.PayloadCrudo), EstadoIngesta.Excepcion, null, ahora);
+            return (ResultadoSolicitudAw.Rechazada, null, detalle, null);
+        }
+
         // Origen A+W: si el cliente no está en el master, se auto-provisiona
         // desde la vista de A+W (§3.bis.6). Falla de provisión = corregible
         // (dar de alta el cliente) → misma semántica pospuesta que catálogos.
@@ -170,7 +183,7 @@ public sealed class ProcesarSolicitudAwHandler
             datos.CanalVenta, datos.ComportamientoFiscal, datos.Moneda, datos.ObraId, datos.ObraNombre,
             datos.Comentarios, sol.Version, datos.EstadoOrigen, datos.Ranura,
             datos.MetodoPagoOrigen, datos.CondicionPagoOrigen);
-        await AgregarLineasAsync(nuevo, datos.Lineas, ct);
+        await AgregarLineasAsync(empresaId, sol.NumeroPedido, nuevo, datos.Lineas, ahora, ct);
         nuevo.RecalcularTotal();
 
         _db.PedidosFacturables.Add(nuevo);
@@ -242,7 +255,7 @@ public sealed class ProcesarSolicitudAwHandler
             datos.Moneda, datos.ObraId, datos.ObraNombre, datos.Comentarios, sol.Version, datos.EstadoOrigen,
             datos.Ranura, datos.MetodoPagoOrigen, datos.CondicionPagoOrigen);
         pedido.LimpiarLineas();
-        await AgregarLineasAsync(pedido, datos.Lineas, ct);
+        await AgregarLineasAsync(empresaId, sol.NumeroPedido, pedido, datos.Lineas, ahora, ct);
         pedido.RecalcularTotal();
 
         _db.PedidosFacturablesSnapshot.Add(PedidoFacturableSnapshot.Crear(pedido.Id, datos.PayloadCrudo, ahora));
@@ -270,10 +283,22 @@ public sealed class ProcesarSolicitudAwHandler
         return (ResultadoSolicitudAw.Aplicada, pedido.Id, null, "Cancelado");
     }
 
-    private async Task AgregarLineasAsync(PedidoFacturable pedido, IReadOnlyList<LineaPedidoAw> lineas, CancellationToken ct)
+    private async Task AgregarLineasAsync(Guid empresaId, string numeroPedido, PedidoFacturable pedido, IReadOnlyList<LineaPedidoAw> lineas,
+        DateTimeOffset ahora, CancellationToken ct)
     {
-        foreach (var l in lineas)
+        // Una posición en cero (salió completa por un pedido hijo de expedición parcial) no se factura ni tumba el pedido:
+        // se omite, se conserva la posición de A+W del resto y queda un aviso ya resuelto en la bandeja de importación.
+        var omitidas = lineas.Select((l, i) => (l, Posicion: i + 1)).Where(x => x.l.Cantidad == 0).ToArray();
+        if (omitidas.Length > 0)
         {
+            var aviso = ExcepcionImportacion.Crear(empresaId, OrigenPedido.Aw, numeroPedido, MotivoExcepcion.LineasEnCeroOmitidas,
+                $"Se omitieron {omitidas.Length} posiciones con cantidad cero: {string.Join(", ", omitidas.Select(x => x.Posicion))}");
+            aviso.Resolver(usuarioId: null, ahora);
+            _db.ExcepcionesImportacion.Add(aviso);
+        }
+        foreach (var (l, posicion) in lineas.Select((l, i) => (l, i + 1)))
+        {
+            if (l.Cantidad == 0) continue;
             var producto = await _productos.ResolverPorReferenciaAsync(l.ProductoRef, ct)
                            ?? await _masterProvisioning.EnsureArticuloDesdeAwAsync(l.ProductoRef, ct);
             pedido.AgregarLinea(
@@ -288,7 +313,8 @@ public sealed class ProcesarSolicitudAwHandler
                 bomJson: l.BomJson,
                 // Tasa del documento A+W (FAC-DET-PR2): en pedidos A+W la
                 // tasa del origen manda — no se cae al master ni a la empresa.
-                tasaIva: l.TasaIva);
+                tasaIva: l.TasaIva,
+                posicion: posicion);
         }
     }
 

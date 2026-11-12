@@ -12,16 +12,20 @@ import {
 } from '@/components/ui/table';
 import { useState } from 'react';
 import { Info } from 'lucide-react';
-import { Breadcrumbs, ErrorState } from '@/components/erp';
+import { Breadcrumbs, DateTimeDisplay, ErrorState } from '@/components/erp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { errorUsuario } from '@/lib/error-usuario';
-import { useOtrBandeja, useOtrAccion, type OtrFila } from '../api/otr';
-import { motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
+import { useOtrBandeja, useOtrAccion, useOtrRechazos, type OtrFila } from '../api/otr';
+import { motivoRechazoOtr, motivoVinculacionOtr } from '../lib/motivo-vinculacion-otr';
 import { VincularOtrSheet } from '../components/OtrPanel';
+/** Pestaña de entradas rechazadas por el lector (no son envíos: no tienen estado de envío). */
+const RECHAZADOS = 9;
+const columnasRechazo =
+  'grid grid-cols-[180px_136px_96px_minmax(280px,1fr)_172px] items-center [&>td]:min-w-0 [&>th]:min-w-0';
 const columnas =
   'grid grid-cols-[120px_minmax(240px,1.6fr)_112px_136px_260px_172px] items-center [&>td]:min-w-0 [&>th]:min-w-0';
 export function OtrBandejaPage() {
@@ -33,19 +37,31 @@ export function OtrBandejaPage() {
   const [pagina, setPagina] = useState(0);
   const [estado, setEstado] = useState<number | undefined>(1);
   const gestionar = useHasPermission(P.ComercioExteriorOtrGestionar);
+  const verRechazos = gestionar && gestionarTodas;
+  const rechazos = useOtrRechazos(verRechazos);
   const encontrados = q.data?.filter((e) =>
     `${e.idOrigen} ${e.contenido.cliente}`
       .toLocaleLowerCase('es-MX')
       .includes(texto.toLocaleLowerCase('es-MX')),
   );
-  const conteos = encontrados
+  const conteos: Record<number, number> | undefined = encontrados
     ? {
         1: encontrados.filter((e) => e.estado === 1).length,
         2: encontrados.filter((e) => e.estado === 2).length,
         3: encontrados.filter((e) => e.estado === 3).length,
+        4: encontrados.filter((e) => e.estado === 4).length,
+        [RECHAZADOS]: rechazos.data?.length ?? 0,
       }
     : undefined;
   const filas = encontrados?.filter((e) => estado === undefined || e.estado === estado) ?? [];
+  const filasRechazo =
+    rechazos.data?.filter((r) =>
+      `${r.idOrigen} ${r.motivo ?? ''}`
+        .toLocaleLowerCase('es-MX')
+        .includes(texto.toLocaleLowerCase('es-MX')),
+    ) ?? [];
+  const enRechazos = estado === RECHAZADOS;
+  const total = enRechazos ? filasRechazo.length : filas.length;
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
       <div className="shrink-0">
@@ -80,9 +96,12 @@ export function OtrBandejaPage() {
                   { valor: 1, label: 'Por vincular' },
                   { valor: 2, label: 'Vinculados' },
                   { valor: 3, label: 'Cancelados' },
+                  { valor: 4, label: 'Histórico SAP' },
+                  ...(verRechazos ? [{ valor: RECHAZADOS, label: 'Rechazados' }] : []),
                 ]}
                 valor={estado}
                 conteos={conteos}
+                total={encontrados?.length}
                 onChange={(v) => {
                   setEstado(v);
                   setPagina(0);
@@ -102,12 +121,12 @@ export function OtrBandejaPage() {
                     }}
                   />
                 }
-                total={`${filas.length} envíos`}
+                total={enRechazos ? `${total} rechazos` : `${total} envíos`}
               />
             }
             pie={
               <PaginacionTabla
-                total={filas.length}
+                total={total}
                 offset={pagina * 10}
                 limit={10}
                 tamanos={[]}
@@ -116,7 +135,58 @@ export function OtrBandejaPage() {
             }
           >
             <div className="h-full min-h-0 overflow-auto">
-              {filas.length > 0 && (
+              {enRechazos && filasRechazo.length > 0 && (
+                <Table
+                  aria-label="Entradas OTR rechazadas"
+                  className="grid h-full min-w-[880px] grid-rows-[auto_1fr] text-sm"
+                >
+                  <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
+                    <TableRow className={`${columnasRechazo} h-9`}>
+                      {['Envío OTR', 'Versión', 'Intentos', 'Motivo', 'Rechazado'].map((x) => (
+                        <TableHead key={x} className="px-3">
+                          {x}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="grid auto-rows-fr">
+                    {filasRechazo.slice(pagina * 10, pagina * 10 + 10).map((r) => (
+                      <TableRow
+                        className={`${columnasRechazo} min-h-12 border-b border-line-row`}
+                        key={r.id}
+                      >
+                        <TableCell className="break-words px-3 font-mono text-xs">
+                          {r.idOrigen}
+                        </TableCell>
+                        <TableCell className="break-words px-3 text-xs tabular-nums">
+                          {r.versionOrigen}
+                        </TableCell>
+                        <TableCell className="px-3 text-xs tabular-nums">{r.intentos}</TableCell>
+                        <TableCell className="min-w-0 px-3">
+                          <p className="break-words">{motivoRechazoOtr(r.motivo)}</p>
+                          {r.motivo && (
+                            <p className="break-words font-mono text-2xs text-ink-muted">
+                              {r.motivo}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-3 text-xs">
+                          <DateTimeDisplay value={r.fecha} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              {enRechazos && rechazos.isError && (
+                <p role="alert" className="p-4 text-danger-fg">
+                  {errorUsuario(rechazos.error, 'No se pudieron cargar los rechazos OTR.')}
+                </p>
+              )}
+              {enRechazos && rechazos.data && filasRechazo.length === 0 && (
+                <p className="p-4 text-ink-muted">No hay entradas OTR rechazadas.</p>
+              )}
+              {!enRechazos && filas.length > 0 && (
                 <Table
                   aria-label="Envíos OTR"
                   className="grid h-full min-w-[1040px] grid-rows-[auto_1fr] text-sm"
@@ -216,7 +286,9 @@ export function OtrBandejaPage() {
                                 ? 'Envío vinculado.'
                                 : e.estado === 3
                                   ? 'Envío cancelado.'
-                                  : 'Requiere permiso de gestión OTR.'}
+                                  : e.estado === 4
+                                    ? 'Ya facturado en SAP; sólo consulta.'
+                                    : 'Requiere permiso de gestión OTR.'}
                             </span>
                           )}
                         </TableCell>
@@ -230,7 +302,7 @@ export function OtrBandejaPage() {
                   Cargando envíos OTR…
                 </p>
               )}
-              {q.data && filas.length === 0 && (
+              {!enRechazos && q.data && filas.length === 0 && (
                 <p className="p-4 text-ink-muted">No hay envíos OTR en esta vista.</p>
               )}
             </div>
