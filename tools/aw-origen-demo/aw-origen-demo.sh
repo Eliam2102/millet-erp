@@ -1,12 +1,13 @@
 #!/bin/bash
 # BD de prueba del origen de demo de A+W (tablas aw_origen.*) en el PostgreSQL de desarrollo.
 # Con PGHOST definido (más PGPORT/PGUSER/PGPASSWORD/PGSSLMODE, por omisión require) usa un PostgreSQL remoto en vez del contenedor.
-# Uso: aw-origen-demo.sh {up|reseed|importar|pedidos|otr|piezas|taller|pinturas|env|psql}
+# Uso: aw-origen-demo.sh {up|reseed|importar|pedidos|otr|otr-cancelacion|piezas|taller|pinturas|env|psql}
 #  up       crea la BD si no existe y aplica schema.sql + seed.sql + pedidos.sql + otr.sql + piezas.sql + pinturas.sql (idempotente)
 #  reseed   re-aplica seed.sql (deshace los cambios hechos a mano a las tablas)
 #  importar reemplaza clientes y productos por los de una BD de A+W en SQL Server (por defecto AW_DEMO del
 #           sandbox tools/aw-sandbox) y re-siembra los pedidos; después la demo ya no necesita el sandbox
 #  pedidos  re-siembra la cola de pedidos para Facturación (solo contra una BD del ERP nueva)
+#  otr-cancelacion  M-445: cancela DEMO-OTR-1 (890) y carga el envío DEMO-OTR-3 que lo reemplaza
 #  piezas   carga los escaneos de pieza terminada de muestra (flujo PT-01, idempotente)
 #  taller   carga los pedidos internos Serie 9000 de muestra del taller de Circuito (PT5.10, idempotente)
 #  pinturas aplica pinturas.sql (tablas y semilla de catálogos y pedido de Pinturas)
@@ -50,6 +51,9 @@ case "${1:-}" in
   otr)
     pg -d "$DB" -v sucursal_clave_aw="${OTR_SUCURSAL_CLAVE_AW:-MID}" \
       -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr.sql ;;
+  otr-cancelacion)
+    pg -d "$DB" -v sucursal_clave_aw="${OTR_SUCURSAL_CLAVE_AW:-MID}" \
+      -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr-cancelacion.sql ;;
   piezas) pg -d "$DB" < piezas.sql ;;
   taller) pg -d "$DB" -v producto_ref="${TALLER_PRODUCTO_REF:-}" < taller.sql ;;
   pinturas) pg -d "$DB" < pinturas.sql ;;
@@ -60,5 +64,5 @@ export IntegracionesAw__OrigenDemo__Permitido=true
 ENV
     ;;
   psql) shift; [ -n "${PGHOST:-}" ] && exec psql -h "$PGHOST" -p "$PORT" -U "$U" -d "$DB" "$@"; docker exec -i $([ -t 0 ] && echo -t) "$C" psql -U "$U" -d "$DB" "$@" ;;
-  *) sed -n 2,14p "$0"; exit 2 ;;
+  *) sed -n 2,15p "$0"; exit 2 ;;
 esac
