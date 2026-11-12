@@ -12,7 +12,13 @@ import { cn } from '@/lib/utils';
  * oculta con el atributo `hidden`); sin forceMount, los errores de zod en
  * pestañas no visibles no se renderizan y el usuario no sabe qué corregir.
  */
-const Tabs = TabsPrimitive.Root;
+const Tabs = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Root ref={ref} className={cn('min-w-0 max-w-full', className)} {...props} />
+));
+Tabs.displayName = TabsPrimitive.Root.displayName;
 
 type TabsVariant = 'linea' | 'pill';
 const TabsVariantContext = React.createContext<TabsVariant>('linea');
@@ -30,8 +36,8 @@ const TabsList = React.forwardRef<
       ref={ref}
       className={cn(
         variant === 'pill'
-          ? 'inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground'
-          : 'flex flex-wrap gap-1 border-b border-line',
+          ? 'inline-flex h-9 max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground'
+          : 'flex min-w-0 max-w-full flex-nowrap gap-1 overflow-x-auto border-b border-line',
         className,
       )}
       {...props}
@@ -49,7 +55,7 @@ const TabsTrigger = React.forwardRef<
     <TabsPrimitive.Trigger
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium transition-colors',
+        'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         'disabled:pointer-events-none disabled:opacity-50',
         variant === 'pill'
@@ -60,9 +66,7 @@ const TabsTrigger = React.forwardRef<
       {...props}
     >
       {children}
-      {count !== undefined && (
-        <span className="text-2xs tabular-nums text-ink-muted">{count}</span>
-      )}
+      {count !== undefined && <span className="text-2xs tabular-nums text-ink-muted">{count}</span>}
     </TabsPrimitive.Trigger>
   );
 });

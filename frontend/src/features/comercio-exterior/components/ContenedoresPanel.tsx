@@ -134,7 +134,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
   }
   return (
     <section className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-md font-semibold">Contenedores y partidas</h2>
           <p className="text-xs text-ink-muted">

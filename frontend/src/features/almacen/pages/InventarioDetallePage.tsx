@@ -99,7 +99,7 @@ export function InventarioDetallePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios" search={{}}>
@@ -169,7 +169,7 @@ export function InventarioDetallePage() {
             }
           />
 
-          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat [overflow-wrap:anywhere] @sm:grid-cols-2 @3xl:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
