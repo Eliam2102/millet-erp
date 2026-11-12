@@ -46,11 +46,15 @@ export function CargaInicialPage() {
         JSON.stringify(Object.entries(totales).map(([clase, t]) => ({ clase, ...t }))),
       );
       // Fija el boundary para que los reintentos HTTP conserven el mismo cuerpo.
-      const body = await new Response(form).blob();
+      const multipart = new Response(form);
+      const contentType = multipart.headers.get('Content-Type')!;
+      const body = await multipart.blob();
       return (
         await apiRequest<CargaResultado>(`${AF_BASE}/carga/${confirmar ? 'confirmar' : 'previa'}`, {
           method: 'POST',
           body,
+          // Blob.type convierte el boundary a minúsculas; conservar el encabezado original.
+          headers: { 'Content-Type': contentType },
           idempotencyKey: confirmar ? crypto.randomUUID() : undefined,
         })
       ).data;
