@@ -72,12 +72,18 @@ public sealed class AwProductosSqlOrigen : IAwProductosOrigen
          ORDER BY s.PRODUKT, s.BOM_ID
         """;
 
-    // Medidas de hoja entera (BA_BREITE = ancho, BA_HOEHE = alto): un código con varias medidas.
+    // Medidas de hoja entera (BA_BREITE = ancho, BA_HOEHE = alto, en mm): un código con varias medidas. Regla de Jorge
+    // (10-nov, «Integraciones: cinco datos»): la propiedad está en la medida; es hoja entera si su familia BA_ABW_WGR
+    // empieza con 2, ancho y alto > 0 y el artículo está activo (KZ_GESPERRT = 0). Las demás medidas son retazos.
+    // 2134x3302 y 3302x2134 son medidas distintas: no se normaliza la orientación.
     public const string SqlMedidas = """
-        SELECT BA_PRODUKT, BA_BREITE, BA_HOEHE
-          FROM SYSADM.BA_LAGMA
-         WHERE BA_PRODUKT BETWEEN @min AND @max
-         ORDER BY BA_PRODUKT, BA_BREITE, BA_HOEHE
+        SELECT m.BA_PRODUKT, m.BA_BREITE, m.BA_HOEHE
+          FROM SYSADM.BA_LAGMA AS m
+          JOIN SYSADM.BA_PRODUKTE AS p ON p.BA_PRODUKT = m.BA_PRODUKT AND p.KZ_GESPERRT = 0
+         WHERE m.BA_PRODUKT BETWEEN @min AND @max
+           AND m.BA_ABW_WGR LIKE '2%' AND m.BA_BREITE > 0 AND m.BA_HOEHE > 0
+         GROUP BY m.BA_PRODUKT, m.BA_BREITE, m.BA_HOEHE
+         ORDER BY m.BA_PRODUKT, m.BA_BREITE, m.BA_HOEHE
         """;
 
     private readonly IIntegracionSqlConnectionFactory _factory;

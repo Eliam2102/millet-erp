@@ -10,7 +10,7 @@ public sealed class AlertaCarteraConfiguration : IEntityTypeConfiguration<Alerta
     {
         builder.ToTable("alerta_cartera", t =>
         {
-            t.HasCheckConstraint("ck_alerta_cartera_tipo", "tipo IN (1, 2, 3, 4)");
+            t.HasCheckConstraint("ck_alerta_cartera_tipo", "tipo IN (1, 2, 3, 4, 5)");
             t.HasCheckConstraint(
                 "ck_alerta_cartera_atencion_consistente",
                 "(atendida = TRUE AND atendida_por IS NOT NULL AND atendida_en IS NOT NULL) OR " +

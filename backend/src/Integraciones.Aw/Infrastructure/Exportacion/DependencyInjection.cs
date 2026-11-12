@@ -30,6 +30,7 @@ public static class OtrDependencyInjection
         }
         Registrar("Demo", true);
         if (options.ContratoI134Firmado && !string.IsNullOrWhiteSpace(config.GetConnectionString(Cadena)) && options.EntradaHabilitada) Registrar("Real", false);
+        services.AddScoped<ISucursalOtrReadPort, Millet.Integraciones.Aw.Infrastructure.Pedidos.SucursalPorClaveAwResolver>();
         services.AddScoped<OtrOrigenSelector>();
         services.AddScoped<IOtrEntradaReader>(sp => sp.GetRequiredService<OtrOrigenSelector>());
         services.AddHostedService<OtrEntradaWorker>();

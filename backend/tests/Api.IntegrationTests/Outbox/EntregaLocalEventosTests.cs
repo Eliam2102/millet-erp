@@ -110,7 +110,7 @@ public sealed class EntregaLocalEventosTests(WebApplicationFactory<Program> fact
 
         // Factura en CxP -> fila factura.registrada.v1 en su outbox.
         var iva = Math.Round(subtotal * 0.16m, 2);
-        using var form = new MultipartFormDataContent { { new ByteArrayContent(Encoding.UTF8.GetBytes(Cfdi(uuid, ProveedorRfc, subtotal, iva, hoy))) { Headers = { ContentType = new("text/xml") } }, "xml", "f.xml" } };
+        using var form = new MultipartFormDataContent { { new ByteArrayContent(Encoding.UTF8.GetBytes(Cfdi(uuid, ProveedorRfc, subtotal, iva, hoy, await RfcEmpresaAsync(app)))) { Headers = { ContentType = new("text/xml") } }, "xml", "f.xml" } };
         var cfdiResp = await b.PostAsync("/api/v1/cuentas-por-pagar/cfdis/cargar", form);
         await Ok(cfdiResp, "B carga CFDI");
         var cfdiId = (await J(cfdiResp)).GetProperty("id").GetGuid();

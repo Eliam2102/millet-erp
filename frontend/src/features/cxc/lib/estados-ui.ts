@@ -120,6 +120,10 @@ export const ESTADOS_UI = {
       tono: 'danger',
       texto: ETIQUETA_TIPO_ALERTA[TipoAlertaCartera.ContraEntregaNoLiquidada],
     },
+    [TipoAlertaCartera.ChequeRebotado]: {
+      tono: 'danger',
+      texto: ETIQUETA_TIPO_ALERTA[TipoAlertaCartera.ChequeRebotado],
+    },
   },
   anticipo: {
     Abierto: { tono: 'success', texto: 'Abierto' },

@@ -1,3 +1,4 @@
+import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
@@ -14,17 +15,18 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft, FileDown, Printer, RotateCw } from 'lucide-react';
+import { ArrowLeft, FileDown, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
-import { descargarComprobanteSalida } from '@/features/almacen/api/descargarComprobanteSalida';
+import { obtenerComprobante } from '@/features/almacen/api/descargarComprobanteSalida';
 import { EstadoMovimiento, type SalidaDetalle } from '@/features/almacen/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
+import { CorreccionesConsumoSeccion } from '@/features/almacen/components/CorreccionesConsumoSeccion';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { ubicacionLabel } from '@/features/almacen/components/impresion/salida-display';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
@@ -49,7 +51,7 @@ export function SalidaDetallePage() {
   const [regularizarOpen, setRegularizarOpen] = useState(false);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/salidas" search={{}}>
@@ -109,7 +111,7 @@ export function SalidaDetallePage() {
             mono
           />
 
-          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat [overflow-wrap:anywhere] @sm:grid-cols-2 @3xl:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
@@ -245,6 +247,9 @@ export function SalidaDetallePage() {
             />
           </section>
 
+          {/* M-334 / M-331: correcciones de consumo (Costos autoriza; se aplican en el mes corriente). */}
+          <CorreccionesConsumoSeccion salida={query.data} />
+
           {/* U-4: vale por rectificar (ALM-vale-08) o diferencia de firma, conteo o acuse del surtido (ALM-salida-07). */}
           {query.data.esPorVale ? (
             <IncidenciasDocumento
@@ -338,25 +343,5 @@ function VerValeButton({ salidaId }: { salidaId: string }) {
  * (SALIDA DE MERCANCIA) que dibuja el backend, para firmarlo a mano.
  */
 function ImprimirComprobanteButton({ salida }: { salida: SalidaDetalle }) {
-  const [generando, setGenerando] = useState(false);
-
-  async function imprimir() {
-    setGenerando(true);
-    try {
-      await descargarComprobanteSalida(salida.id, salida.folio);
-    } catch (e) {
-      toast.error('No se pudo generar el comprobante PDF.', {
-        description: errorUsuario(e, 'Reintenta en unos segundos.'),
-      });
-    } finally {
-      setGenerando(false);
-    }
-  }
-
-  return (
-    <Button type="button" variant="outline" onClick={imprimir} disabled={generando}>
-      <Printer className="mr-2 size-3.5" />
-      {generando ? 'Generando PDF…' : 'Imprimir comprobante'}
-    </Button>
-  );
+  return <ImprimirPdfButton generarPdf={() => obtenerComprobante(`/api/v1/almacen/salidas/${salida.id}/comprobante`)}>Imprimir comprobante</ImprimirPdfButton>;
 }

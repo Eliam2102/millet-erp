@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Activity, BookOpen } from 'lucide-react';
+import { Activity, BookOpen, CirclePause } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 import { administracionAdminCards } from '@/modules/administracion/admin';
@@ -117,6 +117,18 @@ export const adminRegistry: readonly AdminSection[] = [
     href: '/admin/integraciones/tablero',
     permisoRequerido: PermisosCanonicos.InfraHealthLeer,
     orden: 90,
+    grupo: 'modulos',
+    displayMode: 'custom',
+  },
+  {
+    id: 'admin-tramos',
+    modulo: 'admin',
+    titulo: 'Tramos de la operación',
+    descripcion: 'Detener y reanudar tramos (captura de producto terminado) con motivo y otra persona que autoriza.',
+    icon: CirclePause,
+    href: '/admin/tramos',
+    permisoRequerido: PermisosCanonicos.CompartidoTramosGestionar,
+    orden: 95,
     grupo: 'modulos',
     displayMode: 'custom',
   },

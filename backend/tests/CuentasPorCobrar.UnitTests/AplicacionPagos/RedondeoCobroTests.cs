@@ -8,8 +8,9 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.CuentasPorCobrar.UnitTests.AplicacionPagos;
 
 /// <summary>
-/// M-326: un cobro corto de hasta $0.99 (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo ni autorización. Más
-/// de $0.99 sigue como hoy (tipo, motivo y autorización de otra persona). El redondeo lo asigna el sistema; no se elige a mano.
+/// M-326: un cobro corto de hasta $0.99 (en la moneda del cobro) es redondeo: va a la cuenta REDONDEO sin motivo. Parte 2 (c): su
+/// autorización la da el Gerente de Área (otra persona, no quien propone). Más de $0.99 sigue como hoy (tipo, motivo y autorización).
+/// El redondeo lo asigna el sistema; no se elige a mano.
 /// </summary>
 public sealed class RedondeoCobroTests
 {
@@ -25,14 +26,51 @@ public sealed class RedondeoCobroTests
             [("uuid-1", Guid.NewGuid(), 10_000m, 1)], 50m, Proponente, tipoAjuste: tipo, motivoAjuste: motivo, ahora: Ahora);
 
     [Fact]
-    public void Un_faltante_de_040_es_redondeo_sin_motivo_ni_autorizacion()
+    public void Un_faltante_de_040_es_redondeo_sin_motivo_y_espera_la_autorizacion()
     {
         var p = Crear(0.40m);
         p.AjusteNoFiscal.Should().Be(-0.40m);
         p.TipoAjuste.Should().Be(TipoAjusteCobro.Redondeo);
-        p.AjustePorAutorizar.Should().BeFalse("el redondeo no espera a otra persona: la propuesta pasa directo a Tesorería");
-        p.AjusteAutorizadoEn.Should().Be(Ahora);
-        p.AjusteAutorizadoPor.Should().BeNull("lo asigna el sistema");
+        p.AjustePorAutorizar.Should().BeTrue("M-326 parte 2: el redondeo espera al Gerente de Área; Tesorería no la ve antes");
+        p.RequiereGerenteDeArea.Should().BeTrue();
+        p.AjusteAutorizadoEn.Should().BeNull();
+        p.AjusteAutorizadoPor.Should().BeNull();
+    }
+
+    [Fact]
+    public void M326b_Un_excedente_de_040_es_redondeo_y_no_saldo_a_favor_y_espera_al_gerente()
+    {
+        var p = Crear(-0.40m); // depósito 10,000.40 contra 10,000 aplicados
+        p.AjusteNoFiscal.Should().Be(0.40m);
+        p.SaldoAFavorPorIdentificar.Should().Be(0m);
+        p.TipoAjuste.Should().Be(TipoAjusteCobro.Redondeo);
+        p.AjustePorAutorizar.Should().BeTrue();
+        p.RequiereGerenteDeArea.Should().BeTrue();
+
+        p.AutorizarAjuste(Autorizador, Ahora);
+        p.AjusteAutorizadoPor.Should().Be(Autorizador);
+    }
+
+    [Fact]
+    public void M326b_Un_excedente_mayor_a_099_sigue_como_saldo_a_favor()
+    {
+        var p = Crear(-1.20m);
+        p.SaldoAFavorPorIdentificar.Should().Be(1.20m);
+        p.AjusteNoFiscal.Should().Be(0m);
+        p.TipoAjuste.Should().BeNull();
+        p.AjustePorAutorizar.Should().BeFalse();
+        Crear(-0.99m).TipoAjuste.Should().Be(TipoAjusteCobro.Redondeo);
+    }
+
+    [Fact]
+    public void M326b_El_excedente_de_redondeo_no_se_revierte_como_faltante()
+    {
+        var p = Crear(-0.40m);
+        p.AutorizarAjuste(Autorizador, Ahora);
+        p.Confirmar(Tesoreria, Ahora, Guid.NewGuid());
+        p.MarcarReppTimbrado(Guid.NewGuid());
+        var revertir = () => p.RevertirAjuste(Autorizador, "No procede", Ahora);
+        revertir.Should().Throw<BusinessRuleException>().Where(e => e.Code == "PAP_SIN_AJUSTE_AUTORIZADO");
     }
 
     [Theory]
@@ -109,9 +147,12 @@ public sealed class RedondeoCobroTests
         db.PropuestasAplicacionPago.Add(p);
         await db.SaveChangesAsync();
 
+        (await new AjusteCobroContableAdapter(db).ObtenerAsync(EmpresaId, p.Id, default)).Should().BeNull("sin autorización no hay ajuste contable");
+        p.AutorizarAjuste(Autorizador, Ahora);
+        await db.SaveChangesAsync();
         var ajuste = await new AjusteCobroContableAdapter(db).ObtenerAsync(EmpresaId, p.Id, default);
 
-        ajuste.Should().NotBeNull("el redondeo no espera autorización");
+        ajuste.Should().NotBeNull();
         ajuste!.Tipo.Should().Be(TipoAjusteCobroContable.Redondeo);
         ajuste.Importe.Should().Be(0.40m);
     }
@@ -121,6 +162,7 @@ public sealed class RedondeoCobroTests
     {
         using var db = CrearDbContext();
         var p = Crear(0.40m);
+        p.AutorizarAjuste(Autorizador, Ahora);
         p.Confirmar(Tesoreria, Ahora, Guid.NewGuid());
         p.MarcarReppTimbrado(Guid.NewGuid());
         db.PropuestasAplicacionPago.Add(p);

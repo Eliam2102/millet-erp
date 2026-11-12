@@ -4,13 +4,13 @@ import { ArrowLeft } from 'lucide-react';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { MaestroDetalle } from './MaestroDetalle';
 
 /**
  * Master-detail de los detalles de Almacén y CxP (patrón P3 de
  * `frontend/docs/patrones-compras.md`): lista compacta de 320 px a la
- * izquierda con el registro activo resaltado + detalle a la derecha. En
- * móvil solo se ve el detalle (drill-down) con un enlace para volver a la
- * bandeja; el aside no se imprime.
+ * izquierda con el registro activo resaltado, disponible al mostrar la lista.
+ * El detalle conserva todo el ancho por omisión; el aside no se imprime.
  */
 interface MasterDetailProps {
   /** Nombre plural del recurso: "Recepciones", "Salidas"… */
@@ -31,26 +31,31 @@ export function MasterDetail({
   children,
 }: MasterDetailProps) {
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      <aside
-        className="hidden flex-col gap-3 md:flex md:w-80 md:shrink-0 md:overflow-hidden"
-        aria-label={`Lista de ${titulo.toLowerCase()}`}
-        data-print="hidden"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <Link
-            to={bandejaTo as never}
-            search={(bandejaSearch ?? {}) as never}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="size-3.5" aria-hidden="true" />
-            {titulo}
-          </Link>
-        </div>
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
-          {lista}
-        </div>
-      </aside>
+    <MaestroDetalle
+      seleccionado
+      etiquetaLista={titulo.toLowerCase()}
+      lista={
+        <aside
+          className="hidden flex-col gap-3 md:flex md:w-80 md:shrink-0 md:overflow-hidden"
+          aria-label={`Lista de ${titulo.toLowerCase()}`}
+          data-print="hidden"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              to={bandejaTo as never}
+              search={(bandejaSearch ?? {}) as never}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="size-3.5" aria-hidden="true" />
+              {titulo}
+            </Link>
+          </div>
+          <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+            {lista}
+          </div>
+        </aside>
+      }
+    >
       {/* Aire del detalle (DESIGN §5.2): 16 px en móvil, 24 px en escritorio. */}
       <section
         className="@container min-w-0 flex-1 px-4 pb-10 md:overflow-y-auto md:px-6"
@@ -58,7 +63,7 @@ export function MasterDetail({
       >
         {children}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

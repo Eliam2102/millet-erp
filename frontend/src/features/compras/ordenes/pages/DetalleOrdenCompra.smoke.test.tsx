@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { DetalleOrdenCompra } from '@/features/compras/ordenes/pages/DetalleOrdenCompra';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import * as impresion from '@/components/erp/reportes/imprimir-pdf';
 import {
   EstadoOrdenCompra,
   SubEstadoFacturacion,
@@ -112,6 +113,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   useAuthStore.setState({
     status: 'idle',
     accessToken: null,
@@ -125,6 +128,42 @@ afterEach(() => {
 });
 
 describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
+  it.each([EstadoOrdenCompra.Autorizada, EstadoOrdenCompra.Cerrada])('refresca el contador, fecha y usuario tras imprimir sin recargar ni duplicar la impresión (estado %s)', async estado => {
+    let impresiones = 1;
+    const descargar = vi.fn(() => {
+      impresiones += 1;
+      return new HttpResponse('PDF ficticio', { headers: { 'Content-Type': 'application/pdf' } });
+    });
+    vi.spyOn(impresion, 'abrirPdfParaImprimir').mockImplementation(async generar => { await generar(); });
+    vi.stubGlobal('URL', class extends URL {
+      static createObjectURL = vi.fn(() => 'blob:pdf-ficticio');
+      static revokeObjectURL = vi.fn();
+    });
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/oc-1', () => HttpResponse.json(makeDetalle({
+        estado, impresiones,
+        ultimaImpresionEn: impresiones === 1 ? '2026-05-09T10:00:00Z' : '2026-05-10T11:00:00Z',
+        ultimaImpresionPorNombre: impresiones === 1 ? 'Usuario anterior' : 'Usuario de impresión',
+      }), { headers: { ETag: `"${impresiones}"` } })),
+      http.get('*/api/v1/compras/ordenes/oc-1/pdf', ({ request }) =>
+        new URL(request.url).searchParams.has('vistaPrevia')
+          ? new HttpResponse('PDF ficticio', { headers: { 'Content-Type': 'application/pdf' } })
+          : descargar(),
+      ),
+    );
+    render(<DetalleOrdenCompra />, { wrapper: createQueryWrapper() });
+    const tab = await screen.findByRole('tab', { name: 'PDF' });
+    fireEvent.mouseDown(tab, { button: 0, ctrlKey: false });
+    const anterior = await screen.findByText(/Impreso 1 veces/);
+    expect(anterior).toHaveTextContent('Usuario anterior');
+    expect(anterior.querySelector('time')).toHaveAttribute('datetime', '2026-05-09T10:00:00Z');
+    fireEvent.click(screen.getByRole('button', { name: 'Imprimir', exact: true }));
+    const actualizado = await screen.findByText(/Impreso 2 veces/);
+    expect(actualizado).toHaveTextContent('Usuario de impresión');
+    expect(actualizado.querySelector('time')).toHaveAttribute('datetime', '2026-05-10T11:00:00Z');
+    expect(descargar).toHaveBeenCalledOnce();
+  });
+
   it('renderiza folio + EstadoBadge en sub-topbar', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/ordenes/oc-1', () =>

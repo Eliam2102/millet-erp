@@ -14,6 +14,35 @@ public sealed class OtrTests
     private static OtrEnvio Envio() { var o = new OtrEnvio(Empresa, "DEMO-OTR"); o.Aplicar(1, Contenido()); return o; }
     private static void Codigo(string code, Action action) => Assert.Equal(code, Assert.Throws<BusinessRuleException>(action).Code);
     [Fact]
+    public void Revalidacion_conserva_version_fuente_hash_contenido_lineas_y_conflictos()
+    {
+        var o = new OtrEnvio(Empresa, "DEMO-SIN-SUCURSAL");
+        var contenido = Contenido() with { SucursalId = Guid.Empty, SucursalClaveAw = "PERIFERICO" };
+        o.Aplicar(1792666512345, contenido);
+        var hash = o.Hash; var json = o.ContenidoJson; var lineas = o.Lineas.Select(x => x.Id).ToArray();
+        o.RevalidarSucursal(Sucursal);
+        Assert.Equal(Sucursal, o.SucursalId); Assert.Null(o.MotivoVinculacion);
+        Assert.Equal(1792666512345, o.VersionAplicada); Assert.Equal(hash, o.Hash); Assert.Equal(json, o.ContenidoJson);
+        Assert.Equal(lineas, o.Lineas.Select(x => x.Id)); Assert.Empty(o.Conflictos); Assert.Null(o.ExpedienteId); Assert.Null(o.ContenedorId);
+        Assert.False(o.Aplicar(1792666512345, contenido));
+        Codigo("CE_OTR_REVALIDACION_NO_APLICABLE", () => o.RevalidarSucursal(Guid.NewGuid()));
+    }
+    [Fact]
+    public void Revalidacion_no_adivina_equivalencias_ni_corrige_cliente_vinculado_o_cancelado()
+    {
+        var o = new OtrEnvio(Empresa, "DEMO-REPOSICIONES");
+        o.Aplicar(1, Contenido() with { SucursalId = Guid.Empty, SucursalClaveAw = "REPOSICIONES" });
+        Codigo("CE_OTR_SUCURSAL_DESCONOCIDA", () => o.RevalidarSucursal(Guid.Empty));
+        Assert.Equal(Guid.Empty, o.SucursalId); Assert.Equal("CE_OTR_SUCURSAL_DESCONOCIDA", o.MotivoVinculacion);
+        o.Aplicar(2, Contenido() with { SucursalId = Guid.Empty, SucursalClaveAw = "REPOSICIONES", Cancelado = true });
+        Codigo("CE_OTR_REVALIDACION_NO_APLICABLE", () => o.RevalidarSucursal(Sucursal));
+        var sinCliente = new OtrEnvio(Empresa, "DEMO-SIN-CLIENTE");
+        sinCliente.Aplicar(1, Contenido() with { ClienteId = Guid.Empty, ClienteNumeroAw = "DEMO-CLI", SucursalId = Guid.Empty, SucursalClaveAw = "PERIFERICO" });
+        Codigo("CE_OTR_REVALIDACION_NO_APLICABLE", () => sinCliente.RevalidarSucursal(Sucursal));
+        var vinculado = Envio(); vinculado.Vincular(Expediente());
+        Codigo("CE_OTR_REVALIDACION_NO_APLICABLE", () => vinculado.RevalidarSucursal(Sucursal));
+    }
+    [Fact]
     public void O3_version_repetida_o_menor_no_cambia_hash_contenido_ni_lineas()
     {
         var o = Envio(); Assert.True(o.Aplicar(2, Contenido(125))); var hash = o.Hash; var json = o.ContenidoJson; var lineas = o.Lineas.Count;
@@ -117,5 +146,35 @@ public sealed class OtrTests
         o.Aplicar(2, Contenido() with { Cancelado = true }); e.RevisarPartidasOtr([partida.Id]);
         Assert.Equal(EstadoOtrEnvio.Cancelado, o.Estado); Assert.Equal(EstadoPartida.RequiereRevision, partida.Estado); Assert.Equal("Importado", p.Estado);
         Codigo("CE_OTR_CANCELADO", () => o.Vincular(e)); Codigo("CE_OTR_CANCELADO", () => o.Aplicar(3, Contenido()));
+    }
+    [Fact]
+    public void M445_cancelacion_890_libera_el_contenedor_y_el_reemplazo_toma_la_cantidad_sin_duplicar()
+    {
+        var cancelado = Envio(); var e = Expediente(); cancelado.Vincular(e); e.GuardarContenedor(cancelado.ContenedorId!.Value, cancelado.Conciliar(null, Ahora));
+        var p = new PedidoEmbarcable(Guid.NewGuid(), "DEMO-PED", Cliente, "DEMO", Sucursal, true, "Importado", 1, [new(1, null, "DEMO", 10, "H87")], null, null);
+        e.AsignarPartida(cancelado.ContenedorId.Value, p, 1, 10, Actor); var anterior = e.Partidas.Single(); cancelado.Lineas.Single().Proponer(anterior.Id);
+        cancelado.Aplicar(2, Contenido() with { Cancelado = true });
+        Assert.True(e.CancelarContenedorOtr(cancelado.ContenedorId.Value, tieneFactura: false));
+        cancelado.CerrarPorContenedorCancelado();
+        Assert.Equal(EstadoContenedor.Cancelado, e.Contenedor(cancelado.ContenedorId.Value).Estado);
+        Assert.StartsWith("CE_OTR_CANCELADO", cancelado.Lineas.Single(l => l.PartidaId == anterior.Id).Motivo);
+        var reemplazo = new OtrEnvio(Empresa, "DEMO-OTR-REEMPLAZO"); reemplazo.Aplicar(1, Contenido());
+        reemplazo.Vincular(e); e.GuardarContenedor(reemplazo.ContenedorId!.Value, reemplazo.Conciliar(null, Ahora));
+        e.AsignarPartida(reemplazo.ContenedorId.Value, p, 1, 10, Actor);
+        Assert.Equal(EstadoOtrEnvio.Cancelado, cancelado.Estado); Assert.Equal(EstadoOtrEnvio.Vinculado, reemplazo.Estado);
+        Assert.Equal(10, e.Partidas.Where(x => e.Contenedor(x.ContenedorId).Estado == EstadoContenedor.Activo && x.Estado != EstadoPartida.Liberada).Sum(x => x.Cantidad));
+    }
+    [Fact]
+    public void M445_cancelacion_890_con_factura_conserva_el_contenedor_en_revision()
+    {
+        var cancelado = Envio(); var e = Expediente(); cancelado.Vincular(e); e.GuardarContenedor(cancelado.ContenedorId!.Value, cancelado.Conciliar(null, Ahora));
+        var p = new PedidoEmbarcable(Guid.NewGuid(), "DEMO-PED", Cliente, "DEMO", Sucursal, true, "Importado", 1, [new(1, null, "DEMO", 10, "H87")], null, null);
+        e.AsignarPartida(cancelado.ContenedorId.Value, p, 1, 10, Actor); var anterior = e.Partidas.Single();
+        cancelado.Aplicar(2, Contenido() with { Cancelado = true });
+        Assert.False(e.CancelarContenedorOtr(cancelado.ContenedorId.Value, tieneFactura: true));
+        Assert.Equal(EstadoContenedor.Activo, e.Contenedor(cancelado.ContenedorId.Value).Estado); Assert.Equal(EstadoPartida.RequiereRevision, anterior.Estado);
+        var reemplazo = new OtrEnvio(Empresa, "DEMO-OTR-REEMPLAZO"); reemplazo.Aplicar(1, Contenido());
+        reemplazo.Vincular(e); e.GuardarContenedor(reemplazo.ContenedorId!.Value, reemplazo.Conciliar(null, Ahora));
+        Codigo("CE_CANTIDAD_EXCEDE_PEDIDO", () => e.AsignarPartida(reemplazo.ContenedorId.Value, p, 1, 10, Actor));
     }
 }

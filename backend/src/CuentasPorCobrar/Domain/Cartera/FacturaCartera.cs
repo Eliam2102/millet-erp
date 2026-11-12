@@ -41,6 +41,12 @@ public sealed class FacturaCartera : BaseEntity, IPerteneceAEmpresa, IAuditable
     public DateTimeOffset FechaTimbrado { get; private set; }
     public DateTimeOffset FechaVencimiento { get; private set; }
 
+    /// <summary>
+    /// M-237: plazo en días corregido a mano desde el estado de cuenta; null si nunca se corrigió. Cuando existe, manda sobre el plazo de la
+    /// línea de crédito en el bloqueo por vencimiento (C7.5), porque el vencimiento ya no sale de esa línea.
+    /// </summary>
+    public int? PlazoCorregidoDias { get; private set; }
+
     public decimal MontoPagado { get; private set; }
     public decimal MontoNc { get; private set; }
     public EstadoFacturaCartera Estado { get; private set; }
@@ -88,6 +94,28 @@ public sealed class FacturaCartera : BaseEntity, IPerteneceAEmpresa, IAuditable
             MontoNc = 0m,
             Estado = EstadoFacturaCartera.Abierta,
         };
+    }
+
+    /// <summary>Plazo vigente en días naturales entre el timbrado y el vencimiento.</summary>
+    public int PlazoDias => DateOnly.FromDateTime(FechaVencimiento.UtcDateTime).DayNumber
+        - DateOnly.FromDateTime(FechaTimbrado.UtcDateTime).DayNumber;
+
+    /// <summary>
+    /// M-237: corrige el plazo de la factura. Recalcula el vencimiento (timbrado + plazo en días naturales); la antigüedad y los
+    /// vencidos leen ese vencimiento. Devuelve el vencimiento anterior para el rastro antes/después.
+    /// </summary>
+    public DateTimeOffset CorregirPlazo(int plazoDias)
+    {
+        AsegurarNoCancelada();
+        if (plazoDias is < 0 or > 365)
+            throw new BusinessRuleException("FC_PLAZO_INVALIDO", "El plazo debe estar entre 0 y 365 días.");
+        if (plazoDias == PlazoDias)
+            throw new BusinessRuleException("FC_PLAZO_SIN_CAMBIO", $"La factura {Folio} ya tiene un plazo de {plazoDias} días.");
+
+        var anterior = FechaVencimiento;
+        FechaVencimiento = FechaTimbrado.AddDays(plazoDias);
+        PlazoCorregidoDias = plazoDias;
+        return anterior;
     }
 
     public decimal SaldoPendiente => Total - MontoPagado - MontoNc;

@@ -123,3 +123,12 @@ describe('<StepperAutorizacionOc>', () => {
     expect(root?.getAttribute('aria-label')).toMatch(/autorización/i);
   });
 });
+
+
+it('servicio CE muestra ambas áreas y siempre conserva la segunda firma', () => {
+  const { container } = render(<StepperAutorizacionOc estado={EstadoOrdenCompra.Autorizada} servicioCe n2NoRequerido />);
+  expect(screen.getByText('Comercio Exterior (N1)')).toBeInTheDocument();
+  expect(screen.getByText('Dirección Comercial (N2)')).toBeInTheDocument();
+  expect(leerPasos(container)[2]!.estado).toBe('completo');
+  expect(screen.queryByText(/no requerido/)).not.toBeInTheDocument();
+});

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -212,4 +212,33 @@ describe('<PendientesLayout> — smoke', () => {
     expect(screen.getByText('Recurrente').closest('a')?.querySelectorAll('[data-slot=badge]')).toHaveLength(2);
     expect(screen.getByText('Falta N2')).toBeInTheDocument();
   });
+});
+
+
+it('permite plegar la lista de pendientes sin perder la captura del detalle', () => {
+  mswServer.use(
+    http.get('*/api/v1/compras/pendientes-autorizacion', () =>
+      HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
+    ),
+  );
+  render(
+    <PendientesLayout
+      idActivo="rq-1"
+      detalle={<input aria-label="Dato de prueba" defaultValue="" />}
+    />,
+    { wrapper: createQueryWrapper() },
+  );
+  const dato = screen.getByLabelText('Dato de prueba');
+  fireEvent.change(dato, { target: { value: 'Captura conservada' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar pendientes' }));
+  expect(screen.getByRole('button', { name: 'Ocultar pendientes' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Ocultar pendientes' }));
+  expect(screen.getByRole('button', { name: 'Mostrar pendientes' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  expect(dato).toHaveValue('Captura conservada');
 });

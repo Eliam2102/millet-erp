@@ -230,7 +230,9 @@ public class RegistrarRecepcionServiciosCa210Tests
         Assert.Equal("BL-DEMO", guardada.NumeroBl); Assert.Equal("CONT-DEMO", guardada.NumeroContenedor);
         Assert.Equal("16", guardada.Aduana); Assert.Equal("A1", guardada.ClavePedimento);
         Assert.Equal("7007199900", Assert.Single(guardada.Partidas).FraccionArancelaria);
-        var lectura = Assert.Single(await new Millet.Almacen.Infrastructure.PublicAdapters.RecepcionesImportacionReadAdapter(db).ObtenerPorOcAsync(oc, default));
+        var adapter = new Millet.Almacen.Infrastructure.PublicAdapters.RecepcionesImportacionReadAdapter(db, puerto, new P7Support.Conversion());
+        var lectura = Assert.Single(await adapter.ObtenerPorOcAsync(oc, default));
+        Assert.Equal(1m, (await adapter.ObtenerCantidadesRecibidasAsync(oc, default))[linea]);
         Assert.Equal(guardada.NumeroPedimento, lectura.NumeroPedimento);
         Assert.Equal(guardada.NumeroBl, lectura.NumeroBl); Assert.Equal(guardada.NumeroContenedor, lectura.NumeroContenedor);
     }

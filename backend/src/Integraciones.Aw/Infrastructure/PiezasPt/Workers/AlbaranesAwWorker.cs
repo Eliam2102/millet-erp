@@ -47,7 +47,11 @@ public sealed class AlbaranesAwWorker(IServiceScopeFactory scopes, IOptions<Piez
         {
             adquirido = await db.Database.SqlQueryRaw<bool>("SELECT pg_try_advisory_lock(hashtextextended({0}, 0)) AS \"Value\"", clave).SingleAsync(ct);
             if (!adquirido) return 0;
-            return await CicloAsync(sp, ct);
+            // M-303: con el tramo detenido no se lee el origen.
+            if (await Millet.SharedKernel.Application.Tramos.TramosGuard.DetenidoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.PtAlbaranesAw, ct)) return 0;
+            var n = await CicloAsync(sp, ct);
+            await Millet.SharedKernel.Application.Tramos.TramosGuard.EventoCorrectoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.PtAlbaranesAw, $"Ciclo completo: {n} albaranes aplicados", ct);
+            return n;
         }
         finally
         {

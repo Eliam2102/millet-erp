@@ -150,7 +150,8 @@ public sealed class CrearOrdenCompraVaciaHandler
             observaciones: command.Observaciones,
             motivoSinRequisicion: command.MotivoSinRequisicion,
             fechaEntregaEsperada: command.FechaEntregaEsperada,
-            ocOrigenId: command.OcOrigenId);
+            ocOrigenId: command.OcOrigenId,
+            esServicioComercioExterior: command.EsServicioComercioExterior);
 
         _db.OrdenesCompra.Add(oc);
         oc.ActualizarDatosFactura(command.UsoCfdiClave, command.MetodoPago, command.FormaPagoClave);

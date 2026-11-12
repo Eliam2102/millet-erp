@@ -1,5 +1,6 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reporteHojaSalida } from '../lib/documentos-impresion';
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
 import { Breadcrumbs, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableContainer, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSucursales } from '@/features/catalogos/api';
 import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -20,7 +21,9 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useAccionHojaSalida, useCrearHojaSalida, useHojaSalida, useHojasSalida } from '../api/hooks';
 import type { EstadoHojaSalida } from '../api/types';
 import { AutorizacionHojaPanel } from './AutorizacionHojaPanel';
+import { CancelacionAlbaranPanel } from './CancelacionAlbaranPanel';
 import { CargaHojaPanel } from './CargaHojaPanel';
+import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 
 // Texto además del color: el estado no depende solo de la vista.
 const estadoUi: Record<EstadoHojaSalida, { texto: string; tono: 'info' | 'success' | 'neutral' }> = {
@@ -101,13 +104,14 @@ export function HojasSalidaPage() {
   };
 
   return (
-    <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
+    <main className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-auto text-sm">
       <div data-print="hidden" className="flex flex-col gap-5">
         <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Hojas de salida' }]} />
         <PageHeader
           titulo="Hojas de salida y albaranes"
           descripcion="Arma la ruta, carga las piezas y emite un albarán por pedido para registrar lo que lleva el chofer."
         />
+        <TramoDetenidoBanner />
         {error && (
           <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
             {error}
@@ -163,7 +167,7 @@ export function HojasSalidaPage() {
                 <div key={i} className="flex flex-wrap items-start gap-3">
                   <span className="mt-2 w-24 text-ink-muted">Entrega {i + 1}</span>
                   <Input className="w-40" aria-label={`Pedido de la entrega ${i + 1}`} placeholder="Número de pedido" value={p.numero} onChange={(e) => cambiar(i, { numero: e.target.value })} />
-                  <Textarea className="min-h-16 w-96" aria-label={`Etiquetas cargadas del pedido ${i + 1}`} placeholder="Etiquetas ya cargadas, una por renglón (opcional: también se cargan una por una)" value={p.etiquetas} onChange={(e) => cambiar(i, { etiquetas: e.target.value })} />
+                  <Textarea className="min-h-16 w-full md:w-96" aria-label={`Etiquetas cargadas del pedido ${i + 1}`} placeholder="Etiquetas ya cargadas, una por renglón (opcional: también se cargan una por una)" value={p.etiquetas} onChange={(e) => cambiar(i, { etiquetas: e.target.value })} />
                 </div>
               ))}
               <div>
@@ -182,6 +186,7 @@ export function HojasSalidaPage() {
         ) : (lista.data?.items.length ?? 0) === 0 ? (
           <EmptyState title="No hay hojas de salida." />
         ) : (
+          <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Hojas de salida" tabIndex={0}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -205,7 +210,7 @@ export function HojasSalidaPage() {
                   <TableCell className="tabular-nums">{h.pedidos}</TableCell>
                   <TableCell className="tabular-nums">{h.piezas}</TableCell>
                   <TableCell>{h.cartaPorteFolio ?? (h.foranea ? 'Al emitir' : 'No aplica')}</TableCell>
-                  <TableCell className="flex gap-2">
+                  <TableCell className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={() => setAbierto(abierto === h.id ? null : h.id)}>
                       {abierto === h.id
                         ? 'Ocultar'
@@ -227,6 +232,7 @@ export function HojasSalidaPage() {
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </div>
       {abierto && detalle.data && !(operar && detalle.data.estado === 'Borrador') && (
@@ -239,10 +245,9 @@ export function HojasSalidaPage() {
                 {detalle.data.cartaPorteFolio ? ` · Carta Porte ${detalle.data.cartaPorteFolio}` : ''}
               </p>
             </div>
-            <Button data-print="hidden" variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="size-4" aria-hidden="true" /> Imprimir hoja de salida
-            </Button>
+            <ImprimirReporteButton data-print="hidden" variant="outline" size="sm" reporte={reporteHojaSalida(detalle.data, nombre)}>Imprimir hoja de salida</ImprimirReporteButton>
           </div>
+          <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Albaranes de la hoja" tabIndex={0}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -253,6 +258,7 @@ export function HojasSalidaPage() {
                 <TableHead>Obra o destino</TableHead>
                 <TableHead>Lo cargado</TableHead>
                 <TableHead>Entrega</TableHead>
+                {detalle.data.estado === 'Emitida' && <TableHead>Cancelación</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -281,13 +287,19 @@ export function HojasSalidaPage() {
                     {(a.rotas?.length ?? 0) > 0 && <p className="text-warning-fg">Pendiente de repartida (rota al cargar): {a.rotas!.join(', ')}</p>}
                   </TableCell>
                   <TableCell>
-                    {detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
+                    {a.cancelado ? 'Cancelado' : detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
                     {a.estadoPedido === '115' && <p className="text-success-fg">Facturado y entregado</p>}
                   </TableCell>
+                  {detalle.data.estado === 'Emitida' && (
+                    <TableCell className="min-w-56 whitespace-normal">
+                      <CancelacionAlbaranPanel hojaId={detalle.data.id} albaran={a} operar={operar} />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         </section>
       )}
     </main>

@@ -4,6 +4,10 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using Millet.ComercioExterior.Infrastructure.Workers;
+using Millet.SharedKernel.Application.Integration;
 using Millet.Api.Seed;
 using Millet.Almacen.Application.Recepciones;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -19,6 +23,7 @@ namespace Millet.Api.IntegrationTests.ComercioExterior;
 [Collection(ApiCompartida.Nombre)]
 public sealed class P25ExpedienteRealHttpTests
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private const string Base = "/api/v1/comercio-exterior/expedientes";
 
     [Fact]
@@ -87,9 +92,14 @@ public sealed class P25ExpedienteRealHttpTests
     }
 
     [Theory]
-    [InlineData(ModalidadTransporte.Aereo)]
-    [InlineData(ModalidadTransporte.Paqueteria)]
-    public async Task Tres_OC_guia_sin_contenedor_recepcion_reporte_y_cierre_fisico(ModalidadTransporte modalidad)
+    [InlineData(ModalidadTransporte.Aereo, false, false, false, 0)]
+    [InlineData(ModalidadTransporte.Paqueteria, false, false, false, 0)]
+    [InlineData(ModalidadTransporte.Aereo, true, false, false, 0)]
+    [InlineData(ModalidadTransporte.Aereo, true, true, false, 0)]
+    [InlineData(ModalidadTransporte.Aereo, true, true, true, 0)]
+    [InlineData(ModalidadTransporte.Aereo, false, false, false, 1)]
+    [InlineData(ModalidadTransporte.Aereo, false, false, false, 2)]
+    public async Task Tres_OC_guia_sin_contenedor_recepcion_reporte_y_cierre_fisico(ModalidadTransporte modalidad, bool invertidos, bool mismaFecha, bool concurrentes, int reversa)
     {
         await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync();
         using var c = await escenario.ClienteAsync(true, permisosAlmacen: true);
@@ -97,6 +107,7 @@ public sealed class P25ExpedienteRealHttpTests
         using (var scope = escenario.Scope())
         {
             var sp = scope.ServiceProvider; using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            if (reversa == 2) sp.GetRequiredService<IConfiguration>()["Almacen:AnulacionRecepcionActivo:Habilitada"] = "true";
             var db = sp.GetRequiredService<ComprasDbContext>();
             var modelo = await db.OrdenesCompra.Include(o => o.Lineas).SingleAsync(o => o.Id == DemoSesionSeedHostedService.Id("DEMO-CE-OC-IMPORTACION"));
             var lm = modelo.Lineas.Single(); articulo = lm.ArticuloId;
@@ -105,7 +116,7 @@ public sealed class P25ExpedienteRealHttpTests
                 var oc = n == 0 ? await db.OrdenesCompra.SingleAsync(o => o.Id == escenario.OcId) : new OrdenCompra(Guid.NewGuid(), modelo.EmpresaId, Folio.Parse("OC-PV2026-" + Random.Shared.Next(100000, 999999)), 2026, modelo.ProveedorId, modelo.SucursalDestinoId, modelo.CondicionesPagoId, modelo.UsoPrincipalId, escenario.Responsable, escenario.Responsable, new(2026, 10, 15), moneda: "USD", tipoCambio: 18, sinRequisicionPrevia: true, esImportacion: true, motivoSinRequisicion: "Muestra P25");
                 db.Entry(oc).Property(o => o.Estado).CurrentValue = EstadoOrdenCompra.Borrador;
                 if (n > 0) { oc.ActualizarInformacionImportacion(modelo.InformacionImportacion); db.OrdenesCompra.Add(oc); }
-                var linea = Guid.NewGuid(); oc.AgregarLineaManual(linea, articulo, 2, lm.UnidadMedida, 100, lm.DepartamentoSolicitanteId, fraccionArancelaria: "70071999");
+                var linea = Guid.NewGuid(); oc.AgregarLineaManual(linea, articulo, 2, lm.UnidadMedida, 100, lm.DepartamentoSolicitanteId, fraccionArancelaria: "70071999", esActivoFijo: reversa == 2, claseActivoId: reversa == 2 ? Guid.Parse("0000000f-0007-0000-0000-000000000154") : null);
                 db.Entry(oc).Property(o => o.Estado).CurrentValue = EstadoOrdenCompra.Autorizada;
                 ordenes.Add(oc.Id); lineas.Add(linea);
             }
@@ -132,31 +143,146 @@ public sealed class P25ExpedienteRealHttpTests
         embarque.EnsureSuccessStatusCode();
         for (var n = 0; n < ordenes.Count; n++)
         {
-            using var recibido = await c.PostAsJsonAsync("/api/v1/almacen/recepciones/packing-list", new RegistrarRecepcionConPackingListCommand(ordenes[n], new(2026, 10, 15), "P25/packing.pdf", "Recepción ficticia P25", [new(articulo, lineas[n], 2, null, null, ubicacion, FraccionArancelaria: "70071999")], Importacion: new("261630826000777", "GUIA-P25-MUESTRA", null, "16", "AF")));
-            Assert.True(recibido.IsSuccessStatusCode, await recibido.Content.ReadAsStringAsync());
+            for (var parcial = 0; parcial < 2; parcial++)
+            {
+                using var recibido = await c.PostAsJsonAsync("/api/v1/almacen/recepciones/packing-list", new RegistrarRecepcionConPackingListCommand(ordenes[n], new(2026, 10, 15), "P25/packing.pdf", "Recepción ficticia P25", [new(articulo, lineas[n], 1, null, null, ubicacion, FraccionArancelaria: "70071999")], Importacion: new("261630826000777", "GUIA-P25-MUESTRA", null, "16", "AF")));
+                Assert.True(recibido.IsSuccessStatusCode, await recibido.Content.ReadAsStringAsync());
+                if (!invertidos && parcial == 0)
+                {
+                    using var parcialScope = escenario.Scope();
+                    var sp = parcialScope.ServiceProvider;
+                    using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                    var pendientes = await sp.GetRequiredService<AlmacenDbContext>().OutboxEntries
+                        .Where(e => e.EventType == "almacen.oc_recepcion.registrada.v1").ToListAsync();
+                    var evento = pendientes.Single(e => JsonSerializer.Deserialize<RecepcionCePayload>(e.Payload, JsonOptions)!.OrdenCompraId == ordenes[n]);
+                    await sp.GetRequiredService<IMediator>().Send(new RecibirRecepcionCeCommand(evento.Id,
+                        JsonSerializer.Deserialize<RecepcionCePayload>(evento.Payload, JsonOptions)!));
+                    var ce = sp.GetRequiredService<ComercioExteriorDbContext>();
+                    Assert.Equal(1m, await ce.Set<PartidaImportacion>().Where(p => p.OcLineaId == lineas[n]).Select(p => p.CantidadRecibida).SingleAsync());
+                }
+            }
         }
         using (var scope = escenario.Scope())
         {
             var sp = scope.ServiceProvider; using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var almacen = sp.GetRequiredService<AlmacenDbContext>();
-            var json = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            foreach (var evento in await almacen.OutboxEntries.Where(x => x.EventType == "almacen.oc_recepcion.registrada.v1").ToListAsync())
+            var json = JsonOptions;
+            var eventos = (await almacen.OutboxEntries.Where(x => x.EventType == "almacen.oc_recepcion.registrada.v1").ToListAsync())
+                .Select(e => (e.Id, Datos: JsonSerializer.Deserialize<RecepcionCePayload>(e.Payload, json)!))
+                .Where(e => ordenes.Contains(e.Datos.OrdenCompraId));
+            eventos = invertidos ? eventos.OrderByDescending(e => e.Datos.OcurridoEn) : eventos.OrderBy(e => e.Datos.OcurridoEn);
+            var comandos = eventos.Select(evento => new RecibirRecepcionCeCommand(evento.Id,
+                mismaFecha ? evento.Datos with { OcurridoEn = DateTimeOffset.Parse("2026-10-15T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture) } : evento.Datos)).ToArray();
+            if (concurrentes)
+                await Task.WhenAll(comandos.Select(async command =>
+                {
+                    using var entrega = escenario.Scope();
+                    using var alcance = entrega.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                    await entrega.ServiceProvider.GetRequiredService<IMediator>().Send(command);
+                }));
+            foreach (var command in comandos)
             {
-                var datos = JsonSerializer.Deserialize<RecepcionCePayload>(evento.Payload, json)!;
-                if (!ordenes.Contains(datos.OrdenCompraId)) continue;
-                var command = new RecibirRecepcionCeCommand(evento.Id, datos);
                 await sp.GetRequiredService<IMediator>().Send(command); await sp.GetRequiredService<IMediator>().Send(command);
             }
         }
+        if (reversa != 0)
+        {
+            Guid recepcion;
+            using (var scope = escenario.Scope())
+            {
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+                var recibida = (await db.OutboxEntries.Where(e => e.EventType == "almacen.oc_recepcion.registrada.v1").ToListAsync())
+                    .Single(e => { var d = JsonSerializer.Deserialize<RecepcionCePayload>(e.Payload, JsonOptions)!;
+                        return d.OrdenCompraId == ordenes[0] && d.Lineas.Any(l => l.CantidadRecibidaAcumulada == 2); });
+                using var json = JsonDocument.Parse(recibida.Payload);
+                recepcion = json.RootElement.GetProperty("RecepcionId").GetGuid();
+            }
+            var ruta = reversa == 2 ? $"/api/v1/almacen/recepciones/ordenes/{ordenes[0]}/activos/{recepcion}/anular"
+                : $"/api/v1/almacen/recepciones/{recepcion}/cancelar";
+            using var cancelador = await escenario.ClienteAsync(true, permisosAlmacen: true);
+            using var anulacion = await Send(cancelador, ruta, new { motivo = "Reversa ficticia CE-01", motivoCodigo = "articulo", motivoTexto = "Reversa ficticia CE-01" }, "");
+            Assert.True(anulacion.IsSuccessStatusCode, await anulacion.Content.ReadAsStringAsync());
+            using var entrega = escenario.Scope();
+            var sp = entrega.ServiceProvider;
+            using var alcance = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var almacen = sp.GetRequiredService<AlmacenDbContext>();
+            var eventos = await almacen.OutboxEntries.ToListAsync();
+            var tipo = reversa == 2 ? "almacen.recepcion_activo.anulada.v1" : "almacen.recepcion_oc.cancelada.v1";
+            var cancelada = eventos.Single(e => e.EventType == tipo && e.Payload.Contains(recepcion.ToString(), StringComparison.OrdinalIgnoreCase));
+            using var worker = new AlmacenEventListenerWorker(null!, sp.GetRequiredService<IServiceScopeFactory>(), NullLogger<AlmacenEventListenerWorker>.Instance);
+            var consumidor = (ILocalIntegrationEventConsumer)worker;
+            await consumidor.ConsumirLocalAsync(cancelada.EventType, cancelada.Id, cancelada.Payload, default);
+            var ce = sp.GetRequiredService<ComercioExteriorDbContext>();
+            var expediente = await ce.Expedientes.Include(e => e.PartidasImportacion).Include(e => e.Incidencias).ThenInclude(i => i.Historial).SingleAsync(e => e.Id == id);
+            var partida = expediente.PartidasImportacion.Single(p => p.OcLineaId == lineas[0]);
+            Assert.Equal(1m, partida.CantidadRecibida);
+            var incidencia = expediente.Incidencias.Single(i => i.PartidaId == partida.Id); Assert.True(incidencia.Pendiente);
+            Assert.Equal(3, incidencia.Historial.Count); // Parcial, cuadrada y reabierta por la reversa.
+            var historia = incidencia.Historial.Count;
+            var antiguo = eventos.Single(e => e.EventType == "almacen.oc_recepcion.registrada.v1" && e.Payload.Contains(recepcion.ToString(), StringComparison.OrdinalIgnoreCase));
+            foreach (var e in new[] { cancelada, antiguo, antiguo })
+                await consumidor.ConsumirLocalAsync(e.EventType, e.Id, e.Payload, default);
+            // Otro aviso atrasado aún no conocido tampoco debe restablecer el acumulado2.
+            await consumidor.ConsumirLocalAsync(antiguo.EventType, Guid.NewGuid(), antiguo.Payload, default);
+            ce.ChangeTracker.Clear();
+            expediente = await ce.Expedientes.Include(e => e.PartidasImportacion).Include(e => e.Incidencias).ThenInclude(i => i.Historial).SingleAsync(e => e.Id == id);
+            Assert.Equal(1m, expediente.PartidasImportacion.Single(p => p.OcLineaId == lineas[0]).CantidadRecibida);
+            var vigente = expediente.Incidencias.Single(i => i.PartidaId == partida.Id);
+            Assert.Equal(incidencia.Id, vigente.Id); Assert.True(vigente.Pendiente); Assert.Equal(historia, vigente.Historial.Count);
+            Assert.Equal(1m, (await sp.GetRequiredService<Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort>().ObtenerCantidadesRecibidasAsync(ordenes[0], default))[lineas[0]]);
+            using var vigenteHttp = await c.GetAsync($"{Base}/{id}"); vigenteHttp.EnsureSuccessStatusCode();
+            using var cierreBloqueado = await Send(c, $"{Base}/{id}/cerrar-fisico", new { }, vigenteHttp.Headers.ETag!.Tag);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, cierreBloqueado.StatusCode);
+            return;
+        }
+        Guid? incidenciaHistorica = null;
+        Guid[] eventosHistoricos = [];
+        if (invertidos)
+        {
+            using var scope = escenario.Scope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var e = await db.Expedientes.Include(e => e.PartidasImportacion).Include(e => e.Contenedores)
+                .Include(e => e.Incidencias).ThenInclude(i => i.Historial).Include(e => e.AvisosIncidencias).SingleAsync(e => e.Id == id);
+            var p = e.PartidasImportacion.First(p => p.OcLineaId == lineas[0]);
+            eventosHistoricos = p.EventosRecepcion.ToArray();
+            // Reproduce el snapshot histórico CE1 / Almacén2 sin crear recepciones ni eventos.
+            e.ReconciliarRecepcion(p.Id, 1, new(2026, 10, 15), new(2026, 10, 19), escenario.Responsable, DateTimeOffset.UtcNow);
+            incidenciaHistorica = e.Incidencias.Single(i => i.Pendiente).Id;
+            await db.SaveChangesAsync();
+            using var antes = await c.GetAsync($"{Base}/{id}"); antes.EnsureSuccessStatusCode();
+            using var rechazoRevision = await Send(c, $"{Base}/{id}/revisar-documentos", new { }, antes.Headers.ETag!.Tag);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, rechazoRevision.StatusCode);
+            using var rollback = escenario.Scope();
+            using var rollbackAlcance = rollback.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var persistido = await rollback.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>().Expedientes
+                .Include(e => e.PartidasImportacion).SingleAsync(e => e.Id == id);
+            Assert.Equal(1m, persistido.PartidasImportacion.Single(x => x.Id == p.Id).CantidadRecibida);
+        }
         using var actual = await c.GetAsync($"{Base}/{id}"); actual.EnsureSuccessStatusCode();
         var detalle = await Body(actual);
-        Assert.Equal(3, detalle.GetProperty("recepcionesImportacion").GetArrayLength());
-        Assert.Empty(detalle.GetProperty("incidencias").EnumerateArray());
+        Assert.Equal(6, detalle.GetProperty("recepcionesImportacion").GetArrayLength());
+        if (!invertidos) Assert.All(detalle.GetProperty("incidencias").EnumerateArray(), i => Assert.Equal(3, i.GetProperty("estado").GetInt32()));
         using var reporte = await c.GetAsync("/api/v1/comercio-exterior/relacion-iva?anio=2026&mes=10"); reporte.EnsureSuccessStatusCode();
         var filas = (await Body(reporte)).GetProperty("filas").EnumerateArray().Where(f => f.GetProperty("expediente").GetString() == detalle.GetProperty("expediente").GetProperty("folio").GetString()).ToArray();
-        Assert.Equal(3, filas.Length); Assert.All(filas, f => { Assert.Equal("AF", f.GetProperty("clave").GetString()); Assert.Equal(JsonValueKind.Null, f.GetProperty("contenedor").ValueKind); });
+        Assert.Equal(6, filas.Length); Assert.All(filas, f => { Assert.Equal("AF", f.GetProperty("clave").GetString()); Assert.Equal(JsonValueKind.Null, f.GetProperty("contenedor").ValueKind); });
+        using var versionAnterior = await Send(c, $"{Base}/{id}/cerrar-fisico", new { }, embarque.Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.Conflict, versionAnterior.StatusCode);
         using var cierre = await Send(c, $"{Base}/{id}/cerrar-fisico", new { }, actual.Headers.ETag!.Tag);
         Assert.True(cierre.IsSuccessStatusCode, await cierre.Content.ReadAsStringAsync());
+        if (incidenciaHistorica is Guid historica)
+        {
+            var reparado = await Body(cierre);
+            Assert.Equal(3, reparado.GetProperty("incidencias").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == historica).GetProperty("estado").GetInt32());
+            using var scope = escenario.Scope();
+            using var alcance = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var e = await db.Expedientes.Include(e => e.PartidasImportacion).SingleAsync(e => e.Id == id);
+            var p = e.PartidasImportacion.Single(p => p.OcLineaId == lineas[0]);
+            Assert.Equal(2m, p.CantidadRecibida);
+            Assert.Equal(eventosHistoricos, p.EventosRecepcion);
+        }
         etag = cierre.Headers.ETag!.Tag;
         Guid soporte = default;
         foreach (var requisito in detalle.GetProperty("requisitos").EnumerateArray())

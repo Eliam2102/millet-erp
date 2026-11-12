@@ -6,8 +6,13 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { MiCaja } from '@/features/facturacion/pages/MiCaja';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
-const descargarArchivo = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-vi.mock('@/features/facturacion/lib/descargas', () => ({ descargarArchivo }));
+const { descargarArchivo, obtenerArchivo, abrirPdfParaImprimir } = vi.hoisted(() => ({
+  descargarArchivo: vi.fn().mockResolvedValue(undefined),
+  obtenerArchivo: vi.fn(async () => new Blob(['%PDF-muestra'], { type: 'application/pdf' })),
+  abrirPdfParaImprimir: vi.fn(async (generar: () => Promise<Blob>) => { await generar(); }),
+}));
+vi.mock('@/features/facturacion/lib/descargas', () => ({ descargarArchivo, obtenerArchivo }));
+vi.mock('@/components/erp/reportes/imprimir-pdf', () => ({ abrirPdfParaImprimir }));
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
@@ -66,6 +71,7 @@ const sesionAbierta = {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   useAuthStore.setState({
     status: 'authenticated',
     accessToken: 'test-token',
@@ -174,11 +180,12 @@ describe('<MiCaja> — Vale de Caja del retiro (86e3ww6tw)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Vale de caja folio 2' }));
 
     await vi.waitFor(() =>
-      expect(descargarArchivo).toHaveBeenCalledWith(
+      expect(obtenerArchivo).toHaveBeenCalledWith(
         '/api/v1/facturacion/cajas/movimientos/m-7/vale.pdf',
-        'vale-de-caja-2.pdf',
       ),
     );
+    expect(abrirPdfParaImprimir).toHaveBeenCalledOnce();
+    expect(descargarArchivo).not.toHaveBeenCalled();
     expect(screen.getAllByRole('button', { name: /Vale de caja folio/ })).toHaveLength(1);
   });
 });

@@ -63,13 +63,13 @@ export function DetalleCaja() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       <PageHeader
         titulo={caja.nombre}
         descripcion={caja.descripcion ?? 'Administra el alcance y los responsables de esta caja.'}
         estado={<ChipEstatusCaja estatus={caja.estatus} />}
       />
-      <dl className="grid grid-cols-4 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @sm:grid-cols-2 @3xl:grid-cols-3">
         <div>
           <dt className="text-xs text-ink-muted">Sucursales</dt>
           <dd>{caja.sucursales.length || 'Todas'}</dd>

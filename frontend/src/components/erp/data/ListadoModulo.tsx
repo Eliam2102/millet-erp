@@ -10,9 +10,9 @@ export interface ListadoModuloProps {
  * y pie={<PaginacionTabla ... />}; la tabla va como children. */
 export function ListadoModulo({ tabs, filtros, children, pie }: ListadoModuloProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-lg bg-surface-card text-ink shadow-card-flat">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-t-lg bg-surface-card text-ink shadow-card-flat">
       {tabs != null && (
-        <div className="flex min-h-11 shrink-0 items-center border-b border-line-divider px-4">
+        <div className="flex min-h-11 min-w-0 shrink-0 items-center overflow-x-auto border-b border-line-divider px-4">
           {tabs}
         </div>
       )}

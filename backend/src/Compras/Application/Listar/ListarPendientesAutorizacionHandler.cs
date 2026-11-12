@@ -206,7 +206,8 @@ public sealed class ListarPendientesAutorizacionHandler
                 item.NivelPendiente,
                 item.Origen,
                 disponibilidad,
-                recurrente));
+                recurrente,
+                req?.Version ?? 0));
         }
 
         return new PagedResponse<PendienteAutorizacionItemResponse>(resultado, offset, limit, total);

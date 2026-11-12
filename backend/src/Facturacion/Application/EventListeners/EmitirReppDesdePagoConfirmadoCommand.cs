@@ -39,6 +39,10 @@ public sealed class EmitirReppDesdePagoConfirmadoHandler(FacturacionDbContext db
             // Tesorería); se lee del movimiento por puerto y queda en el pendiente.
             var ordenante = ordenantes is null ? null : await ordenantes.ObtenerAsync(p.MovimientoBancarioId, cancellationToken);
             var cobro = p.Monto - p.SaldoAFavorPorIdentificar;
+            // M-326 parte 2: un excedente de redondeo (el cliente depositó centavos de más) no va en el CFDI de pagos: el REP relaciona
+            // solo lo aplicado a facturas. Sin desglose de facturas se conserva el cobro.
+            if (p.Facturas is { Count: > 0 } aplicadas)
+                cobro = Math.Min(cobro, aplicadas.Sum(f => f.ImporteAplicado));
             db.ReppPendientes.Add(new ReppPendiente(p.EmpresaId, p.ClienteId, p.MovimientoBancarioId,
                 p.CuentaBancariaId, p.PropuestaId, cobro, p.Moneda, p.FechaValor, p.Referencia,
                 RelacionFiscal(p.Facturas, cobro), ordenante));

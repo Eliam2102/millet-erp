@@ -187,7 +187,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Moneda = moneda.ToUpperInvariant();
         ObraId = obraId;
         ObraNombre = obraNombre;
-        Comentarios = comentarios;
+        Comentarios = Ingesta.ExcepcionImportacion.Recortar(comentarios);
         CapturadoPor = capturadoPor;
         VersionOrigen = versionOrigen;
         EstadoOrigen = estadoOrigen;
@@ -367,7 +367,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Moneda = moneda.ToUpperInvariant();
         ObraId = obraId;
         ObraNombre = obraNombre;
-        Comentarios = comentarios;
+        Comentarios = Ingesta.ExcepcionImportacion.Recortar(comentarios);
         VersionOrigen = versionOrigen;
         EstadoOrigen = estadoOrigen;
         EstablecerRanura(ranura);
@@ -509,7 +509,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Moneda = moneda.ToUpperInvariant();
         ObraId = obraId;
         ObraNombre = obraNombre;
-        Comentarios = comentarios;
+        Comentarios = Ingesta.ExcepcionImportacion.Recortar(comentarios);
 
         // F6.1: un pedido manual legacy (sin clase) queda clasificado al editarlo;
         // la validación exige la clase igual que en la captura.

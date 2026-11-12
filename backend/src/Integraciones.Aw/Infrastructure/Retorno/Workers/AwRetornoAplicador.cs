@@ -35,6 +35,7 @@ public static class AwRetornoAplicador
                     return sql.Class >= 20 || ErroresConexionSql.Contains(sql.Number);
                 case DbException db when db.IsTransient: // Npgsql (origen Demo): conexión rechazada, socket, timeout
                 case TimeoutException or SocketException or IOException:
+                case Millet.SharedKernel.Application.Tramos.TramoDetenidoException: // M-303: tramo detenido = pendiente hasta reanudar
                     return true;
             }
         }
@@ -55,10 +56,13 @@ public static class AwRetornoAplicador
         var sp = scope.ServiceProvider;
         using var marca = sp.GetService<IAuditOriginContext>()?.SetOrigin(origen);
         using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        if (await Millet.SharedKernel.Application.Tramos.TramosGuard.DetenidoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwRetorno, ct))
+            throw new Millet.SharedKernel.Application.Tramos.TramoDetenidoException(Millet.SharedKernel.Application.Tramos.TramosOperativos.AwRetorno);
         if (FacturacionRetornoListenerWorker.EsAviso(eventType))
             await FacturacionRetornoListenerWorker.AplicarAsync(sp.GetRequiredService<AwRetornoDocumentoService>(), eventType, body, ct);
         else if (ProductoTerminadoRetornoLocalConsumer.EsAviso(eventType))
             await ProductoTerminadoRetornoLocalConsumer.AplicarAsync(sp, eventType, body, ct);
+        await Millet.SharedKernel.Application.Tramos.TramosGuard.EventoCorrectoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwRetorno, $"Aviso {eventType} escrito en aw_retorno", ct);
     }
 
     /// <summary>

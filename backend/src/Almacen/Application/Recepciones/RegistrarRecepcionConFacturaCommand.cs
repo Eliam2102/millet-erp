@@ -195,7 +195,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
         // G-3: misma remisión/factura ya recibida en la OC → exige motivo.
         var (remision, motivoDuplicado) = await RecepcionDuplicada.ValidarAsync(_db, request.OrdenCompraId, request.Remision,
-            request.CfdiRecibidoId, request.CfdiUuidFiscal, request.MotivoDuplicado, cancellationToken);
+            request.CfdiRecibidoId, request.CfdiUuidFiscal, request.MotivoDuplicado, cancellationToken, oc?.Folio, oc?.SucursalDestinoId, _cxpDocumentos);
 
         var conversiones = new List<ConversionUnidad>();
         // F1-MP-01: la medida se valida contra el producto A+W vigente del artículo en cada recepción.

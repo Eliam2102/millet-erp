@@ -1,7 +1,7 @@
 import { problemaUsuario } from '@/lib/error-usuario';
 import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Paperclip, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { EmptyState, ErrorState, TableSkeleton, TabsEstado, TextAreaField } from '@/components/erp';
@@ -30,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { RoturasAppPorAutorizar } from '@/features/almacen/components/RoturasAppPorAutorizar';
 import { CapturarRoturaSheet } from '@/features/almacen/components/CapturarRoturaSheet';
 import { useDecidirRotura, useSalidasRotura, type SalidaRotura } from '@/features/almacen/api/useSalidasRotura';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -181,7 +182,15 @@ export function SalidasRoturaPage() {
                       <TableCell className="text-right tabular-nums">
                         {num(r.cantidad)} {r.unidadMedida}
                       </TableCell>
-                      <TableCell>{r.motivo}</TableCell>
+                      <TableCell>
+                        {r.motivo}
+                        {r.evidenciaBlobRef && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs text-ink-muted">
+                            <Paperclip className="size-3" aria-hidden="true" />
+                            Con evidencia
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>{r.capturadoPor}</TableCell>
                       <TableCell className="text-right">{r.valorMxn === null ? '—' : <MoneyDisplay amount={r.valorMxn} currency="MXN" />}</TableCell>
                       <TableCell>
@@ -217,6 +226,8 @@ export function SalidasRoturaPage() {
         )}
       </ListadoModulo>
 
+      {puedeAutorizar && <RoturasAppPorAutorizar />}
+
       <CapturarRoturaSheet open={capturando} onOpenChange={setCapturando} />
 
       <Sheet open={detalle !== null} onOpenChange={(abierto) => !abierto && setDetalle(null)}>
@@ -238,6 +249,8 @@ export function SalidasRoturaPage() {
                 <dd>{mxn(detalle.valorMxn)}</dd>
                 <dt className="text-ink-muted">Movimiento</dt>
                 <dd className="font-mono">{detalle.folioMovimiento ?? 'Aún sin movimiento'}</dd>
+                <dt className="text-ink-muted">Evidencia</dt>
+                <dd>{detalle.evidenciaBlobRef ? 'Adjunta' : 'Sin evidencia'}</dd>
                 {detalle.comentario && (
                   <>
                     <dt className="text-ink-muted">Comentario</dt>

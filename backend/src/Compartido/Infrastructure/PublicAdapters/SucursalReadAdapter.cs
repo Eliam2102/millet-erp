@@ -52,7 +52,8 @@ public sealed class SucursalReadAdapter : ISucursalReadPort
                 s.Clave,
                 s.Nombre,
                 s.EmpresaId,
-                s.Estatus == EstatusCatalogo.Activo))
+                s.Estatus == EstatusCatalogo.Activo,
+                s.ClaveAw))
             .FirstOrDefaultAsync(cancellationToken);
 
         return sucursal;

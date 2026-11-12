@@ -188,7 +188,7 @@ filtre datos "por sucursal"**.
 [ADR-0036](docs/decisiones/0036-estrategia-de-reporteria.md) define la estrategia transversal de reportería del ERP:
 
 - **Motor nativo** basado en componentes React + endpoints JSON + exportación client-side. **No Crystal embebido**, no SSRS, no engines externos.
-- **PDF** con `@react-pdf/renderer`; **Excel** con `exceljs`; **Impresión** con CSS print + `data-print="hidden"`.
+- **PDF** con `@react-pdf/renderer`; **Excel** con `exceljs`; **Impresión** desde el PDF del documento en el visor nativo (criterio Eliam, 11-nov-2026); CSS print + `data-print="hidden"` se conservan para compatibilidad.
 - **Plantilla = código React** versionado por git, no archivos binarios opacos.
 - **Backend devuelve JSON estructurado** (`{ titulo, generadoEn, filtrosAplicados, columnas, filas, totales? }`); frontend renderiza, filtra y exporta.
 - **Reportes operativos** viven en cada módulo (`frontend/src/components/reportes/<modulo>/`); **BI analítico** queda para el módulo 10 (Reportes y BI) con su propio motor (Power BI Embedded u otro) en fase posterior.

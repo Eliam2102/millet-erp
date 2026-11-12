@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Millet.ComercioExterior.Application;
+using Millet.Almacen.Application.Integration;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Integration;
 
@@ -112,11 +113,33 @@ public sealed class AlmacenEventListenerWorker : BackgroundService, ILocalIntegr
             var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
 
-            if (eventType == "almacen.oc_recepcion.registrada.v1")
+            RecepcionCePayload? payload = null;
+            switch (eventType)
             {
-                var payload = JsonSerializer.Deserialize<RecepcionCePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
-                await mediator.Send(new RecibirRecepcionCeCommand(eventId, payload), cancellationToken);
+                case "almacen.oc_recepcion.registrada.v1":
+                    payload = JsonSerializer.Deserialize<RecepcionCePayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+                    break;
+                case "almacen.recepcion_oc.cancelada.v1":
+                    var cancelada = JsonSerializer.Deserialize<OcRecepcionCanceladaIntegrationEvent>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+                    payload = new(cancelada.EmpresaId, cancelada.OrdenCompraId, cancelada.FechaMovimiento, cancelada.OcurridoEn,
+                        cancelada.Lineas?.Select(l => new LineaRecepcionCe(l.LineaOcId, l.RecibidoAcumuladoDocumento)).ToArray()
+                            ?? throw new JsonException("Faltan las líneas de la cancelación."), cancelada.CanceladaPor);
+                    break;
+                case "almacen.recepcion_activo.anulada.v1":
+                    var anulada = JsonSerializer.Deserialize<RecepcionActivoAnuladaIntegrationEvent>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+                    payload = new(anulada.EmpresaId, anulada.OrdenCompraId, FechaContable.HoyLocal(anulada.OcurridoEn), anulada.OcurridoEn,
+                        [new(anulada.LineaOcId, anulada.CantidadRecibidaAcumulada)]);
+                    break;
+                case "almacen.oc_devolucion.registrada.v1":
+                    var devuelta = JsonSerializer.Deserialize<OcDevolucionRegistradaIntegrationEvent>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+                    if (devuelta.OrdenCompraOrigenId is Guid oc)
+                        payload = new(devuelta.EmpresaId, oc, FechaContable.HoyLocal(devuelta.OcurridoEn), devuelta.OcurridoEn,
+                            devuelta.Lineas?.Select(l => new LineaRecepcionCe(l.LineaOcId, null)).ToArray()
+                                ?? throw new JsonException("Faltan las líneas de la devolución."));
+                    break;
             }
+            if (payload is not null)
+                await mediator.Send(new RecibirRecepcionCeCommand(eventId, payload), cancellationToken);
 
             if (smbArgs is not null)
             {

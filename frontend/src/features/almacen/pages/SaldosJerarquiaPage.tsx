@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArticuloSelector, EmptyState } from '@/components/erp';
+import { PosicionesTraslado } from '@/features/almacen/components/PosicionesTraslado';
 import { ArbolSaldos } from '@/features/almacen/components/ArbolSaldos';
 import { useAlmacenes, useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { NivelNodoJerarquia } from '@/features/almacen/api/types';
@@ -177,20 +178,27 @@ export function SaldosJerarquiaPage() {
       </div>
 
       {arbolListo ? (
-        <div className="rounded-md border bg-surface-card p-2">
-          {/* Encabezado slim alineado con las columnas del árbol. */}
-          <div className="flex items-center gap-2 border-b px-2 pb-1 text-xs text-ink-muted">
-            <span>Nodo</span>
-            <span className="ml-auto">Cantidad</span>
-            <span className="w-32 text-right">Valor</span>
+        <div
+          className="min-w-0 overflow-x-auto rounded-md border bg-surface-card p-2"
+          role="region"
+          aria-label="Saldos por jerarquía"
+          tabIndex={0}
+        >
+          <div className="min-w-max">
+            {/* Encabezado slim alineado con las columnas del árbol. */}
+            <div className="flex items-center gap-2 border-b px-2 pb-1 text-xs text-ink-muted">
+              <span>Nodo</span>
+              <span className="ml-auto">Cantidad</span>
+              <span className="w-32 text-right">Valor</span>
+            </div>
+            <ArbolSaldos
+              key={`${modo}-${entrada.nodoTipo}-${entrada.nodoId ?? 'raiz'}-${search.articuloId ?? ''}-${search.incluirVacios ?? false}`}
+              nodoTipo={entrada.nodoTipo}
+              nodoId={entrada.nodoId}
+              articuloId={modo === 'articulo' ? search.articuloId : undefined}
+              incluirVacios={search.incluirVacios}
+            />
           </div>
-          <ArbolSaldos
-            key={`${modo}-${entrada.nodoTipo}-${entrada.nodoId ?? 'raiz'}-${search.articuloId ?? ''}-${search.incluirVacios ?? false}`}
-            nodoTipo={entrada.nodoTipo}
-            nodoId={entrada.nodoId}
-            articuloId={modo === 'articulo' ? search.articuloId : undefined}
-            incluirVacios={search.incluirVacios}
-          />
         </div>
       ) : (
         <EmptyState
@@ -198,6 +206,7 @@ export function SaldosJerarquiaPage() {
           description="En modo artículo, el árbol muestra dónde vive el artículo elegido: su distribución por sucursal, almacén, sub-almacén y rack."
         />
       )}
+      {modo === 'articulo' && search.articuloId && <PosicionesTraslado articuloId={search.articuloId} />}
     </div>
   );
 }

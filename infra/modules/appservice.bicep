@@ -116,6 +116,9 @@ borraba (incidente 2026-07-07: el deploy re-aplica la lista COMPLETA de app
 settings y elimina lo no declarado).''')
 param awSolicitudesEmpresaId string = ''
 
+@description('M-454: IntegracionesAw:NotasCreditoLectura:Habilitada. Apagado en base; con true y sin el secreto aw-clientes-connection-string el tablero de integraciones lo marca en error.')
+param awNotasCreditoLecturaHabilitada bool = false
+
 @description('Timeout por query (segundos) del flujo 2 (IntegracionesAw:Pedidos). La vista de líneas ejecuta DEVUELVE_IMPORTE_Y_DESCTO_N (pesada, gap G13); el default de código (5s) no alcanza.')
 param awPedidosSqlQueryTimeoutSeconds int = 30
 
@@ -154,6 +157,14 @@ AMBIENTE: dev usa el tenant sandbox (credenciales sk_test → BaseUrl
 https://test.fiscalapi.com en la ConfiguracionPac); prod usará su propio
 tenant en su propio KV.''')
 param integracionesFiscalSdkDisabled bool = true
+
+@description('Ajustes propios del ambiente sin parámetro dedicado (nombre → valor), declarados en su .bicepparam. Solo valores no secretos o referencias @Microsoft.KeyVault(...). No repetir aquí un nombre que ya define este módulo.')
+param appSettingsExtra object = {}
+
+var extraAppSettings = [for item in items(appSettingsExtra): {
+  name: item.key
+  value: string(item.value)
+}]
 
 // ── Interruptores A+W (todos APAGADOS por defecto; se encienden por ambiente en el .bicepparam) ──
 // El deploy re-aplica la lista COMPLETA de app settings: lo no declarado aquí se borra.
@@ -268,6 +279,11 @@ var awIntegrationAppSettings = [
   { name: 'IntegracionesAw__Productos__OrigenHabilitado', value: string(awProductosOrigenHabilitado) }
   { name: 'IntegracionesAw__Productos__Origen', value: awProductosOrigen }
   { name: 'IntegracionesAw__Cambios__Habilitado', value: string(awCambiosHabilitado) }
+  { name: 'IntegracionesAw__NotasCreditoLectura__Habilitada', value: string(awNotasCreditoLecturaHabilitada) }
+  // N-08 (Jorge Toache, 10-nov): estatus del cliente = KU_KUNDEN.KZ_GESPERRT, 0 activo y 1 bloqueado; KZ_STATUS no se usa.
+  { name: 'IntegracionesAw__Clientes__MapeoEstatus__Version', value: 'jt10nov' }
+  { name: 'IntegracionesAw__Clientes__MapeoEstatus__KzGesperrt__0', value: 'false' }
+  { name: 'IntegracionesAw__Clientes__MapeoEstatus__KzGesperrt__1', value: 'true' }
   {
     // Origen demo de A+W (BD millet_aw_origen en PostgreSQL). Secreto operator-managed:
     // sin crear, la ref queda sin resolver y el selector responde AW_DEMO_NO_CONFIGURADA.
@@ -580,7 +596,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'Auth__Bootstrap__EmpresaInicial__NombreComercial'
           value: empresaInicialNombreComercial
         }
-      ], corsAppSettings, awIntegrationAppSettings, soketiAppSettings, blobStorageAppSettings, integracionesFiscalAppSettings)
+      ], corsAppSettings, awIntegrationAppSettings, soketiAppSettings, blobStorageAppSettings, integracionesFiscalAppSettings, extraAppSettings)
     }
   }
 }

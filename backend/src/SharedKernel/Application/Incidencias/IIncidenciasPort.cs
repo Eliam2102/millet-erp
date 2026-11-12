@@ -80,6 +80,7 @@ public static class PasosIncidencia
     public const string AlmCostoNetoFactura = "alm.costo.neto-factura";
     public const string FisPacConexionRechazada = "fis.pac.conexion-rechazada";
     public const string CxcConciliacionDiferencia = "cxc.conciliacion.diferencia";
+    public const string AdmClienteBloqueoAwSinEquivalencia = "adm.cliente.bloqueo-aw-sin-equivalencia";
 
     // Pasos donde se retoma.
     public const string AlmRecepcionRegistrar = "alm.recepcion.registrar";
@@ -112,6 +113,7 @@ public static class PasosIncidencia
         new(FisPacConfiguracion, "Configuración del timbrador", "integraciones_fiscal"),
         new(CxcConciliacionDiferencia, "Diferencia en la conciliación de cartera", "cuentas_por_cobrar"),
         new(CxcConciliacionRevision, "Revisar la conciliación de cartera", "cuentas_por_cobrar"),
+        new(AdmClienteBloqueoAwSinEquivalencia, "Marca de bloqueo de A+W sin equivalencia", "datos_maestros"),
     ];
 
     private static readonly Dictionary<string, PasoIncidencia> PorClave = Todos.ToDictionary(p => p.Clave);
