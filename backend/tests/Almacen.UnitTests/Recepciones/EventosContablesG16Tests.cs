@@ -171,6 +171,7 @@ public class EventosContablesG16Tests
         conteo.EnviarAConciliacion();
         conteo.Aprobar(Guid.NewGuid());
         db.Set<ConteoInventario>().Add(conteo);
+        db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 100m, 50m));
         await db.SaveChangesAsync();
 
         var events = new CapturaEventos();
@@ -182,6 +183,40 @@ public class EventosContablesG16Tests
         e.SucursalId.Should().Be(SucursalId);
         e.CentroCostoId.Should().BeNull();
         e.Motivo.Should().BeNull();
+        // M-224: conciliación final guardada: saldo resultante = contado, con el folio del ajuste.
+        var linea = (await db.Set<ConteoInventario>().Include(c => c.Lineas).SingleAsync(c => c.Id == conteo.Id)).Lineas.Single();
+        linea.CantidadAplicada.Should().Be(95m);
+        linea.SaldoResultante.Should().Be(95m);
+        linea.FolioAjuste.Should().Contain("AJN");
+    }
+
+    [Fact]
+    public async Task M224_saldo_movido_entre_la_aprobacion_y_la_aplicacion_se_detecta_y_no_aplica()
+    {
+        await using var db = await NuevaDbAsync();
+        var conteo = await ConteoAprobadoAsync(db);
+        // Entre la aprobación y la aplicación salieron 10 piezas: el saldo ya no es el teórico congelado.
+        var saldo = await db.SaldosInventario.SingleAsync(s => s.UbicacionId == BinId && s.ArticuloId == ArticuloId);
+        db.SaldosInventario.Remove(saldo);
+        db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 90m, 50m));
+        await db.SaveChangesAsync();
+
+        var act = () => new AplicarConteoHandler(db, new CapturaEventos(), new FakeUser(), new FakeEmpresa(), new PeriodoContableStub(true))
+            .Handle(new AplicarConteoCommand(conteo.Id), default);
+
+        var ex = (await act.Should().ThrowAsync<BusinessRuleException>()).Which;
+        ex.Code.Should().Be("CONTEO_SALDO_MOVIDO");
+        ex.Message.Should().Contain("teórico 100").And.Contain("saldo hoy 90");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public void M224_la_linea_que_no_cuadra_no_se_concilia()
+    {
+        var l = new LineaConteo(Guid.NewGuid(), Guid.NewGuid(), ArticuloId, SubId, BinId, 100m, 50m);
+        var act = () => l.AsentarConciliacion(95m, 96m, "AJN-2026-000001");
+        act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTEO_NO_CUADRA");
+        l.SaldoResultante.Should().BeNull();
     }
 
     private static async Task<ConteoInventario> ConteoAprobadoAsync(AlmacenDbContext db)
@@ -194,6 +229,7 @@ public class EventosContablesG16Tests
         conteo.EnviarAConciliacion();
         conteo.Aprobar(Guid.NewGuid());
         db.Set<ConteoInventario>().Add(conteo);
+        db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 100m, 50m));
         await db.SaveChangesAsync();
         return conteo;
     }
