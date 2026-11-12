@@ -138,6 +138,20 @@ public static class CobranzaEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        cobranza.MapPost("/fichas/{facturaCarteraId:guid}/cerrar", async (
+            Guid facturaCarteraId, [FromBody] FichaCerrarBody body, DocumentoSucursalScope scope, IMediator mediator, CancellationToken ct) =>
+        {
+            await VerificarFacturaAsync(scope, facturaCarteraId, ct);
+            return Results.Ok(await mediator.Send(new CerrarFichaCommand(facturaCarteraId, body.Motivo, body.ExplicacionSaldo), ct));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar)
+        .WithName("CerrarFichaCobranza")
+        .WithSummary("Cierra la ficha con motivo; con saldo pendiente exige explicarlo (M-345)")
+        .Produces<FichaCobranzaResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         cobranza.MapPost("/fichas/eventos/{eventoId:guid}/corregir", async (
             Guid eventoId, [FromBody] FichaCorregirBody body, CuentasPorCobrarDbContext scopeDb, DocumentoSucursalScope scope,
             IMediator mediator, CancellationToken ct) =>
@@ -167,5 +181,6 @@ public static class CobranzaEndpoints
         decimal? MontoComprometido, DateOnly? FechaComprometida, DateOnly? SiguienteRevision);
     public sealed record FichaReprogramarBody(DateOnly SiguienteRevision, string Motivo);
     public sealed record FichaEscalarBody(Guid SupervisorId, string? SupervisorNombre, string Motivo);
+    public sealed record FichaCerrarBody(MotivoCierreFicha Motivo, string? ExplicacionSaldo);
     public sealed record FichaCorregirBody(string NotaCorregida, string Motivo);
 }

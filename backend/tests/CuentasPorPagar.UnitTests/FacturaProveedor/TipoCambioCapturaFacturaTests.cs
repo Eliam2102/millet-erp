@@ -14,7 +14,7 @@ public sealed class TipoCambioCapturaFacturaTests
     [InlineData(18.07, 18.25)] // -0.99 %
     public void Dentro_de_tolerancia_usa_el_capturado_sin_confirmar(double capturado, double catalogo)
     {
-        var d = TipoCambioCapturaFactura.Decidir((decimal)capturado, (decimal)catalogo, 1m, false, false, Dia);
+        var d = TipoCambioCapturaFactura.Decidir((decimal)capturado, (decimal)catalogo, 1m, 0m, false, false, Dia);
         Assert.Equal((decimal)capturado, d.Valor);
         Assert.False(d.Confirmado);
     }
@@ -22,29 +22,48 @@ public sealed class TipoCambioCapturaFacturaTests
     [Fact]
     public void Fuera_de_tolerancia_sin_confirmar_es_422()
     {
-        var ex = Assert.Throws<BusinessRuleException>(() => TipoCambioCapturaFactura.Decidir(19.50m, 18.25m, 1m, false, true, Dia));
+        var ex = Assert.Throws<BusinessRuleException>(() => TipoCambioCapturaFactura.Decidir(19.50m, 18.25m, 1m, 0m, false, true, Dia));
         Assert.Equal("TIPO_CAMBIO_REQUIERE_CONFIRMACION", ex.Code);
     }
 
     [Fact]
     public void Confirmar_sin_permiso_es_403()
     {
-        var ex = Assert.Throws<ForbiddenException>(() => TipoCambioCapturaFactura.Decidir(19.50m, 18.25m, 1m, true, false, Dia));
+        var ex = Assert.Throws<ForbiddenException>(() => TipoCambioCapturaFactura.Decidir(19.50m, 18.25m, 1m, 0m, true, false, Dia));
         Assert.Equal("TIPO_CAMBIO_CONFIRMACION_SIN_PERMISO", ex.Code);
     }
 
     [Fact]
     public void Confirmar_con_permiso_usa_el_capturado_y_queda_marcado()
     {
-        var d = TipoCambioCapturaFactura.Decidir(19.50m, 18.25m, 1m, true, true, Dia);
+        var d = TipoCambioCapturaFactura.Decidir(19.50m, 18.25m, 1m, 0m, true, true, Dia);
         Assert.Equal(19.50m, d.Valor);
         Assert.True(d.Confirmado);
+    }
+
+    [Theory]
+    [InlineData(17.20, 17.18, true)]  // 0.02 MXN: pasa (ejemplo de Contabilidad)
+    [InlineData(17.23, 17.18, true)]  // 0.05 MXN justo en el límite
+    [InlineData(17.24, 17.18, false)] // 0.06 MXN: pide autorización
+    public void Con_tolerancia_absoluta_de_5_centavos_manda_el_monto_no_el_porcentaje(double capturado, double catalogo, bool pasa)
+    {
+        Func<TipoCambioCapturaFactura.Decision> f = () => TipoCambioCapturaFactura.Decidir((decimal)capturado, (decimal)catalogo, 1m, 0.05m, false, false, Dia);
+        if (pasa) Assert.False(f().Confirmado);
+        else Assert.Equal("TIPO_CAMBIO_REQUIERE_CONFIRMACION", Assert.Throws<BusinessRuleException>(() => f()).Code);
+    }
+
+    [Fact]
+    public void Con_tolerancia_absoluta_fuera_confirmar_con_permiso_queda_marcado()
+    {
+        var d = TipoCambioCapturaFactura.Decidir(17.30m, 17.18m, 1m, 0.05m, true, true, Dia);
+        Assert.True(d.Confirmado);
+        Assert.Equal(17.30m, d.Valor);
     }
 
     [Fact]
     public void Sin_catalogo_o_sin_tolerancia_no_compara()
     {
-        Assert.Equal(25m, TipoCambioCapturaFactura.Decidir(25m, null, 1m, false, false, Dia).Valor);
-        Assert.Equal(25m, TipoCambioCapturaFactura.Decidir(25m, 18.25m, 0m, false, false, Dia).Valor);
+        Assert.Equal(25m, TipoCambioCapturaFactura.Decidir(25m, null, 1m, 0m, false, false, Dia).Valor);
+        Assert.Equal(25m, TipoCambioCapturaFactura.Decidir(25m, 18.25m, 0m, 0m, false, false, Dia).Valor);
     }
 }

@@ -338,7 +338,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
 
                     b.ToTable("propuesta_aplicacion_pago", "cuentas_por_cobrar", t =>
                         {
-                            t.HasCheckConstraint("ck_propuesta_aplicacion_ajuste_no_positivo", "ajuste_no_fiscal <= 0");
+                            t.HasCheckConstraint("ck_propuesta_aplicacion_ajuste_rango", "ajuste_no_fiscal <= 0 OR (COALESCE(tipo_ajuste, 0) = 3 AND ajuste_no_fiscal <= 0.99)");
 
                             t.HasCheckConstraint("ck_propuesta_aplicacion_estado", "estado IN (1, 2, 3)");
 
@@ -715,6 +715,14 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("Cerrada")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cerrada");
+
+                    b.Property<DateTimeOffset?>("CerradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cerrada_en");
+
                     b.Property<Guid>("ClienteId")
                         .HasColumnType("uuid")
                         .HasColumnName("cliente_id");
@@ -747,9 +755,18 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("escalada_por_id");
 
+                    b.Property<string>("ExplicacionSaldo")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("explicacion_saldo");
+
                     b.Property<Guid>("FacturaCarteraId")
                         .HasColumnType("uuid")
                         .HasColumnName("factura_cartera_id");
+
+                    b.Property<short?>("MotivoCierre")
+                        .HasColumnType("smallint")
+                        .HasColumnName("motivo_cierre");
 
                     b.Property<Guid?>("ResponsableId")
                         .HasColumnType("uuid")
@@ -759,6 +776,11 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("responsable_nombre");
+
+                    b.Property<decimal?>("SaldoAlCerrar")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasColumnName("saldo_al_cerrar");
 
                     b.Property<DateOnly?>("SiguienteRevision")
                         .HasColumnType("date")
@@ -790,7 +812,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.HasIndex("ResponsableId", "SiguienteRevision")
                         .HasDatabaseName("ix_ficha_cobranza_responsable_revision");
 
-                    b.ToTable("ficha_cobranza", "cuentas_por_cobrar");
+                    b.ToTable("ficha_cobranza", "cuentas_por_cobrar", t =>
+                        {
+                            t.HasCheckConstraint("ck_ficha_cobranza_motivo_cierre", "motivo_cierre IS NULL OR motivo_cierre IN (1, 2, 3, 4)");
+                        });
                 });
 
             modelBuilder.Entity("Millet.CuentasPorCobrar.Domain.Cobranza.FichaCobranzaEvento", b =>
@@ -920,7 +945,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ficha_cobranza_evento", "cuentas_por_cobrar", t =>
                         {
-                            t.HasCheckConstraint("ck_ficha_cobranza_evento_tipo", "tipo IN (1, 2, 3, 4, 5, 6)");
+                            t.HasCheckConstraint("ck_ficha_cobranza_evento_tipo", "tipo IN (1, 2, 3, 4, 5, 6, 7)");
                         });
                 });
 

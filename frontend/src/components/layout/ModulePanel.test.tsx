@@ -38,3 +38,19 @@ it('filtra sin acentos, conserva selección y opciones permitidas, y permite con
   fireEvent.click(screen.getByRole('button', { name: 'Contraer panel' }));
   expect(onCollapse).toHaveBeenCalledOnce();
 });
+
+it('permite limpiar el filtro sin abandonar la pantalla', () => {
+  const modulo = contextoNavegacion('/compras/ordenes/oc-123', [
+    PermisosCanonicos.ComprasOrdenesLeer,
+  ])!.modulo;
+  render(<ModulePanel modulo={modulo} onCollapse={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText('Filtrar menú del módulo'), {
+    target: { value: 'noexiste' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+  expect(screen.getByLabelText('Filtrar menú del módulo')).toHaveValue('');
+  expect(screen.getByRole('link', { name: 'Órdenes de compra' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+});

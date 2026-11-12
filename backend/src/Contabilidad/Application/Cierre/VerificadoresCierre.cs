@@ -74,6 +74,7 @@ public static class PasosCierre
     public const string PasivosVsCfdi = "PASIVOS_VS_CFDI";
     public const string PolizasAutomaticas = "POLIZAS_AUTOMATICAS";
     public const string PolizasBorrador = "POLIZAS_BORRADOR";
+    public const string IncidenciasPosteriores = "INCIDENCIAS_POSTERIORES";
     public const string InventarioCerrado = "INVENTARIO_CERRADO";
     public const string Depreciacion = "DEPRECIACION";
     public const string RevaluacionBancosClientes = "REVALUACION_BANCOS_CLIENTES";
@@ -140,6 +141,30 @@ public sealed class VerificadorPolizasBorrador(ContabilidadDbContext db) : IVeri
             ? ResultadoVerificacionPaso.Cumple("Sin pólizas en borrador.")
             : ResultadoVerificacionPaso.Pendiente($"{borradores.Count} póliza(s) en borrador: autorícelas o anúlelas.",
                 borradores.Select(p => $"{p.TipoClave} {p.Numero?.ToString(CultureInfo.InvariantCulture) ?? "s/n"} · {p.Fecha:dd/MM/yyyy} · {p.Concepto}"));
+    }
+}
+
+/// <summary>
+/// M-321: incidencias posteriores abiertas del periodo (algo hallado tras autorizar una póliza o cerrar el periodo). Se resuelven con su
+/// póliza de ajuste o su reapertura acotada.
+/// </summary>
+public sealed class VerificadorIncidenciasPosteriores(ContabilidadDbContext db) : IVerificadorPasoCierre
+{
+    public string Clave => PasosCierre.IncidenciasPosteriores;
+    public string Nombre => "Incidencias posteriores resueltas";
+    public string Descripcion => "No quedan incidencias abiertas ligadas a pólizas o al periodo; cada una se resuelve con su póliza de ajuste o su reapertura acotada.";
+    public int Orden => 135;
+    public string? Ruta => "/contabilidad/incidencias";
+
+    public async Task<ResultadoVerificacionPaso> VerificarAsync(ContextoVerificacionCierre c, CancellationToken ct)
+    {
+        var abiertas = await db.IncidenciasPosteriores.AsNoTracking()
+            .Where(i => i.PeriodoAnio == c.Anio && i.PeriodoNumero == c.Numero && i.Estado == EstadoIncidenciaPosterior.Abierta)
+            .OrderBy(i => i.RegistradaEn).Select(i => new { i.Hallazgo, i.RegistradaEn, i.RegistradaPor }).ToListAsync(ct);
+        return abiertas.Count == 0
+            ? ResultadoVerificacionPaso.Cumple("Sin incidencias posteriores abiertas.")
+            : ResultadoVerificacionPaso.Pendiente($"{abiertas.Count} incidencia(s) abierta(s): resuélvalas con su póliza de ajuste o reapertura acotada.",
+                abiertas.Select(i => $"{i.RegistradaEn:dd/MM/yyyy} · {i.RegistradaPor} · {(i.Hallazgo.Length > 80 ? i.Hallazgo[..80] + "…" : i.Hallazgo)}"));
     }
 }
 

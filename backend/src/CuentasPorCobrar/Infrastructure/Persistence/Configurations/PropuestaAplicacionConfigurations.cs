@@ -12,7 +12,8 @@ public sealed class PropuestaAplicacionPagoConfiguration : IEntityTypeConfigurat
         {
             t.HasCheckConstraint("ck_propuesta_aplicacion_monto_positivo", "monto_deposito > 0");
             t.HasCheckConstraint("ck_propuesta_aplicacion_estado", "estado IN (1, 2, 3)");
-            t.HasCheckConstraint("ck_propuesta_aplicacion_ajuste_no_positivo", "ajuste_no_fiscal <= 0");
+            // M-326b: el ajuste es un faltante (<= 0) o, solo en un redondeo (tipo 3), el excedente de hasta $0.99 que el cliente depositó de más.
+            t.HasCheckConstraint("ck_propuesta_aplicacion_ajuste_rango", "ajuste_no_fiscal <= 0 OR (COALESCE(tipo_ajuste, 0) = 3 AND ajuste_no_fiscal <= 0.99)");
             t.HasCheckConstraint(
                 "ck_propuesta_aplicacion_rechazo_consistente",
                 "(estado = 3 AND motivo_rechazo IS NOT NULL) OR (estado != 3 AND motivo_rechazo IS NULL)");
