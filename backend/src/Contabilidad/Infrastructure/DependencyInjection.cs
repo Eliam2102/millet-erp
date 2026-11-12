@@ -88,6 +88,7 @@ public static class DependencyInjection
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorIvaLiquidado),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorAuxiliares),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorPolizasBorrador),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorIncidenciasPosteriores),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorBalanzaCuadrada),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorCierreAnual),
         })
