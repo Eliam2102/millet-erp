@@ -29,6 +29,35 @@ public sealed class CuentaContableReadAdapter(ContabilidadDbContext db, FormatoC
         return c is null ? null : Lectura(c);
     }
 
+    public async Task<bool> EsDeRolAsync(string codigoCuenta, string rol, CancellationToken ct)
+    {
+        var codigo = FormatoCatalogo.Codigo(codigoCuenta) ?? string.Empty;
+        var prefijo = rol + "_";
+        var deRoles = await db.RolesCuenta.AsNoTracking()
+            .Where(r => (r.Codigo == rol || r.Codigo.StartsWith(prefijo)) && r.DeletedAt == null && r.CuentaId != null)
+            .Select(r => r.CuentaId!.Value).Distinct().ToListAsync(ct);
+        if (deRoles.Count == 0) return false;
+        var candidata = await db.Cuentas.AsNoTracking().Where(c => c.Codigo == codigo).Select(c => (Guid?)c.Id).FirstOrDefaultAsync(ct);
+        if (candidata is not Guid id) return false;
+        if (deRoles.Contains(id)) return true;
+        // El motor solo asigna roles a cuentas afectables: «de bancos» = misma rama raíz (p. ej. 102 Bancos) que una cuenta del rol.
+        var raices = new HashSet<Guid>();
+        foreach (var r in deRoles) raices.Add(await RaizAsync(r, ct));
+        return raices.Contains(await RaizAsync(id, ct));
+    }
+
+    // ponytail: sube por el árbol una consulta por nivel; el catálogo tiene 4 o 5 niveles.
+    private async Task<Guid> RaizAsync(Guid id, CancellationToken ct)
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            var padre = await db.Cuentas.AsNoTracking().Where(c => c.Id == id).Select(c => c.PadreId).FirstOrDefaultAsync(ct);
+            if (padre is not Guid p) return id;
+            id = p;
+        }
+        return id;
+    }
+
     internal static CuentaContableValidacion Validar(CuentaContable? c, OrigenMovimiento origen, FormatoCatalogo formato)
     {
         if (c is null) return new(false, MotivoRechazoCuenta.NoExiste, null);

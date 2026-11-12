@@ -1,12 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, ifMatch } from '@/lib/api';
-import {
-  facturacionKeys,
-  type ListarPedidosFiltros,
-} from '@/features/facturacion/api/keys';
+import { facturacionKeys, type ListarPedidosFiltros } from '@/features/facturacion/api/keys';
 import type {
   BandejaPaginada,
   BandejaScoped,
+  EnvioAwInciertoItem,
   ExcepcionImportacionItem,
   PedidoBandejaItem,
   PedidoComprobanteItem,
@@ -63,14 +61,12 @@ interface CachedPedido {
 
 export function usePedido(id: string | null | undefined) {
   return useQuery<CachedPedido, Error, PedidoFacturableDetalleResponse>({
-    queryKey:
-      id != null ? facturacionKeys.pedidoById(id) : ['facturacion', 'noop'],
+    queryKey: id != null ? facturacionKeys.pedidoById(id) : ['facturacion', 'noop'],
     queryFn: async ({ signal }) => {
       if (id == null) throw new Error('usePedido invocado sin id');
-      const { data, etag } = await apiRequest<PedidoFacturableDetalleResponse>(
-        `${BASE}/${id}`,
-        { signal },
-      );
+      const { data, etag } = await apiRequest<PedidoFacturableDetalleResponse>(`${BASE}/${id}`, {
+        signal,
+      });
       return { data, etag };
     },
     select: (cached) => cached.data,
@@ -103,15 +99,12 @@ export function useEmbarqueCeSalida(pedidoId: string, salidaId: string | null) {
 export function usePedidoComprobantes(id: string | null | undefined) {
   return useQuery<PedidoComprobanteItem[]>({
     queryKey:
-      id != null
-        ? facturacionKeys.pedidoComprobantes(id)
-        : ['facturacion', 'noop-comprobantes'],
+      id != null ? facturacionKeys.pedidoComprobantes(id) : ['facturacion', 'noop-comprobantes'],
     queryFn: async ({ signal }) => {
       if (id == null) throw new Error('usePedidoComprobantes invocado sin id');
-      const { data } = await apiRequest<PedidoComprobanteItem[]>(
-        `${BASE}/${id}/comprobantes`,
-        { signal },
-      );
+      const { data } = await apiRequest<PedidoComprobanteItem[]>(`${BASE}/${id}/comprobantes`, {
+        signal,
+      });
       return data;
     },
     enabled: id != null,
@@ -125,8 +118,7 @@ export function usePedidoComprobantes(id: string | null | undefined) {
  */
 export function usePedidoSalidas(id: string | null | undefined, enabled = true) {
   return useQuery<PedidoSalidasResponse>({
-    queryKey:
-      id != null ? facturacionKeys.pedidoSalidas(id) : ['facturacion', 'noop-salidas'],
+    queryKey: id != null ? facturacionKeys.pedidoSalidas(id) : ['facturacion', 'noop-salidas'],
     queryFn: async ({ signal }) => {
       if (id == null) throw new Error('usePedidoSalidas invocado sin id');
       const { data } = await apiRequest<PedidoSalidasResponse>(`${BASE}/${id}/salidas`, {
@@ -195,10 +187,7 @@ export interface CrearPedidoManualCommand {
 export function useCrearPedidoManual() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
-      command: CrearPedidoManualCommand;
-      idempotencyKey: string;
-    }) => {
+    mutationFn: async (args: { command: CrearPedidoManualCommand; idempotencyKey: string }) => {
       const { data } = await apiRequest<PedidoFacturableResponse>(`${BASE}/`, {
         method: 'POST',
         body: args.command,
@@ -208,6 +197,20 @@ export function useCrearPedidoManual() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: facturacionKeys.pedidos() });
+    },
+  });
+}
+
+/** M-233: envíos de A+W en curso o de resultado incierto. Solo se consulta con la pestaña abierta. */
+export function useEnviosInciertos(habilitado: boolean) {
+  return useQuery<EnvioAwInciertoItem[]>({
+    queryKey: [...facturacionKeys.pedidosExcepcionesList(true), 'envios-inciertos'],
+    enabled: habilitado,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<EnvioAwInciertoItem[]>(`${BASE}/envios-inciertos`, {
+        signal,
+      });
+      return data;
     },
   });
 }
@@ -292,19 +295,12 @@ export interface EditarPedidoCommand {
 export function useEditarPedido() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
-      id: string;
-      version: number;
-      command: EditarPedidoCommand;
-    }) => {
-      const { data } = await apiRequest<PedidoFacturableResponse>(
-        `${BASE}/${args.id}`,
-        {
-          method: 'PUT',
-          body: args.command,
-          headers: ifMatch(String(args.version)),
-        },
-      );
+    mutationFn: async (args: { id: string; version: number; command: EditarPedidoCommand }) => {
+      const { data } = await apiRequest<PedidoFacturableResponse>(`${BASE}/${args.id}`, {
+        method: 'PUT',
+        body: args.command,
+        headers: ifMatch(String(args.version)),
+      });
       return data;
     },
     onSuccess: (_data, args) => {

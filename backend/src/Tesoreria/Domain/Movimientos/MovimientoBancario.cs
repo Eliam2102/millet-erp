@@ -88,16 +88,30 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     public Guid? TraspasoId { get; private set; }
     public string? TraspasoMotivo { get; private set; }
 
+    /// <summary>M-201: motivo con que se confirmó un ingreso igual a otro vivo (cuenta, fecha, importe y referencia).</summary>
+    public string? MotivoDuplicado { get; private set; }
+
+    public void AnotarDuplicadoConfirmado(string motivo, Guid existenteId)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("MOV_MOTIVO_DUPLICADO_OBLIGATORIO", "El motivo es obligatorio.");
+        MotivoDuplicado = $"{motivo.Trim()} (igual al ingreso {existenteId})";
+    }
+
     private MovimientoBancario() { }
 
     /// <summary>TES-09: fija el TC del pago o del cobro. En MXN no aplica y queda null.</summary>
-    public void FijarTipoCambio(decimal? tipoCambio)
+    public void FijarTipoCambio(decimal? tipoCambio, string? motivoCapturado = null)
     {
         if (string.Equals(Moneda, "MXN", StringComparison.OrdinalIgnoreCase)) { TipoCambio = null; return; }
         if (tipoCambio is <= 0)
             throw new BusinessRuleException("MOV_TIPO_CAMBIO_INVALIDO", "El tipo de cambio del pago debe ser mayor a cero.");
         TipoCambio = tipoCambio;
+        MotivoTipoCambio = string.IsNullOrWhiteSpace(motivoCapturado) ? null : motivoCapturado.Trim();
     }
+
+    /// <summary>M-265b: por qué se capturó el TC a mano (null si salió del catálogo).</summary>
+    public string? MotivoTipoCambio { get; private set; }
 
     /// <summary>
     /// Alta manual de un movimiento de ingreso (§3.3 paso 2 / endpoint

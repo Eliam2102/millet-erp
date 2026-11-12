@@ -19,7 +19,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { ExcepcionImportacionItem } from '@/features/facturacion/api/types';
-import { useExcepciones, useResolverExcepcion } from '@/features/facturacion/api/usePedidos';
+import {
+  useEnviosInciertos,
+  useExcepciones,
+  useResolverExcepcion,
+} from '@/features/facturacion/api/usePedidos';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ETIQUETA_ORIGEN_PEDIDO } from '@/features/facturacion/lib/glosario';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
@@ -51,6 +55,7 @@ export function BandejaExcepciones() {
     limit: TAMANO_PAGINA,
   });
   const items = query.data?.items ?? [];
+  const verInciertos = vista === 3;
 
   return (
     <div className="space-y-5">
@@ -74,6 +79,7 @@ export function BandejaExcepciones() {
             opciones={[
               { valor: 1, label: 'Pendiente' },
               { valor: 2, label: 'Resuelta' },
+              { valor: 3, label: 'En curso o inciertos' },
             ]}
             valor={vista}
             conteos={undefined}
@@ -84,28 +90,34 @@ export function BandejaExcepciones() {
           />
         }
         filtros={
-          <BarraFiltros
-            busqueda={
-              <Input
-                aria-label="Buscar por pedido o detalle"
-                placeholder="Pedido o detalle"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-            }
-          />
+          verInciertos ? undefined : (
+            <BarraFiltros
+              busqueda={
+                <Input
+                  aria-label="Buscar por pedido o detalle"
+                  placeholder="Pedido o detalle"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
+              }
+            />
+          )
         }
         pie={
-          <PaginacionTabla
-            total={query.data?.total ?? items.length}
-            offset={paginacion.offset}
-            limit={TAMANO_PAGINA}
-            tamanos={[]}
-            onChange={paginacion.onChange}
-          />
+          verInciertos ? undefined : (
+            <PaginacionTabla
+              total={query.data?.total ?? items.length}
+              offset={paginacion.offset}
+              limit={TAMANO_PAGINA}
+              tamanos={[]}
+              onChange={paginacion.onChange}
+            />
+          )
         }
       >
-        {query.isError ? (
+        {verInciertos ? (
+          <EnviosInciertos />
+        ) : query.isError ? (
           <ErrorState
             title="No se pudieron cargar las excepciones"
             problem={esApiError(query.error) ? query.error.problem : undefined}
@@ -185,7 +197,15 @@ function FilaExcepcion({
       </TableCell>
       <TableCell className="px-3 py-2 font-mono text-xs">{excepcion.pedidoRef}</TableCell>
       <TableCell className="px-3 py-2">{excepcion.motivo}</TableCell>
-      <TableCell className="px-3 py-2 text-xs text-ink-muted">{excepcion.detalle ?? '—'}</TableCell>
+      <TableCell className="px-3 py-2 text-xs text-ink-muted">
+        {excepcion.detalle ?? '—'}
+        {excepcion.campo && (
+          <div className="mt-1 font-mono text-ink">
+            {excepcion.campo}: recibido {excepcion.valorRecibido ?? '—'} · esperado{' '}
+            {excepcion.valorEsperado ?? '—'}
+          </div>
+        )}
+      </TableCell>
       <TableCell className="px-3 py-2">
         {excepcion.resuelto ? (
           <EstadoFacturacionBadge entidad="excepcion" estado="Resuelta" />
@@ -207,5 +227,60 @@ function FilaExcepcion({
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+/** M-233: envíos de A+W sin acuse. «Incierto» = el ERP ya lo aplicó pero A+W no recibió el resultado. */
+function EnviosInciertos() {
+  const query = useEnviosInciertos(true);
+  const items = query.data ?? [];
+  if (query.isError)
+    return (
+      <ErrorState
+        title="No se pudieron leer los envíos de A+W"
+        problem={esApiError(query.error) ? query.error.problem : undefined}
+        onRetry={() => query.refetch()}
+      />
+    );
+  if (query.isLoading)
+    return <TableSkeleton rows={3} columns={[{ width: 'w-24' }, { width: 'w-48' }]} />;
+  if (items.length === 0)
+    return (
+      <EmptyState
+        title="Sin envíos pendientes"
+        description="Todos los envíos de A+W tienen su resultado."
+      />
+    );
+  return (
+    <div className="overflow-x-auto rounded-md border border-line">
+      <Table className="w-full text-sm">
+        <TableHeader className="bg-surface-muted/50">
+          <TableRow>
+            <TableHead className="px-3 py-2 text-left">Pedido</TableHead>
+            <TableHead className="px-3 py-2 text-left">Operación</TableHead>
+            <TableHead className="px-3 py-2 text-right tabular-nums">Versión</TableHead>
+            <TableHead className="px-3 py-2 text-left">Recibido</TableHead>
+            <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+            <TableHead className="px-3 py-2 text-left">Detalle</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((e) => (
+            <TableRow key={e.solicitudId} className="border-t border-line">
+              <TableCell className="px-3 py-2 font-mono text-xs">{e.numeroPedido}</TableCell>
+              <TableCell className="px-3 py-2">{e.operacion}</TableCell>
+              <TableCell className="px-3 py-2 text-right tabular-nums">{e.version}</TableCell>
+              <TableCell className="px-3 py-2 text-xs">
+                {new Date(e.creadaAt).toLocaleString('es-MX')}
+              </TableCell>
+              <TableCell className="px-3 py-2">
+                {e.estado === 'Incierto' ? 'Resultado incierto' : 'En curso'}
+              </TableCell>
+              <TableCell className="px-3 py-2 text-xs text-ink-muted">{e.detalle ?? '—'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

@@ -113,6 +113,21 @@ La app escribe **dos mensajes en la misma operación**: primero `REQUISICION_CAN
 - Cada mensaje se aplica una sola vez por su `mensajeId` (reenvío = `DUPLICADO` con el mismo folio), así el saldo y el kardex cuadran con una sola baja.
 - **No hace:** no revierte lo recibido de la OC en Compras ni crea devolución a proveedor (eso es el sub-flujo 8.B); una OC ya emitida no se reduce sola (Compras la cancela o cierra desde su pantalla).
 
+### Rotura y salida manual: área de Almacén (Jorge, 11-nov)
+- La rotura y la salida manual no son de ninguna mesa: son del **área de Almacén**. El ERP pone el centro con la sucursal, el almacén (`almacenGeneral.tipo`) y el `motivoClave` del mensaje, según `Integraciones:AlmMensaje:CentroAlmacen`: llave `SUCURSAL[|TIPO_ALMACEN][|MOTIVO]` → `AREA/EQUIPO` (gana la más específica). Hoy `CONKAL = 23AL00/ALGRA01` (ALMACEN / ALMACÉN del catálogo real).
+- Solo aplica si el mensaje no trae `area` ni `equipo`. Si el centro configurado no resuelve (por ejemplo, la sucursal sin ubicación en `contabilidad.ubicaciones_sucursal`), la salida sigue sin centro como antes; no se frena el mensaje.
+- La **requisición de la app** también es del área de Almacén: sus líneas llevan el equipo configurado de la sucursal (la OC exige centro de costo en cada línea).
+- **Datos de QA por cargar:** la ubicación de la sucursal MID → Dim1 101 (Conkal) en Contabilidad; sin ella el área no resuelve.
+
+### Requisición de la app: hojas, no m²
+`lineas[].piezas` son hojas enteras. En vidrio (artículo en M2) la línea de la RQ vale piezas × m² de la hoja (10 hojas de 1200 × 2600 = 31.2 m²), al crearla y al reducirla con REQUISICION_REDUCIDA. Sin medida o en piezas, una pieza es una unidad.
+
+## Origen de captura de materia prima (M-335)
+Pantalla Almacén › Origen de captura MP (`/api/v1/almacen/origen-captura-mp`). Por evento (recepción, consumo, merma, requisición) dice si captura el ERP o la app. Sin cambios está en transición (se aceptan los dos, como antes).
+- Con el evento en la app: el ERP no registra la recepción de vidrio por medida (recepción con factura) ni la salida de vidrio por medida (consumo) → `ORIGEN_CAPTURA_APP`.
+- Con el evento en el ERP: el mensaje de la app (ENTRADA_ALMACEN, AJUSTE_SALIDA, ROTURA, REQUISICION_ENVIADA) se acusa ERROR con el motivo.
+- El cambio pide motivo, no procede con mensajes en revisión o sin acuse, queda en `almacen.origen_captura_mp` y se revierte con otro cambio. Lo autoriza quien tiene `almacen.cierre-mes.gestionar-todas-sucursales` mientras Millet no nombre a otro responsable.
+
 ## Compatibilidad
 Todo campo nuevo del sobre es opcional (también `area` y `equipo`, H1). Cambios: `costoM2`/`costoPieza` por grupo reemplazan a `costo` (se quita el total del grupo: aviso de TI en la siguiente versión del contrato); el acuse de salida sin existencia pasa de RECIBIDO a ERROR.
 

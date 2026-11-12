@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { useTipoCambioPago } from '@/features/tesoreria/api/useTesoreria';
-import { errorTipoCambioPago } from '@/features/tesoreria/lib/tipo-cambio-pago';
+import { errorMotivoTipoCambio, errorTipoCambioPago } from '@/features/tesoreria/lib/tipo-cambio-pago';
 
 export interface TipoCambioPagoCampoProps {
   id: string;
@@ -14,6 +14,9 @@ export interface TipoCambioPagoCampoProps {
   etiqueta?: string;
   /** Texto mientras no hay fecha (p. ej. en el cobro, antes de elegir el ingreso). */
   ayudaSinFecha?: string;
+  /** M-265b: motivo del TC capturado a mano; si el padre lo maneja, el campo aparece al teclear un TC. */
+  motivo?: string;
+  onMotivoChange?: (valor: string) => void;
 }
 
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -31,6 +34,8 @@ export function TipoCambioPagoCampo({
   onChange,
   etiqueta = 'TC del pago',
   ayudaSinFecha = 'Captura la fecha valor para ver el TC del catálogo.',
+  motivo = '',
+  onMotivoChange,
 }: TipoCambioPagoCampoProps) {
   const aplica = moneda != null && moneda !== 'MXN';
   const catalogo = useTipoCambioPago(aplica ? moneda : null, fecha);
@@ -41,6 +46,8 @@ export function TipoCambioPagoCampo({
   const mostrado = value ?? (valorCatalogo == null ? '' : String(valorCatalogo));
 
   const error = errorTipoCambioPago(moneda, value, etiqueta);
+  const pideMotivo = onMotivoChange != null && value != null && value.trim() !== '';
+  const errorMotivo = pideMotivo ? errorMotivoTipoCambio(moneda, value, motivo) : null;
   const ayuda = !FECHA_ISO.test(fecha)
     ? ayudaSinFecha
     : catalogo.isFetching
@@ -68,6 +75,26 @@ export function TipoCambioPagoCampo({
         className="text-right font-mono"
       />
       <p className={error ? 'text-xs text-danger-fg' : 'text-xs text-ink-muted'}>{error ?? ayuda}</p>
+      {pideMotivo && (
+        <div className="space-y-1 pt-1">
+          <label className="text-xs text-ink-muted" htmlFor={`${id}-motivo`}>
+            Motivo del tipo de cambio *
+          </label>
+          <Input
+            id={`${id}-motivo`}
+            maxLength={400}
+            value={motivo}
+            onChange={(e) => onMotivoChange(e.target.value)}
+            aria-invalid={errorMotivo != null}
+            aria-describedby={errorMotivo ? `${id}-motivo-error` : undefined}
+          />
+          {errorMotivo && (
+            <p id={`${id}-motivo-error`} className="text-xs text-danger-fg">
+              {errorMotivo}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

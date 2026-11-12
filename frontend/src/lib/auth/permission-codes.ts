@@ -282,6 +282,7 @@ export const PermisosCanonicos = {
   AlmacenReportesMpCnk: 'almacen.reportes.mp-cnk',
   AlmacenReportesMovimientos: 'almacen.reportes.movimientos',
   AlmacenCierreMesEjecutar: 'almacen.cierre-mes.ejecutar',
+  AlmacenCierreMesGestionarTodasSucursales: 'almacen.cierre-mes.gestionar-todas-sucursales',
   AlmacenLecturaTotal: 'almacen.lectura.total',
   AlmacenReservasAdministrar: 'almacen.reservas.administrar',
   // Reabasto / reorden N1-N2 (ADR-0047 PR5.A). UI = "Reabasto", código = reorden.
@@ -428,6 +429,11 @@ export const PermisosCanonicos = {
   TesoreriaReppRegistrar: 'tesoreria.repp.registrar',
   TesoreriaConciliacionOperar: 'tesoreria.conciliacion.operar',
   TesoreriaConciliacionCerrar: 'tesoreria.conciliacion.cerrar',
+  // M-199 / M-201 / M-202: autorización de cuentas, visto bueno de conciliación, reapertura y partidas en tránsito.
+  TesoreriaCuentasAutorizar: 'tesoreria.cuentas.autorizar',
+  TesoreriaConciliacionRevisar: 'tesoreria.conciliacion.revisar',
+  TesoreriaConciliacionReabrir: 'tesoreria.conciliacion.reabrir',
+  TesoreriaConciliacionAutorizarTransito: 'tesoreria.conciliacion.autorizar-transito',
   TesoreriaPasivosSolicitarCancelacion:
     'tesoreria.pasivos.solicitar-cancelacion',
   TesoreriaPasivosVer: 'tesoreria.pasivos.ver',

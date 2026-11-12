@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { TriangleAlert } from 'lucide-react';
 import { ClienteTesoreriaSelector } from './ClienteTesoreriaSelector';
 import { BeneficiarioTipo } from '../api/types';
 import {
@@ -71,6 +73,10 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
   const [cliente, setCliente] = useState<string | null>(null);
   // 86e3tfdve (opción A): cuenta del cliente que pagó; Facturación la usa como CtaOrdenante del REP.
   const [ordenante, setOrdenante] = useState('');
+  // M-201: aviso de posible duplicado (409) y motivo para registrarlo de todos modos.
+  const [duplicado, setDuplicado] = useState<string | null>(null);
+  const [motivoDuplicado, setMotivoDuplicado] = useState('');
+  const motivoDuplicadoOk = motivoDuplicado.trim().length >= 10;
   const registrar = useRegistrarMovimientoIngreso();
   const key = useBodyScopedIdempotencyKey();
   const resultado = IngresoSchema.safeParse({
@@ -88,21 +94,30 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
     cobroCliente && !resultado.success
       ? resultado.error.issues.find((i) => i.path[0] === 'cuentaOrdenante')?.message
       : undefined;
-  function guardar() {
+  function guardar(confirmar = false) {
     if (!resultado.success) return;
+    if (confirmar && !motivoDuplicadoOk) return;
+    const command = confirmar
+      ? { ...resultado.data, confirmarDuplicado: true, motivoDuplicado: motivoDuplicado.trim() }
+      : resultado.data;
     registrar.mutate(
-      { command: resultado.data, idempotencyKey: key(resultado.data) },
+      { command, idempotencyKey: key(command) },
       {
         onSuccess: () => {
           toast.success('Ingreso registrado');
           cerrar();
         },
-        onError: (error) =>
+        onError: (error) => {
+          if (esApiError(error) && error.code === 'MOV_POSIBLE_DUPLICADO') {
+            setDuplicado(error.problem.detail ?? error.problem.title);
+            return;
+          }
           toast.error('No se pudo registrar el ingreso', {
             description: esApiError(error)
               ? (error.problem.detail ?? error.problem.title)
               : 'Vuelve a intentarlo.',
-          }),
+          });
+        },
       },
     );
   }
@@ -224,13 +239,49 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
             </div>
           </FormCampo>
         </FormSeccion>
+        {duplicado && (
+          <div
+            role="note"
+            className="space-y-2 rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg"
+          >
+            <p className="flex items-start gap-2">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{duplicado}</span>
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="ingreso-motivo-duplicado">Motivo *</Label>
+              <Textarea
+                id="ingreso-motivo-duplicado"
+                rows={2}
+                minLength={10}
+                maxLength={400}
+                value={motivoDuplicado}
+                aria-invalid={motivoDuplicado.length > 0 && !motivoDuplicadoOk}
+                onChange={(e) => setMotivoDuplicado(e.target.value)}
+                placeholder="Explica por qué es otro depósito (10 a 400 caracteres)"
+              />
+              {motivoDuplicado.length > 0 && !motivoDuplicadoOk && (
+                <p className="text-xs">El motivo debe tener al menos 10 caracteres.</p>
+              )}
+            </div>
+          </div>
+        )}
       </SheetBody>
       <SheetFooter>
         <Button variant="ghost" disabled={registrar.isPending} onClick={cerrar}>
           Cancelar
         </Button>
+        {duplicado ? (
+          <Button
+            onClick={() => guardar(true)}
+            disabled={!resultado.success || !motivoDuplicadoOk || registrar.isPending}
+            title={!motivoDuplicadoOk ? 'Captura el motivo (mínimo 10 caracteres).' : undefined}
+          >
+            {registrar.isPending ? 'Registrando…' : 'Registrar de todos modos'}
+          </Button>
+        ) : (
         <Button
-          onClick={guardar}
+          onClick={() => guardar()}
           disabled={!resultado.success || registrar.isPending}
           title={
             !resultado.success
@@ -240,6 +291,7 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
         >
           {registrar.isPending ? 'Registrando…' : 'Registrar ingreso'}
         </Button>
+        )}
       </SheetFooter>
     </>
   );

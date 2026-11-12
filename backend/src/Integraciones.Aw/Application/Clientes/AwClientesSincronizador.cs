@@ -10,6 +10,9 @@ using Millet.DatosMaestros.Domain;
 using Millet.Integraciones.Aw.Domain;
 using Millet.Integraciones.Aw.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Incidencias;
+using Millet.SharedKernel.Domain.Incidencias;
+using Millet.Compartido.Application.Incidencias;
 
 namespace Millet.Integraciones.Aw.Application.Clientes;
 
@@ -184,6 +187,14 @@ public sealed class AwClientesSincronizador
             ejec.RegistrarError(referencia, "fila_invalida", mapeo.Error!, ahora);
             return;
         }
+        // N-08 (Jorge, 10-nov): la carga solo trae clientes activos (KZ_GESPERRT = 0). Un bloqueado que el ERP no tiene no
+        // se da de alta; el que ya existe sí recibe la baja (0 → 1) al aplicarse.
+        if (_sp.GetService<IOptions<MapeoEstatusClientesAwOptions>>()?.Value.Resolver(fila.KzStatus, fila.KzGesperrt) == true
+            && !await _compartidoDb.Clientes.AnyAsync(c => c.ReferenciaExterna == referencia, ct))
+        {
+            ejec.AcumularFila(AwClientesFilaResultado.SinCambios, false);
+            return;
+        }
         try
         {
             var r = await _aplicar.AplicarAsync(mapeo.Snapshot! with { EjecucionId = ejec.Id }, ct);
@@ -194,6 +205,8 @@ public sealed class AwClientesSincronizador
                 ejec.RegistrarConflicto(referencia, "conflicto_correlacion", "Existe una coincidencia de RFC o referencia externa. Revisa el ligado en Datos maestros → Clientes.", ahora);
             else
                 ejec.AcumularFila(Reducir(r), r.Resultado == ResultadoSincronizacionAw.Pendiente);
+            if (r.Cliente is not null && r.Accion != AplicarClienteAwAccion.Conflicto)
+                await RevisarIncidenciaBloqueoAsync(r.Cliente, fila, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -202,6 +215,59 @@ public sealed class AwClientesSincronizador
             _logger.LogWarning("Cliente {Referencia} no se pudo aplicar en {EjecucionId} ({Tipo}).", referencia, ejec.Id, ex.GetType().Name);
             // Solo código estable + tipo: ex.Message puede traer datos personales o secretos.
             ejec.RegistrarError(referencia, "aplicacion_fallida", $"No se pudo aplicar el cliente ({ex.GetType().Name})", ahora);
+        }
+    }
+
+    /// <summary>
+    /// M-299: una marca de estado o bloqueo de A+W sin equivalencia abre una incidencia por cliente (una sola mientras siga
+    /// pendiente) con responsable y regreso a la ficha. Cuando la marca ya tiene equivalencia y se re-sincroniza, se resuelve.
+    /// Un fallo aquí no detiene el barrido: el cliente ya quedó Pendiente en la bitácora.
+    /// </summary>
+    private async Task RevisarIncidenciaBloqueoAsync(Cliente cliente, AwClienteOrigenFila fila, CancellationToken ct)
+    {
+        var mapeo = _sp.GetService<IOptions<MapeoEstatusClientesAwOptions>>()?.Value;
+        if (mapeo is not { Habilitado: true }) return;
+        const string paso = PasosIncidencia.AdmClienteBloqueoAwSinEquivalencia;
+        try
+        {
+            var pendientes = await _compartidoDb.Incidencias.Include(x => x.Historial)
+                .Where(x => x.Paso == paso && x.DocumentoId == cliente.Id
+                    && (x.Estado == EstadoIncidencia.Abierta || x.Estado == EstadoIncidencia.EnAtencion))
+                .ToListAsync(ct);
+            var ahora = _time.GetUtcNow();
+            if (!mapeo.TieneCodigoSinMapeo(fila.KzStatus, fila.KzGesperrt))
+            {
+                foreach (var i in pendientes)
+                    i.Resolver(null, null, "La marca de A+W ya tiene equivalencia; se aplicó al re-sincronizar.", ahora);
+                if (pendientes.Count > 0) await _compartidoDb.SaveChangesAsync(ct);
+                return;
+            }
+            if (pendientes.Count > 0) return;
+
+            var cfg = _options.Incidencias;
+            if (cfg.EmpresaId is not { } empresaId || cfg.ResponsableUsuarioId is not { } responsableId)
+            {
+                _logger.LogWarning("Cliente {Clave} con marca de A+W sin equivalencia y sin responsable configurado ({Seccion}:Incidencias); no se abrió incidencia.",
+                    cliente.Clave, AwClientesOptions.SectionName);
+                return;
+            }
+            var nombres = _sp.GetService<IIncidenciaUsuariosReadPort>() is { } usuarios
+                ? await usuarios.ObtenerNombresAsync([responsableId], ct) : new Dictionary<Guid, string>();
+            var responsable = nombres.TryGetValue(responsableId, out var n) && !string.IsNullOrWhiteSpace(n) ? n : "Responsable de clientes";
+            var marca = $"KZ_GESPERRT={fila.KzGesperrt}" + (fila.KzStatus is { } e ? $", KZ_STATUS={e}" : "");
+            _compartidoDb.Incidencias.Add(Incidencia.Abrir(new Incidencia.Datos(
+                empresaId, "datos_maestros", "cliente", cliente.Id, $"{cliente.Clave} · {cliente.RazonSocial}", null, paso,
+                "AW_MARCA_SIN_EQUIVALENCIA",
+                $"El cliente llegó de A+W con una marca sin equivalencia ({marca}); no se aplicó baja ni reactivación.",
+                "Agrega la equivalencia en el mapeo de estatus de clientes A+W y vuelve a sincronizar el cliente.",
+                null, responsableId, responsable, null, null, $"/admin/datos-maestros/clientes/{cliente.Id}"), null, null, ahora));
+            await _compartidoDb.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _compartidoDb.ChangeTracker.Clear();
+            _logger.LogWarning("No se pudo revisar la incidencia de bloqueo del cliente {Clave} ({Tipo}).", cliente.Clave,
+                ex is BusinessRuleException br ? br.Code : ex.GetType().Name);
         }
     }
 
