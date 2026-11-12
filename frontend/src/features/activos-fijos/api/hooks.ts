@@ -47,16 +47,19 @@ export function useGuardarActivo() {
       version,
       method = 'POST',
       archivoHuella,
+      headers,
     }: {
       ruta: string;
       body: unknown;
       version?: number;
       method?: string;
       archivoHuella?: string;
+      headers?: HeadersInit;
     }) =>
       apiRequest<Activo>(`${AF_BASE}/${ruta}`, {
         method,
         body,
+        headers,
         idempotencyKey: keyFor({ ruta, body, version, archivoHuella }),
         ifMatch: version ? `"${version}"` : undefined,
       }),
