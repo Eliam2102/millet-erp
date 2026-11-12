@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Compartido.Application.Ports;
 using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -41,6 +42,7 @@ public sealed class IngresarCfdiHandler : IRequestHandler<IngresarCfdiCommand, I
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IClock _clock;
     private readonly IIntegrationEventPublisher _events;
+    private readonly IEmpresaResolverPort _empresaResolver;
 
     public IngresarCfdiHandler(
         CuentasPorPagarDbContext db,
@@ -48,7 +50,8 @@ public sealed class IngresarCfdiHandler : IRequestHandler<IngresarCfdiCommand, I
         ICfdiBlobStorage blob,
         ICurrentEmpresaContext currentEmpresa,
         IClock clock,
-        IIntegrationEventPublisher events)
+        IIntegrationEventPublisher events,
+        IEmpresaResolverPort empresaResolver)
     {
         _db = db;
         _parser = parser;
@@ -56,6 +59,7 @@ public sealed class IngresarCfdiHandler : IRequestHandler<IngresarCfdiCommand, I
         _currentEmpresa = currentEmpresa;
         _clock = clock;
         _events = events;
+        _empresaResolver = empresaResolver;
     }
 
     public async Task<IngresarCfdiResponse> Handle(
@@ -100,6 +104,11 @@ public sealed class IngresarCfdiHandler : IRequestHandler<IngresarCfdiCommand, I
         var uuid = UuidCfdi.Parse(datos.UuidCfdi);
         var rfcEmisor = RfcMexicano.Parse(datos.RfcEmisor);
         var rfcReceptor = RfcMexicano.Parse(datos.RfcReceptor);
+
+        // M-257 (CXP-01): en la carga manual el CFDI debe estar emitido a la empresa seleccionada; es la misma regla que el
+        // buzón (RFC receptor → empresa). Se rechaza ANTES de guardar el XML en blob o crear el CFDI.
+        if (command.Canal == CanalOrigenCfdi.CargaManual && command.EmpresaIdOverride is null)
+            await ExigirReceptorEsLaEmpresaAsync(rfcReceptor.Valor, empresaId, cancellationToken);
 
         // 4) Dedupe por UUID.
         var existente = await _db.CfdisRecibidos
@@ -173,5 +182,23 @@ public sealed class IngresarCfdiHandler : IRequestHandler<IngresarCfdiCommand, I
             UuidCfdi: cfdi.UuidCfdi.Valor,
             Estado: cfdi.Estado,
             CfdiOriginalId: cfdi.CfdiOriginalId);
+    }
+
+    /// <summary>
+    /// M-257: el RFC receptor del XML debe ser el de la empresa seleccionada. Un XML a otro RFC no crea el CFDI.
+    /// </summary>
+    private async Task ExigirReceptorEsLaEmpresaAsync(string rfcReceptor, Guid empresaId, CancellationToken cancellationToken)
+    {
+        var resolucion = await _empresaResolver.ResolveByRfcAsync(rfcReceptor, cancellationToken);
+        if (resolucion is null)
+            throw new BusinessRuleException(
+                "CFDI_RFC_RECEPTOR_NO_COINCIDE",
+                $"El CFDI está emitido al RFC {rfcReceptor}, que no es el de la empresa: no se cargó. " +
+                "Verifica que el XML sea de una compra de la empresa.");
+        if (resolucion.Id != empresaId)
+            throw new BusinessRuleException(
+                "CFDI_RFC_RECEPTOR_NO_COINCIDE",
+                $"El CFDI está emitido al RFC {rfcReceptor}, que corresponde a otra empresa ({resolucion.RazonSocial}): " +
+                "no se cargó en la empresa seleccionada. Cambia de empresa y vuelve a cargarlo.");
     }
 }

@@ -125,7 +125,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
 
         // ---------- 5. CFDI + factura en CxP ----------
         var subtotal = total; var iva = Math.Round(subtotal * 0.16m, 2);
-        var xml = Cfdi(uuid, ProveedorRfc, subtotal, iva, hoy);
+        var xml = Cfdi(uuid, ProveedorRfc, subtotal, iva, hoy, await RfcEmpresaAsync(app));
         using var form = new MultipartFormDataContent { { new ByteArrayContent(Encoding.UTF8.GetBytes(xml)) { Headers = { ContentType = new("text/xml") } }, "xml", "f.xml" } };
         var cfdiResp = await b.PostAsync("/api/v1/cuentas-por-pagar/cfdis/cargar", form);
         await Ok(cfdiResp, "B carga CFDI");
@@ -245,12 +245,21 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         catch { return fx; } // ya existia el ejercicio
     }
 
-    internal static string Cfdi(string uuid, string rfcEmisor, decimal subtotal, decimal iva, DateOnly f) => $"""
+    /// <summary>RFC de la empresa activa de las pruebas: la carga manual (M-257) exige que el XML esté emitido a ese RFC.</summary>
+    internal static async Task<string> RfcEmpresaAsync(WebApplicationFactory<Program> app)
+    {
+        using var scope = app.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        return await db.Empresas.AsNoTracking().Where(e => e.Id == EmpresaBootstrapId).Select(e => e.Rfc).SingleAsync();
+    }
+
+    internal static string Cfdi(string uuid, string rfcEmisor, decimal subtotal, decimal iva, DateOnly f, string rfcReceptor = "MIL010101AAA") => $"""
         <?xml version="1.0" encoding="UTF-8"?>
         <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Serie="A" Folio="F-DEMO"
             Fecha="{f:yyyy-MM-dd}T10:00:00" Total="{subtotal + iva:0.00}" SubTotal="{subtotal:0.00}" Moneda="MXN" MetodoPago="PUE">
           <cfdi:Emisor Rfc="{rfcEmisor}" Nombre="Suministros Estandar SA de CV" />
-          <cfdi:Receptor Rfc="MIL010101AAA" Nombre="Millet SA" />
+          <cfdi:Receptor Rfc="{rfcReceptor}" Nombre="Millet SA" />
           <cfdi:Conceptos><cfdi:Concepto ClaveProdServ="01010101" Cantidad="10" ClaveUnidad="H87" Descripcion="DEMO" ValorUnitario="{subtotal / 10:0.00}" Importe="{subtotal:0.00}" /></cfdi:Conceptos>
           <cfdi:Impuestos TotalImpuestosTrasladados="{iva:0.00}" />
           <cfdi:Complemento><tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="{uuid}" FechaTimbrado="{f:yyyy-MM-dd}T10:00:00" /></cfdi:Complemento>
