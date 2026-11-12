@@ -258,6 +258,7 @@ export const PermisosCanonicos = {
 
   AlmacenDevolucionesInternasLeer: 'almacen.devoluciones-internas.leer',
   AlmacenDevolucionesInternasCapturar: 'almacen.devoluciones-internas.capturar',
+  AlmacenCorreccionesConsumoAutorizar: 'almacen.correcciones-consumo.autorizar',
   AlmacenDevolucionesProveedorIniciar: 'almacen.devoluciones-proveedor.iniciar',
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
   AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
@@ -282,6 +283,7 @@ export const PermisosCanonicos = {
   AlmacenReportesMpCnk: 'almacen.reportes.mp-cnk',
   AlmacenReportesMovimientos: 'almacen.reportes.movimientos',
   AlmacenCierreMesEjecutar: 'almacen.cierre-mes.ejecutar',
+  AlmacenCierreMesGestionarTodasSucursales: 'almacen.cierre-mes.gestionar-todas-sucursales',
   AlmacenLecturaTotal: 'almacen.lectura.total',
   AlmacenReservasAdministrar: 'almacen.reservas.administrar',
   // Reabasto / reorden N1-N2 (ADR-0047 PR5.A). UI = "Reabasto", código = reorden.

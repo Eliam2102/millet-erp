@@ -137,6 +137,14 @@ export interface TrazabilidadMpFiltros {
   subAlmacenId?: string;
 }
 
+export interface ConsumoInsumosLineaFiltros {
+  desde: string; // YYYY-MM-DD
+  hasta: string;
+  sucursalId?: string;
+  centroCostoId?: string;
+  articuloId?: string;
+}
+
 export interface KardexFiltros {
   articuloId: string;
   desde: string; // YYYY-MM-DD
@@ -177,6 +185,7 @@ export const almacenKeys = {
   tamboresLinea: () => [...almacenKeys.all, 'tambores-linea'] as const,
   consumosRevision: () => [...almacenKeys.all, 'consumos-revision'] as const,
   mensajesAppMarcados: () => [...almacenKeys.all, 'mensajes-app-marcados'] as const,
+  origenCapturaMp: () => [...almacenKeys.all, 'origen-captura-mp'] as const,
 
   // Salida por rotura en almacén (ALM-03)
   salidasRotura: (f: { estado?: string }) => [...almacenKeys.all, 'salidas-rotura', f] as const,
@@ -278,6 +287,8 @@ export const almacenKeys = {
     [...almacenKeys.reportes(), 'alfak', filtros] as const,
   reporteTrazabilidadMp: (filtros: TrazabilidadMpFiltros) =>
     [...almacenKeys.reportes(), 'trazabilidad-mp', filtros] as const,
+  reporteConsumoInsumosLinea: (filtros: ConsumoInsumosLineaFiltros) =>
+    [...almacenKeys.reportes(), 'consumo-insumos-linea', filtros] as const,
   reporteKardex: (filtros: KardexFiltros) =>
     [...almacenKeys.reportes(), 'kardex', filtros] as const,
   reporteCuadreInventario: (anio: number, mes: number) =>
