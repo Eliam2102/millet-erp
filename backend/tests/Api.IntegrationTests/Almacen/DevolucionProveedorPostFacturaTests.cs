@@ -102,7 +102,7 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
         // ---------- factura 20/20 capturada contra la recepción ----------
         // El XML de CompraAPagoDemoTests trae 10 piezas fijas: se ajusta a las 20 de esta prueba.
         var iva = Math.Round(subtotal * 0.16m, 2);
-        using var form = new MultipartFormDataContent { { new ByteArrayContent(Encoding.UTF8.GetBytes(Cfdi(uuid, ProveedorRfc, subtotal, iva, hoy).Replace("Cantidad=\"10\"", "Cantidad=\"20\"").Replace($"ValorUnitario=\"{subtotal / 10:0.00}\"", $"ValorUnitario=\"{costoUnitario:0.00}\""))) { Headers = { ContentType = new("text/xml") } }, "xml", "f.xml" } };
+        using var form = new MultipartFormDataContent { { new ByteArrayContent(Encoding.UTF8.GetBytes(Cfdi(uuid, ProveedorRfc, subtotal, iva, hoy, await RfcEmpresaAsync(app)).Replace("Cantidad=\"10\"", "Cantidad=\"20\"").Replace($"ValorUnitario=\"{subtotal / 10:0.00}\"", $"ValorUnitario=\"{costoUnitario:0.00}\""))) { Headers = { ContentType = new("text/xml") } }, "xml", "f.xml" } };
         var cfdiResp = await b.PostAsync("/api/v1/cuentas-por-pagar/cfdis/cargar", form);
         await Ok(cfdiResp, "carga CFDI");
         var fecha = new DateTimeOffset(hoy.Year, hoy.Month, hoy.Day, 12, 0, 0, TimeSpan.Zero);
