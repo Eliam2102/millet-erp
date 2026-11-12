@@ -4,4 +4,7 @@ namespace Millet.CuentasPorPagar.Domain.Ports.Administracion;
 public interface IToleranciaTipoCambioReadPort
 {
     Task<decimal> ToleranciaPctAsync(CancellationToken cancellationToken);
+
+    /// <summary>M-080: tolerancia absoluta en MXN por unidad de moneda extranjera (0 = apagada; entonces aplica el %).</summary>
+    Task<decimal> ToleranciaAbsolutaMxnAsync(CancellationToken cancellationToken);
 }
