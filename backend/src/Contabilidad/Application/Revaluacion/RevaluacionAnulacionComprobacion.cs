@@ -42,7 +42,7 @@ public sealed class AnularRevaluacionCierreContableHandler(ContabilidadDbContext
             var originales = await db.Polizas.Include(p => p.Partidas)
                 .Where(p => p.OrigenModulo == CalculadoraRevaluacionCierre.Modulo && p.OrigenTipo == CalculadoraRevaluacionCierre.TipoRevaluacion
                     && p.OrigenDocumentoId == docId && p.AnuladaPorPolizaId == null && p.PolizaAnuladaId == null && p.Estado != EstadoPoliza.Borrador)
-                .OrderBy(p => p.Folio).ToListAsync(ct);
+                .OrderBy(p => p.Numero).ToListAsync(ct);
             if (originales.Count == 0)
                 throw new ConflictException("REVALUACION_NO_EJECUTADA", $"El mes {c.Mes:00}/{c.Anio} no tiene revaluación vigente que anular.");
             var ids = originales.Select(p => (Guid?)p.Id).ToList();

@@ -6,6 +6,7 @@ using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Application.Revaluacion;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 
 namespace Millet.Api.IntegrationTests.Contabilidad;
@@ -21,6 +22,7 @@ public sealed partial class ListenersContabilidadTests
     private async Task<Guid> SembrarRevaluacionAsync(Escenario e, string llave)
     {
         using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var puerto = scope.ServiceProvider.GetRequiredService<IPolizaContablePort>();
         var docId = CalculadoraRevaluacionCierre.DocumentoId(EmpresaBootstrapId, Hoy().Year, Hoy().Month);
         var r = await puerto.RegistrarAutomaticaAsync(new SolicitudPolizaAutomatica("AS", Hoy(), "FIX revaluación",
@@ -69,6 +71,7 @@ public sealed partial class ListenersContabilidadTests
             // Reversa registrada (la del día 1): ya no se puede anular.
             using (var scope = factory.Services.CreateScope())
             {
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var puerto = scope.ServiceProvider.GetRequiredService<IPolizaContablePort>();
                 await puerto.RegistrarAutomaticaAsync(new SolicitudPolizaAutomatica("AS", Hoy(), "FIX reversa",
                     new DocumentoOrigenPoliza(CalculadoraRevaluacionCierre.Modulo, CalculadoraRevaluacionCierre.TipoReversa, original, "REV-FIX", null),
