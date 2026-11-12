@@ -58,14 +58,31 @@ export interface FisicoLineaRequest {
   fisico: number;
 }
 
+/** M-225: lo que no cuadra o pesa en el día a conciliar (mensajes de la app sin aplicar y consumos/mermas de mesa). */
+export interface EventosDelDia {
+  pendientes: { tipo: string; referencia: string | null; estado: string; error: string | null; recibidoAt: string }[];
+  mesa: { tipo: string; referencia: string | null; articuloId: string; cantidad: number; mesa: string | null; estado: string }[];
+}
+
 const BASE = '/api/v1/almacen/conciliacion-diaria';
 
-export function useExistenciaConciliacion(almacenId: string | undefined) {
+export function useExistenciaConciliacion(almacenId: string | undefined, fecha: string) {
   return useQuery({
-    queryKey: almacenKeys.conciliacion.existencia(almacenId ?? ''),
-    enabled: !!almacenId,
+    queryKey: almacenKeys.conciliacion.existencia(almacenId ?? '', fecha),
+    enabled: !!almacenId && !!fecha,
     queryFn: async ({ signal }) => {
-      const { data } = await apiRequest<ExistenciaLinea[]>(`${BASE}/existencia?almacenId=${almacenId}`, { signal });
+      const { data } = await apiRequest<ExistenciaLinea[]>(`${BASE}/existencia?almacenId=${almacenId}&fecha=${fecha}`, { signal });
+      return data;
+    },
+  });
+}
+
+export function useEventosDelDia(almacenId: string | undefined, fecha: string) {
+  return useQuery({
+    queryKey: almacenKeys.conciliacion.eventosDelDia(almacenId ?? '', fecha),
+    enabled: !!almacenId && !!fecha,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<EventosDelDia>(`${BASE}/eventos-del-dia?almacenId=${almacenId}&fecha=${fecha}`, { signal });
       return data;
     },
   });
@@ -94,7 +111,7 @@ export function useCorridasConciliacion() {
 export function useEjecutarConciliacion() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { almacenId: string; fecha: string; fuente: 'AW' | 'CONTEO'; lineas: FisicoLineaRequest[] }) => {
+    mutationFn: async (body: { almacenId: string; fecha: string; fuente: 'AW' | 'CONTEO'; lineas: FisicoLineaRequest[]; confirmarPendientes?: boolean }) => {
       const { data } = await apiRequest<CorridaConciliacion>(BASE, {
         method: 'POST',
         body,

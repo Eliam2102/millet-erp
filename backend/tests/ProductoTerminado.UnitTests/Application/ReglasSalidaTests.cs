@@ -21,6 +21,20 @@ public sealed class ReglasSalidaTests
         public List<FacturaPedidoSalida> Facturas { get; } = [];
         public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([.. Facturas.Where(f => ids.Contains(f.PedidoFacturableId))]);
+
+        public Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct) => Task.FromResult(CartaPorteVigente);
+        public bool CartaPorteVigente { get; set; }
+        public List<(Guid FacturaId, IReadOnlyList<(int Posicion, int Piezas)> Piezas)> NotasDevolucion { get; } = [];
+        public Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct)
+        {
+            NotasDevolucion.Add((facturaId, piezas));
+            return Task.FromResult(new DocumentoFiscalPt(Guid.NewGuid(), "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
+        }
+        public string EstadoNota { get; set; } = "Timbrado";
+        public Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct) =>
+            Task.FromResult(new DocumentoFiscalPt(facturaId, "F-1", "CancelacionPendiente", true));
+        public Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct) =>
+            Task.FromResult<DocumentoFiscalPt?>(new DocumentoFiscalPt(id, "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
         public Task RegistrarSalidaAsync(Guid pedidoFacturableId, string referencia, IReadOnlyList<(int Posicion, decimal Cantidad)> lineas, CancellationToken ct) => Task.CompletedTask;
         public Task<CancelacionSalidaPt> CancelarSalidaAsync(string referencia, string motivo, CancellationToken ct) => Task.FromResult(new CancelacionSalidaPt(false, false, false));
         public Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct) => Task.FromResult(new CartaPorteSalida(Guid.NewGuid(), "CP-1"));

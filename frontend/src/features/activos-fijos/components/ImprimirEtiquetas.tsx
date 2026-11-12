@@ -1,3 +1,4 @@
+import { abrirPdfParaImprimir } from '@/components/erp/reportes/imprimir-pdf';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -44,30 +45,29 @@ function ImprimirEtiquetasAccion({
           setError('');
           setMensaje('');
           try {
-            const parametros = new URLSearchParams();
-            if (activoId) parametros.set('activoId', activoId);
-            if (sucursalId) parametros.set('sucursalId', sucursalId);
-            if (claseId) parametros.set('claseId', claseId);
-            const { data } = await apiRequest<Etiqueta[]>(`${AF_BASE}/etiquetas?${parametros}`);
-            const { generarEtiquetas } = await import('../etiquetas/generar');
-            const blob = await generarEtiquetas(data);
-            await apiRequest(`${AF_BASE}/etiquetas/registrar-impresion`, {
-              method: 'POST',
-              body: {
-                motivo: motivo || null,
-                activos: data.map((e) => ({ id: e.id, version: e.version })),
-              },
-              idempotencyKey: crypto.randomUUID(),
+            let cantidad = 0;
+            await abrirPdfParaImprimir(async () => {
+              const parametros = new URLSearchParams();
+              if (activoId) parametros.set('activoId', activoId);
+              if (sucursalId) parametros.set('sucursalId', sucursalId);
+              if (claseId) parametros.set('claseId', claseId);
+              const { data } = await apiRequest<Etiqueta[]>(`${AF_BASE}/etiquetas?${parametros}`);
+              const { generarEtiquetas } = await import('../etiquetas/generar');
+              const blob = await generarEtiquetas(data);
+              await apiRequest(`${AF_BASE}/etiquetas/registrar-impresion`, {
+                method: 'POST',
+                body: {
+                  motivo: motivo || null,
+                  activos: data.map((e) => ({ id: e.id, version: e.version })),
+                },
+                idempotencyKey: crypto.randomUUID(),
+              });
+              cantidad = data.length;
+              return blob;
             });
-            const url = URL.createObjectURL(blob);
-            const enlace = document.createElement('a');
-            enlace.href = url;
-            enlace.download = 'etiquetas-activos.pdf';
-            enlace.click();
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
             // La entrega del PDF sí es observable; la salida física de la impresora no lo es.
             await qc.invalidateQueries({ queryKey: afKeys.all });
-            setMensaje(`PDF generado: ${data.length} etiquetas. Impresión registrada.`);
+            setMensaje(`PDF generado: ${cantidad} etiquetas. Impresión registrada.`);
           } catch (e) {
             setError((e as Error).message);
           } finally {

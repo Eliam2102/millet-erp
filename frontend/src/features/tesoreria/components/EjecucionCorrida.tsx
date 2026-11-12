@@ -44,24 +44,24 @@ export function EjecucionCorrida({ corrida, onError }: { corrida: CorridaRespons
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="@container min-w-0 space-y-2">
       {pendientes.map((p) => {
         const c = captura[p.proveedorId] ?? { referencia: '', fecha: hoy };
         const idRef = `ref-${p.proveedorId}`;
         const idFecha = `fecha-${p.proveedorId}`;
         return (
-          <li key={p.proveedorId} className="grid items-end gap-3 rounded-lg bg-surface-card p-3 shadow-card-flat md:grid-cols-[1fr_200px_160px_auto]">
-            <div>
-              <p className="font-medium">{nombres.get(p.proveedorId)}</p>
+          <li key={p.proveedorId} className="grid min-w-0 grid-cols-1 items-end gap-3 rounded-lg bg-surface-card p-3 shadow-card-flat @xl:grid-cols-2 @4xl:grid-cols-[minmax(0,1fr)_200px_160px_auto]">
+            <div className="min-w-0 @xl:col-span-2 @4xl:col-span-1">
+              <p className="font-medium [overflow-wrap:anywhere]">{nombres.get(p.proveedorId)}</p>
               <p className="text-xs text-ink-muted">
                 {p.facturas.length} {p.facturas.length === 1 ? 'factura' : 'facturas'} · <MoneyDisplay amount={p.neto} currency={corrida.moneda} strong />
               </p>
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label htmlFor={idRef} className="text-xs text-ink-muted">Referencia bancaria</label>
               <Input id={idRef} value={c.referencia} maxLength={120} onChange={(e) => setCaptura({ ...captura, [p.proveedorId]: { ...c, referencia: e.target.value } })} />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label htmlFor={idFecha} className="text-xs text-ink-muted">Fecha del pago</label>
               <Input id={idFecha} type="date" value={c.fecha} onChange={(e) => setCaptura({ ...captura, [p.proveedorId]: { ...c, fecha: e.target.value } })} />
             </div>

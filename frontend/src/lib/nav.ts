@@ -1482,6 +1482,22 @@ const productoTerminado: NavModulo = {
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
         },
+        {
+          label: 'Solicitudes de salida parcial',
+          description:
+            'Pedidos incompletos que piden salir: Crédito y Cobranza autoriza o rechaza (Gerencia de Ventas como suplente).',
+          to: '/producto-terminado/solicitudes',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Casos de daño',
+          description:
+            'Daño antes de cargar, rechazo en sitio o devolución: evidencia, dictamen de Calidad y correctivo fiscal.',
+          to: '/producto-terminado/casos',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
       ],
     },
   ],

@@ -2301,6 +2301,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000007-0001-0000-0000-000000000008"),
+                            Accion = "aceptar-cancelacion-pagada",
+                            Codigo = "cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Aceptar la cancelación de un CFDI de proveedor cuya factura ya tiene pagos (Contador General; requiere el CFDI sustituto)",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "cfdi",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000007-0002-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "cuentas_por_pagar.notas-credito.leer",
@@ -5787,6 +5801,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000010-0003-0000-0000-000000000006"),
+                            Accion = "cancelar-emitida",
+                            Codigo = "producto_terminado.salida.cancelar-emitida",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar la cancelación de un albarán ya emitido",
+                            Modulo = "producto_terminado",
+                            Recurso = "salida",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000010-0004-0000-0000-000000000001"),
+                            Accion = "dictaminar",
+                            Codigo = "producto_terminado.calidad.dictaminar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dictaminar casos de daño, rechazo o devolución de producto terminado (Calidad)",
+                            Modulo = "producto_terminado",
+                            Recurso = "calidad",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0002-0000-0000-000000000001"),
+                            Accion = "gestionar",
+                            Codigo = "compartido.tramos.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Detener y reanudar tramos de la operación (reanudar lo autoriza otra persona)",
+                            Modulo = "compartido",
+                            Recurso = "tramos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000f-0001-0000-0000-000000000008"),
                             Accion = "correr",
                             Codigo = "activos_fijos.depreciacion.correr",
@@ -6874,6 +6930,12 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("idioma_ui");
+
+                    b.Property<bool>("SonidoAvisosHabilitado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("sonido_avisos_habilitado");
 
                     b.Property<string>("TemaUI")
                         .IsRequired()

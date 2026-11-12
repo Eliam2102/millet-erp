@@ -1,3 +1,4 @@
+import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { formatMoney } from '@/lib/money';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -43,7 +44,7 @@ import { NotasCreditoPendientesAviso } from '@/features/facturacion/components/N
 import { EfectosComprobanteSeccion } from '@/features/facturacion/components/EfectosComprobanteSeccion';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
-import { descargarArchivo } from '@/features/facturacion/lib/descargas';
+import { descargarArchivo, obtenerArchivo } from '@/features/facturacion/lib/descargas';
 import type { FacturasSearch } from '@/features/facturacion/lib/facturas-search-schema';
 import { ETIQUETA_MOTIVO_NC, ETIQUETA_TIPO_RELACION } from '@/features/facturacion/lib/glosario';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
@@ -52,7 +53,7 @@ import { useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Ban, Download, FileCode, Info, Mail, Printer, Receipt, RefreshCw, TriangleAlert, X } from 'lucide-react';
+import { Ban, Download, FileCode, Info, Mail, Receipt, RefreshCw, TriangleAlert, X } from 'lucide-react';
 import { useState } from 'react';
 import type { AnticipoEstadoCuenta } from '@/features/facturacion/api/types';
 import { useAplicarAnticipoAFactura } from '@/features/facturacion/api/useAnticipos';
@@ -107,7 +108,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
   const cancelacion = useCancelacionEstatus(f.id);
   // F6.5: con una solicitud pendiente de autorización no se puede pedir otra.
   const cancelacionPendiente = cancelacion.data?.estadoSolicitud === 'PendienteAutorizacion';
-  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | 'sustituir' | null>(null);
+  const [accion, setAccion] = useState<'cancelar' | 'nc' | 'anticipo' | 'sustituir' | 'reemitir' | null>(null);
+  const [motivoReemision, setMotivoReemision] = useState('02');
   const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.FacturacionAnticiposVincular);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
   // M20 (prueba S3-4): el XML existe desde el timbre y se descarga siempre, también con la cancelación en proceso o ya cancelada.
@@ -141,6 +143,11 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
 
   return (
     <div className="@container min-w-0 space-y-5">
+      {f.proformaPedidoId ? (
+        <p className="text-sm text-ink-muted">
+          Viene de la proforma <span className="font-mono font-medium text-ink">{f.proforma ?? ''}</span> aprobada por el cliente.
+        </p>
+      ) : null}
       <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
       {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
         <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor || <span className="text-ink-muted">—</span>}</dd></div>
@@ -192,10 +199,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                     <Download className="mr-1 h-4 w-4" />
                     PDF térmica
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => window.print()}>
-                    <Printer className="mr-1 h-4 w-4" />
-                    Imprimir
-                  </Button>
+                  <ImprimirPdfButton generarPdf={() => obtenerArchivo(`${BASE}/${f.id}/pdf`)} />
                   {puedeAplicarAnticipo && vigente && f.clienteId && (f.totalPorCobrar ?? 0) > 0 && (
                     <Button
                       variant="outline"
@@ -225,6 +229,17 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                     >
                       <RefreshCw className="mr-1 h-4 w-4" />
                       Sustituir
+                    </Button>
+                  )}
+                  {puedeEmitir && f.estado === 'Cancelado' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAccion((a) => (a === 'reemitir' ? null : 'reemitir'))}
+                      title="Con motivo 02 o 04, emite la factura nueva sin relación después de cancelar esta"
+                    >
+                      <RefreshCw className="mr-1 h-4 w-4" />
+                      Reemitir
                     </Button>
                   )}
                   {puedeCancelar && vigente && !cancelacionPendiente && (
@@ -272,6 +287,22 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
       )}
       {accion === 'cancelar' && (
         <CancelarComprobanteForm comprobanteId={f.id} sugerirSustituir onDone={() => setAccion(null)} />
+      )}
+      {accion === 'reemitir' && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            Motivo con el que se canceló
+            <select
+              className="h-9 rounded-md border border-line-control bg-transparent px-3 text-sm"
+              value={motivoReemision}
+              onChange={(e) => setMotivoReemision(e.target.value)}
+            >
+              <option value="02">02 — Errores sin relación</option>
+              <option value="04">04 — Operación nominativa (factura global)</option>
+            </select>
+          </label>
+          <SustituirFacturaPanel key={motivoReemision} facturaId={f.id} motivo={motivoReemision} onDone={() => setAccion(null)} />
+        </div>
       )}
       {accion === 'sustituir' && <SustituirFacturaPanel facturaId={f.id} onDone={() => setAccion(null)} />}
 
@@ -660,21 +691,21 @@ function PedimentoForm({ facturaId, motivo }: { facturaId: string; motivo?: stri
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 rounded-md border border-line bg-warning-note-bg p-3 sm:grid-cols-4"
+      className="grid grid-cols-1 gap-2 rounded-md border border-line bg-warning-note-bg p-3 @xl:grid-cols-2 @4xl:grid-cols-4"
       data-print="hidden"
     >
-      <div className="sm:col-span-4 text-sm font-medium">
+      <div className="col-span-full text-sm font-medium">
         Factura retenida por pedimento — aplícalo para timbrar
       </div>
       {motivo && (
-        <p className="sm:col-span-4 text-xs text-ink-muted" data-testid="motivo-pedimento">
+        <p className="col-span-full text-xs text-ink-muted" data-testid="motivo-pedimento">
           {motivo}
         </p>
       )}
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <ErrorTimbradoAviso error={aplicar.error} />
       </div>
-      <div className="sm:col-span-2">
+      <div className="@xl:col-span-2">
         <Label htmlFor="pedimento-numero" className="text-xs">Pedimento *</Label>
         <Input
           id="pedimento-numero" placeholder="15  47  3807  5000123"
@@ -690,7 +721,7 @@ function PedimentoForm({ facturaId, motivo }: { facturaId: string; motivo?: stri
         <Label htmlFor="pedimento-identificacion" className="text-xs">Identificación mercancía</Label>
         <Input id="pedimento-identificacion" value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} />
       </div>
-      <div className="sm:col-span-4 flex justify-end">
+      <div className="col-span-full flex justify-end">
         <Button size="sm" onClick={enviar} disabled={aplicar.isPending}>
           {aplicar.isPending ? 'Aplicando…' : 'Aplicar pedimento y timbrar'}
         </Button>
@@ -755,16 +786,16 @@ function AplicarAnticipoForm({
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 sm:grid-cols-4 border-line"
+      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 @xl:grid-cols-2 @4xl:grid-cols-4 border-line"
       data-print="hidden"
     >
-      <div className="sm:col-span-4 text-sm font-medium">
+      <div className="col-span-full text-sm font-medium">
         Aplicar anticipo a esta factura (NC de amortización, relación 07)
       </div>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <ErrorTimbradoAviso error={aplicar.error} />
       </div>
-      <div className="sm:col-span-2">
+      <div className="@xl:col-span-2">
         <Label className="text-xs">Anticipo *</Label>
         <AnticipoPicker clienteId={clienteId} value={anticipo?.anticipoId} onChange={elegir} />
       </div>
@@ -782,7 +813,7 @@ function AplicarAnticipoForm({
         />
       </div>
       <p className="self-end text-xs text-ink-muted">Por cobrar: {formatMoney({ amount: porCobrar, currency: moneda })}</p>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <Label className="text-xs" htmlFor="aplicar-anticipo-comentarios">
           Comentarios (se imprimen en la nota de crédito)
         </Label>
@@ -794,7 +825,7 @@ function AplicarAnticipoForm({
           textareaProps={{ id: 'aplicar-anticipo-comentarios' }}
         />
       </div>
-      <div className="sm:col-span-4 flex justify-end gap-2">
+      <div className="col-span-full flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={aplicar.isPending}>
           Cancelar
         </Button>
@@ -870,13 +901,13 @@ function NcBonificacionForm({
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 sm:grid-cols-4 border-line"
+      className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 @xl:grid-cols-2 @4xl:grid-cols-4 border-line"
       data-print="hidden"
     >
-      <div className="sm:col-span-4 text-sm font-medium">
+      <div className="col-span-full text-sm font-medium">
         Nota de crédito por bonificación (relación 01)
       </div>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <ErrorTimbradoAviso error={emitir.error} />
       </div>
       <div>
@@ -900,11 +931,11 @@ function NcBonificacionForm({
           onChange={(e) => setTasaIva(e.target.value)}
         />
       </div>
-      <div className="sm:col-span-2">
+      <div className="@xl:col-span-2">
         <Label htmlFor="nc-descripcion" className="text-xs">Descripción</Label>
         <Input id="nc-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
       </div>
-      <div className="sm:col-span-4">
+      <div className="col-span-full">
         <Label className="text-xs" htmlFor="nc-bonificacion-comentarios">
           Comentarios (se imprimen en la nota de crédito)
         </Label>
@@ -917,7 +948,7 @@ function NcBonificacionForm({
         />
       </div>
       {puedeReembolsar && (
-        <div className="sm:col-span-4 flex items-center gap-2">
+        <div className="col-span-full flex items-center gap-2">
           <Checkbox
             id="nc-devolver-dinero"
             checked={devolver}
@@ -944,13 +975,13 @@ function NcBonificacionForm({
               onChange={(e) => setClabe(e.target.value.replace(/\D/g, ''))}
             />
           </div>
-          <div className="sm:col-span-2">
+          <div className="@xl:col-span-2">
             <Label className="text-xs" htmlFor="nc-reembolso-titular">Titular *</Label>
             <Input id="nc-reembolso-titular" value={titular} onChange={(e) => setTitular(e.target.value)} />
           </div>
         </>
       )}
-      <div className="sm:col-span-4 flex justify-end gap-2">
+      <div className="col-span-full flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone} disabled={emitir.isPending}>
           Cancelar
         </Button>

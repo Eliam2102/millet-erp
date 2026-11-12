@@ -32,6 +32,7 @@ export interface ReporteParaExportar<TFila> {
 export async function descargarReporteExcel<TFila>(
   reporte: ReporteParaExportar<TFila>,
   nombreArchivo: string,
+  obtenerCelda: (row: TFila, clave: string) => unknown = (row, clave) => (row as Record<string, unknown>)[clave],
 ): Promise<void> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Millet ERP';
@@ -95,8 +96,6 @@ export async function descargarReporteExcel<TFila>(
   });
 
   // ─── Filas ─────────────────────────────────────────────────────────
-  const obtenerCelda = (row: TFila, clave: string): unknown =>
-    (row as unknown as Record<string, unknown>)[clave];
 
   reporte.filas.forEach((fila, i) => {
     const row = ws.getRow(headerRowIndex + 1 + i);

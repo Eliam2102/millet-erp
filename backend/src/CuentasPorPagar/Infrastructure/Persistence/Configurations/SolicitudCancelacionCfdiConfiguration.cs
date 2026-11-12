@@ -20,6 +20,8 @@ public sealed class SolicitudCancelacionCfdiConfiguration : IEntityTypeConfigura
         builder.Property(e => e.ComentarioDecision).HasMaxLength(1000);
         builder.Property(e => e.EvidenciaBlobRef).HasMaxLength(400);
         builder.Property(e => e.EvidenciaNombre).HasMaxLength(255);
+        builder.Property(e => e.SustitutoCfdiId);
+        builder.Property(e => e.AutorizadoPor);
         builder.Ignore(e => e.PlazoSatVence);
         // Una sola solicitud pendiente por CFDI.
         builder.HasIndex(e => e.CfdiRecibidoId).IsUnique().HasFilter("estado = 1")

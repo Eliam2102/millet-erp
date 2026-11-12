@@ -17,6 +17,8 @@ export function ProformaPedidoCard({
   onVer,
   onDescargar,
   onConformidad,
+  onFacturar,
+  facturando = false,
 }: {
   proforma: ProformaPedidoResponse | null | undefined;
   cargando: boolean;
@@ -25,6 +27,9 @@ export function ProformaPedidoCard({
   onDescargar: (proforma: ProformaPedidoResponse) => void;
   /** M-234: abre «Registrar conformidad»; sin handler no se ofrece la acción. */
   onConformidad?: (proforma: ProformaPedidoResponse) => void;
+  /** M-340: factura desde la versión aprobada, sin recaptura; sin handler no se ofrece la acción. */
+  onFacturar?: (proforma: ProformaPedidoResponse) => void;
+  facturando?: boolean;
 }) {
   return (
     <section
@@ -57,8 +62,14 @@ export function ProformaPedidoCard({
               })}
             </span>{' '}
             · Sin valor fiscal
-            {proforma.conformidad ? (
+            {proforma.conformidad && !proforma.conformidad.invalidada ? (
               <span className="block font-medium text-success-fg">{textoConformidadProforma(proforma)}</span>
+            ) : null}
+            {proforma.conformidad?.invalidada ? (
+              <span role="status" className="block font-medium text-warning-fg">
+                Conformidad invalidada: {proforma.conformidad.invalidadaMotivo ?? 'el pedido cambió.'} Genera una proforma
+                nueva y registra su conformidad para facturar.
+              </span>
             ) : null}
           </p>
         )}
@@ -75,6 +86,17 @@ export function ProformaPedidoCard({
             >
               <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.8} />
               Registrar conformidad
+            </Button>
+          ) : null}
+          {onFacturar && proforma.conformidad && !proforma.conformidad.invalidada ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={facturando}
+              aria-label={`Facturar desde la proforma ${proforma.folio}`}
+              onClick={() => onFacturar(proforma)}
+            >
+              {facturando ? 'Facturando…' : 'Facturar desde esta proforma'}
             </Button>
           ) : null}
           <Button

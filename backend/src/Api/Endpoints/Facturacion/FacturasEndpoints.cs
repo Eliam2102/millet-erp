@@ -110,9 +110,9 @@ public static class FacturasEndpoints
         // GET: borrador de la factura sustituta (FAC-08b): datos de la original para el
         // formulario de emisión. Quien sustituye emite la nueva y solicita la cancelación.
         group.MapGet("/{id:guid}/sustitucion", async (
-            Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Guid id, string? motivo, IMediator mediator, CancellationToken cancellationToken) =>
         {
-            var datos = await mediator.Send(new DatosSustitucionQuery(id), cancellationToken);
+            var datos = await mediator.Send(new DatosSustitucionQuery(id, motivo ?? "01"), cancellationToken);
             return Results.Ok(datos);
         })
         .RequireAuthorization(

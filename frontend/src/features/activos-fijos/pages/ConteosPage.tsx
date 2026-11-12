@@ -1,3 +1,6 @@
+import { useSucursales } from '@/features/catalogos/api';
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reporteConteo } from '../lib/conteo-impresion';
 import { useState } from 'react';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -22,6 +25,7 @@ import { formatDate, formatDateTime } from '@/lib/datetime';
 import { useConservacion, resultadosConteo, type Conteo, type Pagina } from '../api/conservacion';
 import { useGuardarActivo } from '../api/hooks';
 export function ConteosPage() {
+  const sucursales = useSucursales();
   const [sucursal, setSucursal] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [seleccion, setSeleccion] = useState('');
@@ -90,9 +94,7 @@ export function ConteosPage() {
               Volver a conteos
             </Button>
             {c.cerradoEn && (
-              <Button variant="outline" onClick={() => window.print()}>
-                Imprimir reporte
-              </Button>
+              <ImprimirReporteButton variant="outline" reporte={reporteConteo(c, sucursales.data?.items.find(s => s.id === c.sucursalId)?.nombre ?? c.sucursalId)}>Imprimir reporte</ImprimirReporteButton>
             )}
           </div>
           <SucursalSelector value={c.sucursalId} onChange={() => {}} disabled />

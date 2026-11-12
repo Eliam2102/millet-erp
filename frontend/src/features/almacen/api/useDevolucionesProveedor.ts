@@ -254,13 +254,13 @@ export interface SubirEvidenciaResponse {
  * blob storage de Almacén con permiso
  * <c>almacen.devoluciones-proveedor.iniciar</c>.
  */
-export function useSubirEvidenciaBlob() {
+export function useSubirEvidenciaBlob(endpoint = '/api/v1/almacen/devoluciones-proveedor/evidencia/blob') {
   return useMutation({
     mutationFn: async (args: { archivo: File; idempotencyKey: string }) => {
       const formData = new FormData();
       formData.append('archivo', args.archivo);
       const { data } = await apiRequest<SubirEvidenciaResponse>(
-        '/api/v1/almacen/devoluciones-proveedor/evidencia/blob',
+        endpoint,
         {
           method: 'POST',
           body: formData,

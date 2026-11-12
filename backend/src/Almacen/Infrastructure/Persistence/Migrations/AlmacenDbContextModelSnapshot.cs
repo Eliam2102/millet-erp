@@ -1527,6 +1527,10 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
 
+                    b.Property<decimal?>("CantidadAplicada")
+                        .HasColumnType("numeric")
+                        .HasColumnName("cantidad_aplicada");
+
                     b.Property<decimal?>("CantidadRealCapturada")
                         .HasPrecision(14, 4)
                         .HasColumnType("numeric(14,4)")
@@ -1566,6 +1570,10 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<string>("FolioAjuste")
+                        .HasColumnType("text")
+                        .HasColumnName("folio_ajuste");
+
                     b.Property<string>("Justificacion")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -1583,6 +1591,10 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<bool>("RequiereRecuento")
                         .HasColumnType("boolean")
                         .HasColumnName("requiere_recuento");
+
+                    b.Property<decimal?>("SaldoResultante")
+                        .HasColumnType("numeric")
+                        .HasColumnName("saldo_resultante");
 
                     b.Property<Guid>("SubAlmacenId")
                         .HasColumnType("uuid")
@@ -2118,6 +2130,14 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("mensaje_id");
 
+                    b.Property<DateTimeOffset?>("DecididoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decidido_at");
+
+                    b.Property<Guid?>("DecididoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decidido_por");
+
                     b.Property<Guid?>("DocumentoId")
                         .HasColumnType("uuid")
                         .HasColumnName("documento_id");
@@ -2137,6 +2157,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("folio");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_rechazo");
 
                     b.Property<string>("Payload")
                         .IsRequired()
@@ -3249,6 +3274,12 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("estado");
+
+                    b.Property<string>("EvidenciaBlobRef")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidencia_blob_ref");
 
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date")

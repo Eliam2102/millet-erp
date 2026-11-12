@@ -25,6 +25,10 @@ public sealed class SolicitarCancelacionHandler(
 
         var comprobante = await CadenaCancelacion.CargarCancelableAsync(db, command.ComprobanteId, cancellationToken);
 
+        if (command.MotivoSat == "04" && comprobante.ReceptorRfc != Millet.Facturacion.Domain.Comprobantes.DatosFiscalesReceptor.RfcGenericoNacional)
+            throw new BusinessRuleException(
+                "CANCELACION_04_SOLO_GLOBAL", "El motivo 04 aplica solo a una factura global (público en general).");
+
         var hayPendiente = await db.SolicitudesCancelacion.AnyAsync(
             s => s.ComprobanteId == comprobante.Id && s.Estado == EstadoSolicitudCancelacion.PendienteAutorizacion,
             cancellationToken);

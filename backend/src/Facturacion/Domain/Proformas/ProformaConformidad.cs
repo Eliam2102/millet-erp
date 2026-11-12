@@ -22,6 +22,14 @@ public sealed class ProformaConformidad : BaseEntity, IPerteneceAEmpresa, IAudit
     public MedioConformidadProforma Medio { get; private set; }
     public string? Notas { get; private set; }
 
+    /// <summary>
+    /// M-340: la conformidad deja de valer cuando el pedido cambia después de aprobar la versión; una versión con la conformidad
+    /// invalidada no se factura y se necesita una versión nueva con su propia conformidad.
+    /// </summary>
+    public DateTimeOffset? InvalidadaEn { get; private set; }
+    public string? InvalidadaMotivo { get; private set; }
+    public bool Invalidada => InvalidadaEn is not null;
+
     public Guid? RegistradaPorUsuarioId { get; private set; }
     public string? RegistradaPorNombre { get; private set; }
     public DateTimeOffset RegistradaEn { get; private set; }
@@ -41,6 +49,15 @@ public sealed class ProformaConformidad : BaseEntity, IPerteneceAEmpresa, IAudit
         RegistradaPorUsuarioId = usuarioId;
         RegistradaPorNombre = usuarioNombre;
         RegistradaEn = registradaEn;
+    }
+
+    /// <summary>Invalida la conformidad (idempotente): el pedido cambió después de aprobar la versión.</summary>
+    public void Invalidar(string motivo, DateTimeOffset ahora)
+    {
+        if (Invalidada)
+            return;
+        InvalidadaEn = ahora;
+        InvalidadaMotivo = string.IsNullOrWhiteSpace(motivo) ? "El pedido cambió después de la conformidad." : motivo.Trim();
     }
 
     /// <summary>

@@ -309,3 +309,42 @@ export function useReporteExistenciaMpCnk(filtros: MpCnkFiltros) {
     },
   });
 }
+
+/**
+ * M-231: posiciones con existencia de un artículo, con `saldoId` y `version`. La versión es un long (UtcTicks, ~6e17) que
+ * JSON.parse redondea: se lee como texto para devolverla intacta al trasladar.
+ */
+export function usePosicionesTraslado(articuloId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...almacenKeys.saldos(), 'posiciones-traslado', articuloId ?? ''] as const,
+    enabled: !!articuloId,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<SaldoUbicacionItem[]>(`/api/v1/almacen/saldos/por-ubicacion?${buildQuery({ articuloId })}`, { signal });
+      return data;
+    },
+  });
+}
+
+export interface TrasladarPosicionCommand {
+  saldoId: string;
+  /** Marca del saldo que vio la pantalla (texto: el backend la manda como string). */
+  version: string;
+  cantidad: number;
+  ubicacionDestinoId: string;
+  motivo?: string | null;
+}
+
+export function useTrasladarPosicion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { command: TrasladarPosicionCommand; idempotencyKey: string }) => {
+      const body = JSON.stringify(args.command);
+      const { data } = await apiRequest<{ movimientoId: string; folio: string; folioEntrada: string | null }>(
+        '/api/v1/almacen/saldos/traslados-posicion',
+        { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: almacenKeys.all }),
+  });
+}

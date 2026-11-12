@@ -411,6 +411,7 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(x => x.ValorMxn).HasPrecision(18, 2);
             b.Property(x => x.AreaClave).HasMaxLength(40);
             b.Property(x => x.EquipoClave).HasMaxLength(40);
+            b.Property(x => x.EvidenciaBlobRef).HasMaxLength(500).IsRequired();
             b.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha });
         });
         modelBuilder.Entity<Domain.Correcciones.CorreccionConsumo>(b =>

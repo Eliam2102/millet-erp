@@ -727,6 +727,7 @@ builder.Services.AddScoped<Millet.Compartido.Application.Cargas.Lotes.LotesCarga
 // M-166: tipo de carga contabilidad.saldos-iniciales (apertura contable) para el lote común.
 Millet.Api.Infrastructure.Adapters.CargasContabilidadRegistro.AddCargasContabilidad(builder.Services);
 builder.Services.AddScoped<Millet.SharedKernel.Application.Incidencias.IIncidenciasPort, Millet.Compartido.Infrastructure.PublicAdapters.IncidenciasAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Tramos.ITramosOperativosPort, Millet.Compartido.Infrastructure.PublicAdapters.TramosOperativosAdapter>();
 // M-236: responsable por omisión de las incidencias de la conciliación programada de cartera.
 builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Conciliacion.IResponsableConciliacionReadPort, Millet.Api.Infrastructure.Adapters.ResponsableConciliacionCarteraAdapter>();
 // M-236: historial de cierres manuales (mismo adaptador; no obliga a otros módulos a implementarlo).
@@ -1057,6 +1058,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Correo.IUsuarioCorreoAvisosPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioCorreoAvisosAdapter>();
+
+// M-249: aviso a la sucursal destino de un traspaso de PT por recibir.
+builder.Services.AddScoped<Millet.ProductoTerminado.Application.Ports.IAvisoTraspasoPort, Millet.Api.Infrastructure.Adapters.AvisoTraspasoCorreoAdapter>();
 
 // ADR-0047 PR5.C: resuelve el usuario de servicio del reorden (creador/requisitante +
 // empresa de las RQ automáticas). Adapter hospedado en Identidad (dueño del dato).
@@ -1639,6 +1643,7 @@ foreach (var dimension in new[] { 1, 2, 3 })
 
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.AplicarProductoAwService>();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.IProductoAwContratoReadPort, Millet.Compartido.Infrastructure.PublicAdapters.ProductoAwContratoReadAdapter>();
+Millet.Api.Notificaciones.NotificacionesRegistration.AddCentroAvisos(builder.Services);
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
@@ -2169,6 +2174,8 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 Millet.Api.Endpoints.Incidencias.IncidenciasEndpoints.MapIncidenciasEndpoints(app);
+Millet.Api.Endpoints.Notificaciones.NotificacionesEndpoints.MapNotificacionesEndpoints(app);
+Millet.Api.Endpoints.Tramos.TramosEndpoints.MapTramosEndpoints(app);
 
 Millet.Api.Endpoints.ComercioExterior.ConfiguracionCeEndpoints.MapConfiguracionCe(app);
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);

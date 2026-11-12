@@ -303,6 +303,7 @@ export const PermisosCanonicos = {
   CuentasPorPagarFacturasCapturar: 'cuentas_por_pagar.facturas.capturar',
   CuentasPorPagarFacturasEditar: 'cuentas_por_pagar.facturas.editar',
   CuentasPorPagarFacturasCancelar: 'cuentas_por_pagar.facturas.cancelar',
+  CuentasPorPagarCfdiAceptarCancelacionPagada: 'cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada',
   CuentasPorPagarFacturasEnviarRevision:
     'cuentas_por_pagar.facturas.enviar-revision',
   CuentasPorPagarFacturasLiberarRevision:
@@ -591,6 +592,9 @@ export const PermisosCanonicos = {
   ProductoTerminadoSalidaAprobarContraloria: 'producto_terminado.salida.aprobar-contraloria',
   ProductoTerminadoSalidaAprobarCredito: 'producto_terminado.salida.aprobar-credito',
   ProductoTerminadoSalidaAprobarVentas: 'producto_terminado.salida.aprobar-ventas',
+  ProductoTerminadoSalidaCancelarEmitida: 'producto_terminado.salida.cancelar-emitida',
+  ProductoTerminadoCalidadDictaminar: 'producto_terminado.calidad.dictaminar',
+  CompartidoTramosGestionar: 'compartido.tramos.gestionar',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

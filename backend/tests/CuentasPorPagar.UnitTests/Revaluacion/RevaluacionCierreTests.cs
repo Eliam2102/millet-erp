@@ -50,6 +50,46 @@ public sealed class RevaluacionCierreTests : IDisposable
     }
 
     [Fact]
+    public async Task M317_la_vista_previa_calcula_por_proveedor_y_sucursal_sin_registrar_ni_publicar()
+    {
+        Factura(1000m, "USD", 18.00m);
+        Factura(200m, "USD", 19.00m, "FA-101");
+        await _db.SaveChangesAsync();
+
+        var r = await new VistaPreviaRevaluacionCierreHandler(_db, _tc).Handle(new(2026, 1), default);
+
+        r.YaEjecutada.Should().BeFalse();
+        r.Detalles.Should().HaveCount(2);
+        r.TotalPerdida.Should().Be(500m);
+        r.TotalUtilidad.Should().Be(100m);
+        // Una sola póliza por proveedor y sucursal con el neto (500 − 100 = 400 de pérdida).
+        var poliza = r.Polizas.Should().ContainSingle().Subject;
+        (poliza.ProveedorId, poliza.SucursalId, poliza.Perdida, poliza.Utilidad).Should().Be((_proveedor, _sucursal, 400m, 0m));
+        // No crea la revaluación ni publica eventos: el mes sigue disponible para ejecutarse.
+        (await _db.RevaluacionesCierre.CountAsync()).Should().Be(0);
+        _eventos.Eventos.Should().BeEmpty();
+        var ejecucion = await Ejecutar().Handle(new(2026, 1), default);
+        ejecucion.TotalPerdida.Should().Be(500m);
+    }
+
+    [Fact]
+    public async Task M317_la_vista_previa_avisa_si_falta_el_tc_de_cierre_y_si_el_mes_ya_se_reevaluo()
+    {
+        Factura(1000m, "USD", 18.00m);
+        await _db.SaveChangesAsync();
+        _tc.Valores.Clear();
+        var sinTc = await new VistaPreviaRevaluacionCierreHandler(_db, _tc).Handle(new(2026, 1), default);
+        sinTc.Polizas.Should().BeEmpty();
+        sinTc.Avisos.Should().ContainSingle().Which.Should().Contain("tipo de cambio");
+
+        _tc.Valores[("USD", CierreEnero)] = 18.50m;
+        await Ejecutar().Handle(new(2026, 1), default);
+        var ya = await new VistaPreviaRevaluacionCierreHandler(_db, _tc).Handle(new(2026, 1), default);
+        ya.YaEjecutada.Should().BeTrue();
+        (await _db.RevaluacionesCierre.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
     public async Task CXP12a_mil_dolares_a_18_con_cierre_a_18_50_es_perdida_de_500_y_se_publica_para_la_poliza()
     {
         Factura(1000m, "USD", 18.00m);

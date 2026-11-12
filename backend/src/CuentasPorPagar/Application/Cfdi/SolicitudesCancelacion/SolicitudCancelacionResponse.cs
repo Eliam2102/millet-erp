@@ -16,9 +16,12 @@ public sealed record SolicitudCancelacionResponse(
     string? ComentarioDecision,
     string? EvidenciaNombre,
     string? ResponsableNombre = null,
-    string? DecididoPorNombre = null)
+    string? DecididoPorNombre = null,
+    Guid? SustitutoCfdiId = null,
+    Guid? AutorizadoPor = null)
 {
     public static SolicitudCancelacionResponse De(SolicitudCancelacionCfdi s) => new(
         s.Id, s.CfdiRecibidoId, s.Area, s.Estado, s.FechaRecepcion, s.PlazoSatVence, s.ResponsableId, s.Notas,
-        s.FechaDecision, s.DecididoPor, s.ComentarioDecision, s.EvidenciaNombre);
+        s.FechaDecision, s.DecididoPor, s.ComentarioDecision, s.EvidenciaNombre,
+        SustitutoCfdiId: s.SustitutoCfdiId, AutorizadoPor: s.AutorizadoPor);
 }
