@@ -11,7 +11,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
     /// cargo si se pagó de más). Solo si la vigente aún no la trae, para no pisar una versión editada. Solo datos: no cambia el modelo.
     /// </summary>
     [DbContext(typeof(ContabilidadDbContext))]
-    [Migration("20261112170000_M326RedondeoPagoProveedor")]
+    [Migration("20261112221000_M326RedondeoPagoProveedor")]
     public partial class M326RedondeoPagoProveedor : Migration
     {
         /// <inheritdoc />
