@@ -282,6 +282,14 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
+          label: 'Origen de captura MP',
+          description:
+            'Si la recepción, el consumo, la merma y la requisición de materia prima se capturan en el ERP o llegan solo de la app de Almacenes; con bitácora y reversa.',
+          to: '/almacen/origen-captura',
+          icon: ShieldAlert,
+          permission: PermisosCanonicos.AlmacenCierreMesGestionarTodasSucursales,
+        },
+        {
           label: 'Conciliación diaria',
           description:
             'Existencia del ERP contra el físico que reporta A+W. Toda diferencia es una salida no planificada que se aclara con la mesa de corte.',

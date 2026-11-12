@@ -24,13 +24,25 @@ public sealed class SimuladoAlmMensajeOrigen : IAlmMensajeOrigen
     public int FallasDeLectura { get; set; }
 
     /// <summary>La app deja un mensaje (lo que haría un INSERT en alm_mensaje, intento 1). Devuelve el id del renglón.</summary>
-    public long Encolar(string mensajeId, string tipo, string? referencia, string sobre)
+    public long Encolar(string mensajeId, string tipo, string? referencia, string sobre, DateTimeOffset? fecha = null)
     {
         lock (_candado)
         {
             var id = _siguiente++;
-            _filas.Add(new Fila(id, new AlmMensajeEntrante(id, mensajeId, 1, tipo, referencia, DateTimeOffset.UtcNow, sobre)));
+            _filas.Add(new Fila(id, new AlmMensajeEntrante(id, mensajeId, 1, tipo, referencia, fecha ?? DateTimeOffset.UtcNow, sobre)));
             return id;
+        }
+    }
+
+    public Task<AlmMensajeSinAcuse> ContarSinAcuseAntiguosAsync(int segundos, CancellationToken ct)
+    {
+        lock (_candado)
+        {
+            var ahora = DateTimeOffset.UtcNow;
+            var viejos = _filas.GroupBy(f => f.Mensaje.MensajeId).Select(g => g.MaxBy(f => f.Mensaje.Intento)!)
+                .Where(f => f.Acuse is null && (ahora - f.Mensaje.Fecha).TotalSeconds > segundos)
+                .Select(f => (int)(ahora - f.Mensaje.Fecha).TotalSeconds).ToList();
+            return Task.FromResult(new AlmMensajeSinAcuse(viejos.Count, viejos.Count == 0 ? 0 : viejos.Max()));
         }
     }
 

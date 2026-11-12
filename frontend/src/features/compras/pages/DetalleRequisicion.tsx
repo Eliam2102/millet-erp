@@ -20,7 +20,9 @@ import { ListaLineas } from '@/features/compras/components/ListaLineas';
 import { EditorLineas } from '@/features/compras/components/EditorLineas';
 import { CubrimientoEstimadoPanel } from '@/features/compras/components/CubrimientoEstimadoPanel';
 import { usePreviewCubrimiento } from '@/features/compras/api/usePreviewCubrimiento';
-import { EstadoRequisicion } from '@/features/compras/api/types';
+import { useNecesidadRqApp } from '@/features/compras/api/useNecesidadRqApp';
+import { NecesidadRqAppPanel } from '@/features/compras/components/NecesidadRqAppPanel';
+import { EstadoRequisicion, OrigenRequisicion } from '@/features/compras/api/types';
 import { HistoricoModal } from '@/features/compras/components/HistoricoModal';
 import { DetalleErrorBoundary } from '@/features/compras/components/DetalleErrorBoundary';
 import { AccionesRequisicion } from '@/features/compras/components/AccionesRequisicion';
@@ -271,6 +273,9 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
   const preview = usePreviewCubrimiento(rq.id, esEnAutorizacion);
   const mostrarPreview = esEnAutorizacion && (preview.isLoading || (preview.data?.aplica ?? false));
 
+  const esDeAppAlmacenes = rq.origen === OrigenRequisicion.AlmacenesApp;
+  const necesidad = useNecesidadRqApp(rq.id, esDeAppAlmacenes);
+
   // Catálogo de artículos para resolver articuloId → "clave — nombre"
   // en la versión read-only. EditorLineas carga su propio catálogo
   // internamente.
@@ -292,6 +297,9 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
           resolverArticulo={resolverArticulo}
           isLoading={preview.isLoading}
         />
+      )}
+      {esDeAppAlmacenes && (necesidad.isLoading || (necesidad.data?.aplica ?? false)) && (
+        <NecesidadRqAppPanel lineas={necesidad.data?.lineas ?? []} isLoading={necesidad.isLoading} />
       )}
       {hayAlgunaAccion ? (
         <EditorLineas rq={rq} />

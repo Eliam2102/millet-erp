@@ -35,6 +35,7 @@ import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/c
 import { Route as AppAlmacenConciliacionRouteImport } from './routes/_app/almacen/conciliacion';
 import { Route as AppAlmacenConsumosRevisionRouteImport } from './routes/_app/almacen/consumos-revision';
 import { Route as AppAlmacenMensajesAppRouteImport } from './routes/_app/almacen/mensajes-app';
+import { Route as AppAlmacenOrigenCapturaRouteImport } from './routes/_app/almacen/origen-captura';
 import { Route as AppAlmacenMermasRouteImport } from './routes/_app/almacen/mermas';
 import { Route as AppAlmacenNormasConsumoRouteImport } from './routes/_app/almacen/normas-consumo';
 import { Route as AppAlmacenTamboresLineaRouteImport } from './routes/_app/almacen/tambores-linea';
@@ -113,6 +114,7 @@ import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_
 import { Route as AppAlmacenReportesKardexRouteImport } from './routes/_app/almacen/reportes/kardex';
 import { Route as AppAlmacenReportesMpCnkRouteImport } from './routes/_app/almacen/reportes/mp-cnk';
 import { Route as AppAlmacenReportesTrazabilidadMpRouteImport } from './routes/_app/almacen/reportes/trazabilidad-mp';
+import { Route as AppAlmacenReportesConsumoInsumosLineaRouteImport } from './routes/_app/almacen/reportes/consumo-insumos-linea';
 import { Route as AppAlmacenSalidasIndexRouteImport } from './routes/_app/almacen/salidas/index';
 import { Route as AppAlmacenSalidasIdRouteImport } from './routes/_app/almacen/salidas/$id';
 import { Route as AppComercioExteriorExpedientesIndexRouteImport } from './routes/_app/comercio-exterior/expedientes/index';
@@ -399,6 +401,12 @@ const AppAlmacenMensajesAppRoute =
   AppAlmacenMensajesAppRouteImport.update({
     id: '/almacen/mensajes-app',
     path: '/almacen/mensajes-app',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenOrigenCapturaRoute =
+  AppAlmacenOrigenCapturaRouteImport.update({
+    id: '/almacen/origen-captura',
+    path: '/almacen/origen-captura',
     getParentRoute: () => AppRoute,
   } as any);
 const AppAlmacenMermasRoute = AppAlmacenMermasRouteImport.update({
@@ -818,6 +826,12 @@ const AppAlmacenReportesTrazabilidadMpRoute =
   AppAlmacenReportesTrazabilidadMpRouteImport.update({
     id: '/almacen/reportes/trazabilidad-mp',
     path: '/almacen/reportes/trazabilidad-mp',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAlmacenReportesConsumoInsumosLineaRoute =
+  AppAlmacenReportesConsumoInsumosLineaRouteImport.update({
+    id: '/almacen/reportes/consumo-insumos-linea',
+    path: '/almacen/reportes/consumo-insumos-linea',
     getParentRoute: () => AppRoute,
   } as any);
 const AppAlmacenSalidasIndexRoute = AppAlmacenSalidasIndexRouteImport.update({
@@ -1696,6 +1710,7 @@ export interface FileRoutesByFullPath {
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -1759,6 +1774,7 @@ export interface FileRoutesByFullPath {
   '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
+  '/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -1950,6 +1966,7 @@ export interface FileRoutesByTo {
   '/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -2013,6 +2030,7 @@ export interface FileRoutesByTo {
   '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
+  '/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -2206,6 +2224,7 @@ export interface FileRoutesById {
   '/_app/almacen/conciliacion': typeof AppAlmacenConciliacionRoute;
   '/_app/almacen/consumos-revision': typeof AppAlmacenConsumosRevisionRoute;
   '/_app/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
+  '/_app/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/_app/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/_app/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
   '/_app/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
@@ -2269,6 +2288,7 @@ export interface FileRoutesById {
   '/_app/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/_app/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/_app/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
+  '/_app/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/_app/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/_app/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/_app/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
@@ -2462,6 +2482,7 @@ export interface FileRouteTypes {
     | '/almacen/conciliacion'
     | '/almacen/consumos-revision'
     | '/almacen/mensajes-app'
+    | '/almacen/origen-captura'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
     | '/almacen/tambores-linea'
@@ -2525,6 +2546,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
+    | '/almacen/reportes/consumo-insumos-linea'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
@@ -2716,6 +2738,7 @@ export interface FileRouteTypes {
     | '/almacen/conciliacion'
     | '/almacen/consumos-revision'
     | '/almacen/mensajes-app'
+    | '/almacen/origen-captura'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
     | '/almacen/tambores-linea'
@@ -2779,6 +2802,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
+    | '/almacen/reportes/consumo-insumos-linea'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
@@ -2971,6 +2995,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/conciliacion'
     | '/_app/almacen/consumos-revision'
     | '/_app/almacen/mensajes-app'
+    | '/_app/almacen/origen-captura'
     | '/_app/almacen/mermas'
     | '/_app/almacen/normas-consumo'
     | '/_app/almacen/tambores-linea'
@@ -3034,6 +3059,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/reportes/kardex'
     | '/_app/almacen/reportes/mp-cnk'
     | '/_app/almacen/reportes/trazabilidad-mp'
+    | '/_app/almacen/reportes/consumo-insumos-linea'
     | '/_app/almacen/salidas/$id'
     | '/_app/comercio-exterior/expedientes/$id'
     | '/_app/compras/admin/aprobadores'
@@ -3390,6 +3416,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/mensajes-app';
       fullPath: '/almacen/mensajes-app';
       preLoaderRoute: typeof AppAlmacenMensajesAppRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/origen-captura': {
+      id: '/_app/almacen/origen-captura';
+      path: '/almacen/origen-captura';
+      fullPath: '/almacen/origen-captura';
+      preLoaderRoute: typeof AppAlmacenOrigenCapturaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/mermas': {
@@ -3936,6 +3969,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/reportes/trazabilidad-mp';
       fullPath: '/almacen/reportes/trazabilidad-mp';
       preLoaderRoute: typeof AppAlmacenReportesTrazabilidadMpRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/reportes/consumo-insumos-linea': {
+      id: '/_app/almacen/reportes/consumo-insumos-linea';
+      path: '/almacen/reportes/consumo-insumos-linea';
+      fullPath: '/almacen/reportes/consumo-insumos-linea';
+      preLoaderRoute: typeof AppAlmacenReportesConsumoInsumosLineaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/salidas/': {
@@ -5023,6 +5063,7 @@ interface AppRouteChildren {
   AppAlmacenConciliacionRoute: typeof AppAlmacenConciliacionRoute;
   AppAlmacenConsumosRevisionRoute: typeof AppAlmacenConsumosRevisionRoute;
   AppAlmacenMensajesAppRoute: typeof AppAlmacenMensajesAppRoute;
+  AppAlmacenOrigenCapturaRoute: typeof AppAlmacenOrigenCapturaRoute;
   AppAlmacenMermasRoute: typeof AppAlmacenMermasRoute;
   AppAlmacenNormasConsumoRoute: typeof AppAlmacenNormasConsumoRoute;
   AppAlmacenTamboresLineaRoute: typeof AppAlmacenTamboresLineaRoute;
@@ -5086,6 +5127,7 @@ interface AppRouteChildren {
   AppAlmacenReportesKardexRoute: typeof AppAlmacenReportesKardexRoute;
   AppAlmacenReportesMpCnkRoute: typeof AppAlmacenReportesMpCnkRoute;
   AppAlmacenReportesTrazabilidadMpRoute: typeof AppAlmacenReportesTrazabilidadMpRoute;
+  AppAlmacenReportesConsumoInsumosLineaRoute: typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   AppAlmacenSalidasIdRoute: typeof AppAlmacenSalidasIdRoute;
   AppComercioExteriorExpedientesIdRoute: typeof AppComercioExteriorExpedientesIdRoute;
   AppComprasAdminAprobadoresRoute: typeof AppComprasAdminAprobadoresRoute;
@@ -5276,6 +5318,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenConciliacionRoute: AppAlmacenConciliacionRoute,
   AppAlmacenConsumosRevisionRoute: AppAlmacenConsumosRevisionRoute,
   AppAlmacenMensajesAppRoute: AppAlmacenMensajesAppRoute,
+  AppAlmacenOrigenCapturaRoute: AppAlmacenOrigenCapturaRoute,
   AppAlmacenMermasRoute: AppAlmacenMermasRoute,
   AppAlmacenNormasConsumoRoute: AppAlmacenNormasConsumoRoute,
   AppAlmacenTamboresLineaRoute: AppAlmacenTamboresLineaRoute,
@@ -5339,6 +5382,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenReportesKardexRoute: AppAlmacenReportesKardexRoute,
   AppAlmacenReportesMpCnkRoute: AppAlmacenReportesMpCnkRoute,
   AppAlmacenReportesTrazabilidadMpRoute: AppAlmacenReportesTrazabilidadMpRoute,
+  AppAlmacenReportesConsumoInsumosLineaRoute: AppAlmacenReportesConsumoInsumosLineaRoute,
   AppAlmacenSalidasIdRoute: AppAlmacenSalidasIdRoute,
   AppComercioExteriorExpedientesIdRoute: AppComercioExteriorExpedientesIdRoute,
   AppComprasAdminAprobadoresRoute: AppComprasAdminAprobadoresRoute,

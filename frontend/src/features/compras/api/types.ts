@@ -85,6 +85,7 @@ export type Prioridad = (typeof Prioridad)[keyof typeof Prioridad];
 export const OrigenRequisicion = {
   Manual: 0,
   Sistema: 1,
+  AlmacenesApp: 2,
 } as const satisfies Record<string, number>;
 export type OrigenRequisicion =
   (typeof OrigenRequisicion)[keyof typeof OrigenRequisicion];
@@ -725,6 +726,30 @@ export interface PreviewCubrimientoLinea {
   estimadoDeAlmacen: number;
   estimadoDeCompra: number;
   disponible: number;
+}
+
+/** M-332: necesidad de una RQ de la app de Almacenes. `aplica=false` (sin líneas) si la RQ no viene de la app. */
+export interface NecesidadRqAppResponse {
+  requisicionId: string;
+  aplica: boolean;
+  folioExterno: string | null;
+  lineas: NecesidadRqAppLinea[];
+}
+
+export interface NecesidadRqAppLinea {
+  lineaId: string;
+  posicion: number;
+  articuloId: string;
+  articuloClave: string | null;
+  articuloNombre: string | null;
+  unidadMedida: string;
+  piezas: number | null;
+  necesidad: number;
+  disponible: number;
+  convertidoACompra: number;
+  reducido: number;
+  pendiente: number;
+  disponibleCubre: boolean;
 }
 
 // ============================================================================

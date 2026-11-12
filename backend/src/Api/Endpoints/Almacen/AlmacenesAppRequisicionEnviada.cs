@@ -15,10 +15,11 @@ public static class AlmacenesAppRequisicionEnviada
     private const int MaxLineas = 500;
 
     public static async Task<(string Estado, string? Folio, string? Error)> ManejarAsync(
-        JsonElement datos, IComprasCrearRqAppPort rqApp, CancellationToken ct)
+        JsonElement datos, IComprasCrearRqAppPort rqApp, CancellationToken ct, Guid? centroCostoId = null)
     {
         var (solicitud, error) = Parsear(datos);
         if (solicitud is null) return ("ERROR", null, error);
+        solicitud = solicitud with { CentroCostoId = centroCostoId };
         var r = await rqApp.CrearAsync(solicitud, ct);
         if (r.Error is not null) return ("ERROR", null, r.Error);
         return (r.Duplicada ? "DUPLICADO" : "RECIBIDO", r.Folio, null);

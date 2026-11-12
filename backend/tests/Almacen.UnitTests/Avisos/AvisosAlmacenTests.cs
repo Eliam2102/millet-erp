@@ -88,7 +88,7 @@ public class AvisosAlmacenTests
     }
 
     [Fact]
-    public async Task Sin_destinatarios_con_el_permiso_no_se_crea_aviso_ni_se_manda_correo()
+    public async Task Sin_destinatarios_con_el_permiso_no_se_crea_aviso_pero_el_correo_configurado_sale()
     {
         await using var f = new P1Fixture();
         var (servicio, correo, destinatarios) = Armar(f);
@@ -97,8 +97,9 @@ public class AvisosAlmacenTests
         await servicio.NotificarAjusteNivel3AprobadoAsync(
             new AvisoAjusteNivel3(P1Fixture.EmpresaId, Guid.NewGuid(), 12000m, Aprobador, DateTimeOffset.UtcNow, []), default);
 
+        // 86e40b4rf: el correo a Almacen:Avisos:Finanzas no depende de que haya usuarios con el permiso.
         (await f.Db.AvisosAlmacen.CountAsync()).Should().Be(0);
-        correo.Enviados.Should().BeEmpty();
+        correo.Enviados.Should().ContainSingle().Which.Para.Should().BeEquivalentTo(["finanzas@millet.example"]);
     }
 
     [Fact]

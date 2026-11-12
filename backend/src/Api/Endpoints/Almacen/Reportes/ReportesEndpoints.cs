@@ -76,6 +76,21 @@ public static class ReportesEndpoints
         .WithSummary("KARDEX-ALMACEN — movimientos de un artículo con saldo, costo y valor después de cada uno")
         .Produces<ReporteResponse<KardexFila>>(StatusCodes.Status200OK);
 
+        // M-339: consumo de insumos por línea (salidas por consumo/vale a costo). Mismo permiso y alcance por sucursal que el ALFAK.
+        app.MapGet("/api/v1/almacen/reportes/consumo-insumos-linea", async (
+            [FromQuery] DateOnly desde,
+            [FromQuery] DateOnly hasta,
+            [FromQuery] Guid? sucursalId,
+            [FromQuery] Guid? centroCostoId,
+            [FromQuery] Guid? articuloId,
+            IMediator mediator,
+            CancellationToken ct) => Results.Ok(await mediator.Send(new ConsumoInsumosLineaQuery(desde, hasta, sucursalId, centroCostoId, articuloId), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenReportesAlfak)
+        .WithTags("Almacen")
+        .WithName("ReporteConsumoInsumosLinea")
+        .WithSummary("CONSUMO-INSUMOS-LINEA — salidas por consumo agrupadas por línea y artículo, a costo")
+        .Produces<ReporteResponse<ConsumoInsumosLineaFila>>(StatusCodes.Status200OK);
+
         // SAP-REPORTE-EXISTENCIA-MP-CNK
         app.MapGet("/api/v1/almacen/reportes/mp-cnk", async (
             [FromQuery] Guid? subAlmacenId,
