@@ -178,6 +178,40 @@ public sealed class FacturacionEventHandlersTests
         f.Estado.Should().Be(EstadoFacturaCartera.Parcial);
     }
 
+    // --------------------------------------------------- M-344 · reversa de la aplicación de un anticipo
+
+    [Fact]
+    public async Task AnticipoAplicacionReversada_devuelve_el_saldo_a_la_factura_con_movimientos_ligados_y_es_idempotente()
+    {
+        using var db = CrearDbContext();
+        var factura = await ProyectarFactura(db, total: 10_000m);
+        var ncId = Guid.NewGuid();
+        await new NotaCreditoTimbradaHandler(db, new FakeClock(), NullLogger<NotaCreditoTimbradaHandler>.Instance).Handle(
+            new NotaCreditoTimbradaCommand(Guid.NewGuid(), new NotaCreditoTimbradaPayload(
+                factura.EmpresaId, Ahora, ncId, "Amortizacion", "uuid-nc", 4_000m, factura.FacturaVentaId, Guid.NewGuid())),
+            CancellationToken.None);
+        (await db.FacturasCartera.SingleAsync()).SaldoPendiente.Should().Be(6_000m);
+
+        var reversaId = Guid.NewGuid();
+        var evento = Guid.NewGuid();
+        var comando = new AnticipoAplicacionReversadaCommand(evento, new AnticipoAplicacionReversadaPayload(
+            factura.EmpresaId, Ahora.AddHours(1), reversaId, Guid.NewGuid(), factura.FacturaVentaId, ncId, ClienteId, 4_000m,
+            "Aplicado a la factura equivocada"));
+        var handler = new AnticipoAplicacionReversadaHandler(db, new FakeClock());
+        await handler.Handle(comando, CancellationToken.None);
+        await handler.Handle(comando, CancellationToken.None); // reentrega del mismo evento
+
+        var f = await db.FacturasCartera.SingleAsync();
+        f.MontoNc.Should().Be(0m);
+        f.SaldoPendiente.Should().Be(10_000m);
+        var movimientos = await db.MovimientosCartera.OrderBy(m => m.FechaMovimiento).ToListAsync();
+        movimientos.Should().HaveCount(2);
+        movimientos[0].Tipo.Should().Be(TipoMovimientoCartera.NotaCredito);
+        movimientos[0].Revertido.Should().BeTrue();
+        movimientos[1].Tipo.Should().Be(TipoMovimientoCartera.ReversaAplicacionAnticipo);
+        movimientos[1].OrigenComprobanteId.Should().Be(reversaId, "la reversa liga este movimiento con el del anticipo en Facturación");
+    }
+
     // --------------------------------------------------- ComprobanteCancelado
 
     [Fact]

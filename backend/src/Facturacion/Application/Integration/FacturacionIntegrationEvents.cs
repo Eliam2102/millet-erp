@@ -322,3 +322,20 @@ public sealed record TerminalFacturaBancoLigadaIntegrationEvent(
     : IntegrationEvent("facturacion.terminal.factura-banco-ligada.v1", EmpresaId, OcurridoEn);
 
 public sealed record CargoTerminalFacturado(Guid LiquidacionId, string FolioLiquidacion, DateOnly Fecha, decimal Comision, decimal IvaComision);
+
+// ---- M-344: reversa interna de la aplicación de un anticipo a una factura ----
+/// <summary>
+/// El saldo vuelve al anticipo y CxC lo devuelve a la factura. <c>ReversaId</c> liga ambos movimientos.
+/// No cancela la NC de amortización ante el SAT (a validar con Fiscal).
+/// </summary>
+public sealed record AnticipoAplicacionReversadaIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid ReversaId,
+    Guid AnticipoId,
+    Guid FacturaVentaId,
+    Guid NotaCreditoId,
+    Guid? ClienteId,
+    decimal Importe,
+    string Motivo)
+    : IntegrationEvent("facturacion.anticipo.aplicacion-reversada.v1", EmpresaId, OcurridoEn);

@@ -79,6 +79,7 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Saldos amortizables de anticipos — agregado aparte del CFDI (F4-PR1).</summary>
     public DbSet<Anticipo> Anticipos => Set<Anticipo>();
+    public DbSet<ReversaAplicacionAnticipo> ReversasAplicacionAnticipo => Set<ReversaAplicacionAnticipo>();
 
     /// <summary>Notas de crédito (subtipo Egreso, F4-PR2: amortización; F5: bonificación/devolución).</summary>
     public DbSet<NotaCredito> NotasCredito => Set<NotaCredito>();
@@ -189,6 +190,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new FacturaAnticipoConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoVinculacionConfiguration());
+        modelBuilder.ApplyConfiguration(new ReversaAplicacionAnticipoConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoLiberacionConfiguration());
         modelBuilder.ApplyConfiguration(new NotaCreditoConfiguration());
         modelBuilder.ApplyConfiguration(new RelacionCfdiConfiguration());

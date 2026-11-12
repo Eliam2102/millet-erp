@@ -76,6 +76,18 @@ public sealed record NotaCreditoTimbradaPayload(
     Guid? FacturaRelacionadaId,
     Guid? AnticipoOrigenId);
 
+/// <summary>Espejo de <c>facturacion.anticipo.aplicacion-reversada.v1</c> (M-344).</summary>
+public sealed record AnticipoAplicacionReversadaPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid ReversaId,
+    Guid AnticipoId,
+    Guid FacturaVentaId,
+    Guid NotaCreditoId,
+    Guid? ClienteId,
+    decimal Importe,
+    string Motivo);
+
 public sealed record ComprobanteCanceladoPayload(
     Guid EmpresaId,
     DateTimeOffset OcurridoEn,

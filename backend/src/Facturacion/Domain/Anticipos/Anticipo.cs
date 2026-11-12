@@ -248,6 +248,29 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
     /// <see cref="SaldoDisponible"/> (lo comprometido en vinculaciones no se puede devolver); al llegar a cero el anticipo
     /// queda <see cref="EstadoAnticipo.Amortizado"/> (sin saldo).
     /// </summary>
+    /// <summary>
+    /// M-344: revierte la aplicación (amortización) de este anticipo a una factura: devuelve el importe al saldo,
+    /// reabre el anticipo si se había agotado y retira la vinculación (queda el rastro en la reversa), de modo que
+    /// la factura pueda volver a recibir una aplicación. No toca el CFDI de la NC de amortización.
+    /// </summary>
+    public ReversaAplicacionAnticipo RevertirAplicacion(
+        Guid facturaVentaId, string motivo, Guid? aplicadoPorId, Guid autorizadoPorId, string autorizadoPorNombre, DateTimeOffset ahora)
+    {
+        if (Estado == EstadoAnticipo.Cancelado)
+            throw new BusinessRuleException("ANTICIPO_CANCELADO", "Un anticipo cancelado no admite reversa de aplicaciones.");
+        var vinculacion = _vinculaciones.FirstOrDefault(v => v.FacturaVentaId == facturaVentaId && v.NcAmortizacionId is not null)
+            ?? throw new BusinessRuleException("ANTICIPO_SIN_APLICACION",
+                "El anticipo no tiene una aplicación a esa factura que revertir.");
+        var reversa = ReversaAplicacionAnticipo.Crear(EmpresaId, Id, facturaVentaId, vinculacion.NcAmortizacionId!.Value,
+            vinculacion.Importe, motivo, aplicadoPorId, autorizadoPorId, autorizadoPorNombre, ahora);
+        MontoAmortizado -= vinculacion.Importe;
+        Saldo = MontoCobrado - MontoAmortizado - MontoDevuelto;
+        if (Estado == EstadoAnticipo.Amortizado && Saldo > 0m)
+            Estado = EstadoAnticipo.Abierto;
+        _vinculaciones.Remove(vinculacion);
+        return reversa;
+    }
+
     public void RegistrarDevolucion(decimal importe)
     {
         if (Estado != EstadoAnticipo.Abierto)
