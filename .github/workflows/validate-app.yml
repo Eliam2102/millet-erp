@@ -58,6 +58,7 @@ on:
     branches:
       - main
       - develop
+      - feature/avisos-lote1-qa-base
 
 # Conserva sólo la ejecución más reciente de cada PR, sin cancelar otros PRs.
 concurrency:
