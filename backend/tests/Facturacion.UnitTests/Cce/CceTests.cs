@@ -40,7 +40,7 @@ public sealed class CceTests
     public void CrearCce_y_agregar_mercancia()
     {
         var cce = ComplementoCce.Crear(Guid.NewGuid(), "2", "FOB", 20.5m, "TAX-USA-1", "usa");
-        cce.AgregarLinea("8471300100", "01", 1500m, 2.5m, 3750m, aplicaIva0: true);
+        cce.AgregarLinea("8471300100", "06", 1500m, 2.5m, 3750m, aplicaIva0: true);
 
         cce.ReceptorPaisResidencia.Should().Be("USA");
         cce.Lineas.Should().ContainSingle(l => l.AplicaIva0 && l.FraccionArancelaria == "8471300100");
@@ -196,7 +196,7 @@ public sealed class CceTests
 
         // Sin captura (0): el TipoCambioUSD sale del catálogo (CCE121).
         var cce = new EmitirFacturaVentaCce("2", "FOB", 0m, "TAX-USA-1", "USA",
-            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
+            [new EmitirFacturaVentaCceLinea("8471300100", "06", 1500m, 2.5m, 3750m, true)],
             ClaveDePedimento: "A1", CertificadoOrigen: true,
             ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX",
             ReceptorDomicilioCodigoPostal: "75001");
@@ -223,7 +223,7 @@ public sealed class CceTests
 
         // Sin ReceptorDomicilioEstado/CodigoPostal → el builder aborta antes del PAC.
         var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
-            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)]);
+            [new EmitirFacturaVentaCceLinea("8471300100", "06", 1500m, 2.5m, 3750m, true)]);
 
         var act = () => Handler(db, empresaId).Handle(CommandExportacion(cce), CancellationToken.None);
 
@@ -252,7 +252,7 @@ public sealed class CceTests
         using var db = NewDb(empresaId);
         var sender = new FakeSenderCuentaFolios();
         var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
-            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
+            [new EmitirFacturaVentaCceLinea("8471300100", "06", 1500m, 2.5m, 3750m, true)],
             ClaveDePedimento: "A1", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
 
         var act = () => Handler(db, empresaId, sender).Handle(CommandExportacion(cce), CancellationToken.None);
@@ -269,7 +269,7 @@ public sealed class CceTests
         using var db = NewDb(empresaId);
         var sender = new FakeSenderCuentaFolios();
         var cce = new EmitirFacturaVentaCce("2", "FOB", 20.5m, "TAX-USA-1", "USA",
-            [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
+            [new EmitirFacturaVentaCceLinea("8471300100", "06", 1500m, 2.5m, 3750m, true)],
             ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
 
         var act = () => Handler(db, empresaId, sender).Handle(CommandExportacion(cce), CancellationToken.None);
@@ -281,7 +281,7 @@ public sealed class CceTests
     // ---- CCE121: TipoCambioUSD del DOF tomado del catálogo ----
 
     private static EmitirFacturaVentaCce CceCompleto(decimal tcDof) => new("2", "FOB", tcDof, "TAX-USA-1", "USA",
-        [new EmitirFacturaVentaCceLinea("8471300100", "01", 1500m, 2.5m, 3750m, true)],
+        [new EmitirFacturaVentaCceLinea("8471300100", "06", 1500m, 2.5m, 3750m, true)],
         ClaveDePedimento: "A1", ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX",
         ReceptorDomicilioCodigoPostal: "75001");
 

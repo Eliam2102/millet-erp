@@ -10,17 +10,17 @@ public sealed class DatosAduanalesCeTests
     {
         EmitirFacturaVentaCceLinea[] lineas = [new("CAPTURA", "OTRA", 10, 1, 10, true)];
         Assert.Throws<BusinessRuleException>(() => DatosAduanalesFactura.Aplicar(lineas, null));
-        PartidaAduanalLectura[] revisadas = [new(1, "7007199900", "06")];
+        PartidaAduanalLectura[] revisadas = [new(1, "7007199900", "01")];
         var salida = DatosAduanalesFactura.Aplicar(lineas, revisadas);
-        Assert.Equal("7007199900", salida[0].FraccionArancelaria); Assert.Equal("06", salida[0].UnidadAduana);
+        Assert.Equal("7007199900", salida[0].FraccionArancelaria); Assert.Equal("01", salida[0].UnidadAduana);
         Assert.Equal(10, salida[0].CantidadAduana);
     }
 
     [Fact]
     public void M158_fraccion_de_CE_con_8_digitos_se_rechaza_con_la_partida()
     {
-        EmitirFacturaVentaCceLinea[] lineas = [new("7007199900", "06", 10, 1, 10, true), new("7007199900", "06", 5, 1, 5, true)];
-        PartidaAduanalLectura[] revisadas = [new(1, "7007199900", "06"), new(2, "70071999", "06")];
+        EmitirFacturaVentaCceLinea[] lineas = [new("7007199900", "01", 10, 1, 10, true), new("7007199900", "01", 5, 1, 5, true)];
+        PartidaAduanalLectura[] revisadas = [new(1, "7007199900", "01"), new(2, "70071999", "06")];
         var ex = Assert.Throws<BusinessRuleException>(() => DatosAduanalesFactura.Aplicar(lineas, revisadas));
         Assert.Equal("CCE_FRACCION_INVALIDA", ex.Code);
         Assert.StartsWith("Partida 2:", ex.Message);
@@ -30,7 +30,7 @@ public sealed class DatosAduanalesCeTests
     public void M158_la_fraccion_del_cuerpo_no_cuenta_manda_la_de_CE()
     {
         EmitirFacturaVentaCceLinea[] lineas = [new("70071999", "06", 10, 1, 10, true)];
-        var salida = DatosAduanalesFactura.Aplicar(lineas, [new(1, "7007199900", "06")]);
+        var salida = DatosAduanalesFactura.Aplicar(lineas, [new(1, "7007199900", "01")]);
         Assert.Equal("7007199900", salida[0].FraccionArancelaria);
     }
 

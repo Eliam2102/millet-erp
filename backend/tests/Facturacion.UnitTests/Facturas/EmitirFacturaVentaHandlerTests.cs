@@ -480,8 +480,8 @@ public sealed class EmitirFacturaVentaHandlerTests
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "06")]);
-        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "01")]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "01", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
         await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000").Handle(command with {
             PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA" }, CancellationToken.None);
         var f = await db.FacturasVenta.Include(f => f.ComplementoCce).SingleAsync();
@@ -719,8 +719,8 @@ public sealed class EmitirFacturaVentaHandlerTests
         // salía con esa serie (FCNK) y no con la de exportación (FEXP).
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "06")]);
-        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "01")]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "01", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
         var sender = new FakeSender(new ReservarFolioResponse("FEXP-000001", 1, ""));
 
         var resp = await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000", sender: sender).Handle(command with {

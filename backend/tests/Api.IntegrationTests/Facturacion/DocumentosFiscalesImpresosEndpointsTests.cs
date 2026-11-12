@@ -99,7 +99,7 @@ public sealed partial class DocumentosFiscalesImpresosEndpointsTests(WebApplicat
         f.AgregarLinea(null, "30171710", "INSULATED GLASS DEMO", "H87", 2, 750.125m, 0, "02", 0m, null, null);
         f.RecalcularTotales();
         var cce = ComplementoCce.Crear(f.Id, "2", "CIF", 18.5432m, "DEMO-TAX-456", "USA", claveDePedimento: "A1");
-        cce.AgregarLinea("7008000101", "06", 2, 750.125m, 1500.25m, true);
+        cce.AgregarLinea("7008000101", "01", 2, 750.125m, 1500.25m, true);
         f.AdjuntarCce(cce);
         Timbrar(f, Guid.NewGuid().ToString());
 

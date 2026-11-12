@@ -217,8 +217,8 @@ public sealed partial class DocumentosFiscalesImpresosTests
         f.AgregarLinea(null, "30171710", "TEMPERED GLASS DEMO", "H87", 1, 500.25m, 0, "02", 0m, null, null);
         f.RecalcularTotales();
         var cce = ComplementoCce.Crear(f.Id, "2", "FOB", 18.5432m, "DEMO-TAX-123", "usa", claveDePedimento: "A1");
-        cce.AgregarLinea("7008000101", "06", 2, 500, 1000m, true);
-        cce.AgregarLinea("7007190101", "06", 1, 500.25m, 500.25m, true);
+        cce.AgregarLinea("7008000101", "01", 2, 500, 1000m, true);
+        cce.AgregarLinea("7007190101", "01", 1, 500.25m, 500.25m, true);
         f.AdjuntarCce(cce);
         Timbrar(f, "00000000-0000-4000-8000-000000000501");
         return f;

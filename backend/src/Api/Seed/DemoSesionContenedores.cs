@@ -70,7 +70,7 @@ public sealed partial class DemoSesionSeedHostedService
 
             }
             foreach (var partida in e.Partidas.ToArray())
-                e.GuardarDatosAduanales(partida.Id, "7007199900", "06", CapturistaComprasDemoId, Fecha, true);
+                e.GuardarDatosAduanales(partida.Id, "7007199900", "01", CapturistaComprasDemoId, Fecha, true);
             e.AutorizarSalida(ActorId, Fecha, null, true);
             e.RegistrarEmbarque(Id($"DEMO-CE/{clave}/CONT-1"), new(2026, 10, 12), new(2026, 10, 16));
             await db.SaveChangesAsync(ct);
