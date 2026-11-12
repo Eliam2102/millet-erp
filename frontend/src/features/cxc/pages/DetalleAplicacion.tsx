@@ -94,7 +94,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         />
       </div>
 
-      {p.ajusteNoFiscal < 0 && <PanelAjuste p={p} />}
+      {(p.ajusteNoFiscal < 0 || (p.ajusteNoFiscal > 0 && p.tipoAjuste === TipoAjusteCobro.Redondeo)) && <PanelAjuste p={p} />}
 
       {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && !esAjusteRechazado(p) && (
         <div className="rounded-md border border-line bg-danger-bg px-4 py-3 text-sm text-danger-fg">
@@ -207,7 +207,12 @@ function esAjusteRechazado(p: PropuestaAplicacionResponse) {
 function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
   const usuarioId = useAuthStore((s) => s.user?.id ?? null);
   // CXC-06: autoriza o rechaza con el permiso existente aplicacion-pago.confirmar (supuesto «a validar»).
-  const tienePermiso = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar);
+  const tieneConfirmar = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar);
+  // M-326: el redondeo (faltante o excedente de hasta $0.99) además exige el permiso del Gerente de Área.
+  const tieneAutorizarRedondeo = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoAutorizarRedondeo);
+  const esRedondeo = p.tipoAjuste === TipoAjusteCobro.Redondeo;
+  const tienePermiso = tieneConfirmar && (!esRedondeo || tieneAutorizarRedondeo);
+  const esExcedente = p.ajusteNoFiscal > 0;
   const autorizar = useAutorizarAjuste();
   const rechazar = useRechazarAjuste();
   const revertir = useRevertirAjuste();
@@ -249,9 +254,15 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
             {porAutorizar ? 'Ajuste por autorizar' : rechazado ? 'Ajuste rechazado' : revertido ? 'Ajuste revertido' : 'Ajuste documentado'}
           </h3>
           <p className="text-xs text-ink-muted">
-            El depósito es {formatoMonto(-p.ajusteNoFiscal, p.moneda)} menor que lo aplicado. No genera
-            CFDI; la póliza del cobro carga la diferencia a la cuenta de su tipo.
+            El depósito es {formatoMonto(Math.abs(p.ajusteNoFiscal), p.moneda)} {esExcedente ? 'mayor' : 'menor'} que lo aplicado. No genera
+            CFDI; la póliza del cobro {esExcedente ? 'abona' : 'carga'} la diferencia a la cuenta de su tipo
+            {esRedondeo ? ' (REDONDEO)' : ''}.
           </p>
+          {esRedondeo && porAutorizar && !tienePermiso && (
+            <p className="mt-1 text-xs text-warning-fg" role="note">
+              El redondeo lo debe autorizar quien tenga el permiso «autorizar redondeo» (Gerente de Área), distinto de quien propone.
+            </p>
+          )}
         </div>
         {puedeRevertir && (
           <div className="flex gap-2" data-print="hidden">
@@ -297,7 +308,7 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Ajuste</dt>
-          <dd className="font-mono tabular-nums">{formatoMonto(-p.ajusteNoFiscal, p.moneda)}</dd>
+          <dd className="font-mono tabular-nums">{formatoMonto(Math.abs(p.ajusteNoFiscal), p.moneda)}</dd>
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Tipo (cuenta)</dt>
