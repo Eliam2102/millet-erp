@@ -11,6 +11,7 @@ using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Api.IntegrationTests.Contabilidad;
+using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
 using Millet.DatosMaestros.Domain;
@@ -38,12 +39,19 @@ public class AlmacenesAppSalidasTests : IAsyncLifetime
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-        // El contrato trae octubre de 2026 y el lector usa el reloj: ambos requieren calendario propio.
-        foreach (var anio in new[] { 2026, DateTimeOffset.UtcNow.Year }.Distinct())
+        // Año FIX reservado: no comparte ni modifica el calendario corriente de otras suites.
+        var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, ContabTestKit.EmpresaBootstrapId, 2097);
+        _calendarios.Add(calendario);
+        await calendario.SembrarAsync(10, abrirTodos: true);
+        // Las entradas usan hoy; si ya existe ese ejercicio, se conserva tal como está.
+        var hoy = DateTimeOffset.UtcNow;
+        var contab = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+        if (!await contab.Ejercicios.IgnoreQueryFilters().AnyAsync(e =>
+                e.EmpresaId == ContabTestKit.EmpresaBootstrapId && e.Anio == hoy.Year))
         {
-            var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, ContabTestKit.EmpresaBootstrapId, anio);
-            _calendarios.Add(calendario);
-            await calendario.SembrarAsync(10, abrirTodos: true);
+            var actual = new PeriodoContableFixture(db.Database.GetConnectionString()!, ContabTestKit.EmpresaBootstrapId, hoy.Year);
+            _calendarios.Add(actual);
+            await actual.SembrarAsync(hoy.Month);
         }
     }
 
@@ -100,7 +108,7 @@ public class AlmacenesAppSalidasTests : IAsyncLifetime
         {
             Content = JsonContent.Create(new
             {
-                mensajeId = id, tipo, version = 1, fecha = "2026-10-06T17:47:00-06:00",
+                mensajeId = id, tipo, version = 1, fecha = "2097-10-06T17:47:00-06:00",
                 origen = "AlmacenRQ_MP", referencia = "SAL-1", datos,
             }),
         };
@@ -640,7 +648,7 @@ public class AlmacenesAppSalidasTests : IAsyncLifetime
         var n = Guid.NewGuid().ToString("N")[..10];
         string Sobre(string id, string tipo, string referencia, object datos) => JsonSerializer.Serialize(new
         {
-            mensajeId = id, tipo, version = 1, fecha = "2026-11-05T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
+            mensajeId = id, tipo, version = 1, fecha = "2097-11-05T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
         });
         var (m1, m2, m3) = ($"L1-{n}", $"L2-{n}", $"L3-{n}");
         // m1: pide 2 hojas y hay 1 (sin existencia); m2: misma referencia, sí alcanzaría; m3: otra referencia.
@@ -713,8 +721,6 @@ public class AlmacenesAppSalidasTests : IAsyncLifetime
     {
         await AsegurarAlmacenGeneralMidAsync();
         var s = await SembrarAsync(0);
-        await using var periodo = await Millet.Api.IntegrationTests.Compras.CompraAPagoDemoTests.AbrirPeriodoSiHaceFaltaAsync(
-            _factory, DateOnly.FromDateTime(DateTime.UtcNow));
         await using var f = ConLlave();
         var id = Guid.NewGuid().ToString();
         var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ENTRADA_ALMACEN", DatosEntrada("EN-1", s.ArticuloAw, 10, reclamadas: 2))));
@@ -736,7 +742,7 @@ public class AlmacenesAppSalidasTests : IAsyncLifetime
         var n = Guid.NewGuid().ToString("N")[..10];
         string Sobre(string id, string referencia, object datos) => JsonSerializer.Serialize(new
         {
-            mensajeId = id, tipo = "ENTRADA_ALMACEN", version = 1, fecha = "2026-11-09T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
+            mensajeId = id, tipo = "ENTRADA_ALMACEN", version = 1, fecha = "2097-11-09T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
         });
         var (m1, m2) = ($"E1-{n}", $"E2-{n}");
         origen.Encolar(m1, "ENTRADA_ALMACEN", $"EN-{n}", Sobre(m1, $"EN-{n}", DatosEntrada($"EN-{n}", "NO-EXISTE-" + n, 3)));
