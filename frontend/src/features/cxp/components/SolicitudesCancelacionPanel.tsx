@@ -69,7 +69,7 @@ export function SolicitudesCancelacionPanel({
           El proveedor no ha pedido cancelar este CFDI.
         </p>
       ) : (
-        items.map((s) => <SolicitudCard key={s.id} cfdiId={cfdiId} s={s} />)
+        items.map((s) => <SolicitudCard key={s.id} cfdiId={cfdiId} s={s} rfcEmisor={rfcEmisor ?? null} />)
       )}
       {facturaId && <EfectoFactura facturaId={facturaId} />}
     </section>
@@ -97,9 +97,8 @@ function RegistrarForm({ cfdiId, onListo }: { cfdiId: string; onListo: () => voi
           toast.success('Solicitud registrada');
           onListo();
         },
-        onError: (error) => {
-          if (esApiError(error) && error.problem.code === CODIGO_SIN_SUSTITUTO) setPidePagada(true);
-          return esApiError(error)
+        onError: (error) =>
+          esApiError(error)
             ? toast.error(errorUsuario(error), { description: codigoSoporte(error) })
             : toast.error("Error inesperado al registrar la solicitud. Revisa los datos del registro; si continúa, avisa a soporte."),
       },
@@ -170,7 +169,7 @@ const ESTADO_VARIANTE = {
   [EstadoSolicitudCancelacion.Rechazada]: ['Rechazada', 'neutral'],
 } as const;
 
-function SolicitudCard({ cfdiId, s }: { cfdiId: string; s: SolicitudCancelacion }) {
+function SolicitudCard({ cfdiId, s, rfcEmisor }: { cfdiId: string; s: SolicitudCancelacion; rfcEmisor: string | null }) {
   const puedeDecidir = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasCancelar);
   const pendiente = s.estado === EstadoSolicitudCancelacion.Pendiente;
   const [etiqueta, variante] = ESTADO_VARIANTE[s.estado];
@@ -270,8 +269,9 @@ function DecidirForm({ cfdiId, solicitudId, rfcEmisor }: { cfdiId: string; solic
       { solicitudId, aceptar, comentario: comentario.trim(), archivo, sustitutoCfdiId: aceptar ? sustituto || null : null, idempotencyKey },
       {
         onSuccess: () => toast.success(aceptar ? 'Solicitud aceptada' : 'Solicitud rechazada'),
-        onError: (error) =>
-          esApiError(error)
+        onError: (error) => {
+          if (esApiError(error) && error.problem.code === CODIGO_SIN_SUSTITUTO) setPidePagada(true);
+          return esApiError(error)
             ? toast.error(errorUsuario(error), { description: codigoSoporte(error) })
             : toast.error("Error inesperado al decidir la solicitud. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
