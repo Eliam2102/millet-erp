@@ -2,7 +2,7 @@
 import { inflateSync } from 'node:zlib';
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { descargarReportePdf } from './reporte-pdf-exporter';
+import { generarReportePdfBlob, descargarReportePdf } from './reporte-pdf-exporter';
 import type { CorteCajaFila } from '@/features/facturacion/api/types';
 
 /** Extrae operadores de texto del PDF real (Helvetica/WinAnsi del exporter). */
@@ -65,4 +65,31 @@ describe('PDF de corte de caja', () => {
       vi.unstubAllGlobals();
     }
   });
+});
+
+it('exporta valores calculados, cien filas y totales como texto multipágina', async () => {
+  const blob = await generarReportePdfBlob({
+    titulo: 'Análisis de proveedores - DATOS FICTICIOS',
+    generadoEn: '2026-11-11T12:00:00Z', filtrosAplicados: { Sucursal: 'Muestra' },
+    columnas: [{ clave: 'calculado', etiqueta: 'Proveedor', tipo: 'texto' }, { clave: 'importe', etiqueta: 'Importe', tipo: 'numero' }],
+    filas: Array.from({ length: 100 }, (_, i) => ({ nombre: `PROVEEDOR ${i + 1}`, importe: i + 1 })),
+    totales: { importe: 5050 },
+  }, (fila, clave) => clave === 'calculado' ? fila.nombre : fila.importe);
+  const bytes = Buffer.from(await blob.arrayBuffer());
+  if (process.env.PDF_MUESTRA_OUTPUT) writeFileSync(process.env.PDF_MUESTRA_OUTPUT, bytes);
+  const texto = textoPdf(bytes);
+  expect(texto).toContain('PROVEEDOR 1');
+  expect(texto).toContain('PROVEEDOR 100');
+  expect(texto).toContain('5,050');
+  expect(texto.match(/Proveedor/g)!.length).toBeGreaterThan(1);
+  expect(texto.match(/Análisis de proveedores/g)!.length).toBeGreaterThan(1);
+  expect([...bytes.toString('latin1').matchAll(/\/Type\s*\/Page\b/g)].length).toBeGreaterThan(1);
+  expect(bytes.toString('latin1')).not.toMatch(/\/Subtype\s*\/Image/);
+});
+
+it('conserva el final de una celda que ocupa más de una página', async () => {
+  const blob = await generarReportePdfBlob({ titulo: 'Texto extenso ficticio', generadoEn: '2026-11-11T12:00:00Z', filtrosAplicados: {}, columnas: [{ clave: 'nota', etiqueta: 'Nota', tipo: 'texto' }], filas: [{ nota: 'contenido extenso '.repeat(1500) + 'FIN DEL TEXTO COMPLETO' }], notas: ['CALENDARIO FICTICIO DE APLICACIONES'] });
+  const texto = textoPdf(Buffer.from(await blob.arrayBuffer()));
+  expect(texto).toContain('FIN DEL TEXTO COMPLETO');
+  expect(texto).toContain('CALENDARIO FICTICIO DE APLICACIONES');
 });

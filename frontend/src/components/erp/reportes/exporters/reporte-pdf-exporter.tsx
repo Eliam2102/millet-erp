@@ -23,10 +23,9 @@ export type { ReporteParaExportar };
  */
 export async function generarReportePdfBlob<TFila>(
   reporte: ReporteParaExportar<TFila>,
+  obtenerCelda: (row: TFila, clave: string) => unknown = (row, clave) =>
+    (row as Record<string, unknown>)[clave],
 ): Promise<Blob> {
-  const obtenerCelda = (row: TFila, clave: string): unknown =>
-    (row as unknown as Record<string, unknown>)[clave];
-
   return pdf(<ReporteDocument reporte={reporte} obtenerCelda={obtenerCelda} />).toBlob();
 }
 
@@ -39,12 +38,12 @@ export function descargarBlob(blob: Blob, nombreArchivo: string): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Agrega la extensión <c>.pdf</c> si falta. */
 export function nombreArchivoPdf(nombreArchivo: string): string {
-  return nombreArchivo.endsWith('.pdf') ? nombreArchivo : `${nombreArchivo}.pdf`;
+  return /\.pdf$/i.test(nombreArchivo) ? nombreArchivo : `${nombreArchivo}.pdf`;
 }
 
 /**
@@ -53,6 +52,7 @@ export function nombreArchivoPdf(nombreArchivo: string): string {
 export async function descargarReportePdf<TFila>(
   reporte: ReporteParaExportar<TFila>,
   nombreArchivo: string,
+  obtenerCelda?: (row: TFila, clave: string) => unknown,
 ): Promise<void> {
-  descargarBlob(await generarReportePdfBlob(reporte), nombreArchivo);
+  descargarBlob(await generarReportePdfBlob(reporte, obtenerCelda), nombreArchivo);
 }

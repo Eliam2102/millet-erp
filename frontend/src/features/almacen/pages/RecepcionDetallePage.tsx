@@ -1,6 +1,6 @@
+import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
-import { errorUsuario } from '@/lib/error-usuario';
 import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -10,8 +10,8 @@ import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft, Printer } from 'lucide-react';
-import { descargarComprobanteRecepcion } from '@/features/almacen/api/descargarComprobanteSalida';
+import { ArrowLeft } from 'lucide-react';
+import { obtenerComprobante } from '@/features/almacen/api/descargarComprobanteSalida';
 import { Button } from '@/components/ui/button';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
@@ -447,28 +447,8 @@ export function RecepcionDetallePage() {
 }
 
 /** G-10: descarga el PDF de la recepción (folio, OC, proveedor, partidas, rechazos y quién recibió) para firmarlo. */
-function ImprimirRecepcionButton({ recepcionId, folio }: { recepcionId: string; folio: string }) {
-  const [generando, setGenerando] = useState(false);
-
-  async function imprimir() {
-    setGenerando(true);
-    try {
-      await descargarComprobanteRecepcion(recepcionId, folio);
-    } catch (e) {
-      toast.error('No se pudo generar la recepción en PDF.', {
-        description: errorUsuario(e, 'Reintenta en unos segundos.'),
-      });
-    } finally {
-      setGenerando(false);
-    }
-  }
-
-  return (
-    <Button type="button" variant="outline" onClick={imprimir} disabled={generando}>
-      <Printer className="mr-2 size-3.5" />
-      {generando ? 'Generando PDF…' : 'Imprimir recepción'}
-    </Button>
-  );
+function ImprimirRecepcionButton({ recepcionId }: { recepcionId: string; folio: string }) {
+  return <ImprimirPdfButton generarPdf={() => obtenerComprobante(`/api/v1/almacen/recepciones/${recepcionId}/comprobante`)}>Imprimir recepción</ImprimirPdfButton>;
 }
 
 function Campo({ label, valor, mono }: { label: string; valor: string; mono?: boolean }) {

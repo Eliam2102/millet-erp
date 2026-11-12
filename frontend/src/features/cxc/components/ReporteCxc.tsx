@@ -1,3 +1,4 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -127,9 +128,7 @@ export function ReporteCxc({
               >
                 {descargando === 'pdf' ? 'Generando…' : 'PDF'}
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()}>
-                Imprimir
-              </Button>
+              <ImprimirReporteButton variant="secondary" size="sm" reporte={reporte} />
             </div>
           </div>
           <Table>

@@ -1,3 +1,5 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reportePoliza } from '../lib/documentos-impresion';
 import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DialogBody } from '@/components/ui/dialog';
@@ -16,7 +18,6 @@ import {
   CheckCheck,
   GitBranch,
   Pencil,
-  Printer,
   Repeat,
   Trash2,
   Undo2,
@@ -309,14 +310,11 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
               Solicitar anulación
             </Button>
           )}
-          <Button
+          <ImprimirReporteButton
             variant="ghost"
-            size="icon"
+            size="sm"
             aria-label="Imprimir póliza"
-            onClick={() => window.print()}
-          >
-            <Printer className="size-4" strokeWidth={1.6} aria-hidden="true" />
-          </Button>
+           reporte={reportePoliza(p)}>Imprimir</ImprimirReporteButton>
           {cerrar}
         </span>
       </div>

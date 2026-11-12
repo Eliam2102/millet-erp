@@ -1,3 +1,4 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { ErrorState } from '@/components/erp/feedback/ErrorState';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react';
+import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -55,7 +56,7 @@ export function ReporteFacturacion<TFila>({
     try {
       const { descargarReportePdf } =
         await import('@/components/erp/reportes/exporters/reporte-pdf-exporter');
-      await descargarReportePdf(reporte, nombreArchivo ?? slugify(reporte.titulo));
+      await descargarReportePdf(reporte, nombreArchivo ?? slugify(reporte.titulo), getCelda);
     } catch (err) {
       toast.error('No se pudo generar el PDF', {
         description: err instanceof Error ? err.message : String(err),
@@ -71,7 +72,7 @@ export function ReporteFacturacion<TFila>({
     try {
       const { descargarReporteExcel } =
         await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
-      await descargarReporteExcel(reporte, nombreArchivo ?? slugify(reporte.titulo));
+      await descargarReporteExcel(reporte, nombreArchivo ?? slugify(reporte.titulo), getCelda);
     } catch (err) {
       toast.error('No se pudo generar el Excel', {
         description: err instanceof Error ? err.message : String(err),
@@ -151,10 +152,7 @@ export function ReporteFacturacion<TFila>({
                 )}
                 PDF
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" />
-                Imprimir
-              </Button>
+              <ImprimirReporteButton type="button" variant="outline" size="sm" reporte={reporte} obtenerCelda={getCelda} />
             </div>
           </header>
 

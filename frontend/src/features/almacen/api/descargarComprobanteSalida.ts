@@ -21,6 +21,17 @@ export async function descargarActaConteo(conteoId: string): Promise<void> {
 }
 
 async function descargarComprobante(ruta: string, folio: string): Promise<void> {
+  const url = URL.createObjectURL(await obtenerComprobante(ruta));
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = `${folio}.pdf`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function obtenerComprobante(ruta: string): Promise<Blob> {
   const response = await apiFetch(ruta);
   if (!response.ok) {
     let problem;
@@ -36,12 +47,5 @@ async function descargarComprobante(ruta: string, folio: string): Promise<void> 
     }
     throw new ApiError(problem, response.status);
   }
-  const url = URL.createObjectURL(await response.blob());
-  const enlace = document.createElement('a');
-  enlace.href = url;
-  enlace.download = `${folio}.pdf`;
-  document.body.appendChild(enlace);
-  enlace.click();
-  enlace.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return response.blob();
 }

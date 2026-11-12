@@ -1,5 +1,6 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reporteHojaSalida } from '../lib/documentos-impresion';
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
 import { Breadcrumbs, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
@@ -241,9 +242,7 @@ export function HojasSalidaPage() {
                 {detalle.data.cartaPorteFolio ? ` · Carta Porte ${detalle.data.cartaPorteFolio}` : ''}
               </p>
             </div>
-            <Button data-print="hidden" variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="size-4" aria-hidden="true" /> Imprimir hoja de salida
-            </Button>
+            <ImprimirReporteButton data-print="hidden" variant="outline" size="sm" reporte={reporteHojaSalida(detalle.data, nombre)}>Imprimir hoja de salida</ImprimirReporteButton>
           </div>
           <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Albaranes de la hoja" tabIndex={0}>
           <Table>
