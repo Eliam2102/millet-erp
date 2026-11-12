@@ -68,6 +68,8 @@ export interface OrdenCompraSelectorProps {
    * consumidores (Devolución a proveedor, CxP).
    */
   soloConPendienteRecepcion?: boolean;
+  /** CxP: autorizadas y servicios CE con N1; filtrado antes de paginar en el servidor. */
+  paraCapturaFactura?: boolean;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -80,6 +82,7 @@ export function OrdenCompraSelector({
   estado = EstadoOrdenCompra.Autorizada,
   proveedorId,
   soloConPendienteRecepcion = false,
+  paraCapturaFactura = false,
   placeholder = 'Buscar OC por folio o referencia…',
   disabled,
   className,
@@ -90,7 +93,8 @@ export function OrdenCompraSelector({
   const debounced = useDebouncedValue(input, 200).trim();
 
   const ocQuery = useOrdenesCompra({
-    estado: estado ?? undefined,
+    estado: paraCapturaFactura ? undefined : estado ?? undefined,
+    paraCapturaFactura: paraCapturaFactura || undefined,
     proveedorId: proveedorId ?? undefined,
     soloConPendienteRecepcion: soloConPendienteRecepcion || undefined,
     q: debounced || undefined,

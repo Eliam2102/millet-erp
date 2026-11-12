@@ -71,7 +71,7 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
             {item.folio}
           </span>
           <span className="flex flex-wrap justify-end gap-1">
-            <EstadoBadge tipo="orden-compra" estado={item.estado} />
+            <EstadoBadge tipo="orden-compra" estado={item.estado} servicioCe={item.esServicioComercioExterior} />
             <RecurrenteBadge esRecurrente={item.esRecurrente} />
           </span>
         </div>

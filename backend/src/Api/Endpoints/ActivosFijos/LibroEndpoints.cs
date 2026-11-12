@@ -74,7 +74,11 @@ public static class LibroEndpoints
         g.MapPut("/conciliacion/{id:guid}", () => Results.Problem(statusCode:422,title:"Una conciliación aceptada no se edita; registre otra conciliación del periodo.")).RequireAuthorization(P("conciliacion.ver"));
         g.MapGet("/conciliacion", async (DateOnly periodo, Guid? sucursalId, ReportesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.ConciliarAsync(periodo, sucursalId, ct))).RequireAuthorization(P("conciliacion.ver"));
         g.MapGet("/reportes/libro", async (DateOnly corte, Guid? sucursalId, ReportesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.LibroAsync(corte, sucursalId, ct))).RequireAuthorization(P("activos.ver"));
-        g.MapGet("/configuracion-libro", async (ActivosFijosDbContext db, CancellationToken ct) => Results.Ok(await db.Set<ConfiguracionLibro>().AsNoTracking().SingleOrDefaultAsync(ct))).RequireAuthorization(P("clases.administrar"));
+        g.MapGet("/configuracion-libro", async Task<IResult> (ActivosFijosDbContext db, CancellationToken ct) =>
+        {
+            var config = await db.Set<ConfiguracionLibro>().AsNoTracking().SingleOrDefaultAsync(ct);
+            return config is null ? Results.Text("null", "application/json") : Results.Ok(config);
+        }).RequireAuthorization(P("clases.administrar"));
         g.MapPut("/configuracion-libro", async (ConfiguracionBody datos, HttpRequest req, ActivosFijosDbContext db, LibroServicio libro, ICuentaContableReadPort cuentas, CancellationToken ct) =>
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct); await libro.BloquearAsync(ct);

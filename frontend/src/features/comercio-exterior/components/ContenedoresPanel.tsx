@@ -243,7 +243,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
             >
               {activos.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.numero ?? <span className="text-ink-muted">Sin número</span>}
+                  {c.numero?.trim() || c.blGuia?.trim() || c.booking?.trim() || 'Sin número'}
                 </option>
               ))}
             </select>
@@ -748,7 +748,7 @@ function ContenedorForm({
             {inicial === 'nuevo' ? 'Agregar contenedor' : 'Editar contenedor'}
           </SheetTitle>
           <SheetDescription>
-            Referencias de transporte del expediente de exportación.
+            Referencias de transporte del expediente de comercio exterior.
           </SheetDescription>
         </SheetHeader>
         <form

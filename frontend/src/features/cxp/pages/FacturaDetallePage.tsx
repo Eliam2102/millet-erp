@@ -447,7 +447,7 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Anticipo aplicado', monto: query.data.anticipoAplicadoTotal },
                 { etiqueta: 'NC aplicadas', monto: query.data.ncAplicadasTotal },
                 { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
-                { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
+                { etiqueta: query.data.esServicioComercioExterior ? 'Retenido por autorización de servicio' : 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
                 // Una factura cancelada ya no es un pasivo: no queda saldo por pagar (P8.7).
                 { etiqueta: 'Saldo pendiente', monto: query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente, destacado: true },

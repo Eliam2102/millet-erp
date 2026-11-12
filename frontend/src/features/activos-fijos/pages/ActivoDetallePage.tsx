@@ -22,6 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useActivo, useActivos, useGuardarActivo, useClasesActivo } from '../api/hooks';
@@ -41,6 +42,7 @@ export function ActivoDetallePage() {
   const gestionar = useHasPermission(P.ActivosFijosActivosGestionar);
   const capitalizar = useHasPermission(P.ActivosFijosCapitalizar);
   const trasladar = useHasPermission(P.ActivosFijosTrasladosGestionar);
+  const permisos = useAuthStore((s) => s.permisos);
   const a = query.data?.data;
   if (!a)
     return (
@@ -430,18 +432,24 @@ export function ActivoDetallePage() {
           </TabsContent>
           <TabsContent value="origen">
             <dl className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
-              {Object.entries({
-                'Orden de compra': a.ordenCompraId,
-                Recepción: a.recepcionId,
-                'Factura de proveedor': a.facturaProveedorId,
-                'Documento de soporte': a.documentoSoporte,
-                'Póliza de alta': a.polizaAltaId,
-              }).map(([k, v]) => (
-                <div key={k}>
-                  <dt className="text-xs text-ink-muted">{k}</dt>
-                  <dd className="font-mono">{v ?? 'Sin vincular'}</dd>
+              {[
+                { etiqueta: 'Orden de compra', id: a.ordenCompraId, ruta: '/compras/ordenes/$id' as const, permiso: P.ComprasOrdenesLeer },
+                { etiqueta: 'Recepción', id: a.recepcionId, ruta: '/almacen/recepciones/$id' as const, permiso: P.AlmacenEntradasLeer },
+                { etiqueta: 'Factura de proveedor', id: a.facturaProveedorId, ruta: '/cxp/facturas/$id' as const, permiso: P.CuentasPorPagarFacturasLeer },
+                { etiqueta: 'Póliza de alta', id: a.polizaAltaId, ruta: '/contabilidad/polizas/$id' as const, permiso: P.ContabilidadPolizasLeer },
+              ].map((origen) => (
+                <div key={origen.etiqueta}>
+                  <dt className="text-xs text-ink-muted">{origen.etiqueta}</dt>
+                  <dd>{origen.id ? permisos.includes(origen.permiso)
+                    ? <Link className="text-brand underline" to={origen.ruta} params={{ id: origen.id }}>Ver {origen.etiqueta.toLowerCase()}</Link>
+                    : 'Documento vinculado; sin permiso de consulta'
+                    : 'Sin vincular'}</dd>
                 </div>
               ))}
+              <div>
+                <dt className="text-xs text-ink-muted">Documento de soporte</dt>
+                <dd>{a.documentoSoporte ?? 'Sin registrar'}</dd>
+              </div>
             </dl>
           </TabsContent>
           <TabsContent value="documentos">

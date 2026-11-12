@@ -152,6 +152,8 @@ it('pasivo CE espera a Dirección Comercial antes de enviarlo a Tesorería', () 
   const { unmount } = render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
   expect(screen.getByRole('button', { name: 'Enviar a Tesorería' })).toBeDisabled();
   expect(screen.getByText(/segunda firma de Dirección Comercial/)).toBeInTheDocument();
+  expect(screen.getByText('Retenido por autorización de servicio')).toBeInTheDocument();
+  expect(screen.queryByText('Retenido por recepción pendiente')).not.toBeInTheDocument();
   unmount(); escenario.n2 = true;
   render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
   expect(screen.getByRole('button', { name: 'Enviar a Tesorería' })).toBeEnabled();

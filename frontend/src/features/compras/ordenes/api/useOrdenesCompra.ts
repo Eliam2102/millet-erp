@@ -58,6 +58,7 @@ export function useOrdenesCompra(
  */
 function buildListarPath(filtros: ListarOrdenesCompraFiltros): string {
   const params = new URLSearchParams();
+  if (filtros.paraCapturaFactura) params.set('paraCapturaFactura', 'true');
   if (filtros.estado != null) params.set('estado', String(filtros.estado));
   if (filtros.subEstadoRecepcion != null)
     params.set('subEstadoRecepcion', String(filtros.subEstadoRecepcion));

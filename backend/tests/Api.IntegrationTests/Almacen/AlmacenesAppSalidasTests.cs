@@ -24,13 +24,33 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// variante y saldo en la sucursal MID; no toca datos de otras pruebas.
 /// </summary>
 [Collection(ApiCompartida.Nombre)]
-public class AlmacenesAppSalidasTests
+public class AlmacenesAppSalidasTests : IAsyncLifetime
 {
     private const string Ruta = "/api/v1/integraciones/almacenes/mensajes";
     private const string Llave = "llave-test-almacenes";
     private readonly WebApplicationFactory<Program> _factory;
 
     public AlmacenesAppSalidasTests(WebApplicationFactory<Program> factory) => _factory = factory;
+
+    private readonly List<PeriodoContableFixture> _calendarios = [];
+
+    public async Task InitializeAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        // El contrato trae octubre de 2026 y el lector usa el reloj: ambos requieren calendario propio.
+        foreach (var anio in new[] { 2026, DateTimeOffset.UtcNow.Year }.Distinct())
+        {
+            var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, ContabTestKit.EmpresaBootstrapId, anio);
+            _calendarios.Add(calendario);
+            await calendario.SembrarAsync(10, abrirTodos: true);
+        }
+    }
+
+    public async Task DisposeAsync()
+    {
+        foreach (var calendario in _calendarios) await calendario.DisposeAsync();
+    }
 
     private const decimal Area = 8.9304m; // m² de la hoja 2440x3660 (AreaHoja.M2)
 
