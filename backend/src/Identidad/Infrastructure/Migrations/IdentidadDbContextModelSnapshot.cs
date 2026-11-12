@@ -4289,6 +4289,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000a-0005-0000-0000-000000000003"),
+                            Accion = "autorizar-redondeo",
+                            Codigo = "cuentas_por_cobrar.aplicacion-pago.autorizar-redondeo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar el redondeo de hasta $0.99 de un cobro (Gerente de Área, distinto de quien propone)",
+                            Modulo = "cuentas_por_cobrar",
+                            Recurso = "aplicacion-pago",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000a-0006-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "cuentas_por_cobrar.reglas-serie.gestionar",
