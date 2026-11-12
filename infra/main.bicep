@@ -111,6 +111,7 @@ param glassAgentSpnClientId string = ''
 
 @description('EmpresaId (GUID) que procesa el AwSolicitudesWorker (ingesta de pedidos A+W → Facturación, ADR-0048). Vacío = worker apagado. Ver appservice.bicep.')
 param awSolicitudesEmpresaId string = ''
+param awNotasCreditoLecturaHabilitada bool = false
 
 @description('Candado selector Demo del origen A+W (nunca en Production; requiere además ConnectionStrings__AwOrigenPgDb). Default false. Ver appservice.bicep.')
 param awOrigenDemoPermitido bool = false
@@ -398,6 +399,7 @@ module appservice 'modules/appservice.bicep' = {
     hcAwDropServiceSendKey: hybridConnections.outputs.hcAwDropServiceSendKey
     glassAgentSpnClientId: glassAgentSpnClientId
     awSolicitudesEmpresaId: awSolicitudesEmpresaId
+    awNotasCreditoLecturaHabilitada: awNotasCreditoLecturaHabilitada
     awOrigenDemoPermitido: awOrigenDemoPermitido
     integracionesFiscalSdkDisabled: integracionesFiscalSdkDisabled
     consultaEstatusSatProveedor: consultaEstatusSatProveedor

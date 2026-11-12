@@ -50,7 +50,8 @@ public sealed class AwClientesOrigenSimulado : IAwClientesOrigen
                 Str(e, "TRANSACTION_TIME") is { } t ? DateTime.Parse(t, CultureInfo.InvariantCulture) : null,
                 coincidencias,
                 Bonitaet: Str(e, "BONITAET"),
-                RegimenFiscalOrigen: Str(e, "BONITAET") is { } b && regimenes.TryGetValue(b, out var r) ? r : null);
+                RegimenFiscalOrigen: Str(e, "BONITAET") is { } b && regimenes.TryGetValue(b, out var r) ? r : null,
+                ExterneKnr: Str(e, "EXTERNE_KNR"));
         });
         return new(filas);
     }

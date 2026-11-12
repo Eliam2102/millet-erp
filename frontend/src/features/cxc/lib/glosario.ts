@@ -10,6 +10,7 @@ import {
   ResultadoCobranza,
   ResultadoLiberacion,
   TipoAlertaCartera,
+  TipoCorreccionLiberacion,
 } from '@/features/cxc/api/types';
 
 /**
@@ -105,3 +106,10 @@ export function formatoMonto(monto: number, moneda: string): string {
     maximumFractionDigits: 2,
   })} ${moneda}`;
 }
+
+/** M-238: etiqueta del dato que se corrigió al reevaluar un pedido retenido. */
+export const ETIQUETA_TIPO_CORRECCION: Record<TipoCorreccionLiberacion, string> = {
+  [TipoCorreccionLiberacion.Cliente]: 'Cliente del pedido',
+  [TipoCorreccionLiberacion.Condicion]: 'Condición del cliente (línea, plazo o bloqueo)',
+  [TipoCorreccionLiberacion.SaldoAplicado]: 'Saldo o cobro mal aplicado',
+};

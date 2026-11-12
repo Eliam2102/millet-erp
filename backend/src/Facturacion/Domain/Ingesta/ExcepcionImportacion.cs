@@ -22,6 +22,11 @@ public sealed class ExcepcionImportacion : BaseEntity, IPerteneceAEmpresa, IAudi
     public MotivoExcepcion Motivo { get; private set; }
     public string? Detalle { get; private set; }
 
+    /// <summary>M-233: campo del envío que no cuadra (p. ej. <c>total_cantidad</c>) y sus dos valores.</summary>
+    public string? Campo { get; private set; }
+    public string? ValorRecibido { get; private set; }
+    public string? ValorEsperado { get; private set; }
+
     public bool Resuelto { get; private set; }
     public Guid? ResueltoPor { get; private set; }
     public DateTimeOffset? ResueltoAt { get; private set; }
@@ -37,7 +42,7 @@ public sealed class ExcepcionImportacion : BaseEntity, IPerteneceAEmpresa, IAudi
         Origen = origen;
         PedidoRef = pedidoRef;
         Motivo = motivo;
-        Detalle = detalle;
+        Detalle = Recortar(detalle);
         Resuelto = false;
     }
 
@@ -49,14 +54,20 @@ public sealed class ExcepcionImportacion : BaseEntity, IPerteneceAEmpresa, IAudi
     /// posterior de la ingesta (upsert de bandeja, FAC-ING-PR3): una sola
     /// entrada abierta por pedido, no una por reintento.
     /// </summary>
-    public void Actualizar(MotivoExcepcion motivo, string? detalle)
+    public void Actualizar(MotivoExcepcion motivo, string? detalle, DiferenciaCampoIngesta? diferencia = null)
     {
         if (Resuelto)
             throw new BusinessRuleException("EXCEPCION_YA_RESUELTA", "La excepción ya está resuelta.");
 
         Motivo = motivo;
-        Detalle = detalle;
+        Detalle = Recortar(detalle);
+        Campo = diferencia?.Campo;
+        ValorRecibido = diferencia?.Recibido;
+        ValorEsperado = diferencia?.Esperado;
     }
+
+    /// <summary>86e40b4mp: la columna es varchar(1000); un detalle más largo no debe tumbar la ingesta (22001).</summary>
+    internal static string? Recortar(string? texto) => texto is { Length: > 1000 } ? texto[..997] + "..." : texto;
 
     public void Resolver(Guid? usuarioId, DateTimeOffset ahora)
     {
@@ -68,3 +79,6 @@ public sealed class ExcepcionImportacion : BaseEntity, IPerteneceAEmpresa, IAudi
         ResueltoAt = ahora;
     }
 }
+
+/// <summary>M-233: diferencia estructurada de un envío de A+W (lo que llegó contra lo que el envío declara).</summary>
+public sealed record DiferenciaCampoIngesta(string Campo, string Recibido, string Esperado);
