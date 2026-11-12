@@ -48,6 +48,7 @@ public sealed class ConfirmarEntregaHandler(ProductoTerminadoDbContext db, PtAcc
         if (hoja.Estado != EstadoSalida.Emitida) throw new BusinessRuleException("PT_ENTREGA_HOJA_NO_EMITIDA", "La hoja de salida aún no se emite: no hay nada que entregar.");
         var albaran = hoja.Albaranes.FirstOrDefault(a => a.Id == c.AlbaranId) ?? throw new EntityNotFoundException("PT_ALBARAN_NO_ENCONTRADO", "El albarán no es de esta hoja.");
         if (albaran.Piezas.Count == 0) throw new BusinessRuleException("PT_ENTREGA_ALBARAN_VACIO", "El albarán no llevó piezas.");
+        if (albaran.Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán está cancelado: no hay entrega que confirmar.");
         if (await db.Entregas.AnyAsync(e => e.AlbaranPtId == albaran.Id, cancellationToken))
             throw new BusinessRuleException("PT_ENTREGA_YA_CONFIRMADA", "La entrega de este albarán ya está confirmada.");
 

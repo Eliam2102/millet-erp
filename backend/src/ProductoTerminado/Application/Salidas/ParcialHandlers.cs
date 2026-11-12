@@ -31,8 +31,9 @@ internal static class ParcialMapeo
         var pedidos = await db.PedidosPt.AsNoTracking().Include(p => p.Posiciones).Where(p => pedidoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
         var piezaIds = solicitudes.SelectMany(s => s.PiezaIds).Distinct().ToList();
         var etiquetas = await db.Piezas.AsNoTracking().Where(p => piezaIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Etiqueta, ct);
-        var enPt = await db.Piezas.AsNoTracking().Where(p => pedidoIds.Contains(p.PedidoPtId) && p.Estado != EstadoPieza.Baja)
-            .GroupBy(p => p.PedidoPtId).Select(g => new { g.Key, N = g.Count(), Sucursal = g.Max(p => p.SucursalId) }).ToDictionaryAsync(x => x.Key, ct);
+        var enPt = (await db.Piezas.AsNoTracking().Where(p => pedidoIds.Contains(p.PedidoPtId) && p.Estado != EstadoPieza.Baja)
+                .Select(p => new { p.PedidoPtId, p.SucursalId }).ToListAsync(ct))
+            .GroupBy(p => p.PedidoPtId).ToDictionary(g => g.Key, g => new { N = g.Count(), Sucursal = g.First().SucursalId });
         return [.. solicitudes.Select(s =>
         {
             var p = pedidos[s.PedidoPtId];

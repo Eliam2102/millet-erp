@@ -68,7 +68,7 @@ export function EntregasPage() {
         <section aria-label={`Entregas de la ruta ${detalle.data.folio}`} className="flex flex-col gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
           <h2 className="text-md font-semibold">Ruta {detalle.data.folio} · {detalle.data.destino}</h2>
           <div className="grid items-start gap-3 xl:grid-cols-2">
-            {detalle.data.albaranes.map((a) => (
+            {detalle.data.albaranes.filter((a) => !a.cancelado).map((a) => (
               <PedidoEntrega
                 key={a.id}
                 hojaId={detalle.data!.id}
@@ -122,19 +122,19 @@ function PedidoEntrega({ hojaId, albaran: a, operar, confirmando, onConfirmar, o
             {operar && !confirmando && <Button variant="outline" size="sm" className="min-h-11" onClick={onConfirmar}>Corregir entrega</Button>}
           </div>
           {confirmando && <EntregaPanel hojaId={hojaId} albaran={a} corregir={e} onListo={onListo} onCancelar={onCancelar} />}
-          {(e.versiones?.length ?? 0) > 1 && (
+          {(e.versiones?.length ?? 0) > 0 && (
             <details className="text-xs">
-              <summary className="min-h-9 cursor-pointer py-2 font-medium">Historial de versiones ({e.versiones!.length})</summary>
+              <summary className="min-h-9 cursor-pointer py-2 font-medium">Versiones anteriores ({e.versiones!.length})</summary>
               <ol className="flex flex-col gap-2">
                 {[...e.versiones!].sort((x, y) => y.numero - x.numero).map((v) => (
                   <li key={v.numero} className="rounded-md border border-line-divider p-2">
                     <p className="font-medium">
-                      Versión {v.numero}{v.numero === Math.max(...e.versiones!.map((x) => x.numero)) ? ' (vigente)' : ''} · {resultadoUi[v.resultado].texto}
+                      Versión {v.numero} · {resultadoUi[v.resultado].texto}
                     </p>
                     <p>Recibió {v.receptor} · <DateTimeDisplay value={v.entregadaAt} variant="datetime" /> · {v.entregadas} aceptadas, {v.rechazadas} rechazadas{v.motivoRechazo ? ` (${v.motivoRechazo})` : ''}.</p>
                     {v.motivoCorreccion && (
                       <p className="text-ink-muted">
-                        Corregida por {nombreUsuario(v.corregidaPor)}{v.corregidaAt && <> · <DateTimeDisplay value={v.corregidaAt} variant="datetime" /></>}: {v.motivoCorreccion}
+                        Reemplazada por {nombreUsuario(v.corregidaPor)}{v.corregidaAt && <> · <DateTimeDisplay value={v.corregidaAt} variant="datetime" /></>}: {v.motivoCorreccion}
                       </p>
                     )}
                   </li>

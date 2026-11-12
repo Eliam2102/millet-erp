@@ -100,7 +100,7 @@ function RegistrarCasoSheet({ onCerrar, onListo }: { onCerrar: () => void; onLis
   const [motivo, setMotivo] = useState('');
   const [foto, setFoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const lista = [...new Set(etiquetas.split('\n').map((l) => l.trim()).filter(Boolean))];
+  const lista = [...new Set(etiquetas.split(/[\n,;]+/).map((l) => l.trim()).filter(Boolean))];
   const lm = motivo.trim().length;
   const valido = lista.length > 0 && lm >= 5 && lm <= 500;
 

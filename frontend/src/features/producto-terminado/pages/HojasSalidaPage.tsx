@@ -288,7 +288,7 @@ export function HojasSalidaPage() {
                     {(a.rotas?.length ?? 0) > 0 && <p className="text-warning-fg">Pendiente de repartida (rota al cargar): {a.rotas!.join(', ')}</p>}
                   </TableCell>
                   <TableCell>
-                    {detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
+                    {a.cancelado ? 'Cancelado' : detalle.data.estado !== 'Emitida' ? '—' : a.entrega ? `${a.entrega.resultado === 'Entregada' ? 'Entregada' : a.entrega.resultado === 'Parcial' ? 'Entrega parcial' : 'Rechazada en sitio'} · recibió ${a.entrega.receptor}` : 'Por entregar (en Entregas)'}
                     {a.estadoPedido === '115' && <p className="text-success-fg">Facturado y entregado</p>}
                   </TableCell>
                   {detalle.data.estado === 'Emitida' && (

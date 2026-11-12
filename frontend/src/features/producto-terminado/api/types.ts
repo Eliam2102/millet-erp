@@ -160,6 +160,7 @@ export interface AlbaranDto {
   /** PT5.6: confirmación de la entrega (null mientras falta) y estado del pedido (`71` en ruta, `Entregado` sin factura, `115` facturado y entregado). */
   entrega?: EntregaDto | null;
   estadoPedido?: '71' | 'Entregado' | '115' | null;
+  cancelado?: boolean;
   /** M-247: cancelación pedida de un albarán emitido (null si nunca se pidió). */
   cancelacion?: CancelacionAlbaranDto | null;
 }

@@ -1,0 +1,176 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary [aria-hidden]:
+        - navigation:
+          - link:
+            - /url: /
+            - generic: Inicio
+          - button:
+            - generic: Producto Terminado
+          - link:
+            - /url: /admin
+            - generic: Admin
+      - generic:
+        - complementary [aria-hidden]:
+          - generic:
+            - generic:
+              - paragraph: Módulo
+              - heading [level=2]: Producto Terminado
+            - button
+          - generic:
+            - textbox:
+              - /placeholder: Filtrar menú
+          - navigation:
+            - region:
+              - heading [level=2]: Operación
+              - list:
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/piezas
+                    - text: Piezas
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/salidas
+                    - text: Salidas pendientes
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/hojas-salida
+                    - text: Hojas de salida
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/entregas
+                    - text: Entregas
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/liquidacion
+                    - text: Liquidación de ruta
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/traspasos
+                    - text: Traspasos
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/excepciones
+                    - text: Excepciones de entrada
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/solicitudes
+                    - text: Solicitudes de salida parcial
+                - listitem:
+                  - link:
+                    - /url: /producto-terminado/casos
+                    - text: Casos de daño
+        - generic:
+          - banner [aria-hidden]:
+            - navigation:
+              - generic: Producto Terminado
+              - generic [aria-hidden]: /
+              - generic: Operación
+              - generic [aria-hidden]: /
+              - link:
+                - /url: /producto-terminado/solicitudes
+                - text: Solicitudes de salida parcial
+            - button:
+              - generic: Buscar o ir a…
+              - generic: ⌘K
+            - generic:
+              - button:
+                - generic: Nuevo
+              - button
+              - link:
+                - /url: /admin
+              - button:
+                - generic: FD
+          - main:
+            - main [aria-hidden]:
+              - navigation:
+                - list:
+                  - listitem:
+                    - generic: Producto terminado
+                  - listitem [aria-hidden]
+                  - listitem:
+                    - generic: Solicitudes de salida parcial
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=1]: Solicitudes de salida parcial
+                  - paragraph: Pedidos que piden salir sin estar completos en producto terminado. Crédito y Cobranza autoriza; Gerencia de Ventas solo cuando Crédito no puede, con el motivo de la suplencia.
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - tablist:
+                        - tab [selected]: Pendientes
+                        - tab: Autorizadas
+                        - tab: Rechazadas
+                        - tab: Todas
+                  - generic:
+                    - generic:
+                      - textbox:
+                        - /placeholder: Número de pedido
+                      - generic: 1 solicitudes
+                  - generic:
+                    - table:
+                      - rowgroup:
+                        - row:
+                          - columnheader: Pedido
+                          - columnheader: Sucursal
+                          - columnheader: Piezas
+                          - columnheader: Motivo
+                          - columnheader: Solicitó
+                          - columnheader: Estado
+                          - columnheader: Resolución
+                          - columnheader: Acciones
+                      - rowgroup:
+                        - row:
+                          - cell: "80269440"
+                          - cell: Sin sucursal
+                          - cell: 8 de 10 · 8 en PT
+                          - cell: La obra en Kanasín necesita las 8 piezas terminadas para colocar esta semana; las 2 restantes salen después
+                          - cell:
+                            - text: Otra persona
+                            - paragraph:
+                              - time: 11/11/2026 22:48
+                          - cell:
+                            - generic: Pendiente
+                          - cell: —
+                          - cell:
+                            - generic:
+                              - button: Autorizar
+                              - button: Rechazar
+                  - generic:
+                    - navigation:
+                      - generic: 1–1 de 1
+                      - generic:
+                        - button [disabled]: Anterior
+                        - button [disabled]: Siguiente
+            - region "Notifications alt+T":
+              - list:
+                - listitem:
+                  - button "Close toast"
+                  - generic:
+                    - generic: Ya no tienes permiso para esta acción
+                    - generic: Requiere el permiso 'compartido.catalogos.leer'. Pide al administrador que lo agregue a tu rol en la empresa seleccionada.
+    - generic:
+      - button
+  - dialog [ref=f2e803]:
+    - generic [ref=f2e804]:
+      - generic [ref=f2e805]:
+        - heading "Autorizar salida parcial" [level=2] [ref=f2e806]
+        - paragraph [ref=f2e807]: "Pedido 80269440 · 8 piezas. Solicitud: La obra en Kanasín necesita las 8 piezas terminadas para colocar esta semana; las 2 restantes salen después"
+      - generic [ref=f2e808]:
+        - generic [ref=f2e809]:
+          - generic [ref=f2e810]: Nivel de autorización
+          - combobox "Nivel de autorización" [active] [ref=f2e811]:
+            - option "Selecciona un nivel" [selected]
+            - option "Crédito y Cobranza"
+            - option "Gerencia de Ventas (suplente)"
+        - generic [ref=f2e812]:
+          - generic [ref=f2e813]: Motivo de la autorización
+          - textbox "Motivo de la autorización" [ref=f2e814]
+          - paragraph [ref=f2e815]: Entre 5 y 500 caracteres (0).
+      - generic [ref=f2e816]:
+        - button "Cancelar" [ref=f2e817]
+        - button "Autorizar" [disabled] [ref=f2e818]
+    - button "Cerrar" [ref=f2e819]
