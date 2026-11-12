@@ -44,6 +44,12 @@ public sealed class TraspasosTests
             CartasPorte.Add(solicitud);
             return Task.FromResult(new CartaPorteSalida(Guid.NewGuid(), "CP-TR-1"));
         }
+        public Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(new Dictionary<string, FacturaAlbaranRuta>());
+        public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
+        public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
     }
 
     private sealed class AvisoFalso(bool falla = false) : IAvisoTraspasoPort
