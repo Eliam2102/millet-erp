@@ -40,3 +40,21 @@ export function textoFinanciero(texto: string) {
     ? 'Pendiente de habilitar el seguimiento financiero'
     : texto;
 }
+
+const nombresCierre: Record<string, string> = {
+  fisico: 'cierre físico',
+  documental: 'cierre documental',
+  financiero: 'cierre financiero',
+};
+/** La aprobación de Gerencia exige los tres cierres registrados y sin faltantes (dominio: AprobarCierre). */
+export function cierresPendientesDeAprobar(
+  cierres: ReadonlyArray<{
+    dimension: string;
+    fecha?: string | null;
+    faltantes: readonly string[];
+  }>,
+) {
+  return cierres
+    .filter((c) => !c.fecha || c.faltantes.length > 0)
+    .map((c) => nombresCierre[c.dimension] ?? c.dimension);
+}
