@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableContainer, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { mensajeErrorAccion } from '@/lib/api/error';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
@@ -114,6 +114,7 @@ function PanelLiquidacion({ dto, operar }: { dto: LiquidacionDto; operar: boolea
           Corrige el cobro o recibe el albarán firmado y vuelve a liquidar. Mientras tanto la contra entrega cuenta como no liquidada.
         </AvisoEnLinea>
       )}
+      <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label={`Cobros de ${dto.folio}`} tabIndex={0}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -177,10 +178,11 @@ function PanelLiquidacion({ dto, operar }: { dto: LiquidacionDto; operar: boolea
           })}
         </TableBody>
       </Table>
+      </TableContainer>
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">Imprevistos de la ruta</h3>
         {imprevistos.map((i, n) => (
-          <div key={n} className="flex gap-2">
+          <div key={n} className="flex flex-wrap gap-2">
             <Input aria-label={`Imprevisto ${n + 1}`} className="max-w-md" placeholder="Qué pasó en la ruta" value={i.descripcion} disabled={!editable}
               onChange={(e) => setImprevistos((x) => x.map((y, k) => (k === n ? { ...y, descripcion: e.target.value } : y)))} />
             <Input aria-label={`Importe del imprevisto ${n + 1}`} inputMode="decimal" className="w-28" placeholder="Importe" value={i.importe} disabled={!editable}
@@ -218,7 +220,7 @@ export function LiquidacionRutaPage() {
   };
 
   return (
-    <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
+    <main className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-auto text-sm">
       <Breadcrumbs items={[{ label: 'Producto Terminado' }, { label: 'Liquidación de ruta' }]} />
       <PageHeader
         titulo="Liquidación de ruta"
@@ -239,6 +241,7 @@ export function LiquidacionRutaPage() {
       ) : (lista.data?.items.length ?? 0) === 0 ? (
         <EmptyState title="No hay hojas de salida emitidas." />
       ) : (
+        <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Liquidaciones de ruta" tabIndex={0}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -280,6 +283,7 @@ export function LiquidacionRutaPage() {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
       {abierta && detalle.isError && <ErrorState title="No se pudo cargar la liquidación" onRetry={() => void detalle.refetch()} />}
       {abierta && detalle.data && (

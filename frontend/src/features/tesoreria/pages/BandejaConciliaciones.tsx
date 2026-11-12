@@ -414,7 +414,7 @@ export function BandejaConciliaciones() {
   }, [conciliacion, filtroEstadoLinea]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink p-6 overflow-y-auto">
+    <div className="@container flex h-full min-h-0 min-w-0 flex-col gap-5 text-sm text-ink">
       <PageHeader
         titulo="Conciliación bancaria"
         descripcion="Compara el extracto bancario con los movimientos registrados y cierra la conciliación con un acta en PDF."
@@ -429,7 +429,7 @@ export function BandejaConciliaciones() {
       />
 
       {/* Barra de Filtros / Selector de Periodo y Cuenta */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 p-4 rounded-lg bg-surface border border-edge">
+      <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2 @4xl:grid-cols-4 p-4 rounded-lg bg-surface border border-edge">
         <div>
           <Label className="text-xs text-ink-muted">Cuenta bancaria</Label>
           <Select value={cuentaId} onValueChange={(val) => setCuentaId(val)}>
@@ -522,7 +522,7 @@ export function BandejaConciliaciones() {
       ) : (
         <div className="flex flex-col gap-6">
           {/* Tarjetas de Control Financiero y Estado */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2 @4xl:grid-cols-4">
             <KpiCard
               etiqueta="Saldo del extracto bancario"
               valor={<MoneyDisplay amount={conciliacion.saldoExtracto} currency={conciliacion.moneda} />}
@@ -542,7 +542,7 @@ export function BandejaConciliaciones() {
 
             {/* Estado y Acciones Rápidas */}
             <div className="flex flex-col justify-between rounded-lg bg-surface-card p-4 shadow-card">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Estado
                 </span>
@@ -697,10 +697,10 @@ export function BandejaConciliaciones() {
 
             {/* TAB MATCHING: SPLIT WORKSPACE */}
             <TabsContent value="matching" className="mt-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid min-w-0 grid-cols-1 gap-6 @5xl:grid-cols-2">
                 {/* COLUMNA IZQUIERDA: LÍNEAS DEL EXTRACTO BANCARIO */}
                 <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 className="text-md font-semibold">Extracto bancario</h3>
                       <p className="text-xs text-ink-muted">
@@ -867,7 +867,7 @@ export function BandejaConciliaciones() {
 
                 {/* COLUMNA DERECHA: MOVIMIENTOS INTERNOS DE LIBROS */}
                 <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 className="text-md font-semibold">Movimientos del libro auxiliar</h3>
                       <p className="text-xs text-ink-muted">
