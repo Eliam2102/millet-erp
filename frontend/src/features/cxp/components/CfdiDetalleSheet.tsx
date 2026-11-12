@@ -194,7 +194,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           </p>
         ))}
 
-      <SolicitudesCancelacionPanel cfdiId={d.id} facturaId={d.documentoDestinoId} />
+      <SolicitudesCancelacionPanel cfdiId={d.id} facturaId={d.documentoDestinoId} rfcEmisor={d.rfcEmisor} />
 
       <section className="space-y-2">
         <h3 className="text-sm font-medium">

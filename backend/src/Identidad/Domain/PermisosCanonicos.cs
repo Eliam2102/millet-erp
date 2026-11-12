@@ -297,6 +297,8 @@ public static class PermisosCanonicos
 
     public const string AlmacenDevolucionesInternasLeer                = "almacen.devoluciones-internas.leer";
     public const string AlmacenDevolucionesInternasCapturar            = "almacen.devoluciones-internas.capturar";
+    /// <summary>M-334: autorizar o rechazar una corrección de consumo (Costos; Fernando Alejos, 11-nov).</summary>
+    public const string AlmacenCorreccionesConsumoAutorizar            = "almacen.correcciones-consumo.autorizar";
 
     public const string AlmacenDevolucionesProveedorIniciar            = "almacen.devoluciones-proveedor.iniciar";
     public const string AlmacenDevolucionesProveedorAutorizar          = "almacen.devoluciones-proveedor.autorizar";
@@ -354,6 +356,8 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarFacturasCapturar                = "cuentas_por_pagar.facturas.capturar";
     public const string CuentasPorPagarFacturasEditar                  = "cuentas_por_pagar.facturas.editar";
     public const string CuentasPorPagarFacturasCancelar                = "cuentas_por_pagar.facturas.cancelar";
+    /// <summary>M-096: aceptar la cancelación de un CFDI cuya factura ya tiene pagos (Contador General).</summary>
+    public const string CuentasPorPagarCfdiAceptarCancelacionPagada    = "cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada";
     public const string CuentasPorPagarFacturasEnviarRevision          = "cuentas_por_pagar.facturas.enviar-revision";
     public const string CuentasPorPagarFacturasLiberarRevision         = "cuentas_por_pagar.facturas.liberar-revision";
     public const string CuentasPorPagarFacturasAutorizar               = "cuentas_por_pagar.facturas.autorizar";
@@ -879,6 +883,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0001-0000-0000-000000000005"), CuentasPorPagarFacturasEnviarRevision,       "Enviar factura a revisión por dependencia"),
         (Guid.Parse("00000007-0001-0000-0000-000000000006"), CuentasPorPagarFacturasLiberarRevision,      "Liberar factura desde revisión (responsable del área)"),
         (Guid.Parse("00000007-0001-0000-0000-000000000007"), CuentasPorPagarFacturasAutorizar,            "Autorizar factura manualmente (override, raro)"),
+        (Guid.Parse("00000007-0001-0000-0000-000000000008"), CuentasPorPagarCfdiAceptarCancelacionPagada, "Aceptar la cancelación de un CFDI de proveedor cuya factura ya tiene pagos (Contador General; requiere el CFDI sustituto)"),
         (Guid.Parse("00000007-0002-0000-0000-000000000001"), CuentasPorPagarNotasCreditoLeer,             "Consultar notas de crédito del proveedor"),
         (Guid.Parse("00000007-0002-0000-0000-000000000002"), CuentasPorPagarNotasCreditoCapturar,         "Capturar notas de crédito del proveedor"),
         (Guid.Parse("00000007-0003-0000-0000-000000000001"), CuentasPorPagarNotasCargoLeer,               "Consultar notas de cargo internas"),
@@ -963,6 +968,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000008-0011-0000-0000-000000000001"), AlmacenMermasAutorizar,                      "Autorizar o rechazar una merma de proceso por etapa y motivo (A4.4); sin autorización queda pendiente"),
         (Guid.Parse("00000008-0012-0000-0000-000000000001"), AlmacenSalidasRoturaCapturar,                "Capturar una salida por rotura de material en el almacén (ALM-03); no afecta el saldo hasta que se autorice"),
         (Guid.Parse("00000008-0012-0000-0000-000000000002"), AlmacenSalidasRoturaAutorizar,               "Autorizar o rechazar una salida por rotura (Jefe o Gerente de almacén, distinto de quien la capturó)"),
+        (Guid.Parse("00000008-0013-0000-0000-000000000001"), AlmacenCorreccionesConsumoAutorizar,         "Autorizar o rechazar una corrección de consumo (Costos, distinto de quien la solicitó); se aplica en el mes corriente"),
         (Guid.Parse("00000008-1a01-0000-0000-000000000001"), AlmacenCierreRevisarActa,                    "Marcar como revisada el acta del cierre mensual de Almacén (Director de Administración)"),
         (Guid.Parse("00000008-1a01-0000-0000-000000000002"), AlmacenAvisosValeVencido,                    "Recibir el aviso de vale urgente vencido sin regularizar de su sucursal (Jefe de almacén)"),
         (Guid.Parse("00000008-1a01-0000-0000-000000000003"), AlmacenAvisosAjusteMayor,                    "Recibir el aviso de ajuste de inventario mayor (nivel 3) aprobado (Finanzas)"),

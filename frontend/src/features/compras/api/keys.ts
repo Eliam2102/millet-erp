@@ -96,4 +96,8 @@ export const comprasKeys = {
    * lo refresque (aunque post-auth el preview ya no aplica). */
   cubrimientoEstimado: (id: string) =>
     [...comprasKeys.requisiciones(), 'cubrimiento-estimado', id] as const,
+
+  /** M-332: necesidad de una RQ de la app de Almacenes. */
+  necesidadApp: (id: string) =>
+    [...comprasKeys.requisiciones(), 'necesidad-app', id] as const,
 } as const;

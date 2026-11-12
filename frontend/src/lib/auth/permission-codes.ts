@@ -258,6 +258,7 @@ export const PermisosCanonicos = {
 
   AlmacenDevolucionesInternasLeer: 'almacen.devoluciones-internas.leer',
   AlmacenDevolucionesInternasCapturar: 'almacen.devoluciones-internas.capturar',
+  AlmacenCorreccionesConsumoAutorizar: 'almacen.correcciones-consumo.autorizar',
   AlmacenDevolucionesProveedorIniciar: 'almacen.devoluciones-proveedor.iniciar',
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
   AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
@@ -302,6 +303,7 @@ export const PermisosCanonicos = {
   CuentasPorPagarFacturasCapturar: 'cuentas_por_pagar.facturas.capturar',
   CuentasPorPagarFacturasEditar: 'cuentas_por_pagar.facturas.editar',
   CuentasPorPagarFacturasCancelar: 'cuentas_por_pagar.facturas.cancelar',
+  CuentasPorPagarCfdiAceptarCancelacionPagada: 'cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada',
   CuentasPorPagarFacturasEnviarRevision:
     'cuentas_por_pagar.facturas.enviar-revision',
   CuentasPorPagarFacturasLiberarRevision:

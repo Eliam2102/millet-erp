@@ -2301,6 +2301,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000007-0001-0000-0000-000000000008"),
+                            Accion = "aceptar-cancelacion-pagada",
+                            Codigo = "cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Aceptar la cancelación de un CFDI de proveedor cuya factura ya tiene pagos (Contador General; requiere el CFDI sustituto)",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "cfdi",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000007-0002-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "cuentas_por_pagar.notas-credito.leer",
@@ -3345,6 +3359,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Autorizar o rechazar una salida por rotura (Jefe o Gerente de almacén, distinto de quien la capturó)",
                             Modulo = "almacen",
                             Recurso = "salidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000008-0013-0000-0000-000000000001"),
+                            Accion = "autorizar",
+                            Codigo = "almacen.correcciones-consumo.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar una corrección de consumo (Costos, distinto de quien la solicitó); se aplica en el mes corriente",
+                            Modulo = "almacen",
+                            Recurso = "correcciones-consumo",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -6860,6 +6888,12 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("idioma_ui");
+
+                    b.Property<bool>("SonidoAvisosHabilitado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("sonido_avisos_habilitado");
 
                     b.Property<string>("TemaUI")
                         .IsRequired()

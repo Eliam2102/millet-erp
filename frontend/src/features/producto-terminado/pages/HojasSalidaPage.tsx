@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableContainer, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSucursales } from '@/features/catalogos/api';
 import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -101,7 +101,7 @@ export function HojasSalidaPage() {
   };
 
   return (
-    <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
+    <main className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-auto text-sm">
       <div data-print="hidden" className="flex flex-col gap-5">
         <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Hojas de salida' }]} />
         <PageHeader
@@ -163,7 +163,7 @@ export function HojasSalidaPage() {
                 <div key={i} className="flex flex-wrap items-start gap-3">
                   <span className="mt-2 w-24 text-ink-muted">Entrega {i + 1}</span>
                   <Input className="w-40" aria-label={`Pedido de la entrega ${i + 1}`} placeholder="Número de pedido" value={p.numero} onChange={(e) => cambiar(i, { numero: e.target.value })} />
-                  <Textarea className="min-h-16 w-96" aria-label={`Etiquetas cargadas del pedido ${i + 1}`} placeholder="Etiquetas ya cargadas, una por renglón (opcional: también se cargan una por una)" value={p.etiquetas} onChange={(e) => cambiar(i, { etiquetas: e.target.value })} />
+                  <Textarea className="min-h-16 w-full md:w-96" aria-label={`Etiquetas cargadas del pedido ${i + 1}`} placeholder="Etiquetas ya cargadas, una por renglón (opcional: también se cargan una por una)" value={p.etiquetas} onChange={(e) => cambiar(i, { etiquetas: e.target.value })} />
                 </div>
               ))}
               <div>
@@ -182,6 +182,7 @@ export function HojasSalidaPage() {
         ) : (lista.data?.items.length ?? 0) === 0 ? (
           <EmptyState title="No hay hojas de salida." />
         ) : (
+          <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Hojas de salida" tabIndex={0}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -205,7 +206,7 @@ export function HojasSalidaPage() {
                   <TableCell className="tabular-nums">{h.pedidos}</TableCell>
                   <TableCell className="tabular-nums">{h.piezas}</TableCell>
                   <TableCell>{h.cartaPorteFolio ?? (h.foranea ? 'Al emitir' : 'No aplica')}</TableCell>
-                  <TableCell className="flex gap-2">
+                  <TableCell className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={() => setAbierto(abierto === h.id ? null : h.id)}>
                       {abierto === h.id
                         ? 'Ocultar'
@@ -227,6 +228,7 @@ export function HojasSalidaPage() {
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </div>
       {abierto && detalle.data && !(operar && detalle.data.estado === 'Borrador') && (
@@ -243,6 +245,7 @@ export function HojasSalidaPage() {
               <Printer className="size-4" aria-hidden="true" /> Imprimir hoja de salida
             </Button>
           </div>
+          <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Albaranes de la hoja" tabIndex={0}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -288,6 +291,7 @@ export function HojasSalidaPage() {
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         </section>
       )}
     </main>

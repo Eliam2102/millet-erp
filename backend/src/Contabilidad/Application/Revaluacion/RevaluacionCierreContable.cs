@@ -27,7 +27,12 @@ public sealed record RevaluacionCierreDetalle(ControlRevaluacion Control, Guid C
 
 public sealed record RevaluacionCierreContableResponse(int Anio, int Mes, DateOnly FechaCierre, DateOnly FechaReversa, bool Ejecutada,
     IReadOnlyList<RevaluacionPolizaResponse> Polizas, IReadOnlyList<RevaluacionCierreDetalle> Detalles, decimal TotalUtilidad, decimal TotalPerdida,
-    IReadOnlyList<string> Avisos);
+    IReadOnlyList<string> Avisos, IReadOnlyList<RevaluacionPolizaPrevia>? Previas = null);
+
+/// <summary>M-317: póliza que se registraría para una sucursal (vista previa; no existe en la base).</summary>
+public sealed record RevaluacionPolizaPrevia(Guid SucursalId, string Concepto, IReadOnlyList<RevaluacionPartidaPrevia> Partidas, decimal TotalCargo, decimal TotalAbono);
+
+public sealed record RevaluacionPartidaPrevia(string CuentaCodigo, string Concepto, decimal Cargo, decimal Abono);
 
 public sealed record RevaluacionPolizaResponse(Guid Id, string? Folio, DateOnly Fecha, Guid? SucursalId, bool EsReversa);
 
@@ -178,9 +183,15 @@ public sealed class ConsultarRevaluacionCierreHandler(ContabilidadDbContext db, 
         var polizas = await RevaluacionCierreComun.PolizasDelMesAsync(db, empresaId, q.Anio, q.Mes, ct);
         var avisos = new List<string>();
         IReadOnlyList<RevaluacionCierreDetalle> detalles;
-        try { detalles = polizas.Count > 0 ? [] : await calculadora.CalcularAsync(q.Anio, q.Mes, ct); }
+        var previas = new List<RevaluacionPolizaPrevia>();
+        try
+        {
+            detalles = polizas.Count > 0 ? [] : await calculadora.CalcularAsync(q.Anio, q.Mes, ct);
+            // M-317: la vista previa arma las pólizas por sucursal con la misma lógica que ejecutar, sin registrar nada.
+            if (detalles.Count > 0) previas.AddRange(await RevaluacionCierreComun.PreviasAsync(db, detalles, CalculadoraRevaluacionCierre.Cierre(q.Anio, q.Mes), q.Mes, q.Anio, ct));
+        }
         catch (BusinessRuleException e) { detalles = []; avisos.Add(e.Message); }
-        return RevaluacionCierreComun.Respuesta(q.Anio, q.Mes, polizas, detalles, avisos);
+        return RevaluacionCierreComun.Respuesta(q.Anio, q.Mes, polizas, detalles, avisos, previas);
     }
 }
 
@@ -217,34 +228,20 @@ public sealed class EjecutarRevaluacionCierreContableHandler(ContabilidadDbConte
         await mediator.Send(new PublicarReversasRevaluacionContableCommand(cierre), ct);
 
         var detalles = await calculadora.CalcularAsync(c.Anio, c.Mes, ct);
-        var roles = await db.RolesCuenta.AsNoTracking()
-            .Where(r => r.Codigo.StartsWith(CalculadoraRevaluacionCierre.RolPerdida) || r.Codigo.StartsWith(CalculadoraRevaluacionCierre.RolUtilidad))
-            .ToListAsync(ct);
         var docId = CalculadoraRevaluacionCierre.DocumentoId(empresaId, c.Anio, c.Mes);
-        foreach (var porSucursal in detalles.Where(d => d.Diferencia != 0m).GroupBy(d => d.SucursalId).OrderBy(g => g.Key))
+        // M-317: tras anular la revaluación del mes se puede correr otra vez; la llave lleva cuántas pólizas de este mes ya se anularon.
+        var anuladas = await db.Polizas.CountAsync(p => p.OrigenModulo == CalculadoraRevaluacionCierre.Modulo
+            && p.OrigenTipo == CalculadoraRevaluacionCierre.TipoRevaluacion && p.OrigenDocumentoId == docId && p.AnuladaPorPolizaId != null, ct);
+        foreach (var (sucursal, partidas) in await RevaluacionCierreComun.ArmarAsync(db, detalles, cierre, ct))
         {
-            var sucursal = porSucursal.Key;
-            var cuentas = porSucursal.GroupBy(d => d.Control).ToDictionary(g => g.Key, g => (
-                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolPerdida, g.Key), sucursal, cierre,
-                    g.Any(d => d.Diferencia < 0)),
-                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolUtilidad, g.Key), sucursal, cierre,
-                    g.Any(d => d.Diferencia > 0))));
-            var partidas = CalculadoraRevaluacionCierre.Partidas([.. porSucursal], sucursal, cuentas);
             await puerto.RegistrarAutomaticaAsync(new SolicitudPolizaAutomatica("AS", cierre, $"Revaluación de bancos y clientes en moneda extranjera {c.Mes:00}/{c.Anio}",
                 new DocumentoOrigenPoliza(CalculadoraRevaluacionCierre.Modulo, CalculadoraRevaluacionCierre.TipoRevaluacion, docId, $"REV-{c.Anio}{c.Mes:00}", null),
-                $"{CalculadoraRevaluacionCierre.Modulo}.{CalculadoraRevaluacionCierre.TipoRevaluacion}:{empresaId}:{c.Anio}-{c.Mes:00}:{sucursal}",
+                $"{CalculadoraRevaluacionCierre.Modulo}.{CalculadoraRevaluacionCierre.TipoRevaluacion}:{empresaId}:{c.Anio}-{c.Mes:00}:{sucursal}" + (anuladas > 0 ? $":r{anuladas}" : ""),
                 partidas, OrigenMovimiento.Automatica, empresaId), ct);
         }
         var polizas = await RevaluacionCierreComun.PolizasDelMesAsync(db, empresaId, c.Anio, c.Mes, ct);
         return RevaluacionCierreComun.Respuesta(c.Anio, c.Mes, polizas, detalles, []);
     }
-
-    private static Guid CuentaDelRol(List<RolCuenta> roles, string codigo, Guid sucursal, DateOnly fecha, bool necesaria) =>
-        GenerarPolizaDesdeEventoHandler.Rol(roles, codigo, sucursal, Poliza.MonedaNacional, fecha)?.CuentaId
-        ?? (necesaria
-            ? throw new BusinessRuleException("REVALUACION_ROL_SIN_CUENTA",
-                $"El rol {codigo} no tiene cuenta asignada: Contabilidad debe mapearlo en Motor › Roles de cuenta antes de revaluar.")
-            : Guid.Empty);
 }
 
 // ---------------------------------------------------------------- Reversa del día 1
@@ -289,7 +286,7 @@ internal static class RevaluacionCierreComun
         var docId = CalculadoraRevaluacionCierre.DocumentoId(empresaId, anio, mes);
         var originales = await db.Polizas.AsNoTracking()
             .Where(p => p.OrigenModulo == CalculadoraRevaluacionCierre.Modulo && p.OrigenTipo == CalculadoraRevaluacionCierre.TipoRevaluacion
-                && p.OrigenDocumentoId == docId)
+                && p.OrigenDocumentoId == docId && p.AnuladaPorPolizaId == null && p.PolizaAnuladaId == null)
             .Select(p => new { p.Id, p.Folio, p.Fecha }).ToListAsync(ct);
         var ids = originales.Select(o => (Guid?)o.Id).ToList();
         var reversas = await db.Polizas.AsNoTracking()
@@ -303,10 +300,50 @@ internal static class RevaluacionCierreComun
     }
 
     public static RevaluacionCierreContableResponse Respuesta(int anio, int mes, IReadOnlyList<RevaluacionPolizaResponse> polizas,
-        IReadOnlyList<RevaluacionCierreDetalle> detalles, IReadOnlyList<string> avisos)
+        IReadOnlyList<RevaluacionCierreDetalle> detalles, IReadOnlyList<string> avisos, IReadOnlyList<RevaluacionPolizaPrevia>? previas = null)
     {
         var cierre = CalculadoraRevaluacionCierre.Cierre(anio, mes);
         return new(anio, mes, cierre, cierre.AddDays(1), polizas.Any(p => !p.EsReversa), polizas, detalles,
-            detalles.Where(d => d.Diferencia > 0).Sum(d => d.Diferencia), -detalles.Where(d => d.Diferencia < 0).Sum(d => d.Diferencia), avisos);
+            detalles.Where(d => d.Diferencia > 0).Sum(d => d.Diferencia), -detalles.Where(d => d.Diferencia < 0).Sum(d => d.Diferencia), avisos, previas);
     }
+
+    /// <summary>Partidas de la póliza de cada sucursal (la misma lógica para la vista previa y para ejecutar).</summary>
+    public static async Task<List<(Guid Sucursal, List<PartidaRequest> Partidas)>> ArmarAsync(ContabilidadDbContext db,
+        IReadOnlyList<RevaluacionCierreDetalle> detalles, DateOnly cierre, CancellationToken ct)
+    {
+        var roles = await db.RolesCuenta.AsNoTracking()
+            .Where(r => r.Codigo.StartsWith(CalculadoraRevaluacionCierre.RolPerdida) || r.Codigo.StartsWith(CalculadoraRevaluacionCierre.RolUtilidad))
+            .ToListAsync(ct);
+        var resultado = new List<(Guid, List<PartidaRequest>)>();
+        foreach (var porSucursal in detalles.Where(d => d.Diferencia != 0m).GroupBy(d => d.SucursalId).OrderBy(g => g.Key))
+        {
+            var sucursal = porSucursal.Key;
+            var cuentas = porSucursal.GroupBy(d => d.Control).ToDictionary(g => g.Key, g => (
+                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolPerdida, g.Key), sucursal, cierre,
+                    g.Any(d => d.Diferencia < 0)),
+                CuentaDelRol(roles, CalculadoraRevaluacionCierre.RolResultado(CalculadoraRevaluacionCierre.RolUtilidad, g.Key), sucursal, cierre,
+                    g.Any(d => d.Diferencia > 0))));
+            resultado.Add((sucursal, CalculadoraRevaluacionCierre.Partidas([.. porSucursal], sucursal, cuentas)));
+        }
+        return resultado;
+    }
+
+    /// <summary>M-317: pólizas por sucursal que se registrarían, con código de cuenta; no escribe nada.</summary>
+    public static async Task<List<RevaluacionPolizaPrevia>> PreviasAsync(ContabilidadDbContext db, IReadOnlyList<RevaluacionCierreDetalle> detalles,
+        DateOnly cierre, int mes, int anio, CancellationToken ct)
+    {
+        var armadas = await ArmarAsync(db, detalles, cierre, ct);
+        var ids = armadas.SelectMany(a => a.Partidas).Select(p => p.CuentaId).Distinct().ToList();
+        var codigos = await db.Cuentas.AsNoTracking().Where(c => ids.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Codigo, ct);
+        return [.. armadas.Select(a => new RevaluacionPolizaPrevia(a.Sucursal, $"Revaluación de bancos y clientes en moneda extranjera {mes:00}/{anio}",
+            [.. a.Partidas.Select(p => new RevaluacionPartidaPrevia(codigos.GetValueOrDefault(p.CuentaId, "?"), p.Concepto ?? string.Empty, p.Cargo, p.Abono))],
+            a.Partidas.Sum(p => p.Cargo), a.Partidas.Sum(p => p.Abono)))];
+    }
+
+    private static Guid CuentaDelRol(List<RolCuenta> roles, string codigo, Guid sucursal, DateOnly fecha, bool necesaria) =>
+        GenerarPolizaDesdeEventoHandler.Rol(roles, codigo, sucursal, Poliza.MonedaNacional, fecha)?.CuentaId
+        ?? (necesaria
+            ? throw new BusinessRuleException("REVALUACION_ROL_SIN_CUENTA",
+                $"El rol {codigo} no tiene cuenta asignada: Contabilidad debe mapearlo en Motor › Roles de cuenta antes de revaluar.")
+            : Guid.Empty);
 }
