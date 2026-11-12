@@ -446,7 +446,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 RecepcionId: factura.RecepcionId,
                 ConceptoRetencion: factura.ConceptoRetencion,
                 // M-209: IVA por tratamiento del XML (sin XML, Contabilidad lo trata como hoy: todo al 16 %).
-                Impuestos: xml?.TrasladosIva), cancellationToken);
+                Impuestos: xml?.TrasladosIva,
+                EsServicioComercioExterior: factura.EsServicioComercioExterior), cancellationToken);
 
         }
 

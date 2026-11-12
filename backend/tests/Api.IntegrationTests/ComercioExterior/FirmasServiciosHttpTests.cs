@@ -166,6 +166,8 @@ public sealed class FirmasServiciosHttpTests
         var cxp = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext>();
         var evento = (await cxp.OutboxEntries.Where(x => x.EventType == tipo).ToListAsync())
             .Single(x => x.Payload.Contains(facturaId.ToString()) && (aplicacionId is null || x.Payload.Contains(aplicacionId.Value.ToString())));
+        if (tipo == Millet.Contabilidad.Application.Motor.NormalizadorEventos.FacturaProveedorRegistrada)
+            Assert.True(Millet.Contabilidad.Application.Motor.NormalizadorEventos.Normalizar(tipo, evento.Id, evento.Payload).EsServicioComercioExterior);
         using var worker = new Millet.Compras.Infrastructure.Workers.CxpEventListenerWorker(null!, scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<Millet.Compras.Infrastructure.Workers.CxpEventListenerWorker>.Instance);
         var consumidor = (Millet.SharedKernel.Application.Integration.ILocalIntegrationEventConsumer)worker;
         await consumidor.ConsumirLocalAsync(evento.EventType, evento.Id, evento.Payload, default);
