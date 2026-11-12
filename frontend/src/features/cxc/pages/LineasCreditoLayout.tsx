@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 
 import { useMemo, type ReactNode } from 'react';
@@ -47,59 +48,61 @@ export function LineasCreditoLayout({ idActivo, detalle }: LineasCreditoLayoutPr
   const items = query.data?.items ?? [];
 
   return (
-    <div className="flex flex-col gap-5 min-h-0 md:flex-row">
-      {/* ── Master (lista) ────────────────────────────── */}
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de líneas de crédito"
-        data-print="hidden"
-      >
-        <PageHeader titulo={<>Líneas de crédito</>} />
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          {query.isLoading ? (
-            <div className="p-3">
-              <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
-            </div>
-          ) : query.isError ? (
-            <ErrorState
-              problem={esApiError(query.error) ? query.error.problem : undefined}
-              onRetry={() => query.refetch()}
-            />
-          ) : items.length === 0 ? (
-            <EmptyState
-              icon={<CreditCard className="h-10 w-10" />}
-              title={
-                search.q
-                  ? `Ninguna línea coincide con "${search.q}".`
-                  : 'Sin líneas con los filtros actuales.'
-              }
-              description="Ajusta los filtros desde la bandeja de líneas."
-            />
-          ) : (
-            <ListaLineasCompacta
-              items={items}
-              idActivo={idActivo}
-              search={search}
-              nombresCliente={nombres}
-            />
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista="líneas de crédito"
+      lista={
+        <aside
+          className={cn(
+            'flex min-h-0 flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+            idActivo != null ? 'hidden md:flex' : 'flex',
           )}
-        </div>
-      </aside>
-
-      {/* ── Detail panel ──────────────────────────────── */}
+          aria-label="Lista de líneas de crédito"
+          data-print="hidden"
+        >
+          <PageHeader titulo={<>Líneas de crédito</>} />
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            {query.isLoading ? (
+              <div className="p-3">
+                <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
+              </div>
+            ) : query.isError ? (
+              <ErrorState
+                problem={esApiError(query.error) ? query.error.problem : undefined}
+                onRetry={() => query.refetch()}
+              />
+            ) : items.length === 0 ? (
+              <EmptyState
+                icon={<CreditCard className="h-10 w-10" />}
+                title={
+                  search.q
+                    ? `Ninguna línea coincide con "${search.q}".`
+                    : 'Sin líneas con los filtros actuales.'
+                }
+                description="Ajusta los filtros desde la bandeja de líneas."
+              />
+            ) : (
+              <ListaLineasCompacta
+                items={items}
+                idActivo={idActivo}
+                search={search}
+                nombresCliente={nombres}
+              />
+            )}
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
-          'min-w-0 flex-1 md:overflow-y-auto',
+          '@container min-h-0 min-w-0 flex-1 md:overflow-y-auto',
           idActivo == null ? 'hidden md:block' : 'block',
         )}
         aria-label="Detalle de la línea de crédito"
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

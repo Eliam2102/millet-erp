@@ -165,9 +165,9 @@ export function SalidasPendientesPage() {
                     </li>
                   ))}
                 </ul>
-                <Table className="hidden min-w-0 text-sm md:grid">
-                  <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
-                    <TableRow className={`${columnas} h-9`}>
+                <Table className="hidden min-w-[1000px] text-sm md:grid">
+                  <TableHeader className="h-auto min-h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
+                    <TableRow className={`${columnas} min-h-9`}>
                       {['Pedido', 'Cliente', 'Destino', 'Piezas', 'Sucursal', 'Liberado', 'Alerta'].map((x) => (
                         <TableHead key={x} className="px-3">
                           {x}

@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { PageHeader, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 
@@ -54,86 +55,90 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
   }, [query.data, search.q, nombres]);
 
   return (
-    <div className="flex flex-col gap-5 min-h-0 md:flex-row">
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de propuestas"
-        data-print="hidden"
-      >
-        <PageHeader titulo={<>Aplicación de pagos</>} />
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          {query.isLoading ? (
-            <div className="p-3">
-              <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
-            </div>
-          ) : query.isError ? (
-            <ErrorState
-              problem={problemaConsulta(query.error)}
-              onRetry={() => query.refetch()}
-            />
-          ) : items.length === 0 ? (
-            <EmptyState
-              icon={<FileText className="h-10 w-10" />}
-              title="Sin propuestas con los filtros actuales."
-              description="Ajusta los filtros desde la bandeja."
-            />
-          ) : (
-            <ul className="divide-y" role="list" aria-label="Lista de propuestas">
-              {items.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    to="/cxc/aplicaciones/$id"
-                    params={{ id: p.id }}
-                    search={search}
-                    state={{ bandejaSearch: search } as never}
-                    className={cn(
-                      'block px-3 py-2 transition-colors',
-                      p.id === idActivo
-                        ? 'bg-surface-selected shadow-list-selected'
-                        : 'hover:bg-surface-muted/40',
-                    )}
-                    aria-current={p.id === idActivo ? 'page' : undefined}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span
-                        className={cn(
-                          'truncate font-mono text-xs',
-                          p.id === idActivo && 'font-semibold',
-                        )}
-                      >
-                        {p.depositoRef}
-                      </span>
-                      <ChipEstadoPropuesta estado={p.estado} ajustePorAutorizar={p.ajustePorAutorizar} />
-                    </div>
-                    <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
-                      <span className="truncate">
-                        {nombres.get(p.clienteId) || <span className="text-ink-muted">—</span>}
-                      </span>
-                      <span className="shrink-0 font-mono tabular-nums">
-                        {formatoMonto(p.montoDeposito, p.moneda)}
-                      </span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista="propuestas"
+      lista={
+        <aside
+          className={cn(
+            'flex min-h-0 flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+            idActivo != null ? 'hidden md:flex' : 'flex',
           )}
-        </div>
-      </aside>
-
+          aria-label="Lista de propuestas"
+          data-print="hidden"
+        >
+          <PageHeader titulo={<>Aplicación de pagos</>} />
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            {query.isLoading ? (
+              <div className="p-3">
+                <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
+              </div>
+            ) : query.isError ? (
+              <ErrorState problem={problemaConsulta(query.error)} onRetry={() => query.refetch()} />
+            ) : items.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="h-10 w-10" />}
+                title="Sin propuestas con los filtros actuales."
+                description="Ajusta los filtros desde la bandeja."
+              />
+            ) : (
+              <ul className="divide-y" role="list" aria-label="Lista de propuestas">
+                {items.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      to="/cxc/aplicaciones/$id"
+                      params={{ id: p.id }}
+                      search={search}
+                      state={{ bandejaSearch: search } as never}
+                      className={cn(
+                        'block px-3 py-2 transition-colors',
+                        p.id === idActivo
+                          ? 'bg-surface-selected shadow-list-selected'
+                          : 'hover:bg-surface-muted/40',
+                      )}
+                      aria-current={p.id === idActivo ? 'page' : undefined}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span
+                          className={cn(
+                            'truncate font-mono text-xs',
+                            p.id === idActivo && 'font-semibold',
+                          )}
+                        >
+                          {p.depositoRef}
+                        </span>
+                        <ChipEstadoPropuesta
+                          estado={p.estado}
+                          ajustePorAutorizar={p.ajustePorAutorizar}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
+                        <span className="truncate">
+                          {nombres.get(p.clienteId) || <span className="text-ink-muted">—</span>}
+                        </span>
+                        <span className="shrink-0 font-mono tabular-nums">
+                          {formatoMonto(p.montoDeposito, p.moneda)}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
-          'min-w-0 flex-1 md:overflow-y-auto',
+          '@container min-h-0 min-w-0 flex-1 md:overflow-y-auto',
           idActivo == null ? 'hidden md:block' : 'block',
         )}
         aria-label="Detalle de la propuesta"
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

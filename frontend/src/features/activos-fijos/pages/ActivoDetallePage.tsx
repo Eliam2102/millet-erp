@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { HistorialActivo } from '../components/HistorialActivo';
 import { ReversaActivo } from '../components/ReversaActivo';
@@ -57,26 +58,31 @@ export function ActivoDetallePage() {
       },
     );
   return (
-    <main className="flex h-full min-h-0 gap-5 text-sm">
-      <aside
-        className="hidden w-80 shrink-0 overflow-auto rounded-lg bg-surface-card p-4 shadow-card-flat lg:block"
-        data-print="hidden"
-      >
-        <Link to="/activos-fijos/activos" className="text-brand">
-          Todos los activos
-        </Link>
-        {lista.data?.items.map((x) => (
-          <Link
-            key={x.id}
-            to="/activos-fijos/activos/$id"
-            params={{ id: x.id }}
-            className="block border-b border-line-row py-3"
-          >
-            <span className="font-mono">{x.numero}</span>
-            <p className="text-ink-muted">{x.descripcion}</p>
+    <MaestroDetalle
+      seleccionado
+      etiquetaLista="activos"
+      lista={
+        <aside
+          className="hidden w-80 shrink-0 overflow-auto rounded-lg bg-surface-card p-4 shadow-card-flat lg:block"
+          data-print="hidden"
+        >
+          <Link to="/activos-fijos/activos" className="text-brand">
+            Todos los activos
           </Link>
-        ))}
-      </aside>
+          {lista.data?.items.map((x) => (
+            <Link
+              key={x.id}
+              to="/activos-fijos/activos/$id"
+              params={{ id: x.id }}
+              className="block border-b border-line-row py-3"
+            >
+              <span className="font-mono">{x.numero}</span>
+              <p className="text-ink-muted">{x.descripcion}</p>
+            </Link>
+          ))}
+        </aside>
+      }
+    >
       <section className="min-w-0 flex-1 space-y-5 overflow-auto">
         <div className="flex flex-wrap items-center gap-3" data-print="hidden">
           <h1 className="font-mono text-xl font-semibold">{a.numero}</h1>
@@ -447,6 +453,6 @@ export function ActivoDetallePage() {
         </Tabs>
         {editar && <ActivoForm activo={a} onClose={() => setEditar(false)} />}
       </section>
-    </main>
+    </MaestroDetalle>
   );
 }
