@@ -168,7 +168,7 @@ function ConceptoInline({
   const cantidadId = `linea-${index}-cantidad`;
   useEffect(() => {
     void form.trigger(`lineas.${index}.cantidad`);
-  }, [productoId, decimalesCantidad, form, index]);
+  }, [productoId, decimalesCantidad, linea.cantidad, form, index]);
   // Con producto del catálogo, lo fiscal es de solo lectura (se corrige
   // en el master, no en la factura) — mismo principio que el receptor.
   const fiscalFija = productoId != null;
