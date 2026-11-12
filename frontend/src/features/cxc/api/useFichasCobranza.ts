@@ -87,10 +87,15 @@ function useAccionFicha<TArgs>(ruta: (a: TArgs) => string, cuerpo: (a: TArgs) =>
   });
 }
 
+/** Cuerpo sin el identificador que ya va en la ruta. */
+function sinCampo<T extends object, K extends keyof T>(obj: T, campo: K): Omit<T, K> {
+  return Object.fromEntries(Object.entries(obj).filter(([k]) => k !== campo)) as Omit<T, K>;
+}
+
 export const useAsignarResponsableFicha = () =>
   useAccionFicha<{ facturaCarteraId: string; responsableId: string; responsableNombre: string | null; siguienteRevision?: string; motivo?: string }>(
     (a) => `${BASE}/${a.facturaCarteraId}/responsable`,
-    ({ facturaCarteraId: _f, ...resto }) => resto,
+    (a) => sinCampo(a, 'facturaCarteraId'),
   );
 
 export const useRegistrarGestionFicha = () =>
@@ -102,22 +107,22 @@ export const useRegistrarGestionFicha = () =>
     montoComprometido?: number;
     fechaComprometida?: string;
     siguienteRevision?: string;
-  }>((a) => `${BASE}/${a.facturaCarteraId}/gestion`, ({ facturaCarteraId: _f, ...resto }) => resto);
+  }>((a) => `${BASE}/${a.facturaCarteraId}/gestion`, (a) => sinCampo(a, 'facturaCarteraId'));
 
 export const useReprogramarFicha = () =>
   useAccionFicha<{ facturaCarteraId: string; siguienteRevision: string; motivo: string }>(
     (a) => `${BASE}/${a.facturaCarteraId}/reprogramar`,
-    ({ facturaCarteraId: _f, ...resto }) => resto,
+    (a) => sinCampo(a, 'facturaCarteraId'),
   );
 
 export const useEscalarFicha = () =>
   useAccionFicha<{ facturaCarteraId: string; supervisorId: string; supervisorNombre: string | null; motivo: string }>(
     (a) => `${BASE}/${a.facturaCarteraId}/escalar`,
-    ({ facturaCarteraId: _f, ...resto }) => resto,
+    (a) => sinCampo(a, 'facturaCarteraId'),
   );
 
 export const useCorregirEventoFicha = () =>
   useAccionFicha<{ eventoId: string; notaCorregida: string; motivo: string }>(
     (a) => `${BASE}/eventos/${a.eventoId}/corregir`,
-    ({ eventoId: _e, ...resto }) => resto,
+    (a) => sinCampo(a, 'eventoId'),
   );
