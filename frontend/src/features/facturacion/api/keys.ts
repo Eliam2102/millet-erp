@@ -76,6 +76,7 @@ export const facturacionKeys = {
   // Lookups de catálogo para pickers de emisión (FAC-UX-PR4)
   clientesLookup: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.all, 'catalogos', 'clientes', filtros] as const,
+  clienteEtiqueta: (id: string) => [...facturacionKeys.all, 'catalogos', 'clientes', 'etiqueta', id] as const,
   productosAwLookup: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.all, 'catalogos', 'productos-aw', filtros] as const,
   // Catálogo administrable de canales de venta (FAC-ING-PR3). Las
