@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { AutorizarHojaBody, ConfirmarEntregaBody, CrearHojaSalidaBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
+import type { AutorizarHojaBody, CancelarFacturaCasoBody, CasoDanoDto, CasosPagina, ConfirmarEntregaBody, CorregirEntregaBody, DictaminarCasoBody, PiezaDto, ResolverParcialBody, SolicitarParcialBody, SolicitudParcialDto, SolicitudesParcialesPagina, UbicarPiezasBody, CrearHojaSalidaBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -193,5 +193,103 @@ export function useEvidenciaEntrega(hojaId: string, albaranId: string, activa: b
     queryKey: [...ptKeys.all, 'entrega-evidencia', hojaId, albaranId],
     enabled: activa,
     queryFn: async ({ signal }) => (await apiRequest<EntregaEvidenciaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/entrega/evidencia`, { signal })).data,
+  });
+}
+
+/** M-251: asigna almacén y lugar a piezas EnPT. */
+export function useUbicarPiezas() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async (body: UbicarPiezasBody) =>
+      (await apiRequest<PiezaDto[]>(`${BASE}/piezas/ubicar`, { method: 'POST', body, idempotencyKey: keyFor(body) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export function useSolicitudesParciales(f: { estado?: string; pedido?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'salidas-parciales', f],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<SolicitudesParcialesPagina>(`${BASE}/salidas-parciales${qs(f)}`, { signal })).data,
+  });
+}
+
+export function useSolicitarSalidaParcial() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async (body: SolicitarParcialBody) =>
+      (await apiRequest<SolicitudParcialDto>(`${BASE}/salidas-parciales`, { method: 'POST', body, idempotencyKey: keyFor(body) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export function useResolverSalidaParcial() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: ResolverParcialBody }) =>
+      (await apiRequest<SolicitudParcialDto>(`${BASE}/salidas-parciales/${id}/resolver`, { method: 'POST', body, idempotencyKey: keyFor({ id, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** M-247: albarán de una hoja Emitida. Pedir y resolver la cancelación son dos pasos de dos personas. */
+export function useCancelacionAlbaran() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ hojaId, albaranId, paso, body }: { hojaId: string; albaranId: string; paso: 'solicitar-cancelacion' | 'resolver-cancelacion'; body: { motivo: string; autorizar?: boolean } }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/${paso}`, { method: 'POST', body, idempotencyKey: keyFor({ hojaId, albaranId, paso, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** M-248: corrige una entrega ya confirmada; queda una versión nueva en el historial. */
+export function useCorregirEntrega() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ hojaId, albaranId, body }: { hojaId: string; albaranId: string; body: CorregirEntregaBody }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/entrega/corregir`, { method: 'POST', body, idempotencyKey: keyFor({ hojaId, albaranId, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export function useCasos(f: { estado?: string; pedido?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'casos', f],
+    queryFn: async ({ signal }) => (await apiRequest<CasosPagina>(`${BASE}/casos${qs(f)}`, { signal })).data,
+  });
+}
+
+export function useEvidenciaCaso(id: string, activa: boolean) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'caso-evidencia', id],
+    enabled: activa,
+    queryFn: async ({ signal }) => (await apiRequest<EntregaEvidenciaDto>(`${BASE}/casos/${id}/evidencia`, { signal })).data,
+  });
+}
+
+export type AccionCaso =
+  | { tipo: 'registrar'; body: { etiquetas: string[]; motivo: string; evidencia?: string } }
+  | { tipo: 'evidencia'; id: string; body: { evidencia: string } }
+  | { tipo: 'dictaminar'; id: string; body: DictaminarCasoBody }
+  | { tipo: 'nota-credito'; id: string }
+  | { tipo: 'cancelar-factura'; id: string; body: CancelarFacturaCasoBody }
+  | { tipo: 'cerrar'; id: string };
+
+/** Una sola mutación para todas las acciones del caso; la llave lleva la acción completa. */
+export function useAccionCaso() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async (a: AccionCaso) => {
+      const ruta = a.tipo === 'registrar' ? `${BASE}/casos` : `${BASE}/casos/${a.id}/${a.tipo}`;
+      const body = 'body' in a ? a.body : undefined;
+      return (await apiRequest<CasoDanoDto>(ruta, { method: 'POST', body, idempotencyKey: keyFor(a) })).data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
   });
 }

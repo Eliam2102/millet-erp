@@ -4,6 +4,8 @@ import { PiezasPage } from './PiezasPage';
 
 const state = vi.hoisted(() => ({ usePiezas: vi.fn(), refetch: vi.fn() }));
 
+vi.mock('./TramoDetenidoBanner', () => ({ TramoDetenidoBanner: () => null }));
+vi.mock('../lib/usuarios', () => ({ useNombreUsuario: () => (id?: string | null) => id ?? '—' }));
 vi.mock('@/components/erp', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/components/erp')>()),
   Breadcrumbs: () => null,

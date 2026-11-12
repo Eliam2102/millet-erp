@@ -6,6 +6,8 @@ import { TraspasosPage } from './TraspasosPage';
 
 const state = vi.hoisted(() => ({ lista: vi.fn(), detalle: vi.fn(), recibir: vi.fn(), crear: vi.fn() }));
 
+vi.mock('./TramoDetenidoBanner', () => ({ TramoDetenidoBanner: () => null }));
+vi.mock('../lib/usuarios', () => ({ useNombreUsuario: () => (id?: string | null) => id ?? '—' }));
 vi.mock('@/components/erp', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/components/erp')>()),
   Breadcrumbs: () => null,

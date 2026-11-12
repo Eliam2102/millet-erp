@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Breadcrumbs, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
@@ -64,6 +65,7 @@ export function TraspasosPage() {
         titulo="Traspasos entre sucursales"
         descripcion="Registra la salida y recepción de piezas entre sucursales y revisa las diferencias pendientes."
       />
+      <TramoDetenidoBanner />
       {error && (
         <AvisoEnLinea tono="error" titulo="No se pudo completar la acción">
           {error}

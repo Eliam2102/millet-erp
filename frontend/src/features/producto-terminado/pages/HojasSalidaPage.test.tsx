@@ -6,6 +6,8 @@ import { HojasSalidaPage } from './HojasSalidaPage';
 
 const state = vi.hoisted(() => ({ lista: vi.fn(), detalle: vi.fn(), accion: vi.fn(), crear: vi.fn() }));
 
+vi.mock('./TramoDetenidoBanner', () => ({ TramoDetenidoBanner: () => null }));
+vi.mock('../lib/usuarios', () => ({ useNombreUsuario: () => (id?: string | null) => id ?? '—' }));
 vi.mock('@/components/erp', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/components/erp')>()),
   Breadcrumbs: () => null,
@@ -29,6 +31,7 @@ vi.mock('../api/hooks', () => ({
   useAccionHojaSalida: () => ({ mutateAsync: state.accion, isPending: false }),
   useCrearHojaSalida: () => ({ mutateAsync: state.crear, isPending: false }),
   useCargaHoja: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCancelacionAlbaran: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 const hoja = (estado: string) => ({
