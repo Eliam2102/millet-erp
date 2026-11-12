@@ -1,5 +1,5 @@
 import { FormCampo } from '@/components/erp/forms/FormGrid';
-import { FormGrid } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { DialogBody } from '@/components/ui/dialog';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -247,9 +247,12 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
 
   function handleRecuperar() {
     if (recovery.draft) {
-      form.reset({ ...buildEmptyValues(sucursalActivaId), ...recovery.draft.values }, {
-        keepDirty: true,
-      });
+      form.reset(
+        { ...buildEmptyValues(sucursalActivaId), ...recovery.draft.values },
+        {
+          keepDirty: true,
+        },
+      );
     }
     recovery.acknowledge();
     setShowRecoverModal(false);
@@ -265,6 +268,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
       {!embedded && (
         <PageHeader
           titulo="Nueva requisición"
+          descripcion="Define la solicitud; después podrás agregar partidas y transmitirla a autorización."
           acciones={
             <Button asChild variant="ghost">
               <Link to="/compras/requisiciones" search={DEFAULT_BANDEJA_SEARCH}>
@@ -279,11 +283,18 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         noValidate
-        className="rounded-md border bg-surface-card p-4"
+        className="space-y-6 rounded-md border border-line bg-surface-card p-4 md:p-5"
       >
-        <FormGrid>
+        <p className="text-xs text-ink-muted">
+          Completa las secciones en orden. Los campos con * son obligatorios.
+        </p>
+        <FormSeccion
+          numero={1}
+          titulo="Datos del solicitante"
+          descripcion="Elige la sucursal y el departamento que necesitan la compra."
+        >
           {/* Sucursal */}
-          <FormCampo span={6}>
+          <FormCampo span={canSelectRequisitante && canReadUsuarios ? 4 : 6}>
             <Field label="Sucursal" error={form.formState.errors.sucursalId?.message} required>
               {(c) => (
                 <Controller
@@ -302,7 +313,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
           </FormCampo>
 
           {/* Departamento */}
-          <FormCampo span={6}>
+          <FormCampo span={canSelectRequisitante && canReadUsuarios ? 4 : 6}>
             <Field
               label="Departamento"
               error={form.formState.errors.departamentoId?.message}
@@ -326,8 +337,8 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
           </FormCampo>
 
           {/* Requisitante (gateado por permiso) */}
-          <FormCampo span={6}>
-            {canSelectRequisitante && canReadUsuarios && (
+          {canSelectRequisitante && canReadUsuarios && (
+            <FormCampo span={4}>
               <Field
                 label="Requisitante (delegación)"
                 error={form.formState.errors.requisitanteId?.message}
@@ -347,11 +358,16 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
                   />
                 )}
               </Field>
-            )}
-          </FormCampo>
-
+            </FormCampo>
+          )}
+        </FormSeccion>
+        <FormSeccion
+          numero={2}
+          titulo="Detalle de la solicitud"
+          descripcion="Clasifica la solicitud y explica la necesidad y la fecha deseada."
+        >
           {/* Clasificación */}
-          <FormCampo span={6}>
+          <FormCampo span={4}>
             <Field
               label={conAyuda('Clasificación', 'Determina quién autoriza la requisición.')}
               error={form.formState.errors.clasificacion?.message}
@@ -391,7 +407,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
           </FormCampo>
 
           {/* Prioridad */}
-          <FormCampo span={6}>
+          <FormCampo span={4}>
             <Field
               label={conAyuda(
                 'Prioridad',
@@ -427,7 +443,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
           </FormCampo>
 
           {/* Fecha entrega deseada */}
-          <FormCampo span={6}>
+          <FormCampo span={4}>
             <Field
               label="Fecha entrega deseada"
               error={form.formState.errors.fechaEntregaDeseada?.message}
@@ -449,6 +465,34 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
             </Field>
           </FormCampo>
 
+          {/* Descripción (full-width) */}
+          <FormCampo span={12}>
+            <div className="md:col-span-2">
+              <Field label="Descripción" error={form.formState.errors.descripcion?.message}>
+                {(c) => (
+                  <Controller
+                    name="descripcion"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextAreaField
+                        textareaProps={c}
+                        value={field.value ?? null}
+                        onChange={(v) => field.onChange(v)}
+                        maxLength={500}
+                        minRows={3}
+                      />
+                    )}
+                  />
+                )}
+              </Field>
+            </div>
+          </FormCampo>
+        </FormSeccion>
+        <FormSeccion
+          numero={3}
+          titulo="Condiciones de surtido"
+          descripcion="Indica si tienes un proveedor sugerido y cómo debe apartarse la existencia de almacén."
+        >
           {/* Proveedor sugerido */}
           <FormCampo span={6}>
             <Field
@@ -519,66 +563,44 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
               )}
             />
           </FormCampo>
-          {/* Descripción (full-width) */}
-          <FormCampo span={12}>
-            <div className="md:col-span-2">
-              <Field label="Descripción" error={form.formState.errors.descripcion?.message}>
-                {(c) => (
-                  <Controller
-                    name="descripcion"
-                    control={form.control}
-                    render={({ field }) => (
-                      <TextAreaField
-                        textareaProps={c}
-                        value={field.value ?? null}
-                        onChange={(v) => field.onChange(v)}
-                        maxLength={500}
-                        minRows={3}
-                      />
-                    )}
-                  />
-                )}
-              </Field>
-            </div>
-          </FormCampo>
-
-          {/* Submit + cancel */}
-          <FormCampo span={12}>
-            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-              <Input
-                // Hidden — fechaSolicitud se inicializa una vez en
-                // buildEmptyValues() al montar el form y queda estable durante
-                // la vida del componente. En el submit usamos values.fechaSolicitud
-                // (NO recalculamos con new Date()) para que el body del request
-                // sea estable y reintentos con la misma idempotency key no
-                // disparen IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY.
-                type="hidden"
-                {...form.register('fechaSolicitud')}
-              />
-              {embedded ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  // Wrapper para descartar el MouseEvent de React — onClose
-                  // acepta opts opcionales, no un event handler.
-                  onClick={() => onClose?.()}
-                  disabled={crear.isPending}
-                >
-                  Cancelar
-                </Button>
-              ) : (
-                <Button asChild variant="ghost">
-                  <Link to="/compras/requisiciones" search={DEFAULT_BANDEJA_SEARCH}>
-                    Cancelar
-                  </Link>
-                </Button>
-              )}
-              <Button type="submit" disabled={crear.isPending}>
-                {crear.isPending ? 'Creando…' : 'Crear requisición'}
-              </Button>
-            </div>
-          </FormCampo>
-        </FormGrid>
+        </FormSeccion>
+        {/* Submit + cancel */}
+        <p className="text-xs text-ink-muted">
+          Se creará un borrador. Agrega las partidas y transmite la requisición cuando esté lista.
+        </p>
+        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+          <Input
+            // Hidden — fechaSolicitud se inicializa una vez en
+            // buildEmptyValues() al montar el form y queda estable durante
+            // la vida del componente. En el submit usamos values.fechaSolicitud
+            // (NO recalculamos con new Date()) para que el body del request
+            // sea estable y reintentos con la misma idempotency key no
+            // disparen IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY.
+            type="hidden"
+            {...form.register('fechaSolicitud')}
+          />
+          {embedded ? (
+            <Button
+              type="button"
+              variant="ghost"
+              // Wrapper para descartar el MouseEvent de React — onClose
+              // acepta opts opcionales, no un event handler.
+              onClick={() => onClose?.()}
+              disabled={crear.isPending}
+            >
+              Cancelar
+            </Button>
+          ) : (
+            <Button asChild variant="ghost">
+              <Link to="/compras/requisiciones" search={DEFAULT_BANDEJA_SEARCH}>
+                Cancelar
+              </Link>
+            </Button>
+          )}
+          <Button type="submit" disabled={crear.isPending}>
+            {crear.isPending ? 'Creando…' : 'Crear requisición'}
+          </Button>
+        </div>
       </form>
 
       <RecuperarBorradorModal

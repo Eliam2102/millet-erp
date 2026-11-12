@@ -40,17 +40,15 @@ export function EmpresaSelector() {
   };
 
   return (
-    <div className="flex flex-col">
-      <label className="flex items-center gap-2">
-        <span className="hidden text-sm text-ink-muted sm:inline">
-          Empresa:
-        </span>
+    <div className="flex min-w-0 flex-1 flex-col md:flex-none">
+      <label className="flex min-w-0 flex-col items-start gap-1 md:flex-row md:items-center md:gap-2">
+        <span className="text-2xs text-ink-muted md:hidden 2xl:inline">Empresa:</span>
         <select
           aria-label="Empresa activa"
           value={currentEmpresa?.id ?? ''}
           onChange={handleChange}
           disabled={isBusy}
-          className="max-w-28 rounded-md border border-line-control bg-surface-card px-2 py-1 text-sm disabled:opacity-50 sm:max-w-none"
+          className="h-11 w-full min-w-0 rounded-md border border-line-control bg-surface-card px-2 text-sm disabled:opacity-50 md:h-8 md:w-auto md:max-w-28 2xl:max-w-44"
         >
           {empresas.map((e) => (
             <option key={e.id} value={e.id}>
@@ -58,15 +56,9 @@ export function EmpresaSelector() {
             </option>
           ))}
         </select>
-        {isBusy && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        )}
+        {isBusy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </label>
-      {error && (
-        <span className="text-xs text-danger-fg mt-1">
-          {error}
-        </span>
-      )}
+      {error && <span className="text-xs text-danger-fg mt-1">{error}</span>}
     </div>
   );
 }

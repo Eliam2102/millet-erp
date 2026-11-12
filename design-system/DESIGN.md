@@ -539,3 +539,11 @@ design-system/
   tailwind.config.ts ← copiar/mergear a la raíz
 src/components/ui/   ← componentes shadcn con las variantes de la sección 4
 ```
+
+## Revisión local de navegación y cabecera · 12-nov-2026
+Por instrucción de Eliam, esta rama propone sustituir el panel lateral permanente por navegación ocultable pegada al borde izquierdo, desde debajo de cabecera al pie, sin radios ni separación. Reutiliza rail76/panel240; cerrada libera ancho y fijada reserva316px. Menú accesible y hover de4px de escritorio; cierre automático con excepción de búsqueda enfocada/pin, Escape disponible y movimiento reducido. En móvil conserva drawer por toque.
+
+La cabecera móvil prioriza marca/menu/búsqueda/campana/usuario; empresa/sucursal se muestran en fila adaptable con labels y selectores44px. Herramientas secundarias en Más opciones hastaxl; escritorio56px conserva controles sin scroll horizontal. Los paneles de herramientas/avisos caben en viewport. Esto sustituye el patrón de shell/header anterior sólo para el candidato local: no acredita publicación ni aceptaciónMillet. Reglas/servicios/roles sin cambios.
+
+### Corrección posterior de Eliam · cabecera limpia
+Eliam rechaza el header anterior por controles amontonados y pide quitar «Millet ERP». La cabecera móvil y de escritorio eliminan esa marca textual; los controles móviles tienen separación horizontal8px. Funciones, contexto, permisos y sidebar conservados. Sustituye el criterio previo de marca visible en esta propuesta local; sin publicación.
