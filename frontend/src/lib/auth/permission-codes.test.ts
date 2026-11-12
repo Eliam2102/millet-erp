@@ -406,6 +406,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'producto_terminado.salida.aprobar-credito',
   'producto_terminado.salida.aprobar-ventas',
   // Comercio Exterior CE-01a.
+  'comercio_exterior.servicios.autorizar-nivel1',
+  'comercio_exterior.servicios.autorizar-nivel2',
   'comercio_exterior.otr.gestionar',
   'comercio_exterior.expedientes.leer',
   'comercio_exterior.expedientes.contenedores-gestionar',
