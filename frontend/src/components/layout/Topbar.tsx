@@ -1,6 +1,4 @@
-import { NotificacionesCompras } from './NotificacionesCompras';
-import { NotificacionesAlmacen } from './NotificacionesAlmacen';
-import { NotificacionesIncidencias } from './NotificacionesIncidencias';
+import { CampanaAvisos } from '@/features/notificaciones/components/CampanaAvisos';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { HelpCircle, Menu, PanelLeftOpen, Search, Settings } from 'lucide-react';
@@ -248,9 +246,7 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
           </Button>
         )}
 
-        <NotificacionesCompras />
-        <NotificacionesAlmacen />
-        <NotificacionesIncidencias />
+        <CampanaAvisos />
         {usuarioPuedeVerAdmin && (
           <Button variant="ghost" size="icon" asChild aria-label="Configuración">
             <Link to="/admin">
