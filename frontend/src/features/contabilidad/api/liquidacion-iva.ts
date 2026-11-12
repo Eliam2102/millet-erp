@@ -88,6 +88,8 @@ export function useGenerarPolizaLiquidacionIva() {
       ).data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['contabilidad', 'polizas'] });
+      // Al crear el borrador nace la foto del papel de trabajo (H-U27): sin esto el panel seguía en «sin papel».
+      void qc.invalidateQueries({ queryKey: ['contabilidad', 'papel-trabajo-iva'] });
     },
   });
 }
