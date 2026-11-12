@@ -87,9 +87,19 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
         if (envio.ExpedienteId is Guid id)
         {
             var e = await Expedientes.SingleAsync(x => x.Id == id && x.EmpresaId == request.EmpresaId, cancellationToken);
-            e.RevisarPartidasOtr(e.Partidas.Where(p => p.ContenedorId == envio.ContenedorId).Select(p => p.Id));
-            if (envio.Estado != EstadoOtrEnvio.Cancelado)
-            { e.ExigirAbierto(); await ProponerAsync(envio, e, e.ResponsableUsuarioId, cancellationToken); }
+            if (envio.Estado == EstadoOtrEnvio.Cancelado)
+            {
+                var contenedorId = envio.ContenedorId!.Value;
+                var pedidosContenedor = e.Partidas.Where(p => p.ContenedorId == contenedorId).Select(p => p.PedidoFacturableId).Distinct().ToArray();
+                var tieneFactura = (await pedidos.ObtenerAsync(pedidosContenedor, cancellationToken)).Any(p => p.FacturaVigente)
+                    || await pedidos.TieneFacturaContenedorAsync(contenedorId, cancellationToken);
+                if (e.CancelarContenedorOtr(contenedorId, tieneFactura)) envio.CerrarPorContenedorCancelado();
+            }
+            else
+            {
+                e.RevisarPartidasOtr(e.Partidas.Where(p => p.ContenedorId == envio.ContenedorId).Select(p => p.Id));
+                e.ExigirAbierto(); await ProponerAsync(envio, e, e.ResponsableUsuarioId, cancellationToken);
+            }
         }
         else await EvaluarSinVinculoAsync(envio, cancellationToken);
         await db.SaveChangesAsync(cancellationToken); await tx.CommitAsync(cancellationToken); return true;

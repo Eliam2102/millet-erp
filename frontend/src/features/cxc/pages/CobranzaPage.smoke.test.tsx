@@ -31,6 +31,7 @@ import { CobranzaPage } from '@/features/cxc/pages/CobranzaPage';
 const COBRANZA = '*/api/v1/cuentas-por-cobrar/cobranza';
 const LOOKUP = '*/api/v1/cuentas-por-cobrar/clientes-lookup';
 const USUARIOS = '*/api/v1/identidad/usuarios';
+const FICHAS = '*/api/v1/cuentas-por-cobrar/cobranza/fichas';
 
 beforeEach(() => {
   abrirSpy.mockClear();
@@ -52,6 +53,7 @@ beforeEach(() => {
   });
   mswServer.use(
     http.get(LOOKUP, () => HttpResponse.json([])),
+    http.get(FICHAS, () => HttpResponse.json([])),
     http.get(USUARIOS, () =>
       HttpResponse.json({
         items: [
