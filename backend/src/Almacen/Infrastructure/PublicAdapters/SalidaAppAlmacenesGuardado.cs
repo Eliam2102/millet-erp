@@ -162,4 +162,43 @@ public sealed class SalidaAppAlmacenesGuardado
             return (estado, folio, error, true);
         }
     }
+
+    /// <summary>
+    /// M-223: la ROTURA de la app entra pendiente, igual que la merma de proceso: se guarda el mensaje (con folio de revisión) sin mover
+    /// el saldo y la app recibe RECIBIDO. Baja la existencia hasta que un usuario del ERP la autoriza (<see cref="AutorizarRoturaAsync"/>).
+    /// </summary>
+    public async Task<(string Estado, string? Folio, string? Error, bool Duplicado)> GuardarRoturaPendienteAsync(
+        string mensajeId, string tipo, string? referencia, string payload, CancellationToken ct)
+    {
+        using var bypass = _empresa.Bypass();
+        var (_, folio, error, duplicado) = await GuardarMensajeAsync(mensajeId, tipo, referencia, payload, MensajeApp.Pendiente,
+            SalidaAppAlmacenes.FolioRevision(mensajeId), null, null, ct);
+        return (SalidaAppAlmacenes.Recibido, folio, error, duplicado);
+    }
+
+    /// <summary>
+    /// M-223: autoriza una ROTURA pendiente de la app. En una transacción: baja el saldo como cualquier salida de la app (costo promedio,
+    /// evento contable de merma) y marca el mensaje RECIBIDO con los folios y quién autorizó. Sin existencia o con otro error no mueve
+    /// nada y el mensaje sigue pendiente (devuelve el error). Quien autoriza no puede ser el usuario que capturó (el de la app).
+    /// </summary>
+    public async Task<(string? Folio, string? Error)> AutorizarRoturaAsync(string mensajeId, Guid empresaId, Guid capturoId, Guid usuarioId,
+        IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
+    {
+        if (usuarioId == Guid.Empty || usuarioId == capturoId)
+            throw new BusinessRuleException("ROTURA_MISMO_USUARIO", "La rotura debe autorizarla un usuario distinto de quien la capturó.");
+        await using var tx = _db.Database.IsNpgsql() ? await _db.Database.BeginTransactionAsync(ct) : null;
+        var mensaje = await _db.MensajesApp.FirstOrDefaultAsync(m => m.MensajeId == mensajeId && m.Estado == MensajeApp.Pendiente, ct)
+            ?? throw new BusinessRuleException("ROTURA_NO_PENDIENTE", "La rotura ya fue decidida o no existe.");
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(_db, _events, empresaId, usuarioId, salidas, ct);
+        if (estado != SalidaAppAlmacenes.Recibido)
+        {
+            if (tx is not null) await tx.RollbackAsync(ct);
+            _db.ChangeTracker.Clear();
+            return (null, error ?? "No se pudo dar de baja la rotura.");
+        }
+        mensaje.Autorizar(usuarioId, folio);
+        await _db.SaveChangesAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
+        return (folio, null);
+    }
 }
