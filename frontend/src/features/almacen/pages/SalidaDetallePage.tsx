@@ -25,6 +25,7 @@ import { EstadoMovimiento, type SalidaDetalle } from '@/features/almacen/api/typ
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
+import { CorreccionesConsumoSeccion } from '@/features/almacen/components/CorreccionesConsumoSeccion';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { ubicacionLabel } from '@/features/almacen/components/impresion/salida-display';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
@@ -244,6 +245,9 @@ export function SalidaDetallePage() {
               total={query.data.lineas.reduce((total, linea) => total + linea.montoTotalMxn, 0)}
             />
           </section>
+
+          {/* M-334 / M-331: correcciones de consumo (Costos autoriza; se aplican en el mes corriente). */}
+          <CorreccionesConsumoSeccion salida={query.data} />
 
           {/* U-4: vale por rectificar (ALM-vale-08) o diferencia de firma, conteo o acuse del surtido (ALM-salida-07). */}
           {query.data.esPorVale ? (
