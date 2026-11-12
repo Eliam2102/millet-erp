@@ -105,10 +105,10 @@ public sealed class RegistrarGestionFichaValidator : AbstractValidator<Registrar
 {
     public RegistrarGestionFichaValidator()
     {
-        RuleFor(c => request.FacturaCarteraId).NotEmpty();
-        RuleFor(c => request.Canal).IsInEnum();
-        RuleFor(c => request.Resultado).IsInEnum();
-        RuleFor(c => request.Nota).NotEmpty().MaximumLength(2000);
+        RuleFor(c => c.FacturaCarteraId).NotEmpty();
+        RuleFor(c => c.Canal).IsInEnum();
+        RuleFor(c => c.Resultado).IsInEnum();
+        RuleFor(c => c.Nota).NotEmpty().MaximumLength(2000);
     }
 }
 
@@ -145,8 +145,8 @@ public sealed class ReprogramarFichaValidator : AbstractValidator<ReprogramarFic
 {
     public ReprogramarFichaValidator()
     {
-        RuleFor(c => request.FacturaCarteraId).NotEmpty();
-        RuleFor(c => request.Motivo).NotEmpty().MaximumLength(400);
+        RuleFor(c => c.FacturaCarteraId).NotEmpty();
+        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
     }
 }
 
@@ -174,10 +174,10 @@ public sealed class EscalarFichaValidator : AbstractValidator<EscalarFichaComman
 {
     public EscalarFichaValidator()
     {
-        RuleFor(c => request.FacturaCarteraId).NotEmpty();
-        RuleFor(c => request.SupervisorId).NotEmpty();
-        RuleFor(c => request.SupervisorNombre).MaximumLength(200);
-        RuleFor(c => request.Motivo).NotEmpty().MaximumLength(400);
+        RuleFor(c => c.FacturaCarteraId).NotEmpty();
+        RuleFor(c => c.SupervisorId).NotEmpty();
+        RuleFor(c => c.SupervisorNombre).MaximumLength(200);
+        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
     }
 }
 
@@ -204,9 +204,9 @@ public sealed class CorregirEventoFichaValidator : AbstractValidator<CorregirEve
 {
     public CorregirEventoFichaValidator()
     {
-        RuleFor(c => request.EventoId).NotEmpty();
-        RuleFor(c => request.NotaCorregida).NotEmpty().MaximumLength(2000);
-        RuleFor(c => request.Motivo).NotEmpty().MaximumLength(400);
+        RuleFor(c => c.EventoId).NotEmpty();
+        RuleFor(c => c.NotaCorregida).NotEmpty().MaximumLength(2000);
+        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
     }
 }
 
