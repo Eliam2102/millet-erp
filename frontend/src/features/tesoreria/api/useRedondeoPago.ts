@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import type { RedondeoPagoResponse } from './types';
 import { normalizarRedondeos } from '../lib/redondeo-pago';
@@ -56,5 +56,15 @@ export function useRechazarRedondeoPago() {
         })
       ).data,
     onSuccess: () => void qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/** Solicitudes esperando al Gerente de Área (GET con `estado=Solicitada`). */
+export function useRedondeosPorAutorizar(habilitado: boolean) {
+  return useQuery({
+    queryKey: [...KEY, 'por-autorizar'],
+    enabled: habilitado,
+    queryFn: async ({ signal }) =>
+      normalizarRedondeos((await apiRequest<unknown>(`${BASE}?estado=Solicitada`, { signal })).data),
   });
 }
