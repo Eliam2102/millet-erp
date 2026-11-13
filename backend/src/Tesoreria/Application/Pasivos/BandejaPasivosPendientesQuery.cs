@@ -44,7 +44,13 @@ public sealed record PasivoPendienteResponse(
     Guid OrigenId,
     // 86e3tactf: bloqueo total del proveedor; el pago se rechaza con PROVEEDOR_BLOQUEADO.
     bool ProveedorBloqueado = false,
-    string? ProveedorMotivoBloqueo = null);
+    string? ProveedorMotivoBloqueo = null,
+    // M-326 (b): redondeo de hasta $0.99 de esta factura. Estado «Solicitada» (espera al Gerente de Área) o «Autorizada» (listo para
+    // usarse en el pago, aún sin consumir); null si no hay solicitud vigente. El importe lleva signo (ver RedondeoPagoListadoItem).
+    Guid? RedondeoSolicitudId = null,
+    string? RedondeoEstado = null,
+    decimal? RedondeoImporte = null,
+    bool RedondeoAutorizadoPendiente = false);
 
 public sealed record BandejaPasivosPendientesQuery(
     Guid? ProveedorId = null,
@@ -127,6 +133,14 @@ public sealed class BandejaPasivosPendientesHandler
             .GroupBy(m => m.Proveedor)
             .ToDictionary(g => g.Key, g => g.OrderBy(m => m.FechaValor).First().Id);
 
+        var facturasPagina = items.Select(p => p.FacturaProveedorId).ToList();
+        var redondeos = (await _db.AutorizacionesRedondeoPago.AsNoTracking()
+                .Where(a => facturasPagina.Contains(a.FacturaProveedorId)
+                    && (a.Estado == Domain.Pasivos.EstadoAutorizacionRedondeoPago.Solicitada
+                        || a.Estado == Domain.Pasivos.EstadoAutorizacionRedondeoPago.Autorizada))
+                .ToListAsync(cancellationToken))
+            .GroupBy(a => a.FacturaProveedorId).ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.CreadoEn).First());
+
         var verCompleta = await _permissions.TieneAsync(
             PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, cancellationToken);
 
@@ -176,7 +190,12 @@ public sealed class BandejaPasivosPendientesHandler
                 OrigenTipo: p.OrigenTipo,
                 OrigenId: p.OrigenId,
                 ProveedorBloqueado: prov?.Bloqueado ?? false,
-                ProveedorMotivoBloqueo: prov?.MotivoBloqueo);
+                ProveedorMotivoBloqueo: prov?.MotivoBloqueo,
+                RedondeoSolicitudId: redondeos.GetValueOrDefault(p.FacturaProveedorId)?.Id,
+                RedondeoEstado: redondeos.GetValueOrDefault(p.FacturaProveedorId)?.Estado.ToString(),
+                RedondeoImporte: redondeos.GetValueOrDefault(p.FacturaProveedorId)?.Redondeo,
+                RedondeoAutorizadoPendiente: redondeos.GetValueOrDefault(p.FacturaProveedorId)?.Estado
+                    == Domain.Pasivos.EstadoAutorizacionRedondeoPago.Autorizada);
         }).ToList();
 
         return new PagedResponse<PasivoPendienteResponse>(responses, offset, limit, total);
