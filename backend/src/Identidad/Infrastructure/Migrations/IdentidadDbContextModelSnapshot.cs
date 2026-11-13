@@ -4457,6 +4457,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000b-0003-0000-0000-000000000003"),
+                            Accion = "autorizar-redondeo",
+                            Codigo = "tesoreria.pagos.autorizar-redondeo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar el redondeo de hasta $0.99 de un pago a proveedor (Gerente de Área, distinto de quien lo solicita)",
+                            Modulo = "tesoreria",
+                            Recurso = "pagos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000b-0004-0000-0000-000000000001"),
                             Accion = "registrar",
                             Codigo = "tesoreria.pagos-cuenta.registrar",

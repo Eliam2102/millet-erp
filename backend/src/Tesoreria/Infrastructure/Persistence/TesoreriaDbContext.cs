@@ -52,6 +52,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
     /// <summary>Aplicaciones movimiento↔pasivo; el Id es el PagoId del evento <c>aplicado.v1</c> (PR-4).</summary>
     public DbSet<AplicacionPagoProveedor> AplicacionesPagoProveedor => Set<AplicacionPagoProveedor>();
+    public DbSet<Millet.Tesoreria.Domain.Pasivos.AutorizacionRedondeoPago> AutorizacionesRedondeoPago => Set<Millet.Tesoreria.Domain.Pasivos.AutorizacionRedondeoPago>();
 
     /// <summary>Proyección de pasivos autorizados por CxP — solo mutada por listener y aplicaciones (PR-3).</summary>
     public DbSet<PasivoPendientePago> PasivosPendientesPago => Set<PasivoPendientePago>();
@@ -114,6 +115,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new ConceptoMovimientoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoBancarioConfiguration());
         modelBuilder.ApplyConfiguration(new AplicacionPagoProveedorConfiguration());
+        modelBuilder.ApplyConfiguration(new AutorizacionRedondeoPagoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoReclasificacionConfiguration());
         modelBuilder.ApplyConfiguration(new PasivoPendientePagoConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionPagoComercioExteriorConfiguration());
