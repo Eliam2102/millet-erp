@@ -36,7 +36,7 @@ it('mantiene Automático cuando sus propios ajustes cambian la URL', async () =>
     return <>
       <div id="region-ruta-auto" data-table-viewport ref={el => {
         if (el) Object.defineProperty(el, 'clientHeight', { configurable: true, get: () => alto });
-      }} />
+      }}><div data-fila-registro>Muestra</div></div>
       <PaginacionTabla regionId="region-ruta-auto" total={200} offset={0} limit={limit}
         onChange={(_, cantidad) => {
           window.history.replaceState({}, '', `/prueba-paginacion?pageSize=${cantidad}`);
