@@ -1706,8 +1706,23 @@ export interface ReenviarCorreoResponse {
 // ─── NC bonificación + cancelación (FE-F5) ────────────────────────────
 
 /** Command de NC por bonificación (relación 01). */
+/** P53: tipo de la NC sobre una factura (las tres van a la misma cuenta contable). */
+export type TipoNotaCredito = 'Bonificacion' | 'Devolucion' | 'Cancelacion';
+
+export const TIPOS_NOTA_CREDITO: ReadonlyArray<{ value: TipoNotaCredito; label: string; ayuda: string }> = [
+  { value: 'Bonificacion', label: 'Bonificación o descuento', ayuda: 'Relación 01. Descuento posterior a la venta.' },
+  { value: 'Devolucion', label: 'Devolución de mercancía', ayuda: 'Relación 03. Por el importe de lo devuelto.' },
+  {
+    value: 'Cancelacion',
+    label: 'Cancelación de la factura',
+    ayuda: 'Relación 01. Anula el saldo pendiente completo de una factura que ya no se cancela ante el SAT.',
+  },
+];
+
 export interface NotaCreditoBonificacionCommand {
   facturaVentaId: string;
+  /** P53: sin tipo el backend la trata como bonificación. */
+  tipo?: TipoNotaCredito;
   montoTotal: number;
   tasaIva: number | null;
   descripcion: string | null;

@@ -428,8 +428,9 @@ public sealed class NotaCredito : Comprobante
         MotivoNotaCredito motivo = MotivoNotaCredito.Bonificacion)
     {
         // M-352: la devolución de producto terminado usa el mismo camino que la bonificación, con su motivo (relación 03, afecta inventario).
-        if (motivo is not (MotivoNotaCredito.Bonificacion or MotivoNotaCredito.Devolucion))
-            throw new BusinessRuleException("NC_MOTIVO_INVALIDO", "Solo bonificación o devolución.");
+        // P53: también la NC de cancelación (saldo completo, relación 01).
+        if (motivo is not (MotivoNotaCredito.Bonificacion or MotivoNotaCredito.Devolucion or MotivoNotaCredito.Cancelacion))
+            throw new BusinessRuleException("NC_MOTIVO_INVALIDO", "Solo bonificación, devolución o cancelación.");
         if (montoTotal <= 0)
             throw new BusinessRuleException("NC_MONTO_INVALIDO", "El monto de la nota de crédito debe ser mayor que cero.");
 
