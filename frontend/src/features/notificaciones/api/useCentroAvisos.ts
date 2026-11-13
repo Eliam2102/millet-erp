@@ -17,6 +17,7 @@ export function useCentroAvisos(filtros: FiltrosAvisos) {
   const sesion = useMemo(() => ({ scope, sonido: crearSonidoAvisos(JSON.stringify([usuario, empresa, sucursal])) }), [scope, usuario, empresa, sucursal]);
   const cliente = useQueryClient();
   const [errorAudio, setErrorAudio] = useState<{ scope: string; mensaje: string }>();
+  const [estadoAudio, setEstadoAudio] = useState<{ scope: string; mensaje: string }>();
   useEffect(() => {
     sesion.sonido.abrir();
     const recuperar = () => sesion.sonido.recuperar();
@@ -54,7 +55,10 @@ export function useCentroAvisos(filtros: FiltrosAvisos) {
         const cursor = data.novedades.hastaSecSeguro;
         if (!/^\d+$/.test(cursor)) throw new Error('La consulta devolvió una secuencia inválida.');
         if (!cursorRef.current.valor || BigInt(cursor) > BigInt(cursorRef.current.valor)) cursorRef.current.valor = cursor;
-        void sesion.sonido.sincronizar(cursor, data.novedades.hayNovedades, data.fuentes).catch(() => setErrorAudio({ scope, mensaje: 'El sonido no pudo reproducirse. Activa o prueba el sonido; los avisos visuales continúan.' }));
+        if (data.novedades.hayNovedades) setEstadoAudio({ scope, mensaje: 'Aviso nuevo recibido; preparando el sonido…' });
+        void sesion.sonido.sincronizar(cursor, data.novedades.hayNovedades, data.fuentes)
+          .then(mensaje => { if (mensaje) setEstadoAudio({ scope, mensaje }); })
+          .catch(() => setErrorAudio({ scope, mensaje: 'El sonido no pudo reproducirse. Activa o prueba el sonido; los avisos visuales continúan.' }));
         return data;
       } catch (error) { sesion.sonido.recuperar(); throw error; }
     },
@@ -69,15 +73,26 @@ export function useCentroAvisos(filtros: FiltrosAvisos) {
       await apiRequest(`${base}/preferencia-sonido`, { method: 'PUT', body: { habilitado } });
       return habilitado;
     },
-    onSuccess: habilitado => { cliente.setQueryData(['avisos-sonido', usuario], { habilitado }); setErrorAudio(undefined); },
+    onSuccess: async habilitado => {
+      sesion.sonido.establecerHabilitado(habilitado);
+      cliente.setQueryData(['avisos-sonido', usuario], { habilitado }); setErrorAudio(undefined);
+      if (habilitado) await query.refetch();
+      setEstadoAudio(habilitado ? { scope, mensaje: 'Sonido activado para avisos en esta pestaña.' } : undefined);
+    },
   });
   return {
     ...query, data: habilitada && !query.isError ? query.data : undefined, leer, cambiarSonido,
     sonidoHabilitado: preferencia.data?.habilitado === true && !preferencia.isError,
     errorPreferencia: preferencia.isError,
+    estadoAudio: estadoAudio?.scope === scope ? estadoAudio.mensaje : undefined,
     errorAudio: errorAudio?.scope === scope ? errorAudio.mensaje : preferencia.data?.habilitado && !sesion.sonido.soportado() ? 'Este navegador no permite alertas sonoras automáticas. Los avisos visuales continúan.' : undefined,
     async probarSonido() {
-      try { await sesion.sonido.probar(); setErrorAudio(undefined); }
+      try {
+        await sesion.sonido.probar(); setErrorAudio(undefined);
+        setEstadoAudio({ scope, mensaje: preferencia.data?.habilitado
+          ? 'Prueba reproducida. Sonido activado para avisos en esta pestaña.'
+          : 'Prueba reproducida. Activa el sonido para recibir avisos.' });
+      }
       catch { setErrorAudio({ scope, mensaje: 'No se pudo habilitar el sonido en este navegador. Los avisos visuales continúan.' }); }
     },
     scope,

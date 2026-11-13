@@ -78,11 +78,7 @@ public sealed class SolicitudesCatalogo(ContabilidadDbContext db, ICurrentUserCo
         try
         {
             resultado = await preparar();
-            db.ChangeTracker.DetectChanges();
-            cambios = db.ChangeTracker.Entries<CuentaContable>()
-                .Where(e => e.State is EntityState.Added or EntityState.Modified)
-                .Select(e => new CambioCuentaDto(foto.GetValueOrDefault(e.Entity.Id), CuentaResponse.De(e.Entity)))
-                .OrderBy(c => c.Despues.Codigo).ToList();
+            cambios = CapturarCambios(foto);
         }
         finally
         {
@@ -112,6 +108,15 @@ public sealed class SolicitudesCatalogo(ContabilidadDbContext db, ICurrentUserCo
             return (resultado, previa.Id);
         }
         return (resultado, solicitud.Id);
+    }
+
+    internal List<CambioCuentaDto> CapturarCambios(IReadOnlyDictionary<Guid, CuentaResponse> antes)
+    {
+        db.ChangeTracker.DetectChanges();
+        return db.ChangeTracker.Entries<CuentaContable>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified)
+            .Select(e => new CambioCuentaDto(antes.GetValueOrDefault(e.Entity.Id), CuentaResponse.De(e.Entity)))
+            .OrderBy(c => c.Despues.Codigo).ToList();
     }
 
     internal static string Huella(IEnumerable<CuentaContable> cuentas) => Convert.ToHexString(SHA256.HashData(
@@ -189,10 +194,11 @@ public sealed class ResolverSolicitudCatalogoHandler(ContabilidadDbContext db, F
         if (request.Autorizar)
         {
             var actuales = await db.Cuentas.AsNoTracking().OrderBy(c => c.Codigo).ToListAsync(cancellationToken);
-            if (s.HuellaCatalogo != SolicitudesCatalogo.Huella(actuales))
-                throw new ConflictException("CONTAB_SOLICITUD_CATALOGO_CAMBIO",
-                    "El catálogo cambió desde que se preparó la solicitud. Rechácela y prepare otra para revisar las diferencias vigentes.");
-            var ids = SolicitudCatalogoDto.De(s).Cambios.ToDictionary(c => c.Despues.Codigo, c => c.Despues.Id);
+            var foto = actuales.ToDictionary(c => c.Id, c => CuentaResponse.De(c));
+            var propuestos = SolicitudCatalogoDto.De(s).Cambios;
+            if (propuestos.Any(c => c.Antes is { } antes && foto.GetValueOrDefault(antes.Id) != antes))
+                throw PropuestaCambiada();
+            var ids = propuestos.ToDictionary(c => c.Despues.Codigo, c => c.Despues.Id);
             T Leer<T>() => JsonSerializer.Deserialize<T>(s.ComandoJson, SolicitudesCatalogo.Json)!;
             switch (s.Operacion)
             {
@@ -214,11 +220,17 @@ public sealed class ResolverSolicitudCatalogoHandler(ContabilidadDbContext db, F
                     break;
                 default: throw new InvalidOperationException("Operación de catálogo no admitida.");
             }
+            // También compara los efectos indirectos: nunca autoriza cambios distintos de los revisados.
+            if (!propuestos.SequenceEqual(solicitudes.CapturarCambios(foto)))
+                throw PropuestaCambiada();
         }
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
         return (await SolicitudCatalogoDto.ConCodigosAsync(db, [SolicitudCatalogoDto.De(s) with { Lote = lote }], cancellationToken))[0];
     }
+
+    private static ConflictException PropuestaCambiada() => new("CONTAB_SOLICITUD_CATALOGO_CAMBIO",
+        "Los datos o los efectos de esta solicitud cambiaron desde su preparación. Rechácela y prepare otra para revisar las diferencias vigentes.");
 }
 
 public sealed record ObtenerSolicitudCatalogoQuery(Guid Id) : IRequest<SolicitudCatalogoDto>;

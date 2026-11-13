@@ -8,7 +8,11 @@ import { TablaLibro } from '../components/TablaLibro';
 export function InpcPage() {
   const [periodo, setPeriodo] = useState('');
   const [valor, setValor] = useState('');
-  const [archivo, setArchivo] = useState<{ body: Blob; archivoHuella: string } | null>(null);
+  const [archivo, setArchivo] = useState<{
+    body: Blob;
+    archivoHuella: string;
+    headers: HeadersInit;
+  } | null>(null);
   const [errorArchivo, setErrorArchivo] = useState('');
   const q = useLibroQuery<{ id: string; anio: number; mes: number; valor: number }[]>('inpc', true);
   const guardar = useGuardarActivo();
@@ -91,11 +95,14 @@ export function InpcPage() {
               try {
                 const form = new FormData();
                 form.append('archivo', file);
-                const body = await new Response(form).blob();
+                const multipart = new Response(form);
+                const contentType = multipart.headers.get('Content-Type')!;
+                const body = await multipart.blob();
                 const huella = await crypto.subtle.digest('SHA-256', await body.arrayBuffer());
                 if (e.target.files?.[0] !== file) return;
                 setArchivo({
                   body,
+                  headers: { 'Content-Type': contentType },
                   archivoHuella: Array.from(new Uint8Array(huella), (b) =>
                     b.toString(16).padStart(2, '0'),
                   ).join(''),
