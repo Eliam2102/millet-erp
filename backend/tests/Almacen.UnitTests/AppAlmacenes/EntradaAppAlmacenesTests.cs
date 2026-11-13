@@ -74,6 +74,27 @@ public class EntradaAppAlmacenesTests
     }
 
     [Fact]
+    public async Task Carga_inicial_de_hoja_sin_lote_entra_como_apertura_al_costo_del_mensaje()
+    {
+        var (db, _, _) = Db();
+        var entrada = Hojas(2, null) with { CostoRespaldoMxn = 123m, CostoDelMensaje = true };
+        var (estado, folio, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal,
+            "FICTICIO QA apertura", null, "QA-APERTURA", [entrada], default,
+            tipo: TipoMovimiento.AjustePositivo, motivoClave: "CARGA_INICIAL");
+        await db.SaveChangesAsync();
+        estado.Should().Be(SalidaAppAlmacenes.Recibido);
+        error.Should().BeNull();
+        folio.Should().NotBeNullOrWhiteSpace();
+        var movimiento = await db.Movimientos.Include(m => m.Lineas).SingleAsync();
+        movimiento.Tipo.Should().Be(TipoMovimiento.AjustePositivo);
+        movimiento.MotivoClave.Should().Be("CARGA_INICIAL");
+        var linea = movimiento.Lineas.Single();
+        linea.Lote.Should().BeNull();
+        linea.Cantidad.Should().Be(2 * 20.1422m);
+        linea.CostoUnitarioMxn.Should().Be(123m);
+    }
+
+    [Fact]
     public async Task Dos_lotes_en_una_linea_dan_dos_renglones_por_lote()
     {
         var (db, _, _) = Db();

@@ -181,6 +181,34 @@ public class AlmacenesAppSalidasTests : IAsyncLifetime
         return await db.MensajesApp.AsNoTracking().Where(m => m.MensajeId == id).Select(m => m.Estado).SingleOrDefaultAsync();
     }
 
+    [Theory]
+    [InlineData("CONKAL")]
+    [InlineData("PERIFERICO")]
+    [InlineData("OBRAS")]
+    public async Task Alias_AW_resuelve_la_misma_sucursal_con_articulo_ficticio(string alias)
+    {
+        var muestra = await SembrarAsync(0);
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var maestros = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var sucursal = await maestros.Sucursales.FirstOrDefaultAsync(s => s.ClaveAw != null && s.ClaveAw.Contains("CONKAL"))
+            ?? await maestros.Sucursales.SingleAsync(s => s.Clave == "MID");
+        var previo = sucursal.ClaveAw;
+        try
+        {
+            await maestros.Sucursales.Where(s => s.Id == sucursal.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.ClaveAw, "CONKAL,PERIFERICO,OBRAS"));
+            var resolver = scope.ServiceProvider.GetRequiredService<IAppSalidaResolverPort>();
+            var resultado = await resolver.ResolverAsync(alias, [new GrupoSalidaApp(muestra.ArticuloAw, 2440m, 3660m)], default);
+            Assert.Null(resultado.Error);
+            Assert.Equal(sucursal.Id, resultado.SucursalId);
+            Assert.Single(resultado.Grupos);
+        }
+        finally
+        {
+            await maestros.Sucursales.Where(s => s.Id == sucursal.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.ClaveAw, previo));
+        }
+    }
+
     [Fact]
     public async Task CA4_4_AJUSTE_SALIDA_mesa_HEGLA1_con_3_hojas_baja_3_por_el_area_en_m2_y_acusa_RECIBIDO_con_folio()
     {
