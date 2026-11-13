@@ -37,6 +37,7 @@ describe('cantidad de registros', () => {
   it('ajusta a la región disponible y respeta una elección explícita al redimensionar', () => {
     const region = document.createElement('div');
     region.setAttribute('data-table-viewport', '');
+    region.innerHTML = '<div data-fila-registro>Muestra</div>';
     document.body.append(region);
     let alto = 480;
     Object.defineProperty(region, 'clientHeight', { get: () => alto });
@@ -55,6 +56,7 @@ describe('cantidad de registros', () => {
     const region = document.createElement('div');
     region.id = 'region-carga-asincrona';
     region.setAttribute('data-table-viewport', '');
+    region.innerHTML = '<div data-fila-registro>Muestra</div>';
     Object.defineProperty(region, 'clientHeight', { value: 920 });
     const h = renderHook(() => useTamanoPagina('carga-asincrona', 100, 10, region.id));
     expect(h.result.current.limit).toBe(10);
@@ -77,6 +79,7 @@ describe('cantidad de registros', () => {
     const region = document.createElement('div');
     region.id = 'region-edicion';
     region.setAttribute('data-table-viewport', '');
+    region.innerHTML = '<div data-fila-registro>Muestra</div>';
     document.body.append(region);
     let alto = 480;
     Object.defineProperty(region, 'clientHeight', { get: () => alto });

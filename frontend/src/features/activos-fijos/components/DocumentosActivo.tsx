@@ -41,7 +41,7 @@ export function DocumentosActivo({ activo }: { activo: Activo }) {
         <p className="text-ink-muted">Aún no hay documentos registrados.</p>
       )}
       {pagina.visibles.map((d) => (
-        <article key={d.id} className="space-y-2 border-b border-line-row py-3">
+        <article data-fila-registro key={d.id} className="space-y-2 border-b border-line-row py-3">
           <p>
             {tiposDocumento[d.tipo]} · <span className="font-mono">{d.folio}</span> · Versión{' '}
             {d.numeroVersion}{' '}

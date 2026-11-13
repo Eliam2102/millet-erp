@@ -44,7 +44,7 @@ interface ItemCompactoProps {
 
 function ItemCompacto({ item, activo }: ItemCompactoProps) {
   return (
-    <li>
+    <li data-fila-registro>
       <Link
         to="/admin/empresas/$id"
         params={{ id: item.id }}

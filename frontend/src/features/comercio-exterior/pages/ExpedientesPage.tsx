@@ -170,7 +170,7 @@ export function ExpedientesPage() {
           />
         ) : (
           <div className="flex h-full min-h-0 flex-col overflow-auto">
-            <Table className="h-full w-full text-left text-sm">
+            <Table className="w-full text-left text-sm">
               <TableHeader className="h-9 bg-surface-subtle text-2xs uppercase tracking-wide text-ink-muted">
                 <TableRow>
                   {[

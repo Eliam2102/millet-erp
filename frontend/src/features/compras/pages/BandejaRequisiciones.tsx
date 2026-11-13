@@ -63,9 +63,7 @@ export function BandejaRequisiciones() {
   const tamano = useTamanoPagina();
   const search = {
     ...ruta,
-    limit: new URLSearchParams(window.location.search).has('limit')
-      ? ruta.limit
-      : tamano.limit,
+    limit: ruta.limit ?? tamano.limit,
   };
   const nuevaRequisicion = useNuevaRequisicion();
   // useNavigate sin `from`: con `from` el typing pide ParamsReducerFn

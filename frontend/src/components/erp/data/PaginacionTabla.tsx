@@ -66,11 +66,13 @@ export function PaginacionTabla({
   }, [limit, offset, respetarUrl, cambiar]);
   useEffect(() => {
     if (tamanos.length === 0 || respetarUrl || preferencia.editando) return;
+    // El controlador ya mide Auto; el pie no debe guardarlo como una cantidad manual.
+    if (preferencia.modo === 'auto' && cantidadUrl === null) return;
     if (limit !== preferencia.limit && aplicado.current !== preferencia.limit) {
       aplicado.current = preferencia.limit;
       onChange(0, preferencia.limit);
     }
-  }, [limit, preferencia.limit, preferencia.editando, tamanos.length, respetarUrl, onChange]);
+  }, [limit, preferencia.limit, preferencia.editando, preferencia.modo, cantidadUrl, tamanos.length, respetarUrl, onChange]);
   useEffect(() => {
     if (total > 0 && offset > ultima) cambiar(ultima, cantidad);
   }, [total, offset, ultima, cantidad, cambiar]);

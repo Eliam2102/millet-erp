@@ -33,7 +33,7 @@ export function MantenimientosActivo({ activo }: { activo: Activo }) {
       {query.error && <p role="alert">{query.error.message}</p>}
       {query.data?.length === 0 && <p>Sin mantenimientos registrados.</p>}
       {pagina.visibles.map((h) => (
-        <article key={h.id} className="space-y-2 border-b border-line-row py-3">
+        <article data-fila-registro key={h.id} className="space-y-2 border-b border-line-row py-3">
           <p>
             {formatDate(h.fecha)} · {h.tipo === 0 ? 'Preventivo' : 'Correctivo'} · {h.descripcion}
           </p>

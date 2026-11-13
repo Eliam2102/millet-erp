@@ -89,9 +89,7 @@ export function BandejaPendientes() {
   const tamano = useTamanoPagina();
   const search = {
     ...ruta,
-    limit: new URLSearchParams(window.location.search).has('limit')
-      ? ruta.limit
-      : tamano.limit,
+    limit: ruta.limit ?? tamano.limit,
   };
   const navigate = useNavigate();
   const verTodosDepartamentos = useHasPermission(
