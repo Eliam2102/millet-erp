@@ -557,6 +557,7 @@ public static class PermisosCanonicos
     public const string TesoreriaMovimientosAutorizarReclasificacion = "tesoreria.movimientos.autorizar-reclasificacion";
     public const string TesoreriaPagosAplicar                   = "tesoreria.pagos.aplicar";
     public const string TesoreriaPagosRevertir                  = "tesoreria.pagos.revertir";
+    public const string TesoreriaPagosAutorizarRedondeo         = "tesoreria.pagos.autorizar-redondeo";
     public const string TesoreriaPagosCuentaRegistrar           = "tesoreria.pagos-cuenta.registrar";
     public const string TesoreriaPagosCuentaLigar               = "tesoreria.pagos-cuenta.ligar";
     public const string TesoreriaPagosCuentaAutorizar           = "tesoreria.pagos-cuenta.autorizar";
@@ -1061,6 +1062,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0002-0000-0000-000000000004"), TesoreriaMovimientosAutorizarReclasificacion, "Autorizar o rechazar la reclasificación de un movimiento bancario; no puede firmarla quien la solicitó"),
         (Guid.Parse("0000000b-0003-0000-0000-000000000001"), TesoreriaPagosAplicar,                 "Registrar pagos a proveedor contra pasivos autorizados por CxP"),
         (Guid.Parse("0000000b-0003-0000-0000-000000000002"), TesoreriaPagosRevertir,                "Revertir pagos aplicados (contramovimiento, RN-10)"),
+        (Guid.Parse("0000000b-0003-0000-0000-000000000003"), TesoreriaPagosAutorizarRedondeo,       "Autorizar o rechazar el redondeo de hasta $0.99 de un pago a proveedor (Gerente de Área, distinto de quien lo solicita)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000001"), TesoreriaPagosCuentaRegistrar,         "Registrar pagos a cuenta (egreso sin documento, gate RN-2)"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000002"), TesoreriaPagosCuentaLigar,             "Ligar tardíamente un pago a cuenta al pasivo provisionado"),
         (Guid.Parse("0000000b-0004-0000-0000-000000000003"), TesoreriaPagosCuentaAutorizar,         "Autorizar (firmar) un pago a cuenta; no puede firmarlo quien lo capturó"),

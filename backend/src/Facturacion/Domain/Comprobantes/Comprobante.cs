@@ -454,6 +454,30 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
         LugarExpedicion = emisor.LugarExpedicion;
     }
 
+    /// <summary>
+    /// N-01: al reintentar un timbrado fallido con el cliente ya corregido en el maestro, el receptor toma sus datos fiscales
+    /// vigentes (RFC, razón social, régimen y código postal); el uso de CFDI y el país son del documento y no cambian.
+    /// Solo antes de timbrar. Devuelve los campos que cambiaron.
+    /// </summary>
+    public IReadOnlyList<string> ActualizarReceptorParaReintento(DatosFiscalesReceptor receptor)
+    {
+        if (Estado != EstadoTimbrado.TimbradoFallido)
+            throw new BusinessRuleException("RECEPTOR_INMUTABLE",
+                "Solo se actualizan los datos del receptor de un comprobante cuyo timbrado falló.");
+        if (string.IsNullOrWhiteSpace(receptor.Rfc) || string.IsNullOrWhiteSpace(receptor.Nombre)
+            || string.IsNullOrWhiteSpace(receptor.RegimenFiscal) || string.IsNullOrWhiteSpace(receptor.CodigoPostal))
+            throw new BusinessRuleException("RECEPTOR_INCOMPLETO", "El receptor necesita RFC, razón social, régimen fiscal y código postal.");
+
+        var cambios = new List<string>();
+        var rfc = receptor.Rfc.ToUpperInvariant();
+        if (!string.Equals(ReceptorRfc, rfc, StringComparison.Ordinal)) { cambios.Add("RFC"); ReceptorRfc = rfc; }
+        if (!string.Equals(ReceptorNombre, receptor.Nombre, StringComparison.Ordinal)) { cambios.Add("razón social"); ReceptorNombre = receptor.Nombre; }
+        if (!string.Equals(ReceptorRegimenFiscal, receptor.RegimenFiscal, StringComparison.Ordinal)) { cambios.Add("régimen fiscal"); ReceptorRegimenFiscal = receptor.RegimenFiscal; }
+        if (!string.Equals(ReceptorCodigoPostal, receptor.CodigoPostal, StringComparison.Ordinal)) { cambios.Add("código postal"); ReceptorCodigoPostal = receptor.CodigoPostal; }
+        ReceptorEsGenerico = receptor.EsGenerico;
+        return cambios;
+    }
+
     public DatosFiscalesEmisor SnapshotEmisor() =>
         new(RfcEmisor, NombreEmisor, RegimenFiscalEmisor, LugarExpedicion);
 

@@ -48,6 +48,8 @@ public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     public Guid? SucursalId { get; init; }
     public Guid? ProveedorId { get; init; }
     public decimal? TipoCambioPago { get; init; }
+    /// <summary>M-326 (b, aditivo): redondeo autorizado (±≤0.99) incluido en <c>Monto</c>; el efectivo pagado es <c>Monto − Redondeo</c>. 0 si no hubo.</summary>
+    public decimal Redondeo { get; init; }
     public const string WireEventType = "tesoreria.pago-factura-proveedor.aplicado.v1";
 }
 

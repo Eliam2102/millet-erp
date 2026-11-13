@@ -74,8 +74,17 @@ describe('Sonido opcional coordinado', () => {
     const s = crearSonidoAvisos('reprobar'); await s.probar(); s.establecerHabilitado(true);
     await s.sincronizar('10', false, sanas);
     await s.probar(); start.mockClear();
-    await s.sincronizar('11', true, sanas); await s.sincronizar('11', true, sanas);
+    expect(await s.sincronizar('11', true, sanas)).toBe('Se reprodujo la alerta sonora.');
+    await s.sincronizar('11', true, sanas);
     expect(start).toHaveBeenCalledTimes(1);
+  });
+  it('informa por qué una novedad quedó sin sonido sin reproducirla', async () => {
+    const s = crearSonidoAvisos('motivos'); await s.probar(); s.establecerHabilitado(true);
+    expect(await s.sincronizar('1', true, sanas)).toContain('pendientes sin tono');
+    start.mockClear();
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    expect(await s.sincronizar('2', true, sanas)).toContain('segundo plano');
+    expect(start).not.toHaveBeenCalled();
   });
   it('una falla de audio se informa una vez y no reintenta hasta probarlo', async () => {
     const s = crearSonidoAvisos('bloqueo-audio'); await s.probar(); s.establecerHabilitado(true); await s.sincronizar('1', false, sanas); start.mockClear();
