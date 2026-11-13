@@ -68,6 +68,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
     [
         ("INVENTARIO", "1.1", "Deudora", "Ninguna"),
         ("IVA_ACREDITABLE_PENDIENTE", "1.2", "Deudora", "Ninguna"),
+        ("IVA_ACREDITABLE_PAGADO", "1.11", "Deudora", "Ninguna"),
         ("BANCOS", "1.3", "Deudora", "Ninguna"),
         ("BANCOS_MN", "1.4", "Deudora", "Ninguna"),
         ("CLIENTES", "1.5", "Deudora", "Clientes"),
@@ -79,6 +80,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
         ("PROVEEDORES", "2.2", "Acreedora", "Proveedores"),
         ("RETENCIONES_POR_PAGAR", "2.3", "Acreedora", "Ninguna"),
         ("IVA_TRASLADADO_NO_COBRADO", "2.4", "Acreedora", "Ninguna"),
+        ("IVA_TRASLADADO_COBRADO", "2.6", "Acreedora", "Ninguna"),
         ("ANTICIPOS_DE_CLIENTES", "2.5", "Acreedora", "Ninguna"),
         ("VENTAS", "4.1", "Acreedora", "Ninguna"),
         ("DESCUENTOS_SOBRE_VENTAS", "4.2", "Deudora", "Ninguna"),
@@ -322,7 +324,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                     "Transferencia", "REF-VOL"));
                 pasos.AddRange(clave == "C" ? [recepcion, pp, tt] : [recepcion, tt, pp]);
                 x.Mover("INVENTARIO", s);
-                x.Mover("IVA_ACREDITABLE_PENDIENTE", iva);
+                x.Mover(clave == "O" ? "IVA_ACREDITABLE_PENDIENTE" : "IVA_ACREDITABLE_PAGADO", iva);
                 if (clave == "O")
                 {
                     pasos.Add(new Paso('T', new PagoFacturaProveedorRevertidoIntegrationEvent(EmpresaBootstrapId, ocurrido, factura, pago, t, "MXN",
@@ -398,7 +400,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                 var factura = Guid.NewGuid();
                 pasos.Add(new Paso('F', FacturaVenta(ocurrido, dia, suc, factura, cliente, s, iva)));
                 x.Mover("VENTAS", -s);
-                x.Mover("IVA_TRASLADADO_NO_COBRADO", -iva);
+                x.Mover(clave is "E" or "G" or "H" ? "IVA_TRASLADADO_COBRADO" : "IVA_TRASLADADO_NO_COBRADO", -iva);
                 x.Polizas += 2;
                 switch (clave)
                 {
@@ -502,9 +504,17 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                 x.Rechazo(CausaRechazoContable.DatoFaltante, "CentroCostoId");
                 break;
             case "X3":
-                pasos.Add(new Paso('F', Cobro(ocurrido, suc, Guid.NewGuid(), Guid.NewGuid(), cliente, ("05", t))));
+            {
+                var factura = Guid.NewGuid();
+                pasos.Add(new Paso('F', FacturaVenta(ocurrido, dia, suc, factura, cliente, s, iva)));
+                pasos.Add(new Paso('F', Cobro(ocurrido, suc, Guid.NewGuid(), factura, cliente, ("05", t))));
+                x.Mover("CLIENTES", t);
+                x.Mover("VENTAS", -s);
+                x.Mover("IVA_TRASLADADO_NO_COBRADO", -iva);
+                x.Polizas += 1;
                 x.Rechazo(CausaRechazoContable.RolSinCuenta, RolSinCuenta);
                 break;
+            }
             case "X4":
                 pasos.Add(new Paso('F', FacturaVenta(ocurrido, new DateOnly(2097, dia.Month, dia.Day), suc, Guid.NewGuid(), cliente, s, iva)));
                 x.Rechazo(CausaRechazoContable.PeriodoCerrado, "CONTAB_PERIODO_INEXISTENTE");

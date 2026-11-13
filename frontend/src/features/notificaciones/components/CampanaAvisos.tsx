@@ -35,7 +35,7 @@ function ContenidoCampana() {
         {data && data.totalSinLeerConocido > 0 && <span className="absolute right-0 top-0 rounded-full bg-danger-bg px-1 text-2xs text-danger-fg tabular-nums">{data.coberturaCompleta ? '' : '≥'}{data.totalSinLeerConocido}</span>}
       </Button>
     </PopoverTrigger>
-    <PopoverContent align="end" className="w-96 space-y-3 bg-surface-card shadow-card">
+    <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)] space-y-3 bg-surface-card shadow-card">
       <h2 className="text-sm font-semibold">Notificaciones</h2>
       {data && <p className="text-xs text-ink-muted" role="status">{cantidad} sin leer · {data.coberturaCompleta ? '' : 'Al menos '}{data.totalAccionesConocidas} por hacer</p>}
       <div className="flex gap-2">
@@ -77,8 +77,9 @@ function ContenidoCampana() {
         <Button size="sm" variant="outline" disabled={!data.siguienteContinuacion} title={!data.siguienteContinuacion ? 'No hay otra página consultada' : undefined} onClick={() => { setAnteriores([...anteriores, filtros.continuacion]); setFiltros({ ...filtros, continuacion: data.siguienteContinuacion ?? undefined }); }}>Siguiente</Button>
       </div>}
       <div className="space-y-1 border-t border-line-divider pt-2">
-        <div className="flex items-center justify-between gap-2"><span className="text-xs text-ink-muted">Sonido {centro.sonidoHabilitado ? 'activado' : 'apagado'}</span><div className="flex gap-1"><Button variant="ghost" size="sm" disabled={centro.cambiarSonido.isPending} onClick={() => centro.cambiarSonido.mutate(!centro.sonidoHabilitado)}>{centro.sonidoHabilitado ? 'Desactivar' : 'Activar sonido'}</Button><Button variant="ghost" size="sm" onClick={() => void centro.probarSonido()}>Probar sonido</Button></div></div>
+        <div className="flex items-center justify-between gap-2"><span className="text-xs text-ink-muted">Sonido {centro.sonidoHabilitado ? 'activado' : 'apagado'}</span><div className="flex gap-1"><Button variant="ghost" size="sm" disabled={centro.cambiarSonido.isPending} onClick={() => centro.cambiarSonido.mutate(!centro.sonidoHabilitado)}>{centro.sonidoHabilitado ? 'Desactivar' : 'Activar sonido'}</Button><Button variant="ghost" size="sm" disabled={centro.cambiarSonido.isPending} title={centro.cambiarSonido.isPending ? 'Espera a que termine la activación del sonido' : undefined} onClick={() => void centro.probarSonido()}>Probar sonido</Button></div></div>
         <p className="text-xs text-ink-muted">Solo con el ERP abierto; al entrar, prueba el sonido para habilitarlo en este navegador. Leer un aviso no termina la acción.</p>
+        {centro.estadoAudio && <p role="status" className="text-xs text-ink-muted">Último estado del sonido: {centro.estadoAudio}</p>}
         {(centro.errorAudio || centro.errorPreferencia || centro.cambiarSonido.isError) && <p role="alert" className="text-xs text-warning-fg">{centro.errorAudio ?? 'No se pudo recuperar o guardar el sonido. Vuelve a probarlo; los avisos visuales continúan.'}</p>}
       </div>
     </PopoverContent>

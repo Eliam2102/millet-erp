@@ -10,6 +10,11 @@ const base = { isPending: false, isError: false, leer: { mutate: leer, isPending
 const data = { coberturaCompleta: false, fuentes: [{ id: 'compras', estado: 'Complete' }, { id: 'almacen', estado: 'Failed' }], totalSinLeerConocido: 32, totalAccionesConocidas: 45, totalFiltradoConocido: 50, siguienteContinuacion: 'p2', items: [{ leido: false, aviso: { claveOcurrencia: 'a'.repeat(64), titulo: 'Revisar orden', categoria: 'Accion', folio: 'OC-001', modulo: 'compras', motivo: 'Tu firma está pendiente', fechaOcurrencia: '2026-11-11T12:00:00Z', destino: '/compras/ordenes/uno' } }] };
 beforeEach(() => { hook.mockReset(); leer.mockClear(); hook.mockReturnValue({ ...base, data }); });
 describe('Campana común', () => {
+  it('muestra el motivo del último intento de sonido', () => {
+    hook.mockReturnValue({ ...base, data, estadoAudio: 'El ERP estaba en segundo plano cuando llegó el aviso.' });
+    render(<CampanaAvisos />); fireEvent.click(screen.getByRole('button', { name: /Notificaciones:/ }));
+    expect(screen.getByText(/Último estado del sonido:/)).toHaveTextContent('El ERP estaba en segundo plano');
+  });
   it('separa sin leer/por hacer, advierte cobertura incompleta y permite paginar', () => {
     render(<CampanaAvisos />); fireEvent.click(screen.getByRole('button', { name: 'Notificaciones: Al menos 32 sin leer' }));
     expect(screen.getByText('Al menos 32 sin leer · Al menos 45 por hacer')).toBeInTheDocument(); expect(screen.getByRole('alert')).toHaveTextContent('No se pudo consultar almacen');

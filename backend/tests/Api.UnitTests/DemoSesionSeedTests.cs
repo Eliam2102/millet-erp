@@ -34,6 +34,14 @@ public sealed class DemoSesionSeedTests
     }
 
     [Theory]
+    [InlineData("Facturación", false)]
+    [InlineData("Caja", false)]
+    [InlineData("Administrador", true)]
+    [InlineData("Contabilidad", true)]
+    public void AlcanceTotalDeCajas_soloLoTienenLosPerfilesCorporativos(string rol, bool esperado) =>
+        Assert.Equal(esperado, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.FacturacionCajaLeerTodas));
+
+    [Theory]
     [InlineData("Development", false)]
     [InlineData("Production", false)]
     [InlineData("Production", true)]

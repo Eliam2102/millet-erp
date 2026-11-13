@@ -198,7 +198,7 @@ export function QuickCreateMenu() {
       <PopoverTrigger asChild>
         <Button aria-label="Crear nuevo" className="shrink-0">
           <Plus size={14} strokeWidth={1.8} aria-hidden="true" />
-          <span className="hidden md:inline">Nuevo</span>
+          <span>Nuevo</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent
