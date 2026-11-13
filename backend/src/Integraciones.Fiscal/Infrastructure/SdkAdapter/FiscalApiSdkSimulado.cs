@@ -140,7 +140,7 @@ public sealed class FiscalApiSdkSimulado(ILogger<FiscalApiSdkSimulado> logger, T
     private static Cfdi Construir(Param p, int i)
     {
         var (subtotal, tipo, cancelado) = Plantilla[i];
-        var hash = MD5.HashData(Encoding.UTF8.GetBytes($"{p.Rfc}|{p.DownloadType}|{p.Dia:yyyyMMdd}|{i}"));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{p.Rfc}|{p.DownloadType}|{p.Dia:yyyyMMdd}|{i}"))[..16];
         // Los 6 últimos bytes marcan el estatus: cc = cancelado (lo usa ConsultarEstatusUuid).
         for (var b = 10; b < 16; b++) hash[b] = cancelado ? (byte)0xCC : (byte)0x11;
         var uuid = new Guid(hash).ToString().ToUpperInvariant();
