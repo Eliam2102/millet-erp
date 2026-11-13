@@ -456,7 +456,23 @@ export interface CuentaProveedorPago {
 /** Item del command RegistrarPagoProveedor. */
 export interface AplicacionPagoItem {
   facturaProveedorId: string;
+  /** Efectivo que sale del banco. */
   importe: number;
+  /** M-326: diferencia autorizada (±≤0.99) que cierra el saldo: importe + redondeo = saldo. 0/omitido = sin redondeo. */
+  redondeo?: number;
+}
+
+/** Mirror de `RedondeoPagoResponse` (M-326 parte 2b). */
+export type EstadoRedondeoPago = 'Solicitada' | 'Autorizada' | 'Rechazada' | 'Consumida';
+export interface RedondeoPagoResponse {
+  id: string;
+  facturaProveedorId: string;
+  redondeo: number;
+  estado: EstadoRedondeoPago;
+  motivo: string;
+  solicitadoPor: string;
+  resueltoPor: string | null;
+  motivoRechazo: string | null;
 }
 
 /** Mirror de `AplicacionPagoResponse`. */
