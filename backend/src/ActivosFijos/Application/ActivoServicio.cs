@@ -68,7 +68,7 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
     {
         clase=clase.EnMes(fecha);
         if (clase.CuentaActivoId is not Guid activo || clase.CuentaPuenteId is not Guid puente || activo == puente)
-            throw new BusinessRuleException("AF_CUENTAS_PENDIENTES", "Configure cuentas distintas de activo y puente; las clases DEMO requieren validación contable.");
+            throw new BusinessRuleException("AF_CUENTAS_PENDIENTES", "La clase no tiene cuentas contables válidas: Contabilidad debe capturar en Clases una cuenta de activo y una cuenta puente distintas.");
         var nodos = await centros.ObtenerAsync([a.EquipoId ?? a.CentroCostoId], ct);
         if (!nodos.TryGetValue(a.EquipoId ?? a.CentroCostoId, out var nodo) || !nodo.ActivoEnCadena)
             throw new BusinessRuleException("AF_CENTRO_INVALIDO", "El centro de costo no está activo.");
