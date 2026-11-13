@@ -183,6 +183,30 @@ public sealed class DepositosPorIdentificarTests
     }
 
     [Fact]
+    public async Task Saldo_de_parcialidad_con_fecha_igual_respeta_secuencia_aunque_el_id_ordene_al_reves()
+    {
+        using var db = Db();
+        AgregarFactura(db, "f-ppd", 1_000m);
+        await db.SaveChangesAsync();
+        await Proponer(db, new FakeDepositos(), Comando(400m, [new("f-ppd", 400m, null)]));
+        await Proponer(db, new FakeDepositos(), Comando(300m, [new("f-ppd", 300m, null)]));
+
+        var propuestas = (await db.PropuestasAplicacionPago.Include(p => p.Facturas).ToListAsync())
+            .OrderBy(p => p.Id).ToList();
+        for (var i = 0; i < propuestas.Count; i++)
+        {
+            db.Entry(propuestas[i]).Property(p => p.CreatedAt).CurrentValue = Ahora;
+            db.Entry(propuestas[i].Facturas.Single()).Property(f => f.NumParcialidad).CurrentValue = 2 - i;
+        }
+        await db.SaveChangesAsync();
+
+        var detalle = await new ObtenerPropuestaAplicacionHandler(db)
+            .Handle(new ObtenerPropuestaAplicacionQuery(propuestas[0].Id), default);
+        detalle.Facturas.Single().NumParcialidad.Should().Be(2);
+        detalle.Facturas.Single().SaldoInsoluto.Should().Be(300m);
+    }
+
+    [Fact]
     public async Task Parcialidad_cuenta_los_pagos_ya_timbrados_en_cartera()
     {
         using var db = Db();

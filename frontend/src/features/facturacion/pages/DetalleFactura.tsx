@@ -1,3 +1,4 @@
+import { PolizasDocumento } from '@/features/contabilidad/components/polizas/PolizasDocumento';
 import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { formatMoney } from '@/lib/money';
@@ -168,7 +169,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
             titulo={<>{f.folio}</>}
             descripcion={
               <>
-                {f.receptorNombre} · <span className="font-mono">{f.receptorRfc}</span>
+                {f.clienteClave && <><span className="font-mono">{f.clienteClave}</span>{' · '}</>}{f.receptorNombre} · <span className="font-mono">{f.receptorRfc}</span>
               </>
             }
             estado={<ChipTimbrado estado={f.estado} />}
@@ -331,7 +332,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         <section className="space-y-4">
           <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
             <Dato label="Receptor">
-              <div>{f.receptorNombre}</div>
+              <div><span className="font-mono">{f.clienteClave?.trim() || 'Sin código'}</span>{' · '}<span>{f.receptorNombre}</span></div>
               <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>
             </Dato>
             <Dato label="Moneda">{f.moneda}</Dato>
@@ -342,6 +343,8 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
             <Dato label="Versión">{f.version}</Dato>
           </dl>
         </section>
+
+        <PolizasDocumento modulo="facturacion" tipo="comprobante" documentoId={f.id} />
 
         <section className="space-y-4">
           <section className="space-y-2">

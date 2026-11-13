@@ -66,7 +66,8 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Estatus == EstatusCatalogo.Activo,
                 p.ConceptoRetencion,
                 p.Bloqueado,
-                p.MotivoBloqueo))
+                p.MotivoBloqueo,
+                p.Clave))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -96,7 +97,8 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Estatus == EstatusCatalogo.Activo,
                 p.ConceptoRetencion,
                 p.Bloqueado,
-                p.MotivoBloqueo))
+                p.MotivoBloqueo,
+                p.Clave))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

@@ -295,6 +295,7 @@ function Contenido({
               descripcion: l.productoDescripcion,
               claveUnidadSat: l.claveUnidadSat ?? '',
               cantidad,
+              decimalesCantidad: l.decimalesCantidad ?? null,
               valorUnitario: l.precio,
               descuento,
               requierePedimento: l.requierePedimento,

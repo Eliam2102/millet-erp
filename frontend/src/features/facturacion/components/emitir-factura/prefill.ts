@@ -73,6 +73,7 @@ export interface EmitirFacturaPrefill {
     descripcion: string;
     claveUnidadSat: string;
     cantidad: number;
+    decimalesCantidad?: number | null;
     valorUnitario: number;
     descuento: number;
     requierePedimento: boolean;

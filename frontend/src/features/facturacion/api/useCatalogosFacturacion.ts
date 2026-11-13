@@ -45,6 +45,26 @@ export function useClientesLookup(filtros: ClientesLookupFiltros, opts?: { enabl
   });
 }
 
+interface ClienteEtiqueta {
+  id: string;
+  clave: string | null;
+  razonSocial: string;
+}
+
+/** Sólo completa la etiqueta; no selecciona ni cambia los datos fiscales del receptor. */
+export function useClienteEtiqueta(id: string | null) {
+  return useQuery<ClienteEtiqueta>({
+    queryKey: facturacionKeys.clienteEtiqueta(id ?? ''),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ClienteEtiqueta>(`${BASE}/clientes/${id}`, { signal });
+      return data;
+    },
+    enabled: id != null,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
 /**
  * Canales de venta activos para los selectores de captura de pedido y
  * emisión (FAC-ING-PR3). Catálogo corto y estable — sin filtros; el

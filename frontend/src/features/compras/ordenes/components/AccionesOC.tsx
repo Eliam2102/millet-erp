@@ -496,7 +496,7 @@ function ConfirmDialog({
   useFormIdempotencyKey();
 
   const open = action != null;
-  const cfg = action ? getConfig(action, oc.folio) : null;
+  const cfg = action ? getConfig(action, oc.folio, oc.esServicioComercioExterior) : null;
 
   async function handleConfirm() {
     if (action == null) return;
@@ -560,28 +560,31 @@ function ConfirmDialog({
   );
 }
 
-function getConfig(action: Exclude<ConfirmAction, null>, folio: string) {
+function getConfig(action: Exclude<ConfirmAction, null>, folio: string, servicioCe = false) {
   if (action === 'transmitir') {
     return {
       titulo: `¿Transmitir OC ${folio} a autorización?`,
-      descripcion:
-        "La orden pasará a la bandeja del jefe de Compras; para ajustarla deberá rechazarse y enviarse de nuevo a autorización.",
+      descripcion: servicioCe
+        ? 'La orden pasará a la primera firma de Comercio Exterior. Para ajustarla deberá rechazarse y enviarse de nuevo a autorización.'
+        : "La orden pasará a la bandeja del jefe de Compras; para ajustarla deberá rechazarse y enviarse de nuevo a autorización.",
       cta: 'Transmitir',
     };
   }
   if (action === 'aprobar-n1') {
     return {
       titulo: `¿Aprobar OC ${folio} (Nivel 1)?`,
-      descripcion:
-        "La orden pasará a la bandeja de Dirección y tu firma quedará en el historial de autorización.",
+      descripcion: servicioCe
+        ? 'Con esta firma, CxP podrá registrar la factura. Después corresponderá la segunda firma a Dirección Comercial; ambas quedarán en el historial.'
+        : "La orden pasará a la bandeja de Dirección y tu firma quedará en el historial de autorización.",
       cta: "Aprobar nivel 1",
     };
   }
   // aprobar-n2
   return {
     titulo: `¿Aprobar OC ${folio} (Nivel 2)?`,
-    descripcion:
-      'La OC pasará a Autorizada — se genera el PDF, se asigna la fecha de contabilización y se notifica al proveedor. No se puede revertir sin Cancelar (1 firma o doble firma).',
+    descripcion: servicioCe
+      ? 'La orden quedará autorizada. CxP podrá enviar el pasivo a Tesorería usando las dos firmas de esta orden.'
+      : 'La OC pasará a Autorizada — se genera el PDF, se asigna la fecha de contabilización y se notifica al proveedor. No se puede revertir sin Cancelar (1 firma o doble firma).',
     cta: "Aprobar nivel 2",
   };
 }

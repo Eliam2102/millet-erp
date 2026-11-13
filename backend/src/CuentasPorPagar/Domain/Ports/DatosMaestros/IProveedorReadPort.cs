@@ -97,7 +97,8 @@ public sealed record ProveedorDto(
     string? ConceptoRetencion = null,
     // 86e3tactf: bloqueo total; CxP sigue capturando y validando facturas, Tesorería no las paga.
     bool Bloqueado = false,
-    string? MotivoBloqueo = null);
+    string? MotivoBloqueo = null,
+    string? Clave = null);
 
 /// <summary>F1-CXP-10: datos del tercero para la DIOT. <c>Pais</c> ISO 3166 alfa-3; <c>IdFiscal</c> solo del extranjero.</summary>
 public sealed record ProveedorFiscalDto(Guid Id, string Rfc, string RazonSocial, bool Extranjero, string? Pais, string? IdFiscal);

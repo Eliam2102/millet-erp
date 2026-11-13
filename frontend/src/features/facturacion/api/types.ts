@@ -966,6 +966,9 @@ export interface PedidoFacturableLineaDetalle {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  unidadMedidaId?: string | null;
+  unidadMedida?: string | null;
+  decimalesCantidad?: number | null;
 }
 
 /**
@@ -1118,6 +1121,8 @@ export interface ProductoAwLookupItem {
   unidadAduana: string | null;
   pesoUnitarioKg: number | null;
   datosFiscalesCompletos: boolean;
+  unidadMedidaId?: string | null;
+  decimalesCantidad?: number | null;
 }
 
 /** Item de la bandeja de excepciones de importación (GET /pedidos-facturables/excepciones). */
@@ -1459,6 +1464,7 @@ export interface ComprobanteDetalleResponse {
   estado: string;
   uuid: string | null;
   receptorRfc: string;
+  clienteClave?: string | null;
   receptorNombre: string;
   moneda: string;
   subtotal: number;
@@ -1547,6 +1553,7 @@ export interface DatosSustitucionResponse {
     descripcion: string;
     claveUnidadSat: string;
     cantidad: number;
+    decimalesCantidad?: number | null;
     valorUnitario: number;
     descuento: number;
     objetoImp: string;

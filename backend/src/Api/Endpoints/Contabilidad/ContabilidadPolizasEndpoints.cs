@@ -43,6 +43,15 @@ public static class ContabilidadPolizasEndpoints
         .WithSummary("Bandeja de pólizas (más reciente primero); q busca por folio TT-000123 o por concepto")
         .Produces<PagedResponse<PolizaResumenResponse>>().ProducesValidationProblem();
 
+        g.MapGet("/por-documento", async (
+            [FromQuery] string modulo, [FromQuery] string tipo, [FromQuery] Guid documentoId,
+            [FromQuery] int? offset, [FromQuery] int? limit, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new PolizasPorDocumentoQuery(modulo, tipo, documentoId, offset ?? 0, limit ?? 50), ct)))
+        .RequireAuthorization(leer).WithName("ListarPolizasPorDocumento")
+        .WithSummary("Pólizas relacionadas por módulo, tipo e identidad exactos del documento")
+        .Produces<PagedResponse<PolizaPorDocumentoResponse>>().ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         g.MapGet("/saldos", async ([FromQuery] int anio, [FromQuery] int numero, [FromQuery] Guid? cuentaId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new SaldosPeriodoQuery(anio, numero, cuentaId), ct)))
         .RequireAuthorization(leer).WithName("SaldosPeriodoPolizas")

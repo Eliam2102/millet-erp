@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Application.Oc.Autorizar;
 using Millet.Compras.Application.Oc.Eventos;
+using Millet.Compras.Application.Oc.Pdf;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.Blob;
 using Millet.Compras.Infrastructure;
@@ -17,6 +18,119 @@ namespace Millet.Api.IntegrationTests.Compras.Oc;
 
 public partial class OrdenesCompraEndpointsTests
 {
+    [Theory]
+    [InlineData("Bodega de prueba alternativa\nCalle ficticia 77", true)]
+    [InlineData(null, false)]
+    [InlineData("   ", false)]
+    public async Task Pdf_direccion_entrega_prioriza_snapshot_sin_atribuirlo_a_otra_sede(string? direccion, bool usaSnapshot)
+    {
+        using var client = await CreateSuperAdminClientAsync();
+        var ocId = await CrearOcAsync(client);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var sp = scope.ServiceProvider;
+            using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = sp.GetRequiredService<ComprasDbContext>();
+            var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == ocId);
+            var destino = oc.SucursalDestinoId;
+            oc.ActualizarInformacionLogistica(new InformacionLogistica(direccionEntrega: direccion));
+            db.Entry(oc).Property(o => o.Estado).CurrentValue = EstadoOrdenCompra.Autorizada;
+            await db.SaveChangesAsync();
+            await sp.GetRequiredService<IPublisher>().Publish(
+                new OrdenCompraAutorizadaPersistida(oc.Id, oc.Folio.Valor));
+            Assert.Equal(destino, oc.SucursalDestinoId);
+
+            var modelo = await sp.GetRequiredService<ImpresionOrdenCompraService>().ConstruirAsync(ocId, default);
+            if (usaSnapshot)
+            {
+                Assert.Empty(modelo.EntregaNombre);
+                Assert.Equal("Bodega de prueba alternativa\nCalle ficticia 77", string.Join("\n", modelo.EntregaLineas));
+            }
+            else
+            {
+                var sucursal = await sp.GetRequiredService<CompartidoDbContext>().Sucursales.SingleAsync(s => s.Id == destino);
+                Assert.Equal(sucursal.Nombre, modelo.EntregaNombre);
+                Assert.Equal(string.Join("\n", Millet.Documentos.PdfDomicilio.Lineas(sucursal.Calle, sucursal.NumeroExterior,
+                    sucursal.NumeroInterior, sucursal.Colonia, sucursal.Ciudad, sucursal.Municipio,
+                    sucursal.Estado, sucursal.CodigoPostal, sucursal.Pais)), string.Join("\n", modelo.EntregaLineas));
+            }
+        }
+
+        using var respuesta = await client.GetAsync($"{EndpointBase}/{ocId}/pdf?vistaPrevia=true");
+        respuesta.EnsureSuccessStatusCode();
+        var texto = await TextoPdfAsync(respuesta);
+        if (usaSnapshot) Assert.Contains("BodegadepruebaalternativaCalleficticia77", texto);
+        Assert.False(respuesta.Headers.Contains("X-Oc-Impresion"));
+    }
+
+    [Fact]
+    public async Task Direccion_entrega_catalogo_patch_detalle_pdf_conserva_snapshot_tras_cambiar_sede()
+    {
+        using var client = await CreateSuperAdminClientAsync();
+        var ocId = await CrearOcAsync(client);
+        var clave = "FB04" + Guid.NewGuid().ToString("N")[..8];
+        Guid sucursalId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var sp = scope.ServiceProvider;
+            using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = sp.GetRequiredService<ComprasDbContext>();
+            var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == ocId);
+            var sede = new Millet.Administracion.Domain.Sucursal(Guid.NewGuid(), oc.EmpresaId, clave,
+                "Sede ficticia FB04", Millet.Administracion.Domain.TipoSucursal.Planta,
+                "Calle snapshot de prueba", "42", "Colonia ficticia", "Mérida", "Mérida", "Yucatán", "97000", "MEX");
+            sucursalId = sede.Id;
+            var compartido = sp.GetRequiredService<CompartidoDbContext>();
+            compartido.Sucursales.Add(sede);
+            await compartido.SaveChangesAsync();
+            db.Entry(oc).Property(o => o.SucursalDestinoId).CurrentValue = sucursalId;
+            await db.SaveChangesAsync();
+        }
+
+        using var catalogo = await client.GetAsync($"/api/v1/catalogos/sucursales?q={clave}");
+        catalogo.EnsureSuccessStatusCode();
+        var sedeCatalogo = Assert.Single((await ReadJsonAsync(catalogo)).GetProperty("items").EnumerateArray());
+        var direccion = sedeCatalogo.GetProperty("direccionEntrega").GetString();
+        Assert.Contains("Calle snapshot de prueba 42", direccion);
+        using var guardada = await client.PatchAsJsonAsync($"{EndpointBase}/{ocId}/informacion-logistica", new
+        {
+            DireccionEntrega = direccion,
+            TransportistaTexto = "Transportista de prueba", NumeroGuia = "FB04-GUIA", InstruccionesEnvio = "Muestra ficticia",
+        });
+        Assert.Equal(HttpStatusCode.NoContent, guardada.StatusCode);
+        using var detalle = await client.GetAsync($"{EndpointBase}/{ocId}");
+        detalle.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(detalle);
+        Assert.Equal(direccion, json.GetProperty("infoLogisticaDireccion").GetString());
+        Assert.Equal(sucursalId, json.GetProperty("sucursalDestinoId").GetGuid());
+        Assert.Equal("FB04-GUIA", json.GetProperty("infoLogisticaNumeroGuia").GetString());
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var sp = scope.ServiceProvider;
+            using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var compartido = sp.GetRequiredService<CompartidoDbContext>();
+            var sede = await compartido.Sucursales.SingleAsync(s => s.Id == sucursalId);
+            sede.ActualizarDatos(calle: "Domicilio posterior de prueba");
+            await compartido.SaveChangesAsync();
+            var db = sp.GetRequiredService<ComprasDbContext>();
+            var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == ocId);
+            db.Entry(oc).Property(o => o.Estado).CurrentValue = EstadoOrdenCompra.Autorizada;
+            await db.SaveChangesAsync();
+            await sp.GetRequiredService<IPublisher>().Publish(
+                new OrdenCompraAutorizadaPersistida(oc.Id, oc.Folio.Valor));
+        }
+        using var preview = await client.GetAsync($"{EndpointBase}/{ocId}/pdf?vistaPrevia=true");
+        preview.EnsureSuccessStatusCode();
+        var texto = await TextoPdfAsync(preview);
+        Assert.Contains("Callesnapshotdeprueba42", texto);
+        Assert.DoesNotContain("Domicilioposteriordeprueba", texto);
+        Assert.False(preview.Headers.Contains("X-Oc-Impresion"));
+        using var detalleFinal = await client.GetAsync($"{EndpointBase}/{ocId}");
+        detalleFinal.EnsureSuccessStatusCode();
+        Assert.Equal(direccion, (await ReadJsonAsync(detalleFinal)).GetProperty("infoLogisticaDireccion").GetString());
+    }
+
     [Fact]
     public async Task Pdf_dos_descargas_y_vista_previa_cuentan_solo_descargas()
     {

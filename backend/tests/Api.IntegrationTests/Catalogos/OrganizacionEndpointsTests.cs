@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -34,6 +35,47 @@ public class OrganizacionEndpointsTests
     }
 
     // --- Sucursales ---
+
+    [Fact]
+    public async Task ListarSucursales_incluye_domicilio_nullable_y_conserva_paginacion_y_empresa()
+    {
+        using var client = await CreateSuperAdminClientAsync();
+        var clave = "FB04" + Guid.NewGuid().ToString("N")[..8];
+        Guid conDireccion, sinDireccion;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var otraEmpresa = new Empresa(Guid.NewGuid(), clave, "FBX010101" + clave[^3..], "Empresa ficticia FB04", "601",
+                "Calle ficticia", "1", "Colonia ficticia", "Mérida", "Mérida", "Yucatán", "MEX");
+            db.Empresas.Add(otraEmpresa);
+            Sucursal Sede(Guid empresaId, string sufijo) => new(Guid.NewGuid(), empresaId, clave + sufijo,
+                "Sede ficticia " + sufijo, TipoSucursal.Planta, "Calle de prueba", "42", "Colonia de prueba",
+                "Mérida", "Mérida", "Yucatán", "97000", "MEX", numeroInterior: "3");
+            var primera = Sede(EmpresaSeedId, "A");
+            var vacia = Sede(EmpresaSeedId, "B");
+            db.Sucursales.AddRange(primera, vacia, Sede(otraEmpresa.Id, "C"));
+            // Muestra legacy sin domicilio: el catálogo puede contener filas anteriores al formulario estructurado.
+            foreach (var campo in new[] { "Calle", "NumeroExterior", "NumeroInterior", "Colonia", "Ciudad", "Municipio", "Estado", "CodigoPostal", "Pais" })
+                db.Entry(vacia).Property(campo).CurrentValue = campo == "NumeroInterior" ? null : "";
+            await db.SaveChangesAsync();
+            (conDireccion, sinDireccion) = (primera.Id, vacia.Id);
+        }
+
+        using var response = await client.GetAsync($"/api/v1/catalogos/sucursales?q={clave}&limit=1");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Equal(2, json.GetProperty("total").GetInt32());
+        var first = Assert.Single(json.GetProperty("items").EnumerateArray());
+        Assert.Equal(conDireccion, first.GetProperty("id").GetGuid());
+        Assert.Equal("Calle de prueba 42 Int. 3\nColonia de prueba\nMérida, Mérida\n97000, Yucatán\nMEX", first.GetProperty("direccionEntrega").GetString());
+
+        using var pagina2 = await client.GetAsync($"/api/v1/catalogos/sucursales?q={clave}&offset=1&limit=1");
+        pagina2.EnsureSuccessStatusCode();
+        var segunda = Assert.Single((await ReadJsonAsync(pagina2)).GetProperty("items").EnumerateArray());
+        Assert.Equal(sinDireccion, segunda.GetProperty("id").GetGuid());
+        Assert.Equal(JsonValueKind.Null, segunda.GetProperty("direccionEntrega").ValueKind);
+    }
 
     [Fact]
     public async Task ListarSucursales_Sin_Token_Retorna_401()

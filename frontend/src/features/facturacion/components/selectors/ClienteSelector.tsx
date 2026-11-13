@@ -1,7 +1,7 @@
 import { BuscadorInteligente } from '@/components/erp/selectors/BuscadorInteligente';
 import { Badge } from '@/components/ui/badge';
 import type { ClienteLookupItem } from '@/features/facturacion/api/types';
-import { useClientesLookup } from '@/features/facturacion/api/useCatalogosFacturacion';
+import { useClienteEtiqueta, useClientesLookup } from '@/features/facturacion/api/useCatalogosFacturacion';
 import { useState } from 'react';
 
 /** Tope de resultados por búsqueda; si se alcanza se pide afinar (86e3tfdx8). */
@@ -42,17 +42,25 @@ export function ClienteSelector({
   const [termino, setTermino] = useState<string | undefined>();
   const clientesQuery = useClientesLookup({ q: termino, limit: LIMITE_CLIENTES });
   const items = clientesQuery.data ?? [];
+  const [elegidoId, setElegidoId] = useState<string | null>(null);
+  const necesitaEtiqueta = Boolean(value) && value !== elegidoId && !items.some(c => c.id === value);
+  const etiqueta = useClienteEtiqueta(necesitaEtiqueta ? value! : null);
 
   return (
     <BuscadorInteligente<ClienteLookupItem>
       value={value}
-      onChange={onChange}
+      onChange={item => {
+        setElegidoId(item?.id ?? null);
+        onChange(item);
+      }}
       onTerminoChange={setTermino}
       items={items}
       cargando={clientesQuery.isLoading || clientesQuery.isFetching}
-      error={clientesQuery.isError ? clientesQuery.error : undefined}
+      error={clientesQuery.isError ? clientesQuery.error : items.length === 0 && etiqueta.isError ? etiqueta.error : undefined}
       itemToLabel={(c) => `${c.clave} · ${c.razonSocial}`}
-      valueLabel={initialLabel ?? (value ? 'Cliente seleccionado' : undefined)}
+      valueLabel={etiqueta.data
+        ? `${etiqueta.data.clave?.trim() || 'Sin código'} · ${etiqueta.data.razonSocial}`
+        : initialLabel ?? (value ? 'Cliente seleccionado' : undefined)}
       renderItem={(c) => (
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
