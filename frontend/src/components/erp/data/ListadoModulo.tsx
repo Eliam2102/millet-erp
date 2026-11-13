@@ -15,7 +15,7 @@ export function ListadoModulo({ tabs, filtros, children, pie }: ListadoModuloPro
     <div
       ref={tarjeta}
       data-listado-modulo
-      className="erp-listado flex h-[var(--listado-alto,auto)] min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-t-lg bg-surface-card text-ink shadow-card-flat"
+      className="erp-listado flex h-[var(--listado-alto,auto)] min-h-0 min-w-0 flex-none flex-col overflow-hidden rounded-t-lg bg-surface-card text-ink shadow-card-flat"
     >
       {tabs != null && (
         <div className="flex min-h-11 min-w-0 shrink-0 items-center overflow-x-auto border-b border-line-divider px-4">
