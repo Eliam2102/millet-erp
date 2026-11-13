@@ -12,6 +12,7 @@ import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -381,6 +382,7 @@ function FilaLinea({
             —
           </div>
         )}
+        {linea.esActivoFijo && <Badge variant="info" className="mt-1">Activo fijo</Badge>}
       </TableCell>
       <TableCell className="px-3 py-2 text-xs">
         {linea.centroCostoId ? (
