@@ -201,7 +201,6 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
   const puedeTodas = useHasPermission(PermisosCanonicos.FacturacionCajaLeerTodas);
   const [todasLasSucursales, setTodasLasSucursales] = useState(false);
   const cajas = useListarCajas(true, todasLasSucursales ? null : sucursalId);
-  const cajaElegida = (cajas.data ?? []).find((c) => c.id === cajaId);
   const [fondo, setFondo] = useState('');
   const [autorizacionId, setAutorizacionId] = useState('');
   const [pideAutorizacion, setPideAutorizacion] = useState(false);
@@ -269,12 +268,7 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
           ) : (
             <Select
               value={cajaId ?? undefined}
-              onValueChange={(id) => {
-                setCajaId(id);
-                // La sucursal de operación debe estar en el alcance de la caja elegida.
-                const alcance = (cajas.data ?? []).find((c) => c.id === id)?.sucursalIds;
-                if (alcance && sucursalId && !alcance.includes(sucursalId)) setSucursalId(null);
-              }}
+              onValueChange={setCajaId}
             >
               <SelectTrigger aria-label="Caja">
                 <SelectValue placeholder="Selecciona una caja" />
@@ -291,14 +285,7 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
         </div>
         <div className="space-y-1">
           <Label>Sucursal de operación</Label>
-          <SucursalSelector
-            permitidas={cajaElegida?.sucursalIds}
-            value={sucursalId}
-            onChange={(id) => {
-              setSucursalId(id);
-              if (!todasLasSucursales) setCajaId(null);
-            }}
-          />
+          <SucursalSelector value={sucursalId} onChange={setSucursalId} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="fondo">Fondo de apertura (MXN)</Label>
