@@ -124,14 +124,27 @@ public sealed class CajaReservaPropuestaCxcTests
     }
 
     [Fact]
-    public async Task Propuesta_con_REP_timbrado_ya_no_cuenta_como_reserva()
+    public async Task PPD_con_REP_timbrado_libera_la_reserva_y_PUE_confirmada_la_conserva()
     {
-        var (_, cxc, factura, propuesta) = await EscenarioAsync();
-        propuesta.Confirmar(Tesoreria, Ahora, Guid.NewGuid());
-        propuesta.MarcarReppTimbrado(Guid.NewGuid());
+        using var cxc = NewCxc();
+        var ppdId = Guid.NewGuid();
+        var pueId = Guid.NewGuid();
+        var ppd = FacturaCartera.Crear(Empresa, ppdId, Cliente, "AAA010101AAA", "Cliente Prueba",
+            "UUID-PPD", "FX-PPD", 500m, "MXN", "PPD", Ahora, Ahora.AddDays(30));
+        var pue = FacturaCartera.Crear(Empresa, pueId, Cliente, "AAA010101AAA", "Cliente Prueba",
+            "UUID-PUE", "FX-PUE", 300m, "MXN", "PUE", Ahora, Ahora.AddDays(30));
+        cxc.FacturasCartera.AddRange(ppd, pue);
+        var conRep = Propuesta(ppd.Id, "UUID-PPD", 500m);
+        var sinRep = Propuesta(pue.Id, "UUID-PUE", 300m);
+        cxc.PropuestasAplicacionPago.AddRange(conRep, sinRep);
+        conRep.Confirmar(Tesoreria, Ahora, Guid.NewGuid());
+        conRep.MarcarReppTimbrado(Guid.NewGuid());
+        sinRep.Confirmar(Tesoreria, Ahora, Guid.NewGuid());
         await cxc.SaveChangesAsync();
 
-        (await new ReservaCobroCxcReadAdapter(cxc).ReservadoPorFacturaAsync([factura.Id], CancellationToken.None))
-            .Should().BeEmpty();
+        var reservado = await new ReservaCobroCxcReadAdapter(cxc).ReservadoPorFacturaAsync([ppdId, pueId], CancellationToken.None);
+
+        reservado.Should().NotContainKey(ppdId);
+        reservado[pueId].Should().Be(300m);
     }
 }
