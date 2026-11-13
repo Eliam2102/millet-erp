@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TAMANOS_PAGINA, useTamanoPagina } from './useTamanoPagina';
 
@@ -19,7 +19,7 @@ export function PaginacionTabla({
   total,
   offset,
   limit,
-  onChange,
+  onChange: cambiar,
   tamanos = TAMANOS_PAGINA,
   extremos = true,
   regionId,
@@ -28,10 +28,28 @@ export function PaginacionTabla({
   const aplicado = useRef<number | null>(null);
   const limiteAnterior = useRef(limit);
   const salto = useRef<HTMLInputElement>(null);
-  const [respetarUrl, setRespetarUrl] = useState(() => {
-    const url = new URLSearchParams(window.location.search);
-    return url.has('pageSize') || url.has('limit');
+  const parametros = new URLSearchParams(window.location.search);
+  const cantidadUrl = parametros.get('pageSize') ?? parametros.get('limit');
+  const [enlace, setEnlace] = useState({
+    cantidadUrl, offset, limit, respetarUrl: cantidadUrl !== null,
+    solicitud: null as { offset: number; limit: number } | null,
   });
+  const onChange = useCallback((siguiente: number, cantidad: number) => {
+    setEnlace(prev => ({ ...prev, solicitud: { offset: siguiente, limit: cantidad } }));
+    cambiar(siguiente, cantidad);
+  }, [cambiar]);
+  // Un enlace nuevo prevalece; actualizar la URL desde Automático conserva ese modo.
+  if (cantidadUrl !== enlace.cantidadUrl || offset !== enlace.offset || limit !== enlace.limit) {
+    const propio = enlace.solicitud?.offset === offset && enlace.solicitud.limit === limit;
+    setEnlace({
+      cantidadUrl, offset, limit,
+      solicitud: cantidadUrl === enlace.cantidadUrl && limit !== enlace.limit && offset > 0 && !enlace.respetarUrl
+        ? { offset: 0, limit } : null,
+      respetarUrl: cantidadUrl !== enlace.cantidadUrl && !propio
+        ? cantidadUrl !== null : enlace.respetarUrl,
+    });
+  }
+  const respetarUrl = enlace.respetarUrl;
   const cantidad = Math.max(1, limit);
   const ultima = Math.max(0, Math.ceil(total / cantidad) - 1) * cantidad;
   const posicion = Math.max(0, Math.min(offset, ultima));
@@ -39,20 +57,23 @@ export function PaginacionTabla({
   const pagina = Math.floor(posicion / cantidad) + 1;
   const opciones = tamanos.includes(limit) ? tamanos : [...tamanos, limit].sort((a, b) => a - b);
   useEffect(() => {
+    aplicado.current = null;
+  }, [cantidadUrl]);
+  useEffect(() => {
     if (limiteAnterior.current === limit) return;
     limiteAnterior.current = limit;
-    if (offset > 0) onChange(0, limit);
-  }, [limit, offset, onChange]);
+    if (offset > 0 && !respetarUrl) cambiar(0, limit);
+  }, [limit, offset, respetarUrl, cambiar]);
   useEffect(() => {
     if (tamanos.length === 0 || respetarUrl || preferencia.editando) return;
     if (limit !== preferencia.limit && aplicado.current !== preferencia.limit) {
       aplicado.current = preferencia.limit;
       onChange(0, preferencia.limit);
     }
-  }, [limit, onChange, preferencia.limit, preferencia.editando, tamanos.length, respetarUrl]);
+  }, [limit, preferencia.limit, preferencia.editando, tamanos.length, respetarUrl, onChange]);
   useEffect(() => {
-    if (total > 0 && offset > ultima) onChange(ultima, cantidad);
-  }, [total, offset, ultima, cantidad, onChange]);
+    if (total > 0 && offset > ultima) cambiar(ultima, cantidad);
+  }, [total, offset, ultima, cantidad, cambiar]);
   const ir = () => {
     const destino = Number(salto.current?.value);
     if (Number.isInteger(destino) && destino >= 1 && destino <= paginas)
@@ -83,7 +104,7 @@ export function PaginacionTabla({
               value={!respetarUrl && preferencia.modo === 'auto' ? 'auto' : limit}
               className="min-h-11 max-w-32 rounded-md border border-line-control bg-surface-card px-1.5 text-xs text-ink md:min-h-8"
               onChange={(e) => {
-                setRespetarUrl(false);
+                setEnlace(prev => ({ ...prev, respetarUrl: false }));
                 const valor = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
                 onChange(0, valor === 'auto' ? preferencia.limit : valor);
                 preferencia.elegir(valor);
