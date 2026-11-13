@@ -61,6 +61,7 @@ public static class DependencyInjection
         // IFiscalApiSdkClient — el puerto que los workers usan.
         services.AddOptions<FiscalApiSdkAdapterOptions>()
             .Bind(configuration.GetSection(FiscalApiSdkAdapterOptions.SectionName));
+        services.AddOptions<TimeoutPacOptions>().Bind(configuration.GetSection(TimeoutPacOptions.SectionName));
         services.AddSingleton<IFiscalApiSdkClientFactory, FiscalApiSdkClientFactory>();
         services.AddScoped<IFiscalApiSdkClient, FiscalApiSdkAdapter>();
         services.AddScoped<IPacCandidatoProbe, PacCandidatoProbe>();
