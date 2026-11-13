@@ -16,6 +16,7 @@ public sealed class CrearPedidoFacturableManualHandler
     private readonly IProductosReadPort _productos;
     private readonly IEmpresaFiscalReadPort _empresasFiscal;
     private readonly ICurrentUserPermissions _permisos;
+    private readonly IClientesReadPort? _clientes;
 
     public CrearPedidoFacturableManualHandler(
         FacturacionDbContext db,
@@ -23,7 +24,8 @@ public sealed class CrearPedidoFacturableManualHandler
         ICurrentUserContext user,
         IProductosReadPort productos,
         IEmpresaFiscalReadPort empresasFiscal,
-        ICurrentUserPermissions permisos)
+        ICurrentUserPermissions permisos,
+        IClientesReadPort? clientes = null)
     {
         _db = db;
         _empresa = empresa;
@@ -31,6 +33,7 @@ public sealed class CrearPedidoFacturableManualHandler
         _productos = productos;
         _empresasFiscal = empresasFiscal;
         _permisos = permisos;
+        _clientes = clientes;
     }
 
     public async Task<PedidoFacturableResponse> Handle(
@@ -42,6 +45,8 @@ public sealed class CrearPedidoFacturableManualHandler
 
         // F6.1: la captura de emergencia exige su propio permiso (403).
         await PermisoEmergenciaPedido.VerificarAsync(command.ClaseManual, _permisos, cancellationToken);
+        // N-14: un cliente inactivo no admite pedidos nuevos (misma regla que la factura).
+        await ClienteActivoPedido.VerificarAsync(_clientes, command.ClienteId, cancellationToken);
 
         var pedido = PedidoFacturable.CrearManual(
             empresaId: empresaId,
