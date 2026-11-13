@@ -22,6 +22,13 @@ beforeEach(() => {
   request.mockImplementation(async path => ({ data: String(path).endsWith('preferencia-sonido') ? { habilitado: false } : respuesta() }) as never);
 });
 describe('Consulta contextual del centro', () => {
+  it('activar sonido sincroniza el corte de pendientes antes de terminar la activación', async () => {
+    const { result } = renderHook(() => useCentroAvisos({ condicion: 'Todas' }), { wrapper });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    await act(async () => { await result.current.cambiarSonido.mutateAsync(true); });
+    expect(request.mock.calls.filter(([path]) => String(path).endsWith('/sincronizar'))).toHaveLength(2);
+    expect(result.current.sonidoHabilitado).toBe(true);
+  });
   it('pagina sin limitar totales ni novedades y envía cursor anterior', async () => {
     const { result, rerender } = renderHook(({ continuacion }) => useCentroAvisos({ condicion: 'Todas', continuacion }), { wrapper, initialProps: { continuacion: undefined as string | undefined } });
     await waitFor(() => expect(result.current.data?.totalSinLeerConocido).toBe(35)); expect(sync).toHaveBeenCalledWith('35', true, [{ id: 'compras', estado: 'Complete' }]);

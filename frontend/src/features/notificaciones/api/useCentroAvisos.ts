@@ -69,7 +69,11 @@ export function useCentroAvisos(filtros: FiltrosAvisos) {
       await apiRequest(`${base}/preferencia-sonido`, { method: 'PUT', body: { habilitado } });
       return habilitado;
     },
-    onSuccess: habilitado => { cliente.setQueryData(['avisos-sonido', usuario], { habilitado }); setErrorAudio(undefined); },
+    onSuccess: async habilitado => {
+      sesion.sonido.establecerHabilitado(habilitado);
+      cliente.setQueryData(['avisos-sonido', usuario], { habilitado }); setErrorAudio(undefined);
+      if (habilitado) await query.refetch();
+    },
   });
   return {
     ...query, data: habilitada && !query.isError ? query.data : undefined, leer, cambiarSonido,

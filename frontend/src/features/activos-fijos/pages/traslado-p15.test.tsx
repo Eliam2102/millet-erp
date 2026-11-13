@@ -7,6 +7,11 @@ const state = vi.hoisted(() => ({
   mutate: vi.fn(),
   activo: {
     id: 'a',
+    ordenCompraId: 'oc-origen',
+    recepcionId: 'recepcion-origen',
+    facturaProveedorId: 'factura-origen',
+    polizaAltaId: 'poliza-origen',
+    documentoSoporte: 'ENSAYO · soporte ficticio',
     numero: 'AF-DEMO',
     descripcion: 'Activo sintético',
     estado: 1,
@@ -46,7 +51,7 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'a' }),
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
+  Link: ({ children, to, params }: { children: React.ReactNode; to?: string; params?: { id: string } }) => <a href={to?.replace('$id', params?.id ?? '')}>{children}</a>,
 }));
 vi.mock('../api/hooks', () => ({
   useActivo: () => ({ data: { data: state.activo } }),
@@ -134,4 +139,23 @@ it('oculta traslado sin permiso', async () => {
   render(<ActivoDetallePage />);
   await historial();
   expect(screen.queryByRole('button', { name: 'Trasladar' })).not.toBeInTheDocument();
+});
+
+
+it.each([true, false])('origen ofrece documentos legibles y respeta el permiso de consulta: %s', async (permitido) => {
+  if (permitido) useAuthStore.setState({ permisos: [P.ComprasOrdenesLeer, P.AlmacenEntradasLeer, P.CuentasPorPagarFacturasLeer, P.ContabilidadPolizasLeer] });
+  render(<ActivoDetallePage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Origen' }), { button: 0, ctrlKey: false });
+  fireEvent.click(screen.getByRole('tab', { name: 'Origen' }));
+  expect(await screen.findByText('ENSAYO · soporte ficticio')).toBeInTheDocument();
+  for (const [nombre, href] of [
+    ['Ver orden de compra', '/compras/ordenes/oc-origen'],
+    ['Ver recepción', '/almacen/recepciones/recepcion-origen'],
+    ['Ver factura de proveedor', '/cxp/facturas/factura-origen'],
+    ['Ver póliza de alta', '/contabilidad/polizas/poliza-origen'],
+  ]) {
+    if (permitido) expect(screen.getByRole('link', { name: nombre })).toHaveAttribute('href', href);
+    else expect(screen.queryByRole('link', { name: nombre })).not.toBeInTheDocument();
+  }
+  expect(screen.queryByText('poliza-origen')).not.toBeInTheDocument();
 });
