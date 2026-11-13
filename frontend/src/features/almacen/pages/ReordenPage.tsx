@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { BarraFiltros } from '@/components/erp';
 import { TabsEstado as TabsCatalogo } from '@/components/erp';
 import { ESTATUS_CATALOGO } from '../lib/estado-variante';
@@ -65,7 +66,7 @@ import { esApiError } from '@/lib/api';
 import { ReordenSheet } from '@/features/almacen/components/ReordenSheet';
 import { cn } from '@/lib/utils';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { PropuestaReposicion } from '@/features/almacen/components/PropuestaReposicion';
@@ -84,6 +85,7 @@ type SortKey = 'articulo' | 'nivel' | 'entidad' | 'estatus';
  */
 export function ReordenPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeAdministrar = useHasPermission(PermisosCanonicos.AlmacenReordenAdministrar);
 
@@ -110,7 +112,7 @@ export function ReordenPage() {
     articuloId: search.articuloId,
     nivel: search.nivel,
     estatus: search.estatus,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const desactivar = useDesactivarReorden();
@@ -247,7 +249,7 @@ export function ReordenPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         }

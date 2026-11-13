@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -34,7 +35,6 @@ import { estadoUi } from '../lib/estados-ui';
 import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/repp/' as const;
-const TAMANO_PAGINA = 50;
 
 /**
  * <c>Bandeja de complementos de pago (REPP)</c> (FE-F6). Lista los REPP
@@ -42,6 +42,7 @@ const TAMANO_PAGINA = 50;
  * "Nuevo REPP" abre el Sheet de emisión.
  */
 export function BandejaRepp() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nuevoRepp = useNuevoRepp();
@@ -52,7 +53,7 @@ export function BandejaRepp() {
   const query = useListarRepp(search.estado, search.alcance, {
     q: q || undefined,
     offset: paginacion.offset,
-    limit: TAMANO_PAGINA,
+    limit: limiteTabla,
   });
 
   function actualizarSearch(parcial: Partial<ReppSearch>) {
@@ -133,8 +134,7 @@ export function BandejaRepp() {
           <PaginacionTabla
             total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={TAMANO_PAGINA}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }

@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
@@ -24,13 +25,12 @@ import {
   UsuarioSelector,
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { cxpKeys } from '@/features/cxp/api/keys';
 import { useViaticos } from '@/features/cxp/api/useViaticos';
 import {
   EstadoSolicitudViaticos,
-  type SolicitudViaticosListItem,
-} from '@/features/cxp/api/types';
+  type SolicitudViaticosListItem } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { AccionesViatico } from '@/features/cxp/components/AccionesViatico';
@@ -64,10 +64,10 @@ const FROM = '/_app/cxp/viaticos/' as const;
  */
 export function ViaticosPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeSolicitar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarViaticosSolicitar,
-  );
+    PermisosCanonicos.CuentasPorPagarViaticosSolicitar);
   const [nuevaAbierta, setNuevaAbierta] = useState(false);
   const [comprobarTarget, setComprobarTarget] =
     useState<SolicitudViaticosListItem | null>(null);
@@ -77,14 +77,14 @@ export function ViaticosPage() {
     empleadoId: search.empleadoId,
     jefeDirectoId: search.jefeDirectoId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(
     cxpKeys.viaticos(),
     '/api/v1/cuentas-por-pagar/viaticos',
-    { empleadoId: search.empleadoId, jefeDirectoId: search.jefeDirectoId, q: search.q },
-  );
+    { empleadoId: search.empleadoId, jefeDirectoId: search.jefeDirectoId, q: search.q,
+  });
 
   function actualizarSearch(parcial: Partial<ViaticosSearch>) {
     navigate({
@@ -155,7 +155,7 @@ export function ViaticosPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         </div>
@@ -265,11 +265,10 @@ function Tabla({ items, onComprobar }: TablaProps) {
             return (
               <TableRow key={s.id} className="hover:bg-surface-subtle">
                 <TableCell>
-                  <div
-                    className="max-w-56 truncate"
-                    title={s.empleadoNombre ?? undefined}
-                  >
-                    {s.empleadoNombre?.trim() || <span className="text-ink-muted">Sin asignar</span>}
+                  <div className="max-w-56 truncate" title={s.empleadoNombre ?? undefined}>
+                    {s.empleadoNombre?.trim() || (
+                      <span className="text-ink-muted">Sin asignar</span>
+                    )}
                   </div>
                   {s.puesto ? <div className="text-2xs text-ink-muted">{s.puesto}</div> : null}
                 </TableCell>

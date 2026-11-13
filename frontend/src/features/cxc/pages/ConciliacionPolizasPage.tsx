@@ -13,7 +13,8 @@ import {
   ErrorState,
   TableSkeleton,
 } from '@/components/erp';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +49,9 @@ function inicioDeMesIso() {
 export function ConciliacionPolizasPage() {
   const [desde, setDesde] = useState(inicioDeMesIso);
   const [hasta, setHasta] = useState(hoyIso);
-  const [estado, setEstado] = useState<EstadoConciliacionCobro | undefined>(EstadoConciliacionCobro.Diferencia);
+  const [estado, setEstado] = useState<EstadoConciliacionCobro | undefined>(
+    EstadoConciliacionCobro.Diferencia,
+  );
   const query = useConciliacionPolizas(desde, hasta);
 
   const filas = useMemo(
@@ -64,7 +67,8 @@ export function ConciliacionPolizasPage() {
           titulo={<>Conciliación de cobros contra pólizas</>}
           descripcion={
             <>
-              Compara los cobros aplicados en cartera con sus pólizas y revisa las diferencias con su causa probable.
+              Compara los cobros aplicados en cartera con sus pólizas y revisa las diferencias con
+              su causa probable.
             </>
           }
         />
@@ -126,7 +130,12 @@ export function ConciliacionPolizasPage() {
           />
         }
         pie={
-          <PaginacionTabla total={filas.length} offset={pagina.offset} limit={10} tamanos={[]} onChange={pagina.cambiar} />
+          <PaginacionTabla regionId={pagina.regionId}
+            total={filas.length}
+            offset={pagina.offset}
+            limit={pagina.limit}
+            onChange={pagina.cambiar}
+          />
         }
       >
         {query.isError ? (
@@ -138,7 +147,13 @@ export function ConciliacionPolizasPage() {
         ) : query.isLoading ? (
           <TableSkeleton
             rows={5}
-            columns={[{ width: 'w-24' }, { width: 'w-48' }, { width: 'w-28' }, { width: 'w-28' }, { width: 'w-full' }]}
+            columns={[
+              { width: 'w-24' },
+              { width: 'w-48' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-full' },
+            ]}
           />
         ) : filas.length === 0 ? (
           <EmptyState
@@ -166,7 +181,10 @@ export function ConciliacionPolizasPage() {
               </TableHeader>
               <TableBody className="divide-y">
                 {pagina.visibles.map((f) => (
-                  <FilaConciliacion key={`${f.documento}-${f.documentoId}-${f.clienteId ?? ''}`} f={f} />
+                  <FilaConciliacion
+                    key={`${f.documento}-${f.documentoId}-${f.clienteId ?? ''}`}
+                    f={f}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -186,13 +204,17 @@ function FilaConciliacion({ f }: { f: ConciliacionCobroFila }) {
       </TableCell>
       <TableCell className="px-3 py-2">
         {f.documento}
-        <p className="text-2xs text-ink-muted"><DateTimeDisplay value={f.fecha} variant="corta" /></p>
+        <p className="text-2xs text-ink-muted">
+          <DateTimeDisplay value={f.fecha} variant="corta" />
+        </p>
       </TableCell>
       <TableCell className="max-w-56 truncate px-3 py-2">
         {f.cliente || <span className="text-ink-muted">—</span>}
         <p className="font-mono text-2xs text-ink-muted">{f.moneda}</p>
       </TableCell>
-      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatoMonto(f.importeCartera, f.moneda)}</TableCell>
+      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+        {formatoMonto(f.importeCartera, f.moneda)}
+      </TableCell>
       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
         {formatoMonto(f.importePolizas, f.moneda)}
         {f.polizas.length > 0 && <p className="text-2xs text-ink-muted">{f.polizas.join(', ')}</p>}
@@ -200,7 +222,9 @@ function FilaConciliacion({ f }: { f: ConciliacionCobroFila }) {
       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
         {formatoMonto(f.diferencia, f.moneda)}
       </TableCell>
-      <TableCell className="max-w-96 px-3 py-2 text-xs">{f.causa || <span className="text-ink-muted">—</span>}</TableCell>
+      <TableCell className="max-w-96 px-3 py-2 text-xs">
+        {f.causa || <span className="text-ink-muted">—</span>}
+      </TableCell>
     </TableRow>
   );
 }

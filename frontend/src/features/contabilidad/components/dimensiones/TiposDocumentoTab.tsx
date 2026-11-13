@@ -186,11 +186,10 @@ export function TiposDocumentoTab({ puedeAdministrar }: { puedeAdministrar: bool
         }
         filtros={<BarraFiltros total={`${filas.length} tipos`} />}
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={filas.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.onChange}
           />
         }

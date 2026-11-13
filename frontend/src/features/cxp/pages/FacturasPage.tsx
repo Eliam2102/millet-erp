@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -28,14 +29,13 @@ import {
   type SortState,
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { cxpKeys } from '@/features/cxp/api/keys';
 import { useFacturas } from '@/features/cxp/api/useFacturas';
 import {
   EstadoPasivo,
-  type FacturaListItem,
-} from '@/features/cxp/api/types';
+  type FacturaListItem } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -69,10 +69,10 @@ type SortKey =
  */
 export function FacturasPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeCapturar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarFacturasCapturar,
-  );
+    PermisosCanonicos.CuentasPorPagarFacturasCapturar);
   const [capturaAbierta, setCapturaAbierta] = useState(false);
 
   const query = useFacturas({
@@ -80,14 +80,14 @@ export function FacturasPage() {
     proveedorId: search.proveedorId,
     sucursalId: search.sucursalId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(
     cxpKeys.facturas(),
     '/api/v1/cuentas-por-pagar/facturas',
-    { proveedorId: search.proveedorId, sucursalId: search.sucursalId, q: search.q },
-  );
+    { proveedorId: search.proveedorId, sucursalId: search.sucursalId, q: search.q,
+  });
 
   function actualizarSearch(parcial: Partial<FacturasSearch>) {
     navigate({
@@ -162,7 +162,7 @@ export function FacturasPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         </div>
@@ -245,9 +245,7 @@ function TablaFacturas({ items }: TablaFacturasProps) {
 
   const ordenados = useMemo(() => {
     if (sort == null) return items;
-    return [...items].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...items].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [items, sort]);
 
   return (
@@ -344,7 +342,11 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                   </Link>
                 </TableCell>
                 <TableCell>
-                  <ProveedorCelda nombre={f.proveedorNombre} rfc={f.proveedorRfc} bloqueado={f.proveedorBloqueado} />
+                  <ProveedorCelda
+                    nombre={f.proveedorNombre}
+                    rfc={f.proveedorRfc}
+                    bloqueado={f.proveedorBloqueado}
+                  />
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
                   <DateTimeDisplay value={f.fechaDocumento} variant="corta" />
@@ -361,7 +363,7 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                   />
                 </TableCell>
                 <TableCell className="font-mono text-xs text-ink-muted">
-                  {f.ordenCompraId ? (f.ordenCompraFolio?.trim() || 'Sin número') : '—'}
+                  {f.ordenCompraId ? f.ordenCompraFolio?.trim() || 'Sin número' : '—'}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   <MoneyDisplay amount={f.total} currency={f.moneda} strong />

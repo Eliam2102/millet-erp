@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import {
   BarraFiltros,
@@ -60,8 +61,6 @@ type Resultado =
   | { tipo: 'registrado'; movimiento: MovimientoPrueba }
   | { tipo: 'errores'; errores: ErrorDimension[] }
   | { tipo: 'fallo'; mensaje: string };
-
-const LIMITE = 10;
 
 /**
  * F1-CON-02: captura de un movimiento de PRUEBA (aún no hay pólizas). Valida cuenta, tipo de documento, sucursal, centros y
@@ -507,8 +506,9 @@ function otras(m: MovimientoPrueba): string {
 }
 
 function MovimientosRegistrados() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [offset, setOffset] = useState(0);
-  const movs = useMovimientosPrueba(offset, LIMITE);
+  const movs = useMovimientosPrueba(offset, limiteTabla);
   return (
     <section aria-label="Movimientos de prueba registrados">
       <ListadoModulo
@@ -517,8 +517,7 @@ function MovimientosRegistrados() {
           <PaginacionTabla
             total={movs.data?.total ?? 0}
             offset={offset}
-            limit={LIMITE}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={setOffset}
           />
         }

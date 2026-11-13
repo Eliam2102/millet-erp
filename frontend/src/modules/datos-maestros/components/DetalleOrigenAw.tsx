@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ export function DetalleOrigenAw({ referencia, fecha }: { referencia: string; fec
 
   return (
     <div className="mt-2 grid gap-4 rounded-md border border-line bg-surface-card p-3 md:grid-cols-2">
-      <table className="w-full text-xs">
+      <Table className="w-full text-xs">
         <caption className="mb-1 text-left font-semibold">Cómo llegó de A+W</caption>
         <tbody>
           {d.campos.map((c) => (
@@ -48,7 +49,7 @@ export function DetalleOrigenAw({ referencia, fecha }: { referencia: string; fec
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       <div className="space-y-3 text-xs">
         <div>
           <p className="font-semibold">Qué falta</p>
@@ -60,7 +61,8 @@ export function DetalleOrigenAw({ referencia, fecha }: { referencia: string; fec
                 <li key={f.campo}>
                   <span className="font-mono">{f.campo}</span> ({f.etiqueta}): {f.regla}{' '}
                   <span className="text-ink-muted">
-                    Valida: <strong className="text-ink">{f.area}</strong> · se corrige en {f.corrigeEn}
+                    Valida: <strong className="text-ink">{f.area}</strong> · se corrige en{' '}
+                    {f.corrigeEn}
                   </span>
                 </li>
               ))}

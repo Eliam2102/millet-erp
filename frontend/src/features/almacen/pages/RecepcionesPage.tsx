@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -53,7 +54,7 @@ import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcio
 import type { RecepcionesSearch } from '@/features/almacen/lib/recepciones-search-schema';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -80,6 +81,7 @@ type SortKey =
  */
 export function RecepcionesPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenEntradasRegistrar);
   const [sheetAbierto, setSheetAbierto] = useState(false);
@@ -97,7 +99,7 @@ export function RecepcionesPage() {
     desde: search.desde,
     hasta: search.hasta,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(almacenKeys.recepciones(), '/api/v1/almacen/recepciones', {
@@ -148,7 +150,12 @@ export function RecepcionesPage() {
             aria-current={search.estado === tab.valor ? 'page' : undefined}
             className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
-            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (conteos.data[tab.valor] ?? 0) : <span className="text-ink-muted">—</span>} />
+            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (
+                  (conteos.data[tab.valor] ?? 0)
+                ) : (
+                  <span className="text-ink-muted">—</span>
+                )
+              } />
           </Link>
         ))}
       </div>
@@ -176,7 +183,7 @@ export function RecepcionesPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         }

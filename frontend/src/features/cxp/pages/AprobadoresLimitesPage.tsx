@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { hoyLocalISO } from '@/lib/datetime';
@@ -19,12 +20,8 @@ import {
   EmptyState,
   ErrorState,
   TableSkeleton,
-  UsuarioSelector,
-} from '@/components/erp';
-import {
-  useAprobadoresLimites,
-  useCerrarAprobadorLimite,
-} from '@/features/cxp/api/useAdminCxp';
+  UsuarioSelector } from '@/components/erp';
+import { useAprobadoresLimites, useCerrarAprobadorLimite } from '@/features/cxp/api/useAdminCxp';
 import {
   TipoGastoAprobador,
   TipoGastoAprobadorLabels,
@@ -182,11 +179,9 @@ export function AprobadoresLimitesPage() {
 
 function Tabla({
   items,
-  puedeAdmin,
-}: {
+  puedeAdmin }: {
   items: readonly AprobadorLimite[];
-  puedeAdmin: boolean;
-}) {
+  puedeAdmin: boolean }) {
   const cerrar = useCerrarAprobadorLimite();
   const hoy = hoyLocalISO();
 
@@ -210,7 +205,7 @@ function Tabla({
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
+      <Table paginada className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="px-3 py-2 text-left">Empleado</th>
@@ -252,7 +247,7 @@ function Tabla({
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       <ConfirmarAccionDialog
         open={aCerrar !== null}
         onOpenChange={(o) => !o && setACerrar(null)}
@@ -260,7 +255,8 @@ function Tabla({
         resumen={
           aCerrar && (
             <>
-              Se cerrará hoy ({hoy}) la vigencia del aprobador de {TipoGastoAprobadorLabels[aCerrar.tipoGasto]} por{' '}
+              Se cerrará hoy ({hoy}) la vigencia del aprobador de{' '}
+              {TipoGastoAprobadorLabels[aCerrar.tipoGasto]} por{' '}
               {fmt(aCerrar.montoMax, aCerrar.moneda)}. Después ya no podrá autorizar con ese límite.
             </>
           )

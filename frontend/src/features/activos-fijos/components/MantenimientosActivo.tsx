@@ -1,3 +1,5 @@
+import { usePaginacionLocal } from '@/components/erp/data/usePaginacionLocal';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +16,7 @@ export function MantenimientosActivo({ activo }: { activo: Activo }) {
   const query = useConservacion<Mantenimiento[]>(`activos/${activo.id}/mantenimientos`);
   const [proveedor, setProveedor] = useState<string | null>(null);
   const [q, setQ] = useState('');
-  const [pagina, setPagina] = useState(0);
+  const pagina = usePaginacionLocal(query.data ?? [], activo.id);
   const facturas = useConservacion<{ id: string; referencia: string }[]>(
     `activos/${activo.id}/facturas-mantenimiento?q=${encodeURIComponent(q)}`,
     permiso,
@@ -30,7 +32,7 @@ export function MantenimientosActivo({ activo }: { activo: Activo }) {
       {query.isPending && <p>Cargando mantenimientos…</p>}
       {query.error && <p role="alert">{query.error.message}</p>}
       {query.data?.length === 0 && <p>Sin mantenimientos registrados.</p>}
-      {query.data?.slice(pagina * 10, pagina * 10 + 10).map((h) => (
+      {pagina.visibles.map((h) => (
         <article key={h.id} className="space-y-2 border-b border-line-row py-3">
           <p>
             {formatDate(h.fecha)} · {h.tipo === 0 ? 'Preventivo' : 'Correctivo'} · {h.descripcion}
@@ -45,24 +47,12 @@ export function MantenimientosActivo({ activo }: { activo: Activo }) {
           </p>
         </article>
       ))}
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          disabled={pagina === 0}
-          title="Página anterior"
-          onClick={() => setPagina(pagina - 1)}
-        >
-          Anterior
-        </Button>
-        <Button
-          variant="outline"
-          disabled={(pagina + 1) * 10 >= (query.data?.length ?? 0)}
-          title="Página siguiente"
-          onClick={() => setPagina(pagina + 1)}
-        >
-          Siguiente
-        </Button>
-      </div>
+      <PaginacionTabla regionId={pagina.regionId}
+        total={query.data?.length ?? 0}
+        offset={pagina.offset}
+        limit={pagina.limit}
+        onChange={pagina.onChange}
+      />
       {permiso && (
         <form
           className="space-y-3"

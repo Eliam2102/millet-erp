@@ -1,3 +1,5 @@
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
+import { usePaginacionLocal } from '@/components/erp/data/usePaginacionLocal';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -23,6 +25,7 @@ export function CambiosAwHistorial({
   isLoading: boolean;
   isError: boolean;
 }) {
+  const pagina = usePaginacionLocal(cambios ?? []);
   return (
     <div className="mt-4">
       <h4 className="mb-1 text-sm font-semibold text-ink">Cambios recibidos de A+W</h4>
@@ -49,7 +52,7 @@ export function CambiosAwHistorial({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cambios!.map((c) => (
+            {pagina.visibles.map((c) => (
               <TableRow key={c.id}>
                 <TableCell>{new Date(c.ocurridoEnUtc).toLocaleString('es-MX')}</TableCell>
                 <TableCell>{c.campo}</TableCell>
@@ -67,6 +70,12 @@ export function CambiosAwHistorial({
         </Table>
         </TableContainer>
       )}
+      <PaginacionTabla regionId={pagina.regionId}
+        total={cambios?.length ?? 0}
+        offset={pagina.offset}
+        limit={pagina.limit}
+        onChange={pagina.onChange}
+      />
     </div>
   );
 }

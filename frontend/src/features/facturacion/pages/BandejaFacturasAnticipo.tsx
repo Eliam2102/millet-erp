@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -30,7 +31,6 @@ import { estadoUi } from '../lib/estados-ui';
 import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/anticipos/facturas/' as const;
-const TAMANO_PAGINA = 50;
 
 /**
  * <c>Bandeja de facturas de anticipo</c> (ANT-PR2, doc 13 §6 — patrón P1,
@@ -39,6 +39,7 @@ const TAMANO_PAGINA = 50;
  * "Ver" abre el master-detail <c>/facturacion/anticipos/facturas/$id</c>.
  */
 export function BandejaFacturasAnticipo() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
 
@@ -48,7 +49,7 @@ export function BandejaFacturasAnticipo() {
     estado: search.estado,
     q: q || undefined,
     offset: paginacion.offset,
-    limit: TAMANO_PAGINA,
+    limit: limiteTabla,
     alcance: search.alcance,
   });
 
@@ -124,8 +125,7 @@ export function BandejaFacturasAnticipo() {
           <PaginacionTabla
             total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={TAMANO_PAGINA}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }

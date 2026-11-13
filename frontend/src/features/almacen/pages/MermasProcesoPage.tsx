@@ -21,7 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useDecidirMerma, useMermasProceso, type MermaProceso } from '@/features/almacen/api/useMermasProceso';
+import { useDecidirMerma, useMermasProceso, type MermaProceso,
+} from '@/features/almacen/api/useMermasProceso';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -83,7 +84,14 @@ export function MermasProcesoPage() {
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <KpiCard etiqueta="Desperdicio de mesas aplicado" valor={query.isSuccess ? `${num(desperdicioM2, 2)} m²` : <span className="text-ink-muted">—</span>} tono="info" />
+        <KpiCard etiqueta="Desperdicio de mesas aplicado" valor={query.isSuccess ? (
+              `${num(desperdicioM2, 2)} m²`
+            ) : (
+              <span className="text-ink-muted">—</span>
+            )
+          }
+          tono="info"
+        />
         <KpiCard
           etiqueta="Mermas pendientes de autorizar"
           valor={query.isSuccess ? conteos[1] : <span className="text-ink-muted">—</span>}
@@ -120,7 +128,10 @@ export function MermasProcesoPage() {
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (
-          <TableSkeleton rows={6} columns={[{ width: 'w-24' }, { width: 'w-32' }, { width: 'w-48' }, { width: 'w-20' }]} />
+          <TableSkeleton
+            rows={6}
+            columns={[{ width: 'w-24' }, { width: 'w-32' }, { width: 'w-48' }, { width: 'w-20' }]}
+          />
         ) : items.length === 0 ? (
           <EmptyState
             title="Sin registros"
@@ -130,11 +141,12 @@ export function MermasProcesoPage() {
           <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
             {conteos[1] > 0 && !puedeAutorizar && (
               <AvisoEnLinea tono="advertencia">
-                Hay mermas pendientes. Solo quien tiene la facultad de autorizar mermas puede aplicarlas o rechazarlas.
+                Hay mermas pendientes. Solo quien tiene la facultad de autorizar mermas puede
+                aplicarlas o rechazarlas.
               </AvisoEnLinea>
             )}
             <TableContainer>
-              <Table>
+              <Table paginada>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha</TableHead>
@@ -157,7 +169,11 @@ export function MermasProcesoPage() {
                       </TableCell>
                       <TableCell>{m.tipo === 'MERMA' ? 'Merma' : 'Desperdicio de mesa'}</TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {m.mesa ? <span className="font-mono text-xs">{m.mesa}</span> : <span className="capitalize">{m.etapa}</span>}
+                        {m.mesa ? (
+                          <span className="font-mono text-xs">{m.mesa}</span>
+                        ) : (
+                          <span className="capitalize">{m.etapa}</span>
+                        )}
                       </TableCell>
                       <TableCell>{m.motivo}</TableCell>
                       <TableCell>
@@ -170,13 +186,17 @@ export function MermasProcesoPage() {
                         <MoneyDisplay amount={m.valorMxn} currency="MXN" />
                       </TableCell>
                       <TableCell>
-                        <Badge variant={ESTADO_UI[m.estado].variante}>{ESTADO_UI[m.estado].texto}</Badge>
+                        <Badge variant={ESTADO_UI[m.estado].variante}>
+                          {ESTADO_UI[m.estado].texto}
+                        </Badge>
                         {m.autorizadoPor && (
                           <div className="text-xs text-ink-muted">
                             {m.estado === 'RECHAZADA' ? 'Rechazó' : 'Autorizó'} {m.autorizadoPor}
                           </div>
                         )}
-                        {m.motivoRechazo && <div className="text-xs text-ink-muted">{m.motivoRechazo}</div>}
+                        {m.motivoRechazo && (
+                          <div className="text-xs text-ink-muted">{m.motivoRechazo}</div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {m.estado === 'PENDIENTE' &&
@@ -228,7 +248,12 @@ export function MermasProcesoPage() {
         resumen={
           <div className="space-y-2">
             <p>La merma queda rechazada y no baja la producción en proceso. Indica el motivo.</p>
-            <TextAreaField value={motivoRechazo} onChange={setMotivoRechazo} maxLength={500} minRows={2} />
+            <TextAreaField
+              value={motivoRechazo}
+              onChange={setMotivoRechazo}
+              maxLength={500}
+              minRows={2}
+            />
           </div>
         }
         verbo="Rechazar merma"

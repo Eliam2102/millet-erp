@@ -139,11 +139,10 @@ export function SaldosPeriodoPage() {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={filas.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.onChange}
           />
         }

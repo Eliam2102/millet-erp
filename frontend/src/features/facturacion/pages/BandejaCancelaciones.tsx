@@ -111,7 +111,7 @@ export function BandejaCancelaciones() {
           ) : !items.length ? (
             <p className="p-4 text-ink-muted">No hay solicitudes en esta vista.</p>
           ) : (
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Comprobante</TableHead>
@@ -340,7 +340,12 @@ function ModificarSolicitud({ c }: { c: CancelacionBandejaItem }) {
     return (
       <div className="flex flex-col gap-1">
         <p className="text-xs text-ink-muted">La solicitaste tú; la autoriza otra persona.</p>
-        <Button size="sm" variant="outline" className="self-start" onClick={() => setEditando(true)}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="self-start"
+          onClick={() => setEditando(true)}
+        >
           Modificar
         </Button>
       </div>
@@ -396,7 +401,12 @@ function ModificarSolicitud({ c }: { c: CancelacionBandejaItem }) {
         />
       )}
       <div className="flex gap-2">
-        <Button size="sm" variant="ghost" onClick={() => setEditando(false)} disabled={modificar.isPending}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setEditando(false)}
+          disabled={modificar.isPending}
+        >
           Volver
         </Button>
         <Button size="sm" onClick={guardar} disabled={modificar.isPending}>

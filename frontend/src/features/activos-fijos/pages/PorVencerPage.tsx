@@ -1,10 +1,11 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { ResolverAviso } from '../components/ResolverAviso';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -17,11 +18,12 @@ import {
 import { formatDate } from '@/lib/datetime';
 import { useConservacion, type Pagina, type Vencimiento } from '../api/conservacion';
 export function PorVencerPage() {
+  const { limit } = useTamanoPagina();
   const [sucursal, setSucursal] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [misAvisos, setMisAvisos] = useState(false);
   const query = useConservacion<Pagina<Vencimiento> & { hoy: string }>(
-    `${misAvisos ? 'avisos' : 'por-vencer'}?offset=${offset}${sucursal ? `&sucursalId=${sucursal}` : ''}`,
+    `${misAvisos ? 'avisos' : 'por-vencer'}?offset=${offset}&limit=${limit}${sucursal ? `&sucursalId=${sucursal}` : ''}`,
   );
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 text-sm">
@@ -53,27 +55,12 @@ export function PorVencerPage() {
           </div>
         }
         pie={
-          <div className="flex items-center justify-between p-3">
-            <span>{query.data?.total ?? 0} vencimientos</span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={offset === 0}
-                title="Página anterior"
-                onClick={() => setOffset(offset - 10)}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                disabled={offset + 10 >= (query.data?.total ?? 0)}
-                title="Página siguiente"
-                onClick={() => setOffset(offset + 10)}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={offset}
+            limit={limit}
+            onChange={setOffset}
+          />
         }
       >
         {query.isPending ? (

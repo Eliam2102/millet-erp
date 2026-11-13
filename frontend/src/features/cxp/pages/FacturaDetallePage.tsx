@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { RevisionReppContexto } from '../components/RevisionReppContexto';
 import { PolizasDocumento } from '@/features/contabilidad/components/polizas/PolizasDocumento';
 import { problemaUsuario } from '@/lib/error-usuario';
@@ -477,7 +478,7 @@ export function FacturaDetallePage() {
               Partidas ({query.data.lineas.length})
             </h2>
             <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
+              <Table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left">#</th>
@@ -510,7 +511,7 @@ export function FacturaDetallePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
           </section>
 
@@ -613,4 +614,3 @@ function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps
     </Badge>
   );
 }
-

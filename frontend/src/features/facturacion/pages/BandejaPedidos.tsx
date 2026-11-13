@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -62,9 +63,9 @@ const SENTINEL_ALL = '__all__';
  * emisión-desde-pedido (backend F3). En FE-F1 la bandeja es lista +
  * captura.</para>
  */
-const TAMANO_PAGINA = 50;
 
 export function BandejaPedidos() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nuevoPedido = useNuevoPedido();
@@ -81,7 +82,7 @@ export function BandejaPedidos() {
     credito: puedeVerCredito ? search.credito : undefined,
     q: q || undefined,
     offset: paginacion.offset,
-    limit: TAMANO_PAGINA,
+    limit: limiteTabla,
     alcance: search.alcance,
   });
 
@@ -204,8 +205,7 @@ export function BandejaPedidos() {
           <PaginacionTabla
             total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={TAMANO_PAGINA}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }

@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -41,9 +42,7 @@ export function BuzonRevisionPanel({ puedeDescartar }: { puedeDescartar: boolean
   return (
     <section aria-label="Buzón de correo" className="space-y-2 rounded-md border p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">
-          Buzón de correo: por revisar ({items.length})
-        </h2>
+        <h2 className="text-sm font-semibold">Buzón de correo: por revisar ({items.length})</h2>
         {ultima && (
           <p className="text-xs text-muted-foreground">
             Última lectura <DateTimeDisplay value={ultima.inicioUtc} variant="corta" />
@@ -55,7 +54,7 @@ export function BuzonRevisionPanel({ puedeDescartar }: { puedeDescartar: boolean
       </div>
       {items.length > 0 && (
         <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
+          <Table paginada className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-3 py-2 text-left">Recibido</th>
@@ -73,9 +72,7 @@ export function BuzonRevisionPanel({ puedeDescartar }: { puedeDescartar: boolean
                   </td>
                   <td className="px-3 py-2 text-xs">{b.remitente}</td>
                   <td className="px-3 py-2">{b.asunto}</td>
-                  <td className="px-3 py-2">
-                    {BuzonMotivoLabels[b.motivo] ?? b.motivo}
-                  </td>
+                  <td className="px-3 py-2">{BuzonMotivoLabels[b.motivo] ?? b.motivo}</td>
                   <td className="px-3 py-2">
                     {puedeDescartar && (
                       <Button
@@ -92,7 +89,7 @@ export function BuzonRevisionPanel({ puedeDescartar }: { puedeDescartar: boolean
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       )}
     </section>

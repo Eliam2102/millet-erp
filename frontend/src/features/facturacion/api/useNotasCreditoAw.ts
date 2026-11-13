@@ -37,14 +37,14 @@ const KEY = ['facturacion', 'notas-credito-por-autorizar'] as const;
 
 export const TAMANO_PAGINA_NC_POR_AUTORIZAR = 10;
 
-export function useNotasCreditoPorAutorizar(offset = 0) {
+export function useNotasCreditoPorAutorizar(offset = 0, limit = TAMANO_PAGINA_NC_POR_AUTORIZAR) {
   return useQuery({
-    queryKey: [...KEY, offset],
+    queryKey: [...KEY, offset, limit],
     placeholderData: keepPreviousData,
     queryFn: async ({ signal }) =>
       (
         await apiRequest<{ items: NotaCreditoPorAutorizar[]; total?: number }>(
-          `${BASE}?estado=PorAutorizar&limit=${TAMANO_PAGINA_NC_POR_AUTORIZAR}&offset=${offset}`,
+          `${BASE}?estado=PorAutorizar&limit=${limit}&offset=${offset}`,
           { signal },
         )
       ).data,

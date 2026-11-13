@@ -355,7 +355,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                     </Table>
                     </TableContainer>
                     {conflictos.length > 10 && (
-                      <PaginacionTabla
+                      <PaginacionTabla regionId={paginaConflictos.regionId}
                         total={conflictos.length}
                         offset={paginaConflictos.offset}
                         limit={paginaConflictos.limit}

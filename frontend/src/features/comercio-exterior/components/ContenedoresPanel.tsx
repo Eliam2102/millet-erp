@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { SalidaPanel, PackingPartida, AduanalesPartida } from './SalidaPanel';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { PaginacionTabla } from '@/components/erp';
@@ -52,6 +53,7 @@ const vacio: DatosContenedor = {
   bultos: null,
 };
 export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const id = data.expediente.id;
   const query = useContenedores(id);
   const mutar = useMutarContenedor(id);
@@ -177,55 +179,56 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {d.contenedores.slice(pagina * 10, pagina * 10 + 10).map((c) => (
-                <TableRow key={c.id} className="h-12 border-b border-line-row">
-                  <TableCell className="px-3 font-mono text-xs">
-                    {c.numero ?? 'Por asignar'}
-                  </TableCell>
-                  <TableCell className="px-3">{c.blGuia ?? 'Pendiente'}</TableCell>
-                  <TableCell className="px-3">
-                    {c.booking ?? <span className="text-ink-muted">Sin booking</span>}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    {c.fechaEmbarqueReal ? (
-                      <DateTimeDisplay value={c.fechaEmbarqueReal} />
-                    ) : (
-                      'Pendiente'
-                    )}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    <Badge variant={estadosContenedor[c.estado].tono}>
-                      {estadosContenedor[c.estado].texto}
-                    </Badge>
-                    {c.motivoCancelacion && (
-                      <p className="text-xs text-ink-muted">{c.motivoCancelacion}</p>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    {gestionar && c.estado === 1 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSeleccion(c.id);
-                          setEdicion(c);
-                        }}
-                      >
-                        Editar contenedor
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {d.contenedores
+                .slice(pagina * limiteTabla, pagina * limiteTabla + limiteTabla)
+                .map((c) => (
+                  <TableRow key={c.id} className="h-12 border-b border-line-row">
+                    <TableCell className="px-3 font-mono text-xs">
+                      {c.numero ?? 'Por asignar'}
+                    </TableCell>
+                    <TableCell className="px-3">{c.blGuia ?? 'Pendiente'}</TableCell>
+                    <TableCell className="px-3">
+                      {c.booking ?? <span className="text-ink-muted">Sin booking</span>}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      {c.fechaEmbarqueReal ? (
+                        <DateTimeDisplay value={c.fechaEmbarqueReal} />
+                      ) : (
+                        'Pendiente'
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      <Badge variant={estadosContenedor[c.estado].tono}>
+                        {estadosContenedor[c.estado].texto}
+                      </Badge>
+                      {c.motivoCancelacion && (
+                        <p className="text-xs text-ink-muted">{c.motivoCancelacion}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      {gestionar && c.estado === 1 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSeleccion(c.id);
+                            setEdicion(c);
+                          }}
+                        >
+                          Editar contenedor
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </div>
         <PaginacionTabla
           total={d.contenedores.length}
-          offset={pagina * 10}
-          limit={10}
-          tamanos={[]}
-          onChange={(offset) => setPagina(offset / 10)}
+          offset={pagina * limiteTabla}
+          limit={limiteTabla}
+          onChange={(offset) => setPagina(offset / limiteTabla)}
         />
       </div>
       {contenedor && (

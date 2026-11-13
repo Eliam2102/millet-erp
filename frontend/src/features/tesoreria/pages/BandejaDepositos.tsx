@@ -77,7 +77,8 @@ export function BandejaDepositos() {
   const [origen, setOrigen] = useState<string>(FILTRO_TODOS);
 
   const vistaSinIdentificar = estado === String(TAB_SIN_IDENTIFICAR);
-  const sinIdentificar = useDepositosSinIdentificar({ enabled: vistaSinIdentificar && puedeVerSinIdentificar });
+  const sinIdentificar = useDepositosSinIdentificar({ enabled: vistaSinIdentificar && puedeVerSinIdentificar,
+  });
   const query = useDepositos({
     estado: estado === FILTRO_TODOS || vistaSinIdentificar ? undefined : Number(estado),
     soloPropuestas: origen === FILTRO_TODOS ? undefined : origen === 'propuestas',
@@ -110,7 +111,7 @@ export function BandejaDepositos() {
         onError: (error) => {
           toast.error(errorUsuario(error, 'No se pudo rechazar'), {
             description: esApiError(error)
-              ? (errorUsuario(error))
+              ? errorUsuario(error)
               : undefined,
           });
         },
@@ -126,7 +127,8 @@ export function BandejaDepositos() {
         titulo={<>Depósitos pendientes</>}
         descripcion={
           <>
-            Confirma los depósitos propuestos por CxC o Caja y consulta por separado el estado fiscal de su complemento de pago.
+            Confirma los depósitos propuestos por CxC o Caja y consulta por separado el estado
+            fiscal de su complemento de pago.
           </>
         }
       />
@@ -136,7 +138,9 @@ export function BandejaDepositos() {
           <TabsEstado
             opciones={[
               ...opcionesEstado('deposito'),
-              ...(puedeVerSinIdentificar ? [{ valor: TAB_SIN_IDENTIFICAR, label: 'Sin identificar' }] : []),
+              ...(puedeVerSinIdentificar
+                ? [{ valor: TAB_SIN_IDENTIFICAR, label: 'Sin identificar' }]
+                : []),
             ]}
             valor={estado === FILTRO_TODOS ? undefined : Number(estado)}
             onChange={(v) => setEstado(v == null ? FILTRO_TODOS : String(v))}
@@ -165,11 +169,10 @@ export function BandejaDepositos() {
         }
         pie={
           vistaSinIdentificar ? undefined : (
-            <PaginacionTabla
+            <PaginacionTabla regionId={paginacion.regionId}
               total={items.length}
               offset={paginacion.offset}
-              limit={10}
-              tamanos={[]}
+              limit={paginacion.limit}
               onChange={paginacion.onChange}
             />
           )
@@ -245,11 +248,13 @@ export function BandejaDepositos() {
                       {d.montoEsperado != null
                         ? formatoMonto(d.montoEsperado, d.moneda ?? 'MXN')
                         : '—'}
-                      {d.saldoPorDepositar != null && d.estado === EstadoDepositoConfirmacion.Parcial && (
-                        <p className="text-xs text-ink-muted">
-                          Saldo {formatoMonto(d.saldoPorDepositar, d.moneda ?? 'MXN')} · {d.fichas?.length ?? 0} ficha(s)
-                        </p>
-                      )}
+                      {d.saldoPorDepositar != null &&
+                        d.estado === EstadoDepositoConfirmacion.Parcial && (
+                          <p className="text-xs text-ink-muted">
+                            Saldo {formatoMonto(d.saldoPorDepositar, d.moneda ?? 'MXN')} ·{' '}
+                            {d.fichas?.length ?? 0} ficha(s)
+                          </p>
+                        )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right tabular-nums">
                       {d.propuestaCxcId != null ? d.facturas.length : '—'}
@@ -261,13 +266,20 @@ export function BandejaDepositos() {
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoDepositoBadge estado={d.estado} />
-                      {d.estado === EstadoDepositoConfirmacion.Pendiente && d.motivoRevision != null && (
-                        <p className="mt-1 max-w-56 text-xs text-warning-fg" title={d.motivoRevision}>
-                          En revisión: {d.motivoRevision}
-                        </p>
-                      )}
+                      {d.estado === EstadoDepositoConfirmacion.Pendiente &&
+                        d.motivoRevision != null && (
+                          <p
+                            className="mt-1 max-w-56 text-xs text-warning-fg"
+                            title={d.motivoRevision}
+                          >
+                            En revisión: {d.motivoRevision}
+                          </p>
+                        )}
                       {d.confirmacionAutomatica === true && (
-                        <p className="mt-1 text-xs text-ink-muted" title={d.reglaAutomatica ?? undefined}>
+                        <p
+                          className="mt-1 text-xs text-ink-muted"
+                          title={d.reglaAutomatica ?? undefined}
+                        >
                           Confirmado por regla automática
                         </p>
                       )}
@@ -290,7 +302,8 @@ export function BandejaDepositos() {
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right">
                       {(d.estado === EstadoDepositoConfirmacion.Pendiente ||
-                        (d.estado === EstadoDepositoConfirmacion.Parcial && d.cajaSesionId != null)) && (
+                        (d.estado === EstadoDepositoConfirmacion.Parcial &&
+                          d.cajaSesionId != null)) && (
                         <div className="flex justify-end gap-2">
                           {puedeRechazar && d.estado === EstadoDepositoConfirmacion.Pendiente && (
                             <Button variant="outline" size="sm" onClick={() => setRechazando(d)}>

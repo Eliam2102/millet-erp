@@ -38,7 +38,8 @@ describe('PaginacionTabla', () => {
   });
 
   it('sin extremos no muestra inicio/final', () => {
-    render(<PaginacionTabla total={214} offset={25} limit={25} onChange={vi.fn()} />);
+    render(<PaginacionTabla total={214} offset={25} limit={25} onChange={vi.fn()} extremos={false} />,
+    );
     expect(screen.queryByRole('button', { name: 'Ir al inicio' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Ir al final' })).toBeNull();
   });

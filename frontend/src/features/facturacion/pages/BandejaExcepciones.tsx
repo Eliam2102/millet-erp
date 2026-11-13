@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -35,14 +36,13 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
-const TAMANO_PAGINA = 50;
-
 /**
  * <c>Bandeja de excepciones de ingesta</c> (FE-F3). Pedidos que fallaron
  * la importación A+W / Planta Pintura, por motivo. Resolución inline
  * (marca la excepción como resuelta tras corregir el dato maestro).
  */
 export function BandejaExcepciones() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [soloPendientes, setSoloPendientes] = useState(true);
   const puedeResolver = useHasPermission(PermisosCanonicos.FacturacionPedidosExcepcionesResolver);
   const [busqueda, setBusqueda] = useState('');
@@ -52,7 +52,7 @@ export function BandejaExcepciones() {
   const query = useExcepciones(soloPendientes, {
     q: q || undefined,
     offset: paginacion.offset,
-    limit: TAMANO_PAGINA,
+    limit: limiteTabla,
   });
   const items = query.data?.items ?? [];
   const verInciertos = vista === 3;
@@ -108,8 +108,7 @@ export function BandejaExcepciones() {
             <PaginacionTabla
               total={query.data?.total ?? items.length}
               offset={paginacion.offset}
-              limit={TAMANO_PAGINA}
-              tamanos={[]}
+              limit={limiteTabla}
               onChange={paginacion.onChange}
             />
           )

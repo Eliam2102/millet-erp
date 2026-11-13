@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -132,8 +133,7 @@ export function PoliticasViaticosPage() {
             { width: 'w-40' },
             { width: 'w-32' },
             { width: 'w-32' },
-            { width: 'w-24' },
-          ]}
+            { width: 'w-24' }]}
         />
       ) : items.length === 0 ? (
         <EmptyState
@@ -155,7 +155,7 @@ export function PoliticasViaticosPage() {
 function Tabla({ items }: { items: readonly PoliticaViaticos[] }) {
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
+      <Table paginada className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="px-3 py-2 text-left">Puesto</th>
@@ -180,7 +180,7 @@ function Tabla({ items }: { items: readonly PoliticaViaticos[] }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
     </div>
   );
 }

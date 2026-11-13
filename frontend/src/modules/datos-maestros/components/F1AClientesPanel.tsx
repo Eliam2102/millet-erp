@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { PaginacionTabla, BarraFiltros } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
@@ -29,6 +30,7 @@ import {
 } from '../api/f1a';
 
 export function F1AClientesPanel() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const clasificaciones = useF1AQuery<ClasificacionCliente[]>(CLASIFICACIONES);
   const ligados = useF1AQuery<LigadoCliente[]>(LIGADOS);
   const guardar = useF1AMutation();
@@ -100,49 +102,50 @@ export function F1AClientesPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clasificaciones.data?.slice(pagina * 10, pagina * 10 + 10).map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>{c.nombre}</TableCell>
-                  <TableCell>{c.descripcion}</TableCell>
-                  <TableCell>
-                    <Badge variant={c.activa ? 'success' : 'neutral'}>
-                      {c.activa ? 'Activa' : 'Inactiva'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="space-x-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setEditar(c);
-                        setNombre(c.nombre);
-                        setDescripcion(c.descripcion);
-                      }}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={guardar.isPending}
-                      onClick={() =>
-                        ejecutar(`${CLASIFICACIONES}/${c.id}`, { ...c, activa: !c.activa }, 'PUT')
-                      }
-                    >
-                      {c.activa ? 'Desactivar' : 'Reactivar'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {clasificaciones.data
+                ?.slice(pagina * limiteTabla, pagina * limiteTabla + limiteTabla)
+                .map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>{c.nombre}</TableCell>
+                    <TableCell>{c.descripcion}</TableCell>
+                    <TableCell>
+                      <Badge variant={c.activa ? 'success' : 'neutral'}>
+                        {c.activa ? 'Activa' : 'Inactiva'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="space-x-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setEditar(c);
+                          setNombre(c.nombre);
+                          setDescripcion(c.descripcion);
+                        }}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={guardar.isPending}
+                        onClick={() =>
+                          ejecutar(`${CLASIFICACIONES}/${c.id}`, { ...c, activa: !c.activa }, 'PUT')
+                        }
+                      >
+                        {c.activa ? 'Desactivar' : 'Reactivar'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </ListadoModulo>
         <PaginacionTabla
           total={clasificaciones.data?.length ?? 0}
-          offset={pagina * 10}
-          limit={10}
-          tamanos={[]}
-          onChange={(offset) => setPagina(offset / 10)}
+          offset={pagina * limiteTabla}
+          limit={limiteTabla}
+          onChange={(offset) => setPagina(offset / limiteTabla)}
         />
         <form
           className=" gap-3"

@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import {
   BarraFiltros,
@@ -60,9 +61,11 @@ interface Props {
 
 /** Bandeja de pólizas (P1, F1-CON-04): filtros por periodo, tipo, estado y búsqueda por folio o concepto. */
 export function PolizasPage({ search, onSearch, onAbrir }: Props) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const puedeCapturar = useHasPermission(PermisosCanonicos.ContabilidadPolizasCapturar);
   const puedeVerRecurrentes = useHasPermission(PermisosCanonicos.ContabilidadRecurrentesLeer);
-  const puedeAprobarAnulacion = useHasPermission(PermisosCanonicos.ContabilidadPolizasAnularAprobar);
+  const puedeAprobarAnulacion = useHasPermission(PermisosCanonicos.ContabilidadPolizasAnularAprobar,
+  );
   const [nueva, setNueva] = useState(false);
   const [busqueda, setBusqueda] = useState(search.q ?? '');
   const q = useDebouncedValue(busqueda.trim(), 200);
@@ -77,7 +80,7 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
     estado: search.estado,
     q: search.q || undefined,
     offset,
-    limit: LIMITE_POLIZAS,
+    limit: limiteTabla,
   });
 
   // La búsqueda escribe en la URL con debounce de 200 ms (Enter aplica de inmediato).
@@ -236,8 +239,7 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
             <PaginacionTabla
               total={total}
               offset={offset}
-              limit={LIMITE_POLIZAS}
-              tamanos={[]}
+              limit={limiteTabla}
               onChange={(offset) => onSearch({ ...search, offset: offset || undefined })}
             />
           )

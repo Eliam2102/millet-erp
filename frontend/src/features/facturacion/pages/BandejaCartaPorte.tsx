@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -32,7 +33,6 @@ import { estadoUi } from '../lib/estados-ui';
 import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/carta-porte/' as const;
-const TAMANO_PAGINA = 50;
 
 /**
  * <c>Bandeja de Carta Porte</c> (FE-F8). Lista los CFDIs de Traslado/Ingreso
@@ -40,6 +40,7 @@ const TAMANO_PAGINA = 50;
  * Sheet de captura.
  */
 export function BandejaCartaPorte() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nueva = useNuevaCartaPorte();
@@ -50,7 +51,7 @@ export function BandejaCartaPorte() {
   const query = useListarCartaPorte(search.estado, {
     q: q || undefined,
     offset: paginacion.offset,
-    limit: TAMANO_PAGINA,
+    limit: limiteTabla,
   });
 
   function actualizarSearch(parcial: Partial<CartaPorteSearch>) {
@@ -124,8 +125,7 @@ export function BandejaCartaPorte() {
           <PaginacionTabla
             total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={TAMANO_PAGINA}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }

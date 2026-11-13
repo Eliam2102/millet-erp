@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { PaginacionTabla, BarraFiltros } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import {
@@ -23,13 +24,12 @@ import { TipoCambioInlineForm } from '@/modules/catalogos/components/TipoCambioI
  * <c>&lt;HistoricoTiposCambioPanel/&gt;</c> — tabla del histórico de
  * tipos de cambio (fecha desc) + botón "Registrar tipo de cambio" que
  * toggle el inline form (border-dashed primary). Paginación simple
- * por offset (50 por página, tope backend 200).
+ * por offset (cantidad elegida en la tabla, tope backend 200).
  */
 export interface HistoricoTiposCambioPanelProps {
   monedaId: string;
 }
 
-const PAGE_SIZE = 50;
 
 const ORIGEN_LABEL: Record<OrigenTipoCambio, string> = {
   [OrigenTipoCambio.Manual]: 'Manual',
@@ -38,13 +38,14 @@ const ORIGEN_LABEL: Record<OrigenTipoCambio, string> = {
 };
 
 export function HistoricoTiposCambioPanel({ monedaId }: HistoricoTiposCambioPanelProps) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const canRegistrar = useHasPermission(PermisosCanonicos.CatalogosTiposCambioGestionar);
   const [page, setPage] = useState(0);
   const [showForm, setShowForm] = useState(false);
 
   const tiposCambioQuery = useTiposCambio(monedaId, {
-    offset: page * PAGE_SIZE,
-    limit: PAGE_SIZE,
+    offset: page * limiteTabla,
+    limit: limiteTabla,
   });
 
   const data = tiposCambioQuery.data;
@@ -98,10 +99,9 @@ export function HistoricoTiposCambioPanel({ monedaId }: HistoricoTiposCambioPane
         pie={
           <PaginacionTabla
             total={total}
-            offset={page * PAGE_SIZE}
-            limit={PAGE_SIZE}
-            tamanos={[]}
-            onChange={(offset) => setPage(offset / PAGE_SIZE)}
+            offset={page * limiteTabla}
+            limit={limiteTabla}
+            onChange={(offset) => setPage(offset / limiteTabla)}
           />
         }
       >

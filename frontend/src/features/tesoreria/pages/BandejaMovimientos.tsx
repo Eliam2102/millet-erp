@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, TabsEstado, PaginacionTabla } from '@/components/erp';
@@ -47,6 +48,7 @@ const SENTINEL_ALL = '__all__';
  * detalle con aplicaciones y contramovimientos.
  */
 export function BandejaMovimientos() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [registrar, setRegistrar] = useState(false);
   const [traspaso, setTraspaso] = useState(false);
   const puedeRegistrar = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
@@ -61,7 +63,7 @@ export function BandejaMovimientos() {
     estadoConciliacion: search.estadoConciliacion,
     desde: search.desde,
     hasta: search.hasta,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? limiteTabla,
     offset: search.offset ?? 0,
   });
 
@@ -141,7 +143,8 @@ export function BandejaMovimientos() {
                         <SelectItem value={SENTINEL_ALL}>Todas</SelectItem>
                         {(cuentas.data ?? []).map((c) => (
                           <SelectItem key={c.id} value={c.id}>
-                            {c.banco} <span className="font-mono">{cuentaEnmascarada(c.numeroCuenta)}</span>
+                            {c.banco}{' '}
+                            <span className="font-mono">{cuentaEnmascarada(c.numeroCuenta)}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -193,8 +196,7 @@ export function BandejaMovimientos() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={search.offset ?? 0}
-            limit={search.limit ?? 10}
-            tamanos={[]}
+            limit={search.limit ?? limiteTabla}
             onChange={(offset, limit) => actualizarSearch({ offset, limit })}
           />
         }

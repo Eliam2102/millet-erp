@@ -6,7 +6,8 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { useNombreUsuario } from '@/features/producto-terminado/lib/usuarios';
 import { mensajeApi } from '@/features/producto-terminado/lib/errores';
 import { useAccionTramo, useTramos, type TramoDto } from './api';
@@ -35,7 +36,7 @@ export function TramosPage() {
         <EmptyState title="No hay tramos configurados." />
       ) : (
         <TableContainer maxHeightClassName="" className="min-w-0" role="region" aria-label="Tramos" tabIndex={0}>
-          <Table>
+          <Table paginada>
             <TableHeader>
               <TableRow>
                 <TableHead>Tramo</TableHead>
@@ -60,12 +61,17 @@ export function TramosPage() {
                       <>
                         <p>{t.motivo}</p>
                         <p className="text-ink-muted">
-                          {nombreUsuario(t.detenidoPorId)}{t.detenidoAt && <> · <DateTimeDisplay value={t.detenidoAt} variant="datetime" /></>}
+                          {nombreUsuario(t.detenidoPorId)}{t.detenidoAt && (
+                            <>
+                              {' '}
+                              · <DateTimeDisplay value={t.detenidoAt} variant="datetime" /></>
+                          )}
                         </p>
                       </>
                     ) : t.reanudadoAt ? (
                       <>
-                        <p className="text-ink-muted">Reanudado por {nombreUsuario(t.reanudadoPorId)} · <DateTimeDisplay value={t.reanudadoAt} variant="datetime" /></p>
+                        <p className="text-ink-muted">Reanudado por {nombreUsuario(t.reanudadoPorId)} ·{' '}
+                          <DateTimeDisplay value={t.reanudadoAt} variant="datetime" /></p>
                         {t.motivoReanudacion && <p>{t.motivoReanudacion}</p>}
                       </>
                     ) : (
@@ -76,7 +82,9 @@ export function TramosPage() {
                     {t.ultimoEventoCorrectoAt ? (
                       <>
                         <DateTimeDisplay value={t.ultimoEventoCorrectoAt} variant="datetime" />
-                        {t.ultimoEventoCorrecto && <p className="text-ink-muted">{t.ultimoEventoCorrecto}</p>}
+                        {t.ultimoEventoCorrecto && (
+                          <p className="text-ink-muted">{t.ultimoEventoCorrecto}</p>
+                        )}
                       </>
                     ) : (
                       <span className="text-ink-muted">Sin eventos todavía</span>
@@ -95,7 +103,8 @@ export function TramosPage() {
       )}
       {dialogo && (
         <MotivoDialog
-          titulo={dialogo.a === 'detener' ? `Detener ${dialogo.t.nombre}` : `Reanudar ${dialogo.t.nombre}`}
+          titulo={dialogo.a === 'detener' ? `Detener ${dialogo.t.nombre}` : `Reanudar ${dialogo.t.nombre}`
+          }
           descripcion={
             dialogo.a === 'detener'
               ? 'Mientras esté detenido, las escrituras del tramo se rechazan. Las consultas siguen funcionando.'

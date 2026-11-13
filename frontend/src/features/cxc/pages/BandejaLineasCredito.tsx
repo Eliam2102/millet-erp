@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   ListadoModulo,
   TabsEstado,
@@ -61,6 +62,7 @@ const OPCIONES_ESTADO = [
  * navega al master-detail; "Nueva línea" abre el Sheet (P4).
  */
 export function BandejaLineasCredito() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nuevaLinea = useNuevaLineaCredito();
@@ -71,7 +73,7 @@ export function BandejaLineasCredito() {
     moneda: search.moneda,
     clienteId: search.clienteId,
     q: search.q,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? limiteTabla,
     offset: search.offset ?? 0,
   });
 
@@ -176,9 +178,8 @@ export function BandejaLineasCredito() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={search.offset ?? 0}
-            limit={search.limit ?? 10}
-            tamanos={[]}
-            onChange={(offset) => actualizarSearch({ offset })}
+            limit={search.limit ?? limiteTabla}
+            onChange={(offset, limit) => actualizarSearch({ offset, limit })}
           />
         }
       >

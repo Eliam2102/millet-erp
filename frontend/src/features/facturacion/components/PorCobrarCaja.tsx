@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ function tipoComprobante(tipo: string): string {
  * NC, solo pesos, sin doble cobro) son las mismas.
  */
 export function PorCobrarCaja() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [destino] = useState(() => new URLSearchParams(window.location.search));
   const [cerrado, setCerrado] = useState(false);
   const directo = useComprobantesCobrables(
@@ -74,7 +76,8 @@ export function PorCobrarCaja() {
     setCobrando(null);
     setCerrado(true);
   };
-  const inicio = Math.min(offset, Math.max(0, Math.ceil(items.length / 10) - 1) * 10);
+  const inicio = Math.min(offset, Math.max(0, Math.ceil(items.length / limiteTabla) - 1) * limiteTabla,
+  );
 
   return (
     <section className="space-y-2" aria-labelledby="por-cobrar-titulo">
@@ -143,7 +146,7 @@ export function PorCobrarCaja() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.slice(inicio, inicio + 10).map((c) => (
+              {items.slice(inicio, inicio + limiteTabla).map((c) => (
                 <TableRow key={c.comprobanteId} className="border-t border-line">
                   <TableCell className="px-3 py-2">
                     <span className="font-mono text-xs">{c.folio}</span>
@@ -176,8 +179,7 @@ export function PorCobrarCaja() {
           <PaginacionTabla
             total={items.length}
             offset={inicio}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={setOffset}
           />
           {items.length >= LIMITE && (

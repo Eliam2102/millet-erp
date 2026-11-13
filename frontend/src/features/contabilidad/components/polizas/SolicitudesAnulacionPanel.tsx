@@ -12,16 +12,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { formatDateTime } from '@/lib/datetime';
-import { useAprobarAnulacion, useRechazarAnulacion, useSolicitudesAnulacion } from '../../api/polizas';
+import { useAprobarAnulacion, useRechazarAnulacion, useSolicitudesAnulacion,
+} from '../../api/polizas';
 import type { SolicitudAnulacion } from '../../api/polizas-types';
 import { MENSAJE_MISMA_PERSONA, esPropia } from '../../lib/anulacion';
 import { fechaCorta } from '../../lib/dimensiones';
-import { MOTIVO_ANULACION_MAXIMO, MOTIVO_ANULACION_MINIMO, mensajePoliza, monto } from '../../lib/polizas';
+import { MOTIVO_ANULACION_MAXIMO, MOTIVO_ANULACION_MINIMO, mensajePoliza, monto,
+} from '../../lib/polizas';
 
 /**
  * M-212 (86e3zr7pq): solicitudes de anulación pendientes de la segunda firma. Quien tiene el permiso de aprobar anulaciones las
@@ -47,7 +50,8 @@ export function SolicitudesAnulacionPanel() {
       { solicitudId: s.id, idempotencyKey: keyFor({ aprobar: s.id }) },
       {
         onSuccess: (anulacion) =>
-          setAviso(`Anulación aprobada: ${s.polizaFolio ?? 'la póliza'} quedó anulada por ${anulacion.folio ?? 'su anulación'}.`),
+          setAviso(`Anulación aprobada: ${s.polizaFolio ?? 'la póliza'} quedó anulada por ${anulacion.folio ?? 'su anulación'}.`,
+          ),
         onError: (e) => setMensaje(mensajePoliza(e)),
       },
     );
@@ -66,17 +70,23 @@ export function SolicitudesAnulacionPanel() {
         </span>
       </header>
       {aviso && (
-        <p role="status" className="mx-4 mt-3 rounded-md bg-success-bg px-3 py-2.5 text-sm text-success-fg">
+        <p
+          role="status"
+          className="mx-4 mt-3 rounded-md bg-success-bg px-3 py-2.5 text-sm text-success-fg"
+        >
           {aviso}
         </p>
       )}
       {mensaje && (
-        <p role="alert" className="mx-4 mt-3 rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
+        <p
+          role="alert"
+          className="mx-4 mt-3 rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg"
+        >
           {mensaje}
         </p>
       )}
       {items.length > 0 && (
-        <Table>
+        <Table paginada>
           <TableHeader>
             <TableRow>
               <TableHead>Póliza</TableHead>
@@ -107,7 +117,9 @@ export function SolicitudesAnulacionPanel() {
                   <TableCell className="max-w-xs whitespace-normal">{s.motivo}</TableCell>
                   <TableCell>
                     {s.solicitadaPor}
-                    <span className="block text-xs text-ink-muted">{formatDateTime(s.solicitadaEn)}</span>
+                    <span className="block text-xs text-ink-muted">
+                      {formatDateTime(s.solicitadaEn)}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right">
                     <span className="inline-flex gap-2">
@@ -215,7 +227,8 @@ function RechazarAnulacionDialog({
             onChange={(e) => setMotivo(e.target.value)}
           />
           <span className="text-xs text-ink-muted">
-            {motivo.trim().length}/{MOTIVO_ANULACION_MAXIMO} · mínimo {MOTIVO_ANULACION_MINIMO} caracteres.
+            {motivo.trim().length}/{MOTIVO_ANULACION_MAXIMO} · mínimo {MOTIVO_ANULACION_MINIMO}{' '}
+            caracteres.
           </span>
           {error && (
             <p role="alert" className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
@@ -230,7 +243,9 @@ function RechazarAnulacionDialog({
           <Button
             onClick={confirmar}
             disabled={corto || rechazar.isPending}
-            title={corto ? `El motivo lleva al menos ${MOTIVO_ANULACION_MINIMO} caracteres` : undefined}
+            title={
+              corto ? `El motivo lleva al menos ${MOTIVO_ANULACION_MINIMO} caracteres` : undefined
+            }
           >
             {rechazar.isPending ? 'Rechazando…' : 'Rechazar anulación'}
           </Button>
