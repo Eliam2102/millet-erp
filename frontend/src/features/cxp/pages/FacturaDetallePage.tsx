@@ -1,4 +1,6 @@
 import { Table } from '@/components/ui/table';
+import { RevisionReppContexto } from '../components/RevisionReppContexto';
+import { PolizasDocumento } from '@/features/contabilidad/components/polizas/PolizasDocumento';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
@@ -111,9 +113,7 @@ export function FacturaDetallePage() {
             });
             return;
           }
-          toast.error(
-            'Error al autorizar la factura. Revisa los datos del registro; si continúa, avisa a soporte.',
-          );
+          toast.error("Error al autorizar la factura. Revisa los datos del registro; si continúa, avisa a soporte.");
         },
       },
     );
@@ -164,9 +164,7 @@ export function FacturaDetallePage() {
                 <DateTimeDisplay value={query.data.fechaContabilizacion} variant="media" /> · Vence:{' '}
                 <DateTimeDisplay value={query.data.fechaVencimiento} variant="media" />
                 {esContado(query.data.fechaVencimiento, query.data.fechaDocumento) && (
-                  <span title="El vencimiento coincide con la fecha del documento">
-                    {' '}
-                    (contado, sin días de crédito)</span>
+                  <span title="El vencimiento coincide con la fecha del documento"> (contado, sin días de crédito)</span>
                 )}
               </>
             }
@@ -184,10 +182,8 @@ export function FacturaDetallePage() {
               tono={query.data.revisionVigente.vencida ? 'error' : 'advertencia'}
               titulo={`En revisión: ${query.data.revisionVigente.motivoNombre ?? 'Sin motivo'}`}
             >
-              {query.data.revisionVigente.areaNombre ?? (
-                <span className="text-ink-muted">Sin área</span>
-              )}{' '}
-              · {query.data.revisionVigente.diasHabiles}
+              {query.data.revisionVigente.areaNombre ?? <span className="text-ink-muted">Sin área</span>} ·{' '}
+              {query.data.revisionVigente.diasHabiles}
               {query.data.revisionVigente.slaDias != null
                 ? ` de ${query.data.revisionVigente.slaDias}`
                 : ''}{' '}
@@ -198,6 +194,10 @@ export function FacturaDetallePage() {
                 : ''}
             </AvisoEnLinea>
           )}
+
+
+
+          <RevisionReppContexto contexto={query.data.revisionRepp} />
 
           {/* Sub-topbar con acciones contextuales; sin acciones (Pagada, Cancelada sin motivo) no se pinta. */}
           <div
@@ -230,8 +230,7 @@ export function FacturaDetallePage() {
                     onClick={() => setAutorizarAbierto(true)}
                     disabled={
                       autorizar.isPending ||
-                      (query.data.esServicioComercioExterior &&
-                        !query.data.servicioCeSegundaFirma) ||
+                      (query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma) ||
                       retencionesPendientes ||
                       query.data.estado === EstadoPasivo.EnRevision
                     }
@@ -246,19 +245,17 @@ export function FacturaDetallePage() {
                       query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma
                         ? 'Falta la segunda firma de Dirección Comercial en la orden de servicio.'
                         : query.data.estado === EstadoPasivo.EnRevision
-                          ? MOTIVO_AUTORIZAR_EN_REVISION
-                          : retencionesPendientes
-                            ? 'Fiscal debe revisar las retenciones antes de autorizar.'
-                            : undefined
+                        ? MOTIVO_AUTORIZAR_EN_REVISION
+                        : retencionesPendientes
+                          ? 'Fiscal debe revisar las retenciones antes de autorizar.'
+                          : undefined
                     }
                   >
                     <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
                     {query.data.esServicioComercioExterior ? 'Enviar a Tesorería' : 'Autorizar'}
                   </Button>
                   {query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma && (
-                    <span className="self-center text-xs text-ink-muted">
-                      Falta la segunda firma de Dirección Comercial en la orden de servicio.
-                    </span>
+                    <span className="self-center text-xs text-ink-muted">Falta la segunda firma de Dirección Comercial en la orden de servicio.</span>
                   )}
                   {query.data.estado === EstadoPasivo.EnRevision && (
                     <span
@@ -323,7 +320,7 @@ export function FacturaDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre?.trim() || 'Sin proveedor'}
+              valor={<><span className="font-mono">{query.data.proveedorClave?.trim() || 'Sin código'}</span>{' · '}<span>{query.data.proveedorNombre?.trim() || 'Sin proveedor'}</span></>}
               mono={query.data.proveedorNombre == null}
             />
             <Campo
@@ -340,9 +337,7 @@ export function FacturaDetallePage() {
                     params={{ id: query.data.ordenCompraId }}
                     className="text-brand underline"
                   >
-                    {query.data.ordenCompraFolio?.trim() || (
-                      <span className="text-ink-muted">Sin folio</span>
-                    )}
+                    {query.data.ordenCompraFolio?.trim() || <span className="text-ink-muted">Sin folio</span>}
                   </Link>
                 ) : (
                   '—'
@@ -369,6 +364,8 @@ export function FacturaDetallePage() {
               valor={query.data.tipoCambio != null ? formatCantidad(query.data.tipoCambio, 4) : '—'}
             />
           </dl>
+
+          <PolizasDocumento modulo="cuentas_por_pagar" tipo="factura_proveedor" documentoId={query.data.id} />
 
           {query.data.estado === EstadoPasivo.Capturada && puedeEditar && (
             <EditarDatosP8 key={`${query.data.id}-${query.data.version}`} factura={query.data} />
@@ -430,7 +427,9 @@ export function FacturaDetallePage() {
                   setRevisarAbierto(false);
                   toast.success('Retenciones marcadas como revisadas');
                 } catch (e) {
-                  setErrorRevision(errorUsuario(e, 'No se pudo guardar la revisión.'));
+                  setErrorRevision(
+                    errorUsuario(e, 'No se pudo guardar la revisión.'),
+                  );
                 }
               }}
             />
@@ -457,15 +456,10 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Anticipo aplicado', monto: query.data.anticipoAplicadoTotal },
                 { etiqueta: 'NC aplicadas', monto: query.data.ncAplicadasTotal },
                 { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
-                { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
+                { etiqueta: query.data.esServicioComercioExterior ? 'Retenido por autorización de servicio' : 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
                 // Una factura cancelada ya no es un pasivo: no queda saldo por pagar (P8.7).
-                {
-                  etiqueta: 'Saldo pendiente',
-                  monto:
-                    query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente,
-                  destacado: true,
-                },
+                { etiqueta: 'Saldo pendiente', monto: query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente, destacado: true },
                 { etiqueta: 'Elegible para pago', monto: query.data.elegible, destacado: true },
               ]}
             />
@@ -529,34 +523,20 @@ export function FacturaDetallePage() {
           </section>
 
           {/* U-4 (ALM-costo-06): diferencia del neto de la factura contra la entrada (revisión por costo o rechazo por tolerancia). */}
-          <IncidenciasDocumento
-            modulo="cuentas_por_pagar"
-            tipo="factura_proveedor"
-            id={query.data.id}
-            titulo="Incidencias de costo de la factura"
-          />
+          <IncidenciasDocumento modulo="cuentas_por_pagar" tipo="factura_proveedor" id={query.data.id}
+            titulo="Incidencias de costo de la factura" />
           {query.data.ordenCompraId && (
-            <IncidenciasDocumento
-              modulo="cuentas_por_pagar"
-              tipo="orden_compra"
-              id={query.data.ordenCompraId}
-              titulo="Facturas de la orden rechazadas por tolerancia"
-            />
+            <IncidenciasDocumento modulo="cuentas_por_pagar" tipo="orden_compra" id={query.data.ordenCompraId}
+              titulo="Facturas de la orden rechazadas por tolerancia" />
           )}
 
           <ConfirmarAccionDialog
             open={autorizarAbierto}
             onOpenChange={setAutorizarAbierto}
-            titulo={
-              query.data.esServicioComercioExterior
-                ? 'Enviar servicio a Tesorería'
-                : 'Autorizar factura para pago'
-            }
+            titulo={query.data.esServicioComercioExterior ? "Enviar servicio a Tesorería" : "Autorizar factura para pago"}
             resumen={
               <>
-                {query.data.esServicioComercioExterior
-                  ? 'Envías a Tesorería la factura'
-                  : 'Autorizas la factura'}{' '}
+                {query.data.esServicioComercioExterior ? 'Envías a Tesorería la factura' : 'Autorizas la factura'}{' '}
                 {query.data.serieProveedor ? `${query.data.serieProveedor}-` : ''}
                 {query.data.folioProveedor ?? 'sin folio'}
                 {query.data.proveedorNombre?.trim()
@@ -566,9 +546,7 @@ export function FacturaDetallePage() {
                 Pasa a Tesorería como pasivo listo para pago.
               </>
             }
-            verbo={
-              query.data.esServicioComercioExterior ? 'Enviar a Tesorería' : 'Autorizar para pago'
-            }
+            verbo={query.data.esServicioComercioExterior ? "Enviar a Tesorería" : "Autorizar para pago"}
             tono="primario"
             pendiente={autorizar.isPending}
             onConfirmar={handleAutorizar}
@@ -606,7 +584,7 @@ export function FacturaDetallePage() {
 
 interface CampoProps {
   label: string;
-  valor: string;
+  valor: React.ReactNode;
   mono?: boolean;
 }
 
@@ -614,9 +592,7 @@ function Campo({ label, valor, mono }: CampoProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('text-sm [overflow-wrap:anywhere]', mono && 'break-all font-mono text-xs')}>
-        {valor}
-      </dd>
+      <dd className={cn('text-sm [overflow-wrap:anywhere]', mono && 'break-all font-mono text-xs')}>{valor}</dd>
     </div>
   );
 }

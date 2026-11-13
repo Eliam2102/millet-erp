@@ -537,6 +537,148 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
         finally { await LimpiarAsync(e); }
     }
 
+    [Theory]
+    [InlineData("facturacion", "comprobante")]
+    [InlineData("cuentas_por_pagar", "factura_proveedor")]
+    public async Task Por_documento_filtra_triple_y_empresa_antes_de_paginar_sin_generar_polizas(string modulo, string tipo)
+    {
+        Escenario? e = null;
+        HttpClient? lector = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            lector = await ClienteConPermisosAsync(factory, PermisosCanonicos.ContabilidadPolizasLeer);
+            var documentoId = Guid.NewGuid();
+            Guid originalId, reversaId, anulacionId, borradorId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var sp = scope.ServiceProvider;
+                // Sólo fixture aislado: incluye otra empresa con el mismo GUID de origen para verificar el filtro HTTP.
+                using var bypass = sp.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+                var db = sp.GetRequiredService<ContabilidadDbContext>();
+                var tipoPoliza = await db.TiposDocumento.SingleAsync(t => t.Id == e.Tipo);
+                var documento = new DocumentoOrigenPoliza(modulo, tipo, documentoId, "FIX mismo folio", null);
+                DatosPartida[] partidas = [
+                    new(e.Gasto, "FIX gasto", null, 116m, 0m, "MXN", 1m, null, e.Sucursal, null, null, null, null, null, null, null),
+                    new(e.Banco, "FIX banco", null, 0m, 116m, "MXN", 1m, null, e.Sucursal, null, null, null, null, null, null, null),
+                ];
+                var original = Millet.Contabilidad.Domain.Poliza.CrearAutomatica(Guid.NewGuid(), tipoPoliza, Hoy(), Hoy().Year,
+                    Hoy().Month, "FIX B19 original", documento, $"FIX-B19:{documentoId}", partidas, 1, DateTimeOffset.UtcNow);
+                original.EmpresaId = EmpresaBootstrapId;
+                var reversa = original.Revertir(Guid.NewGuid(), tipoPoliza, Hoy(), Hoy().Year, Hoy().Month, 2,
+                    null, "FIX B19", DateTimeOffset.UtcNow);
+                var anulacion = original.Anular(Guid.NewGuid(), tipoPoliza, Hoy(), Hoy().Year, Hoy().Month, 3,
+                    "FIX B19 documento cancelado", null, "FIX B19", DateTimeOffset.UtcNow);
+                anulacion.EmpresaId = EmpresaBootstrapId;
+                foreach (var poliza in new[] { original, reversa, anulacion })
+                {
+                    foreach (var partida in poliza.Partidas) partida.EmpresaId = EmpresaBootstrapId;
+                    db.Polizas.Add(poliza);
+                }
+                originalId = original.Id; reversaId = reversa.Id; anulacionId = anulacion.Id;
+                var fechaBorrador = Hoy().AddDays(1);
+                var borrador = Millet.Contabilidad.Domain.Poliza.CrearManual(Guid.NewGuid(), tipoPoliza, fechaBorrador,
+                    fechaBorrador.Year, fechaBorrador.Month, "FIX B19 borrador sin folio", documento, [], null, "FIX B19");
+                borrador.EmpresaId = EmpresaBootstrapId;
+                borradorId = borrador.Id;
+                db.Polizas.Add(borrador);
+                void Distractor(string otroModulo, string otroTipo, Guid otroId, Guid empresaId)
+                {
+                    var p = Millet.Contabilidad.Domain.Poliza.CrearManual(Guid.NewGuid(), tipoPoliza, Hoy().AddDays(1), Hoy().Year,
+                        Hoy().Month, "FIX B19 mismo texto", new DocumentoOrigenPoliza(otroModulo, otroTipo, otroId, "FIX mismo folio", null), [], null, "FIX B19");
+                    p.EmpresaId = empresaId;
+                    db.Polizas.Add(p);
+                }
+                Distractor("otro_modulo", tipo, documentoId, EmpresaBootstrapId);
+                Distractor(modulo, "otro_tipo", documentoId, EmpresaBootstrapId);
+                Distractor(modulo, tipo, Guid.NewGuid(), EmpresaBootstrapId);
+                Distractor(modulo, tipo, documentoId, Guid.NewGuid());
+                await db.SaveChangesAsync();
+            }
+            var url = $"{Polizas}/por-documento?modulo={modulo}&tipo={tipo}&documentoId={documentoId}";
+            using var respuesta = await lector.GetAsync(url);
+            respuesta.EnsureSuccessStatusCode();
+            var completa = await Json(respuesta);
+            Assert.Equal(4, completa.GetProperty("total").GetInt32());
+            var filas = completa.GetProperty("items").EnumerateArray().ToArray();
+            var esperados = new[] { originalId, reversaId, anulacionId }.Order().Append(borradorId).ToArray();
+            Assert.Equal(esperados, filas.Select(Id).ToArray());
+            Assert.Equal(JsonValueKind.Null, filas.Single(f => Id(f) == borradorId).GetProperty("folio").ValueKind);
+            Assert.Equal("Borrador", filas.Single(f => Id(f) == borradorId).GetProperty("estado").GetString());
+            Assert.Equal(anulacionId, filas.Single(f => Id(f) == originalId).GetProperty("anuladaPorPolizaId").GetGuid());
+            Assert.Equal(originalId, filas.Single(f => Id(f) == anulacionId).GetProperty("polizaAnuladaId").GetGuid());
+            var derivada = filas.Single(f => Id(f) == reversaId);
+            Assert.Equal(originalId, derivada.GetProperty("polizaRelacionadaId").GetGuid());
+            Assert.Equal("Reversa", derivada.GetProperty("relacion").GetString());
+            for (var offset = 0; offset < 4; offset++)
+            {
+                using var pagina = await lector.GetAsync($"{url}&offset={offset}&limit=1");
+                pagina.EnsureSuccessStatusCode();
+                var json = await Json(pagina);
+                Assert.Equal(4, json.GetProperty("total").GetInt32());
+                Assert.Equal(offset, json.GetProperty("offset").GetInt32());
+                Assert.Equal(1, json.GetProperty("limit").GetInt32());
+                Assert.Equal(esperados[offset], Id(Assert.Single(json.GetProperty("items").EnumerateArray())));
+            }
+            using var vacia = await lector.GetAsync($"{Polizas}/por-documento?modulo={modulo}&tipo={tipo}&documentoId={Guid.NewGuid()}");
+            vacia.EnsureSuccessStatusCode();
+            Assert.Empty((await Json(vacia)).GetProperty("items").EnumerateArray());
+            using var fueraDePagina = await lector.GetAsync($"{url}&offset=4&limit=1");
+            fueraDePagina.EnsureSuccessStatusCode();
+            Assert.Empty((await Json(fueraDePagina)).GetProperty("items").EnumerateArray());
+            using var finalScope = factory.Services.CreateScope();
+            using var finalBypass = finalScope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var finalDb = finalScope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+            Assert.Equal(8, await finalDb.Polizas.CountAsync(p => p.TipoOperacionId == e.Tipo));
+            Assert.Equal(EstadoPoliza.Anulada, (await finalDb.Polizas.SingleAsync(p => p.Id == originalId)).Estado);
+        }
+        finally
+        {
+            if (lector is not null) await LimpiarClienteAsync(lector);
+            await LimpiarAsync(e);
+        }
+    }
+
+    [Theory]
+    [InlineData("modulo=facturacion&tipo=factura_proveedor")]
+    [InlineData("modulo=cuentas_por_pagar&tipo=comprobante")]
+    [InlineData("modulo=otro&tipo=comprobante")]
+    [InlineData("modulo=facturacion&tipo=comprobante&offset=-1")]
+    [InlineData("modulo=facturacion&tipo=comprobante&limit=0")]
+    [InlineData("modulo=facturacion&tipo=comprobante&limit=201")]
+    public async Task Por_documento_rechaza_contrato_invalido(string parametros)
+    {
+        using var client = await LoginAsync(factory);
+        using var respuesta = await client.GetAsync($"{Polizas}/por-documento?{parametros}&documentoId={Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData("no-es-guid")]
+    public async Task Por_documento_rechaza_identidad_invalida(string documentoId)
+    {
+        using var client = await LoginAsync(factory);
+        using var respuesta = await client.GetAsync($"{Polizas}/por-documento?modulo=facturacion&tipo=comprobante&documentoId={documentoId}");
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Por_documento_requiere_autenticacion_y_permiso_contable()
+    {
+        var url = $"{Polizas}/por-documento?modulo=facturacion&tipo=comprobante&documentoId={Guid.NewGuid()}";
+        using var anonimo = factory.CreateClient();
+        using var sinSesion = await anonimo.GetAsync(url);
+        Assert.Equal(HttpStatusCode.Unauthorized, sinSesion.StatusCode);
+        using var sinPermiso = await ClienteConPermisosAsync(factory, PermisosCanonicos.ContabilidadPolizasCapturar);
+        try
+        {
+            using var prohibido = await sinPermiso.GetAsync(url);
+            Assert.Equal(HttpStatusCode.Forbidden, prohibido.StatusCode);
+        }
+        finally { await LimpiarClienteAsync(sinPermiso); }
+    }
+
     // ── Motor (puerto público) ──────────────────────────────────────────────
 
     private static SolicitudPolizaAutomatica Automatica(Escenario e, DateOnly fecha, Guid documentoId, decimal importe = 116m) => new(

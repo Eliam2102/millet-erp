@@ -368,7 +368,7 @@ export function CapturarFacturaSheet({
         <SheetHeader>
           <SheetTitle>Capturar factura desde OC</SheetTitle>
           <SheetDescription>
-            Concilia un CFDI recibido con una OC autorizada. Captura la factura para su revisión y programación de pago.
+            Selecciona una OC autorizada o un servicio de comercio exterior con primera firma registrada. Captura la factura para su revisión y programación de pago.
           </SheetDescription>
         </SheetHeader>
 
@@ -458,6 +458,7 @@ export function CapturarFacturaSheet({
                     name="ordenCompraId"
                     render={({ field }) => (
                       <OrdenCompraSelector
+                        paraCapturaFactura
                         value={field.value || null}
                         onChange={(id) => {
                           field.onChange(id ?? '');

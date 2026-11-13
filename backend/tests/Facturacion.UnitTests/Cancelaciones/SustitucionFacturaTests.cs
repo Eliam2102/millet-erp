@@ -5,6 +5,7 @@ using Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.RechazarCancelacion;
 using Millet.Facturacion.Application.Cancelaciones.RetirarCancelacion;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
+using Millet.Facturacion.Application.Sustituciones;
 using Millet.Facturacion.Domain.Cancelaciones;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
@@ -69,7 +70,7 @@ public sealed class SustitucionFacturaTests
             Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
     }
 
-    private static async Task<(FacturaVenta, PedidoFacturable)> SembrarOriginalAsync(FacturacionDbContext db, Guid empresaId)
+    private static async Task<(FacturaVenta, PedidoFacturable)> SembrarOriginalAsync(FacturacionDbContext db, Guid empresaId, Guid? productoId = null)
     {
         var pedido = PedidoFacturable.ImportarDesdeAw(empresaId, "AW-1", Guid.NewGuid(), Guid.NewGuid(),
             "Cliente", (short)1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, 1, "15");
@@ -77,7 +78,7 @@ public sealed class SustitucionFacturaTests
         var fv = FacturaVenta.CrearBorrador(empresaId, "F-1", 1, Guid.NewGuid(), null, null, receptor,
             new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "PUE", "03", "MXN", null, 2026, 5,
             (short)1, ComportamientoFiscal.MostradorInmediato, pedido.Id, null, null, false);
-        fv.AgregarLinea(null, "01010101", "P", "H87", 1m, 100m, 0m, "02", 0.16m, null, null);
+        fv.AgregarLinea(productoId, "01010101", "P", "H87", productoId is null ? 1m : 1.125m, 100m, 0m, "02", 0.16m, null, null);
         fv.RecalcularTotales();
         fv.MarcarTimbradoEnProceso();
         fv.MarcarTimbrado(UuidA, null, null, null, Ahora, null, null);
@@ -219,4 +220,38 @@ public sealed class SustitucionFacturaTests
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "SUSTITUCION_NO_RETIRABLE");
     }
+    [Fact]
+    public async Task FB48_Borrador_sustitucion_resuelve_precision_sin_modificar_original()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var productoId = Guid.NewGuid();
+        var (original, _) = await SembrarOriginalAsync(db, empresa, productoId);
+        var producto = new ProductoFiscalLectura(productoId, "Kg actual", "01010101", "H87", "02", 0.16m,
+            null, null, "Aw", DecimalesCantidad: 3);
+        var handler = new DatosSustitucionHandler(db, new FakeAlcanceCajaEvaluator(), new FakeClock(Ahora), new FakeProductosReadPort(producto));
+
+        var borrador = await handler.Handle(new DatosSustitucionQuery(original.Id), CancellationToken.None);
+
+        borrador.Lineas.Single(l => l.ProductoId == productoId).DecimalesCantidad.Should().Be(3);
+        borrador.Lineas.Single(l => l.ProductoId == productoId).Cantidad.Should().Be(1.125m);
+        original.Lineas.Single(l => l.ProductoId == productoId).Cantidad.Should().Be(1.125m);
+
+    }
+
+    [Fact]
+    public async Task FB48_Sustitucion_fraccionaria_no_emite_ni_solicita_cancelacion()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var (original, _) = await SembrarOriginalAsync(db, empresa);
+        var command = Sustituta(original.Id);
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => Emisor(db, empresa)
+            .Handle(command with { Lineas = [command.Lineas[0] with { Cantidad = 4.5m }] }, CancellationToken.None));
+        error.Code.Should().Be("CANTIDAD_DECIMALES_EXCEDE_UNIDAD");
+        db.FacturasVenta.Should().ContainSingle(f => f.Id == original.Id);
+        db.SolicitudesCancelacion.Should().BeEmpty();
+        original.Estado.Should().Be(EstadoTimbrado.Timbrado);
+    }
+
 }

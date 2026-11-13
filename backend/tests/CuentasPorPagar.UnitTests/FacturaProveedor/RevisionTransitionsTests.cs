@@ -26,6 +26,45 @@ public sealed class RevisionTransitionsTests
             redondeoAplicado: 0m,
             ahora: DateTimeOffset.UtcNow);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Falta_REPP_rechaza_ambas_acciones_sin_mutar(bool autorizar)
+    {
+        var f = Capturar();
+        f.Autorizar(null, DateTimeOffset.UtcNow);
+        f.RegistrarPago(100, DateTimeOffset.UtcNow, "Pago ficticio");
+        f.EnviarARevision(Domain.FacturaProveedor.FacturaProveedor.MotivoFaltaReppId, Guid.NewGuid(), null, DateTimeOffset.UtcNow);
+        var anterior = (f.Estado, f.EnRevision, f.MotivoRevisionId, f.Version, f.ImportePagado, f.SaldoPendiente, f.Bitacora.Count);
+
+        Action actuar = () => { if (autorizar) f.Autorizar(null, DateTimeOffset.UtcNow); else f.LiberarRevision("Validado", null, DateTimeOffset.UtcNow); };
+        actuar.Should().Throw<BusinessRuleException>().Where(e => e.Code == "FACTURA_FALTA_REPP");
+        (f.Estado, f.EnRevision, f.MotivoRevisionId, f.Version, f.ImportePagado, f.SaldoPendiente, f.Bitacora.Count).Should().Be(anterior);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Complemento_recibido_permite_ambas_acciones_segun_dominio(bool autorizar)
+    {
+        var f = Capturar();
+        f.EnviarARevision(Domain.FacturaProveedor.FacturaProveedor.MotivoFaltaReppId, Guid.NewGuid(), null, DateTimeOffset.UtcNow);
+        f.MarcarReppRecibido();
+        if (autorizar) f.Autorizar(null, DateTimeOffset.UtcNow);
+        else f.LiberarRevision("Validado", null, DateTimeOffset.UtcNow);
+        f.Estado.Should().Be(autorizar ? EstadoPasivo.Autorizada : EstadoPasivo.Capturada);
+        f.EnRevision.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Otro_motivo_sin_REPP_no_impide_autorizar()
+    {
+        var f = Capturar();
+        f.EnviarARevision(Guid.NewGuid(), Guid.NewGuid(), null, DateTimeOffset.UtcNow);
+        f.Autorizar(null, DateTimeOffset.UtcNow);
+        f.Estado.Should().Be(EstadoPasivo.Autorizada);
+    }
+
     [Fact]
     public void EnviarARevision_desde_Capturada_pasa_a_EnRevision_y_setea_metadata()
     {

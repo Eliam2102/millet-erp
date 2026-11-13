@@ -189,7 +189,7 @@ export function DetalleOrdenCompra() {
             titulo={oc.folio}
             descripcion={oc.proveedorRazonSocial ?? oc.proveedorClave ?? undefined}
           />
-          <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+          <EstadoBadge tipo="orden-compra" estado={oc.estado} servicioCe={oc.esServicioComercioExterior} />
           <RecurrenteBadge esRecurrente={oc.esRecurrente} />
           <CollaborationIndicator entidad="orden-compra" id={oc.id} />
         </div>

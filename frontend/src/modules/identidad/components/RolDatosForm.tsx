@@ -100,13 +100,13 @@ export function RolDatosForm({ rol }: RolDatosFormProps) {
           )}
         </FormCampo>
 
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <FormRow label="Código" hint="No editable después de creado el rol.">
             <Input value={rol.codigo} readOnly aria-readonly className="font-mono" />
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
             <Input maxLength={100} disabled={!editable} {...form.register('nombre')} />
           </FormRow>

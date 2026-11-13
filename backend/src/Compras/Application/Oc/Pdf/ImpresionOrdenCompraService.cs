@@ -108,6 +108,7 @@ public class ImpresionOrdenCompraService(
             var m => m,
         };
 
+        var entregaCapturada = !string.IsNullOrWhiteSpace(oc.InfoLogisticaDireccion);
         return new OrdenCompraImpresion
         {
             Folio = oc.Folio.Valor,
@@ -129,9 +130,11 @@ public class ImpresionOrdenCompraService(
                 empleado is null ? null : string.Join(" Ext. ", new[] { empleado.Telefono, empleado.Extension }
                     .Where(x => !string.IsNullOrWhiteSpace(x))),
                 empleado?.Email ?? empleado?.EmailContacto),
-            EntregaNombre = sucursal?.Nombre ?? "",
-            EntregaLineas = sucursal is null ? [] : PdfDomicilio.Lineas(sucursal.Calle, sucursal.NumeroExterior, sucursal.NumeroInterior,
-                sucursal.Colonia, sucursal.Ciudad, sucursal.Municipio, sucursal.Estado, sucursal.CodigoPostal, sucursal.Pais),
+            EntregaNombre = entregaCapturada ? "" : sucursal?.Nombre ?? "",
+            EntregaLineas = entregaCapturada
+                ? oc.InfoLogisticaDireccion!.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToImmutableArray()
+                : sucursal is null ? [] : PdfDomicilio.Lineas(sucursal.Calle, sucursal.NumeroExterior, sucursal.NumeroInterior,
+                    sucursal.Colonia, sucursal.Ciudad, sucursal.Municipio, sucursal.Estado, sucursal.CodigoPostal, sucursal.Pais),
             UsoCfdi = uso,
             MetodoPago = metodo,
             FormaPago = forma,
