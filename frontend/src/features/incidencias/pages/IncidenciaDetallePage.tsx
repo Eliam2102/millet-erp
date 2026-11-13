@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { Link, useParams } from '@tanstack/react-router';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { ArrowRight } from 'lucide-react';
@@ -6,14 +7,15 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { DetalleSkeleton, ErrorState } from '@/components/erp';
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { ListaCompacta } from '@/components/erp/MasterDetail';
-import { paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import {} from '@/components/erp/data/paginacion';
 import { esApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/datetime';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { useIncidencia, useMisIncidencias } from '@/features/incidencias/api/useIncidencias';
 import type { IncidenciaDetalle } from '@/features/incidencias/api/types';
 import { EstadoIncidenciaBadge } from '@/features/incidencias/lib/estado';
-import { fechaCompromisoTexto, folioIncidencia, origenIncidencia, rutaInterna } from '@/features/incidencias/lib/formato';
+import { fechaCompromisoTexto, folioIncidencia, origenIncidencia, rutaInterna,
+} from '@/features/incidencias/lib/formato';
 import { estadosDeVista, type IncidenciasSearch } from '@/features/incidencias/lib/search-schema';
 import { nombreModulo } from '@/features/incidencias/lib/modulos';
 import { AccionesIncidencia } from '@/features/incidencias/components/AccionesIncidencia';
@@ -75,8 +77,9 @@ function Detalle({ incidencia: i }: { incidencia: IncidenciaDetalle }) {
 
       {ruta && !retomable && pendiente && (
         <AvisoEnLinea tono="advertencia" titulo="No tienes acceso a la pantalla del paso">
-          Esta incidencia se retoma en «{i.pasoReanudacionNombre ?? i.pasoNombre}», que tu usuario no puede abrir. Pide a
-          quien tenga ese permiso que lo corrija{i.puedeReasignar ? ' o reasígnale la incidencia' : ''}.
+          Esta incidencia se retoma en «{i.pasoReanudacionNombre ?? i.pasoNombre}», que tu usuario
+          no puede abrir. Pide a quien tenga ese permiso que lo corrija
+          {i.puedeReasignar ? ' o reasígnale la incidencia' : ''}.
         </AvisoEnLinea>
       )}
 
@@ -88,10 +91,18 @@ function Detalle({ incidencia: i }: { incidencia: IncidenciaDetalle }) {
         <Dato label="Módulo" valor={nombreModulo(i.modulo)} />
         <Dato label="Documento" valor={i.documentoEtiqueta} />
         <Dato label="Se retoma en" valor={i.pasoReanudacionNombre ?? '—'} />
-        {i.codigoMotivo && <Dato label="Código" valor={<span className="font-mono text-xs">{i.codigoMotivo}</span>} />}
+        {i.codigoMotivo && (
+          <Dato
+            label="Código"
+            valor={<span className="font-mono text-xs">{i.codigoMotivo}</span>}
+          />
+        )}
       </dl>
 
-      <section className="space-y-2 rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Motivo">
+      <section
+        className="space-y-2 rounded-lg bg-surface-card p-4 shadow-card-flat"
+        aria-label="Motivo"
+      >
         <h2 className="text-md font-semibold text-ink">Motivo</h2>
         <p className="text-sm text-ink">{i.motivo}</p>
         {i.detalle && <p className="whitespace-pre-line text-sm text-ink-secondary">{i.detalle}</p>}
@@ -112,18 +123,27 @@ function Detalle({ incidencia: i }: { incidencia: IncidenciaDetalle }) {
         base={`/api/v1/incidencias/${i.id}`}
         tipo="incidencia"
         tiposUrl="/api/v1/incidencias/tipos-documento"
-        permisos={{ ver: PermisosCanonicos.CompartidoIncidenciasVer, subir: PermisosCanonicos.CompartidoIncidenciasRegistrar }}
+        permisos={{
+          ver: PermisosCanonicos.CompartidoIncidenciasVer,
+          subir: PermisosCanonicos.CompartidoIncidenciasRegistrar,
+        }}
         titulo="Evidencia"
         subirComoResponsable={esResponsable}
         soloLectura={!pendiente}
       />
 
-      <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Historial">
+      <section
+        className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
+        aria-label="Historial"
+      >
         <h2 className="text-md font-semibold text-ink">Historial</h2>
         <ol className="space-y-2.5">
           {[...i.historial].reverse().map((h, n) => (
             <li key={`${h.en}-${n}`} className="flex items-start gap-3">
-              <span className="mt-1.5 size-2 shrink-0 rounded-full bg-line-control" aria-hidden="true" />
+              <span
+                className="mt-1.5 size-2 shrink-0 rounded-full bg-line-control"
+                aria-hidden="true"
+              />
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-ink-strong">
                   {h.usuarioNombre} · {ACCION_HISTORIAL[h.accion] ?? h.accion}
@@ -149,11 +169,18 @@ function Dato({ label, valor }: { label: string; valor: React.ReactNode }) {
 }
 
 /** Lista compacta del master-detail: las mismas incidencias de la bandeja (vista y página actuales). */
-export function ListaIncidenciasCompacta({ idActivo, search }: { idActivo: string; search: IncidenciasSearch }) {
+export function ListaIncidenciasCompacta({
+  idActivo,
+  search,
+}: {
+  idActivo: string;
+  search: IncidenciasSearch;
+}) {
+  const paginaTabla = usePaginacionRuta(search);
   const query = useMisIncidencias({
     estado: estadosDeVista(search.vista),
     modulo: search.modulo,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
   return (
     <ListaCompacta
@@ -176,4 +203,3 @@ export function ListaIncidenciasCompacta({ idActivo, search }: { idActivo: strin
     />
   );
 }
-

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { esApiError } from '@/lib/api';
 import { formatDate } from '@/lib/datetime';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -19,13 +20,15 @@ import {
   useReprogramarFicha,
   type FichaFacturaVencida,
 } from '@/features/cxc/api/useFichasCobranza';
-import { FichaCobranzaDialog, type DatosFicha, type ModoFicha } from '@/features/cxc/components/FichaCobranzaDialog';
+import { FichaCobranzaDialog, type DatosFicha, type ModoFicha,
+} from '@/features/cxc/components/FichaCobranzaDialog';
 
 const importe = (v: number) => v.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const mensajeError = (err: unknown) =>
   esApiError(err) ? (err.problem.detail ?? err.problem.title) : err instanceof Error ? err.message : String(err);
 
-const ETIQUETA_PROMESA = { Vigente: 'Promesa vigente', Cumplida: 'Promesa cumplida', Parcial: 'Promesa parcial', Incumplida: 'Promesa incumplida' } as const;
+const ETIQUETA_PROMESA = { Vigente: 'Promesa vigente', Cumplida: 'Promesa cumplida', Parcial: 'Promesa parcial', Incumplida: 'Promesa incumplida',
+} as const;
 
 interface Objetivo {
   modo: ModoFicha;
@@ -46,7 +49,8 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
   const fichas = useFichasCobranza({ clienteId, soloSinResponsable: soloSin });
   const eventos = useEventosFicha(historial);
   const usuarios = useUsuarios();
-  const personas = useMemo(() => (usuarios.data?.items ?? []).filter((u) => u.activo).map((u) => ({ id: u.id, nombre: u.nombre })), [usuarios.data]);
+  const personas = useMemo(() => (usuarios.data?.items ?? []).filter((u) => u.activo).map((u) => ({ id: u.id, nombre: u.nombre })), [usuarios.data],
+  );
 
   const asignar = useAsignarResponsableFicha();
   const gestion = useRegistrarGestionFicha();
@@ -68,25 +72,35 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
     };
     switch (objetivo.modo) {
       case 'responsable':
-        asignar.mutate({ facturaCarteraId: id, responsableId: d.personaId!, responsableNombre: d.personaNombre ?? null, motivo: d.motivo }, opciones);
+        asignar.mutate({ facturaCarteraId: id, responsableId: d.personaId!, responsableNombre: d.personaNombre ?? null, motivo: d.motivo,
+          },
+          opciones,
+        );
         break;
       case 'gestion':
         gestion.mutate(
-          { facturaCarteraId: id, canal: d.canal!, resultado: d.resultado!, nota: d.nota!, montoComprometido: d.monto, fechaComprometida: d.fecha },
+          { facturaCarteraId: id, canal: d.canal!, resultado: d.resultado!, nota: d.nota!, montoComprometido: d.monto, fechaComprometida: d.fecha,
+          },
           opciones,
         );
         break;
       case 'reprogramar':
-        reprogramar.mutate({ facturaCarteraId: id, siguienteRevision: d.fecha!, motivo: d.motivo! }, opciones);
+        reprogramar.mutate({ facturaCarteraId: id, siguienteRevision: d.fecha!, motivo: d.motivo! }, opciones,
+        );
         break;
       case 'escalar':
-        escalar.mutate({ facturaCarteraId: id, supervisorId: d.personaId!, supervisorNombre: d.personaNombre ?? null, motivo: d.motivo! }, opciones);
+        escalar.mutate({ facturaCarteraId: id, supervisorId: d.personaId!, supervisorNombre: d.personaNombre ?? null, motivo: d.motivo!,
+          },
+          opciones,
+        );
         break;
       case 'cerrar':
-        cerrar.mutate({ facturaCarteraId: id, motivo: d.motivoCierre!, explicacionSaldo: d.motivo }, opciones);
+        cerrar.mutate({ facturaCarteraId: id, motivo: d.motivoCierre!, explicacionSaldo: d.motivo }, opciones,
+        );
         break;
       case 'corregir':
-        corregir.mutate({ eventoId: objetivo.eventoId!, notaCorregida: d.nota!, motivo: d.motivo! }, opciones);
+        corregir.mutate({ eventoId: objetivo.eventoId!, notaCorregida: d.nota!, motivo: d.motivo! }, opciones,
+        );
         break;
     }
   }
@@ -109,7 +123,7 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
       ) : filas.length === 0 ? (
         <p className="text-sm text-ink-muted">{fichas.isLoading ? 'Cargando…' : 'No hay facturas vencidas con esos filtros.'}</p>
       ) : (
-        <Table>
+        <Table paginada>
           <TableHeader>
             <TableRow>
               <TableHead>Cliente</TableHead>
@@ -130,12 +144,18 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
                 <TableCell>{f.diasVencida} d</TableCell>
                 <TableCell>
                   {f.responsableNombre ?? (f.fichaId ? '—' : <Badge variant="outline">Sin responsable</Badge>)}
-                  {f.escalada && <Badge className="ml-2" variant="outline">Escalada</Badge>}
-                  {f.cerrada && <Badge className="ml-2" variant="outline">Cerrada</Badge>}
+                  {f.escalada && (
+                    <Badge className="ml-2" variant="outline">Escalada</Badge>
+                  )}
+                  {f.cerrada && (
+                    <Badge className="ml-2" variant="outline">Cerrada</Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   {f.siguienteRevision ? formatDate(f.siguienteRevision) : '—'}
-                  {f.revisionVencida && <Badge className="ml-2" variant="outline">Revisión vencida</Badge>}
+                  {f.revisionVencida && (
+                    <Badge className="ml-2" variant="outline">Revisión vencida</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="space-x-1 text-right">
                   <Button size="sm" variant="ghost" onClick={() => setHistorial(historial === f.facturaCarteraId ? null : f.facturaCarteraId)}>
@@ -170,7 +190,8 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
                 const fila = filas.find((x) => x.facturaCarteraId === historial);
                 return (
                   <li key={e.id}>
-                    <span className="font-medium">{e.tipoNombre}</span> · {formatDate(e.fecha)} · {e.usuarioNombre ?? '—'}
+                    <span className="font-medium">{e.tipoNombre}</span> · {formatDate(e.fecha)} · {' '}
+                    {e.usuarioNombre ?? '—'}
                     {e.estadoPromesa && (
                       <Badge className="ml-2" variant="outline">
                         {ETIQUETA_PROMESA[e.estadoPromesa]}
@@ -181,15 +202,36 @@ export function PanelFichasCobranza({ clienteId }: { clienteId: string | null })
                     )}
                     <div className="text-ink-muted">
                       {e.nota}
-                      {e.responsableAntes || e.responsableDespues ? ` (${e.responsableAntes ?? '—'} → ${e.responsableDespues ?? '—'})` : ''}
-                      {e.revisionAntes || e.revisionDespues ? ` (revisión ${e.revisionAntes ?? '—'} → ${e.revisionDespues ?? '—'})` : ''}
-                      {e.notaAnterior ? ` · antes: «${e.notaAnterior}» · motivo: ${e.motivoCorreccion}` : ''}
+                      {e.responsableAntes || e.responsableDespues
+                        ? ` (${e.responsableAntes ?? '—'} → ${e.responsableDespues ?? '—'})`
+                        : ''}
+                      {e.revisionAntes || e.revisionDespues
+                        ? ` (revisión ${e.revisionAntes ?? '—'} → ${e.revisionDespues ?? '—'})`
+                        : ''}
+                      {e.notaAnterior
+                        ? ` · antes: «${e.notaAnterior}» · motivo: ${e.motivoCorreccion}`
+                        : ''}
                     </div>
-                    {puedeRegistrar && fila && ['Gestion', 'Promesa', 'Reprogramacion', 'Escalamiento'].includes(e.tipoNombre) && (
-                      <Button size="sm" variant="ghost" onClick={() => setObjetivo({ modo: 'corregir', factura: fila, eventoId: e.id, notaActual: e.nota })}>
-                        Corregir nota
-                      </Button>
-                    )}
+                    {puedeRegistrar &&
+                      fila &&
+                      ['Gestion', 'Promesa', 'Reprogramacion', 'Escalamiento'].includes(
+                        e.tipoNombre,
+                      ) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setObjetivo({
+                              modo: 'corregir',
+                              factura: fila,
+                              eventoId: e.id,
+                              notaActual: e.nota,
+                            })
+                          }
+                        >
+                          Corregir nota
+                        </Button>
+                      )}
                   </li>
                 );
               })}

@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { BarraFiltros } from '@/components/erp';
 import { TabsEstado as TabsCatalogo } from '@/components/erp';
 import { ESTATUS_CATALOGO } from '../lib/estado-variante';
@@ -45,7 +46,7 @@ import { esApiError } from '@/lib/api';
 import { AlmacenSheet } from '@/features/almacen/components/AlmacenSheet';
 import type { AlmacenesSearch } from '@/features/almacen/lib/catalogo-search-schemas';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
@@ -64,6 +65,7 @@ type SortKey = 'clave' | 'nombre' | 'sucursal' | 'estatus';
  */
 export function AlmacenesPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeAdministrar = useHasPermission(PermisosCanonicos.AlmacenAlmacenesAdministrar);
 
@@ -77,7 +79,7 @@ export function AlmacenesPage() {
     q: search.q,
     estatus: search.estatus,
     sucursalId: search.sucursalId,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   function actualizarSearch(parcial: Partial<AlmacenesSearch>) {
@@ -142,7 +144,7 @@ export function AlmacenesPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         }

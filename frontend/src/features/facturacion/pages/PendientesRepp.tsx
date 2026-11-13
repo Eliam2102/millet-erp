@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
@@ -60,6 +61,7 @@ import {
 } from '../lib/repp-pendiente';
 
 export function PendientesRepp() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [estado, setEstado] = useState<EstadoPendiente | ''>('Pendiente');
   const [indicador, setIndicador] = useState('');
   const [offset, setOffset] = useState(0);
@@ -75,7 +77,7 @@ export function PendientesRepp() {
     setQPrevia(q);
     setOffset(0);
   }
-  const query = useReppPendientes(estado, indicador, offset, q);
+  const query = useReppPendientes(estado, indicador, offset, q, limiteTabla);
   const detalle = useReppPendiente(abierto);
   const { emitir } = useAccionesReppPendiente();
   const kpis = query.data?.kpis;
@@ -206,8 +208,7 @@ export function PendientesRepp() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={offset}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={setOffset}
           />
         }
@@ -268,7 +269,8 @@ export function PendientesRepp() {
                       </p>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {p.facturas.map((f) => f.folio ?? 'Sin número').join(', ') || 'Por relacionar'}
+                      {p.facturas.map((f) => f.folio ?? 'Sin número').join(', ') ||
+                        'Por relacionar'}
                     </TableCell>
                     <TableCell>{p.fechaValor}</TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -462,7 +464,9 @@ function RevisionPago({
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Referencia bancaria</dt>
-              <dd className="font-mono text-xs">{pago.referencia ?? <span className="text-ink-muted">Sin referencia</span>}</dd>
+              <dd className="font-mono text-xs">
+                {pago.referencia ?? <span className="text-ink-muted">Sin referencia</span>}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Tipo de cambio del pago</dt>
@@ -489,7 +493,9 @@ function RevisionPago({
           <legend className="font-semibold">2. Relación de facturas</legend>
           {facturas.map((f, index) => (
             <div key={f.facturaVentaId} className="space-y-2 rounded-lg bg-surface-subtle p-3">
-              <p className="font-mono text-xs">{f.folio ?? <span className="text-ink-muted">Sin número</span>}</p>
+              <p className="font-mono text-xs">
+                {f.folio ?? <span className="text-ink-muted">Sin número</span>}
+              </p>
               <Label htmlFor={`importe-${index}`}>Importe aplicado</Label>
               <div className="flex gap-2">
                 <Input
@@ -616,9 +622,7 @@ function RevisionPago({
                 )}
               </div>
               <div className="space-y-1">
-                <Label htmlFor="pendiente-cuenta-beneficiaria">
-                  Otra cuenta beneficiaria
-                </Label>
+                <Label htmlFor="pendiente-cuenta-beneficiaria">Otra cuenta beneficiaria</Label>
                 <Input
                   id="pendiente-cuenta-beneficiaria"
                   placeholder="Opcional"
@@ -633,9 +637,7 @@ function RevisionPago({
                     ? 'Déjala vacía para usar la cuenta de Millet del depósito.'
                     : motivoSinCuenta(formaPago, 'beneficiaria')}
                 </p>
-                {errorBeneficiaria && (
-                  <p className="text-xs text-danger-fg">{errorBeneficiaria}</p>
-                )}
+                {errorBeneficiaria && <p className="text-xs text-danger-fg">{errorBeneficiaria}</p>}
               </div>
             </div>
           )}
@@ -653,17 +655,17 @@ function RevisionPago({
         )}
         {pago.estado === 'Pendiente' &&
           ((bloqueoEmision && bloqueoEmision !== bloqueoCuentas) || pago.bloqueos.length > 0) && (
-          <div role="note" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
-            {bloqueoEmision !== bloqueoCuentas && bloqueoEmision}
-            <ul>
-              {pago.bloqueos
-                .filter((b) => b !== bloqueoEmision)
-                .map((b) => (
-                  <li key={b}>{b}</li>
-                ))}
-            </ul>
-          </div>
-        )}
+            <div role="note" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
+              {bloqueoEmision !== bloqueoCuentas && bloqueoEmision}
+              <ul>
+                {pago.bloqueos
+                  .filter((b) => b !== bloqueoEmision)
+                  .map((b) => (
+                    <li key={b}>{b}</li>
+                  ))}
+              </ul>
+            </div>
+          )}
         {(pago.reciboPagoId || pago.intentoReciboPagoId) && (
           <Link
             className="text-brand underline"

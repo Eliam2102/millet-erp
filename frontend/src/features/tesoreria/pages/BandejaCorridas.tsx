@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Inbox, Plus } from 'lucide-react';
@@ -37,17 +38,17 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 
 const TODOS = 'todos';
-const LIMIT = 20;
 
 /**
  * <c>Corridas de pago</c> (T9.1-A): borrador → en autorización → autorizada.
  * El oficio y el registro de la ejecución llegan en la Parte B (86e3jvvhf).
  */
 export function BandejaCorridas() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [estado, setEstado] = useState<string>(TODOS);
   const [offset, setOffset] = useState(0);
   const puedeCrear = useHasPermission(PermisosCanonicos.TesoreriaCorridasCrear);
-  const query = useCorridas({ estado: estado === TODOS ? undefined : estado, offset, limit: LIMIT });
+  const query = useCorridas({ estado: estado === TODOS ? undefined : estado, offset, limit: limiteTabla });
   const items = query.data?.items ?? [];
 
   return (
@@ -98,7 +99,7 @@ export function BandejaCorridas() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? offset}
-            limit={query.data?.limit ?? LIMIT}
+            limit={query.data?.limit ?? limiteTabla}
             onChange={(o) => setOffset(o)}
           />
         }

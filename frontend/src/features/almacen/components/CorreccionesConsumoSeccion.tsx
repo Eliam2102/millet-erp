@@ -19,7 +19,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { TextAreaField } from '@/components/erp';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
@@ -90,21 +91,30 @@ export function CorreccionesConsumoSeccion({ salida }: { salida: SalidaDetalle }
   return (
     <section className="space-y-2" aria-labelledby="correcciones-consumo">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="correcciones-consumo" className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+        <h2
+          id="correcciones-consumo"
+          className="text-sm font-semibold uppercase tracking-wide text-ink-muted"
+        >
           Correcciones de consumo
         </h2>
         {puedeSolicitar && registrada && (
-          <Button size="sm" variant="outline" disabled={hayPendiente || datos.neto <= 0} onClick={() => setSolicitarOpen(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={hayPendiente || datos.neto <= 0}
+            onClick={() => setSolicitarOpen(true)}
+          >
             Solicitar corrección
           </Button>
         )}
       </div>
       <p className="text-xs text-ink-muted">
-        La autoriza Costos. Se registra en el mes corriente, al costo con que salió, aunque la salida sea de un mes cerrado.
+        La autoriza Costos. Se registra en el mes corriente, al costo con que salió, aunque la
+        salida sea de un mes cerrado.
       </p>
 
       <div className="overflow-x-auto rounded-md border">
-        <Table className="w-full text-sm">
+        <Table paginada className="w-full text-sm">
           <TableHeader className="bg-surface-muted/50">
             <TableRow>
               <TableHead className="px-3 py-2 text-left">Artículo</TableHead>
@@ -118,13 +128,23 @@ export function CorreccionesConsumoSeccion({ salida }: { salida: SalidaDetalle }
             {datos.lineas.map((l) => (
               <TableRow key={l.lineaSalidaId} className="border-t">
                 <TableCell className="px-3 py-2">
-                  {l.articuloClave && <span className="font-mono text-xs text-ink-muted">{l.articuloClave} </span>}
+                  {l.articuloClave && (
+                    <span className="font-mono text-xs text-ink-muted">{l.articuloClave} </span>
+                  )}
                   {l.articuloDescripcion ?? ''}
                 </TableCell>
-                <TableCell className="px-3 py-2 text-right tabular-nums">{num(l.consumido)} {l.unidadMedida}</TableCell>
-                <TableCell className="px-3 py-2 text-right tabular-nums">{num(l.corregido)}</TableCell>
-                <TableCell className="px-3 py-2 text-right font-semibold tabular-nums">{num(l.neto)}</TableCell>
-                <TableCell className="px-3 py-2 text-right tabular-nums">{num(l.pendienteDeAutorizar)}</TableCell>
+                <TableCell className="px-3 py-2 text-right tabular-nums">
+                  {num(l.consumido)} {l.unidadMedida}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right tabular-nums">
+                  {num(l.corregido)}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right font-semibold tabular-nums">
+                  {num(l.neto)}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right tabular-nums">
+                  {num(l.pendienteDeAutorizar)}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -140,7 +160,9 @@ export function CorreccionesConsumoSeccion({ salida }: { salida: SalidaDetalle }
                   <Badge variant={ESTADO_UI[c.estado].variante}>{ESTADO_UI[c.estado].texto}</Badge>
                   <span className="font-medium">{c.tipoTexto}</span>
                   <span className="tabular-nums text-ink-muted">· {num(c.cantidad)}</span>
-                  {c.folioDevolucion && <span className="font-mono text-xs">{c.folioDevolucion}</span>}
+                  {c.folioDevolucion && (
+                    <span className="font-mono text-xs">{c.folioDevolucion}</span>
+                  )}
                 </div>
                 {c.estado === 'PENDIENTE' && puedeAutorizar && (
                   <div className="flex gap-2">
@@ -158,18 +180,25 @@ export function CorreccionesConsumoSeccion({ salida }: { salida: SalidaDetalle }
                 Solicitó {c.solicitadoPor} · <DateTimeDisplay value={c.solicitadoAt} />
                 {c.decididoPor && (
                   <>
-                    {' '}· {c.estado === 'RECHAZADA' ? 'Rechazó' : 'Autorizó'} {c.decididoPor}
+                    {' '}
+                    · {c.estado === 'RECHAZADA' ? 'Rechazó' : 'Autorizó'} {c.decididoPor}
                   </>
                 )}
               </p>
-              {c.motivoRechazo && <p className="mt-1 text-xs text-ink-muted">Motivo del rechazo: {c.motivoRechazo}</p>}
+              {c.motivoRechazo && (
+                <p className="mt-1 text-xs text-ink-muted">Motivo del rechazo: {c.motivoRechazo}</p>
+              )}
             </li>
           ))}
         </ul>
       )}
 
       {solicitarOpen && (
-        <SolicitarCorreccionSheet salida={salida} saldos={datos.lineas} onClose={() => setSolicitarOpen(false)} />
+        <SolicitarCorreccionSheet
+          salida={salida}
+          saldos={datos.lineas}
+          onClose={() => setSolicitarOpen(false)}
+        />
       )}
 
       <ConfirmarAccionDialog
@@ -198,7 +227,12 @@ export function CorreccionesConsumoSeccion({ salida }: { salida: SalidaDetalle }
         resumen={
           <div className="space-y-2">
             <p>La corrección queda rechazada y el inventario no cambia. Indica el motivo.</p>
-            <TextAreaField value={motivoRechazo} onChange={setMotivoRechazo} maxLength={500} minRows={2} />
+            <TextAreaField
+              value={motivoRechazo}
+              onChange={setMotivoRechazo}
+              maxLength={500}
+              minRows={2}
+            />
           </div>
         }
         verbo="Rechazar corrección"
@@ -232,27 +266,42 @@ function SolicitarCorreccionSheet({
   const [tipo, setTipo] = useState('ERROR_CAPTURA');
   const [motivo, setMotivo] = useState<string | null>(null);
   const [subAlmacenId, setSubAlmacenId] = useState(salida.subAlmacenId);
-  const [partidas, setPartidas] = useState<Record<string, { cantidad: string; ubicacionId: string | null }>>(() =>
-    Object.fromEntries(
-      salida.lineas.map((l) => [l.id, { cantidad: '', ubicacionId: null }]),
-    ),
+  const [partidas, setPartidas] = useState<
+    Record<string, { cantidad: string; ubicacionId: string | null }>
+  >(() =>
+    Object.fromEntries(salida.lineas.map((l) => [l.id, { cantidad: '', ubicacionId: null }])),
   );
   const danado = tipo === 'DEVOLUCION_DANADA';
   const opcionesSub = (subs.data?.items ?? []).filter((s) =>
-    danado ? s.tipo === TipoSubAlmacen.MaterialEnRevision : s.tipo !== TipoSubAlmacen.MaterialEnRevision,
+    danado
+      ? s.tipo === TipoSubAlmacen.MaterialEnRevision
+      : s.tipo !== TipoSubAlmacen.MaterialEnRevision,
   );
 
   function enviar() {
     const lineas = salida.lineas
       .map((l) => ({ l, p: partidas[l.id] }))
       .filter(({ p }) => p && Number(p.cantidad) > 0)
-      .map(({ l, p }) => ({ lineaSalidaOrigenId: l.id, cantidad: Number(p.cantidad), ubicacionId: p.ubicacionId ?? '' }));
+      .map(({ l, p }) => ({
+        lineaSalidaOrigenId: l.id,
+        cantidad: Number(p.cantidad),
+        ubicacionId: p.ubicacionId ?? '',
+      }));
     if (!motivo?.trim()) return toast.error('Indica el motivo de la corrección.');
-    if (lineas.length === 0) return toast.error('Captura la cantidad a corregir en al menos una partida.');
-    if (lineas.some((x) => !x.ubicacionId)) return toast.error('Elige la ubicación a donde regresa cada partida.');
+    if (lineas.length === 0)
+      return toast.error('Captura la cantidad a corregir en al menos una partida.');
+    if (lineas.some((x) => !x.ubicacionId))
+      return toast.error('Elige la ubicación a donde regresa cada partida.');
     solicitar.mutate(
       {
-        command: { salidaOrigenId: salida.id, subAlmacenDestinoId: subAlmacenId, tipo, motivo: motivo.trim(), observaciones: null, lineas },
+        command: {
+          salidaOrigenId: salida.id,
+          subAlmacenDestinoId: subAlmacenId,
+          tipo,
+          motivo: motivo.trim(),
+          observaciones: null,
+          lineas,
+        },
         idempotencyKey,
       },
       {
@@ -260,7 +309,8 @@ function SolicitarCorreccionSheet({
           toast.success('Corrección solicitada: queda pendiente de que Costos la autorice');
           onClose();
         },
-        onError: (e) => toast.error(esApiError(e) ? e.problem.detail ?? e.problem.title : errorUsuario(e)),
+        onError: (e) =>
+          toast.error(esApiError(e) ? (e.problem.detail ?? e.problem.title) : errorUsuario(e)),
       },
     );
   }
@@ -271,7 +321,8 @@ function SolicitarCorreccionSheet({
         <SheetHeader>
           <SheetTitle>Solicitar corrección de {salida.folio}</SheetTitle>
           <SheetDescription>
-            No mueve el inventario hasta que Costos la autorice. No puede pasar de lo consumido neto.
+            No mueve el inventario hasta que Costos la autorice. No puede pasar de lo consumido
+            neto.
           </SheetDescription>
         </SheetHeader>
         <SheetBody>
@@ -299,7 +350,9 @@ function SolicitarCorreccionSheet({
             <Field label="Regresa al sub-almacén" required>
               <Select value={subAlmacenId} onValueChange={setSubAlmacenId}>
                 <SelectTrigger aria-label="Sub-almacén destino">
-                  <SelectValue placeholder={danado ? 'Material en revisión' : 'Elige el sub-almacén'} />
+                  <SelectValue
+                    placeholder={danado ? 'Material en revisión' : 'Elige el sub-almacén'}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {opcionesSub.map((s) => (
@@ -317,7 +370,10 @@ function SolicitarCorreccionSheet({
               const saldo = saldos.find((s) => s.lineaSalidaId === l.id);
               const p = partidas[l.id] ?? { cantidad: '', ubicacionId: null };
               return (
-                <div key={l.id} className="space-y-2 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3">
+                <div
+                  key={l.id}
+                  className="space-y-2 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3"
+                >
                   <div className="text-sm">
                     <span className="font-mono text-xs text-ink-muted">{l.articuloClave} </span>
                     {l.articuloDescripcion} · neto {num(saldo?.neto ?? 0)} {l.unidadMedida}
@@ -331,7 +387,9 @@ function SolicitarCorreccionSheet({
                         step="0.0001"
                         aria-label={`Cantidad a corregir de ${l.articuloClave ?? 'la partida'}`}
                         value={p.cantidad}
-                        onChange={(e) => setPartidas({ ...partidas, [l.id]: { ...p, cantidad: e.target.value } })}
+                        onChange={(e) =>
+                          setPartidas({ ...partidas, [l.id]: { ...p, cantidad: e.target.value } })
+                        }
                       />
                     </Field>
                     <Field label="Ubicación (rack)">
@@ -340,7 +398,9 @@ function SolicitarCorreccionSheet({
                         articuloId={l.articuloId}
                         subAlmacenId={subAlmacenId || null}
                         value={p.ubicacionId}
-                        onChange={(id) => setPartidas({ ...partidas, [l.id]: { ...p, ubicacionId: id } })}
+                        onChange={(id) =>
+                          setPartidas({ ...partidas, [l.id]: { ...p, ubicacionId: id } })
+                        }
                       />
                     </Field>
                   </div>

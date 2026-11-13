@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ErrorState, PaginacionTabla, TableSkeleton } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
@@ -27,7 +28,6 @@ import type { NotaCreditoPorAutorizar } from '../api/useNotasCreditoAw';
 import {
   useAutorizarNotaCredito,
   useFirmarCreditoNotaCredito,
-  TAMANO_PAGINA_NC_POR_AUTORIZAR,
   useNotasCreditoPorAutorizar,
 } from '../api/useNotasCreditoAw';
 import { formatoImporte } from '../lib/repp-pendiente';
@@ -38,13 +38,15 @@ const claveMotivo = (motivo: string) =>
 
 /** 86e3wjt5r: NC de clientes que llegan de A+W; autorizarlas las timbra (propuesta hasta F6.4). */
 export function NotasCreditoPorAutorizar() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [offset, setOffset] = useState(0);
-  const query = useNotasCreditoPorAutorizar(offset);
+  const query = useNotasCreditoPorAutorizar(offset, limiteTabla);
   const autorizar = useAutorizarNotaCredito();
   const firmarCredito = useFirmarCreditoNotaCredito();
   const puedeAutorizar = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoAutorizar);
   // M-087: arriba del umbral firma también Crédito y Cobranza.
-  const puedeFirmarCredito = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoAutorizarCredito);
+  const puedeFirmarCredito = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoAutorizarCredito,
+  );
   const [confirmando, setConfirmando] = useState<NotaCreditoPorAutorizar | null>(null);
   const [comoCredito, setComoCredito] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState('');
@@ -74,14 +76,14 @@ export function NotasCreditoPorAutorizar() {
               } para timbrarla.`,
             }
           : r.uuid
-          ? {
-              ok: true,
-              texto: `Nota ${r.folio} timbrada. UUID ${r.uuid}. El saldo de la factura bajó ${formatoImporte(r.total)}.`,
-            }
-          : {
-              ok: false,
-              texto: `La nota ${r.folio} quedó en estado ${r.estado}; no se obtuvo UUID. Revisa el estado antes de reintentar.`,
-            },
+            ? {
+                ok: true,
+                texto: `Nota ${r.folio} timbrada. UUID ${r.uuid}. El saldo de la factura bajó ${formatoImporte(r.total)}.`,
+              }
+            : {
+                ok: false,
+                texto: `La nota ${r.folio} quedó en estado ${r.estado}; no se obtuvo UUID. Revisa el estado antes de reintentar.`,
+              },
       );
     } catch (error) {
       setResultado({
@@ -198,8 +200,7 @@ export function NotasCreditoPorAutorizar() {
       <PaginacionTabla
         total={query.data?.total ?? items.length}
         offset={offset}
-        limit={TAMANO_PAGINA_NC_POR_AUTORIZAR}
-        tamanos={[]}
+        limit={limiteTabla}
         onChange={setOffset}
       />
       <AlertDialog

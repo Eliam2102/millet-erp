@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { BarraFiltros, PaginacionTabla } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -13,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { esApiError } from '@/lib/api';
 import { useRelacionIva } from '../api/hooks';
 export function RelacionIvaPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [periodo, setPeriodo] = useState(() =>
     new Intl.DateTimeFormat('sv-SE', {
       timeZone: 'America/Merida',
@@ -42,14 +44,15 @@ export function RelacionIvaPage() {
         pie={
           <PaginacionTabla
             total={q.data?.filas.length ?? 0}
-            offset={pagina * 10}
-            limit={10}
-            tamanos={[]}
-            onChange={(offset) => setPagina(offset / 10)}
+            offset={pagina * limiteTabla}
+            limit={limiteTabla}
+            onChange={(offset) => setPagina(offset / limiteTabla)}
           />
         }
         reporte={q.data}
-        filasVisibles={q.data?.filas.slice(pagina * 10, pagina * 10 + 10)}
+        filasVisibles={q.data?.filas.slice(pagina * limiteTabla,
+          pagina * limiteTabla + limiteTabla,
+        )}
         isLoading={q.isLoading}
         error={esApiError(q.error) ? q.error : undefined}
         onRetry={() => {

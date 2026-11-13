@@ -68,7 +68,8 @@ export function BandejaAplicaciones() {
   const puedeProponer = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer);
 
   const sinIdentificar = search.vista === 'sin-identificar';
-  const depositosSinIdentificar = useDepositosPorIdentificar({ enabled: sinIdentificar && puedeProponer });
+  const depositosSinIdentificar = useDepositosPorIdentificar({ enabled: sinIdentificar && puedeProponer,
+  });
   const query = usePropuestasAplicacion({
     estado: search.estado,
     clienteId: search.clienteId,
@@ -155,11 +156,10 @@ export function BandejaAplicaciones() {
         }
         pie={
           sinIdentificar ? undefined : (
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={items.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
           )
@@ -231,7 +231,11 @@ export function BandejaAplicaciones() {
                       {formatoMonto(p.montoDeposito, p.moneda)}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                      {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : <span className="text-ink-muted">—</span>}
+                      {p.ajusteNoFiscal !== 0 ? (
+                        formatoMonto(p.ajusteNoFiscal, p.moneda)
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right tabular-nums">{p.facturas.length}</TableCell>
                     <TableCell className="px-3 py-2">

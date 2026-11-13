@@ -90,7 +90,7 @@ export function DepartamentosPanel({
           opciones={OPCIONES_CATALOGO}
         >
           {(visibles) => (
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Clave</TableHead>

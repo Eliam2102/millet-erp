@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { estadosOtr } from '../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { TabsEstado, BarraFiltros, PaginacionTabla } from '@/components/erp';
@@ -29,6 +30,7 @@ const columnasRechazo =
 const columnas =
   'grid grid-cols-[120px_minmax(240px,1.6fr)_112px_136px_260px_172px] items-center [&>td]:min-w-0 [&>th]:min-w-0';
 export function OtrBandejaPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const q = useOtrBandeja();
   const revalidar = useOtrAccion();
   const gestionarTodas = useHasPermission(P.ComercioExteriorDocumentosGestionarTodasSucursales);
@@ -127,10 +129,9 @@ export function OtrBandejaPage() {
             pie={
               <PaginacionTabla
                 total={total}
-                offset={pagina * 10}
-                limit={10}
-                tamanos={[]}
-                onChange={(offset) => setPagina(offset / 10)}
+                offset={pagina * limiteTabla}
+                limit={limiteTabla}
+                onChange={(offset) => setPagina(offset / limiteTabla)}
               />
             }
           >
@@ -150,31 +151,33 @@ export function OtrBandejaPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="grid auto-rows-fr">
-                    {filasRechazo.slice(pagina * 10, pagina * 10 + 10).map((r) => (
-                      <TableRow
-                        className={`${columnasRechazo} min-h-12 border-b border-line-row`}
-                        key={r.id}
-                      >
-                        <TableCell className="break-words px-3 font-mono text-xs">
-                          {r.idOrigen}
-                        </TableCell>
-                        <TableCell className="break-words px-3 text-xs tabular-nums">
-                          {r.versionOrigen}
-                        </TableCell>
-                        <TableCell className="px-3 text-xs tabular-nums">{r.intentos}</TableCell>
-                        <TableCell className="min-w-0 px-3">
-                          <p className="break-words">{motivoRechazoOtr(r.motivo)}</p>
-                          {r.motivo && (
-                            <p className="break-words font-mono text-2xs text-ink-muted">
-                              {r.motivo}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-3 text-xs">
-                          <DateTimeDisplay value={r.fecha} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filasRechazo
+                      .slice(pagina * limiteTabla, pagina * limiteTabla + limiteTabla)
+                      .map((r) => (
+                        <TableRow
+                          className={`${columnasRechazo} min-h-12 border-b border-line-row`}
+                          key={r.id}
+                        >
+                          <TableCell className="break-words px-3 font-mono text-xs">
+                            {r.idOrigen}
+                          </TableCell>
+                          <TableCell className="break-words px-3 text-xs tabular-nums">
+                            {r.versionOrigen}
+                          </TableCell>
+                          <TableCell className="px-3 text-xs tabular-nums">{r.intentos}</TableCell>
+                          <TableCell className="min-w-0 px-3">
+                            <p className="break-words">{motivoRechazoOtr(r.motivo)}</p>
+                            {r.motivo && (
+                              <p className="break-words font-mono text-2xs text-ink-muted">
+                                {r.motivo}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-3 text-xs">
+                            <DateTimeDisplay value={r.fecha} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
               )}
@@ -208,92 +211,96 @@ export function OtrBandejaPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="grid auto-rows-fr">
-                    {filas.slice(pagina * 10, pagina * 10 + 10).map((e) => (
-                      <TableRow
-                        className={`${columnas} min-h-12 border-b border-line-row`}
-                        key={e.id}
-                      >
-                        <TableCell className="break-words px-3 font-mono text-xs">
-                          {e.idOrigen}
-                        </TableCell>
-                        <TableCell className="min-w-0 px-3">
-                          <p className="truncate" title={e.contenido.cliente}>
-                            {e.contenido.cliente}
-                          </p>
-                          <p
-                            className="truncate text-xs text-ink-muted"
-                            title={e.contenido.direccionEntrega}
-                          >
-                            {e.contenido.direccionEntrega}
-                          </p>
-                        </TableCell>
-                        <TableCell className="break-words px-3 font-mono text-xs">
-                          {e.contenido.contenedor.numero ?? (
-                            <span className="text-ink-muted">Sin número</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="break-words px-3 text-xs tabular-nums">
-                          {e.versionAplicada}
-                        </TableCell>
-                        <TableCell className="px-3">
-                          <Badge variant={estadosOtr[e.estado].tono}>
-                            {estadosOtr[e.estado].texto}
-                          </Badge>
-                          {e.motivoVinculacion && (
-                            <p
-                              id={`motivo-${e.id}`}
-                              className="mt-1 break-words text-xs text-ink-secondary"
-                            >
-                              {motivoVinculacionOtr(e.motivoVinculacion)}
+                    {filas
+                      .slice(pagina * limiteTabla, pagina * limiteTabla + limiteTabla)
+                      .map((e) => (
+                        <TableRow
+                          className={`${columnas} min-h-12 border-b border-line-row`}
+                          key={e.id}
+                        >
+                          <TableCell className="break-words px-3 font-mono text-xs">
+                            {e.idOrigen}
+                          </TableCell>
+                          <TableCell className="min-w-0 px-3">
+                            <p className="truncate" title={e.contenido.cliente}>
+                              {e.contenido.cliente}
                             </p>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-3">
-                          {gestionar &&
-                          gestionarTodas &&
-                          e.estado === 1 &&
-                          e.motivoVinculacion === 'CE_OTR_SUCURSAL_DESCONOCIDA' ? (
-                            <Button
-                              variant="outline"
-                              disabled={revalidar.isPending}
-                              title={
-                                revalidar.isPending
-                                  ? 'Revalidando sucursal.'
-                                  : 'Buscar la equivalencia vigente de la sucursal A+W.'
-                              }
-                              aria-describedby={`motivo-${e.id}`}
-                              onClick={() => {
-                                void revalidar
-                                  .mutateAsync({ envio: e, ruta: 'revalidar-sucursal' })
-                                  .catch(() => {});
-                              }}
+                            <p
+                              className="truncate text-xs text-ink-muted"
+                              title={e.contenido.direccionEntrega}
                             >
-                              Revalidar sucursal
-                            </Button>
-                          ) : gestionar && e.estado === 1 ? (
-                            <Button
-                              variant="outline"
-                              disabled={!!e.motivoVinculacion}
-                              title={motivoVinculacionOtr(e.motivoVinculacion) ?? undefined}
-                              aria-describedby={e.motivoVinculacion ? `motivo-${e.id}` : undefined}
-                              onClick={() => setSeleccion(e)}
-                            >
-                              Vincular envío
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-ink-muted">
-                              {e.estado === 2
-                                ? 'Envío vinculado.'
-                                : e.estado === 3
-                                  ? 'Envío cancelado.'
-                                  : e.estado === 4
-                                    ? 'Ya facturado en SAP; sólo consulta.'
-                                    : 'Requiere permiso de gestión OTR.'}
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              {e.contenido.direccionEntrega}
+                            </p>
+                          </TableCell>
+                          <TableCell className="break-words px-3 font-mono text-xs">
+                            {e.contenido.contenedor.numero ?? (
+                              <span className="text-ink-muted">Sin número</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="break-words px-3 text-xs tabular-nums">
+                            {e.versionAplicada}
+                          </TableCell>
+                          <TableCell className="px-3">
+                            <Badge variant={estadosOtr[e.estado].tono}>
+                              {estadosOtr[e.estado].texto}
+                            </Badge>
+                            {e.motivoVinculacion && (
+                              <p
+                                id={`motivo-${e.id}`}
+                                className="mt-1 break-words text-xs text-ink-secondary"
+                              >
+                                {motivoVinculacionOtr(e.motivoVinculacion)}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-3">
+                            {gestionar &&
+                            gestionarTodas &&
+                            e.estado === 1 &&
+                            e.motivoVinculacion === 'CE_OTR_SUCURSAL_DESCONOCIDA' ? (
+                              <Button
+                                variant="outline"
+                                disabled={revalidar.isPending}
+                                title={
+                                  revalidar.isPending
+                                    ? 'Revalidando sucursal.'
+                                    : 'Buscar la equivalencia vigente de la sucursal A+W.'
+                                }
+                                aria-describedby={`motivo-${e.id}`}
+                                onClick={() => {
+                                  void revalidar
+                                    .mutateAsync({ envio: e, ruta: 'revalidar-sucursal' })
+                                    .catch(() => {});
+                                }}
+                              >
+                                Revalidar sucursal
+                              </Button>
+                            ) : gestionar && e.estado === 1 ? (
+                              <Button
+                                variant="outline"
+                                disabled={!!e.motivoVinculacion}
+                                title={motivoVinculacionOtr(e.motivoVinculacion) ?? undefined}
+                                aria-describedby={
+                                  e.motivoVinculacion ? `motivo-${e.id}` : undefined
+                                }
+                                onClick={() => setSeleccion(e)}
+                              >
+                                Vincular envío
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-ink-muted">
+                                {e.estado === 2
+                                  ? 'Envío vinculado.'
+                                  : e.estado === 3
+                                    ? 'Envío cancelado.'
+                                    : e.estado === 4
+                                      ? 'Ya facturado en SAP; sólo consulta.'
+                                      : 'Requiere permiso de gestión OTR.'}
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
               )}

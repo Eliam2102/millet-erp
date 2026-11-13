@@ -94,7 +94,8 @@ export function ReglasSeriePage() {
       ) : reglas.isLoading ? (
         <TableSkeleton
           rows={6}
-          columns={[{ width: 'w-20' }, { width: 'w-64' }, { width: 'w-20' }, { width: 'w-40' }, { width: 'w-24' }]}
+          columns={[{ width: 'w-20' }, { width: 'w-64' }, { width: 'w-20' }, { width: 'w-40' }, { width: 'w-24' },
+          ]}
         />
       ) : (reglas.data ?? []).length === 0 ? (
         <EmptyState
@@ -210,14 +211,22 @@ function NuevaReglaInline({ onCerrar }: { onCerrar: () => void }) {
         />
       </div>
       <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={limpio.length === 0 || error != null || crear.isPending}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={limpio.length === 0 || error != null || crear.isPending}
+        >
           Guardar
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>
-      {error && <p role="alert" className="w-full text-xs text-danger-fg">{error}</p>}
+      {error && (
+        <p role="alert" className="w-full text-xs text-danger-fg">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
@@ -261,7 +270,7 @@ function TablaReglas({ reglas }: { reglas: ReglaLiberacionSerieAdmin[] }) {
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <Table className="w-full text-sm">
+      <Table paginada className="w-full text-sm">
         <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
           <TableRow>
             <TableHead className="px-3 py-2 font-medium">Serie</TableHead>
@@ -301,7 +310,9 @@ function TablaReglas({ reglas }: { reglas: ReglaLiberacionSerieAdmin[] }) {
                 />
               </TableCell>
               <TableCell className="px-3 py-2">
-                <Badge variant={r.activo ? 'success' : 'neutral'}>{r.activo ? 'Activa' : 'Inactiva'}</Badge>
+                <Badge variant={r.activo ? 'success' : 'neutral'}>
+                  {r.activo ? 'Activa' : 'Inactiva'}
+                </Badge>
               </TableCell>
               <TableCell className="px-3 py-2 text-xs text-ink-muted">
                 <DateTimeDisplay value={r.actualizadoEn} />
@@ -327,7 +338,8 @@ function TablaReglas({ reglas }: { reglas: ReglaLiberacionSerieAdmin[] }) {
                               ? `Serie ${res.prefijo} activada.`
                               : `Serie ${res.prefijo} desactivada: evaluará crédito.`,
                           ),
-                        onError: (e) => manejarError(e, 'No se pudo cambiar el estado de la regla.'),
+                        onError: (e) =>
+                          manejarError(e, 'No se pudo cambiar el estado de la regla.'),
                       },
                     )
                   }
@@ -345,7 +357,10 @@ function TablaReglas({ reglas }: { reglas: ReglaLiberacionSerieAdmin[] }) {
 
 function describirCambio(h: HistorialReglaSerie): string {
   if (h.operacion === 'crear') {
-    const c = h.comportamientoDespues != null ? ETIQUETA_COMPORTAMIENTO_SERIE[h.comportamientoDespues] : '—';
+    const c =
+      h.comportamientoDespues != null
+        ? ETIQUETA_COMPORTAMIENTO_SERIE[h.comportamientoDespues]
+        : '—';
     return `Alta: ${c.toLowerCase()}`;
   }
   const partes: string[] = [];
@@ -361,7 +376,7 @@ function describirCambio(h: HistorialReglaSerie): string {
 function TablaHistorial({ filas }: { filas: HistorialReglaSerie[] }) {
   return (
     <div className="overflow-x-auto rounded-md border">
-      <Table className="w-full text-sm">
+      <Table paginada className="w-full text-sm">
         <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
           <TableRow>
             <TableHead className="px-3 py-2 font-medium">Fecha</TableHead>

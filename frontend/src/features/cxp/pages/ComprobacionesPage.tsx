@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -36,7 +37,7 @@ import {
   TableSkeleton,
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { cxpKeys } from '@/features/cxp/api/keys';
 import { useComprobaciones } from '@/features/cxp/api/useComprobaciones';
 import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
@@ -77,6 +78,7 @@ const SENTINEL_ALL = '__all__';
  */
 export function ComprobacionesPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeCapturar = useHasPermission(PermisosCanonicos.CuentasPorPagarComprobacionesCapturar);
   const [sheetCajaChica, setSheetCajaChica] = useState(false);
@@ -87,7 +89,7 @@ export function ComprobacionesPage() {
     estado: search.estado,
     sucursalId: search.sucursalId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(
@@ -177,7 +179,7 @@ export function ComprobacionesPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         </div>
@@ -262,7 +264,8 @@ function Filtros({ search, total, onChange }: FiltrosProps) {
           ? () => onChange({ tipo: undefined, sucursalId: undefined, q: undefined })
           : undefined
       }
-      total={total != null ? `${total} ${total === 1 ? 'comprobación' : 'comprobaciones'}` : undefined}
+      total={total != null ? `${total} ${total === 1 ? 'comprobación' : 'comprobaciones'}` : undefined
+      }
     />
   );
 }
@@ -304,10 +307,14 @@ function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
                 </TableCell>
                 <TableCell>
                   <div className="max-w-56 truncate" title={c.responsableNombre ?? undefined}>
-                    {c.responsableNombre?.trim() || <span className="text-ink-muted">Sin asignar</span>}
+                    {c.responsableNombre?.trim() || (
+                      <span className="text-ink-muted">Sin asignar</span>
+                    )}
                   </div>
                 </TableCell>
-                <TableCell>{c.sucursalNombre?.trim() || <span className="text-ink-muted">Sin sucursal</span>}</TableCell>
+                <TableCell>
+                  {c.sucursalNombre?.trim() || <span className="text-ink-muted">Sin sucursal</span>}
+                </TableCell>
                 <TableCell className="whitespace-nowrap text-xs">
                   {c.fechaInicio} → {c.fechaFin}
                 </TableCell>

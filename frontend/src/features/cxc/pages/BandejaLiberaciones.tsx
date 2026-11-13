@@ -227,11 +227,10 @@ function TabDecisiones({
         }
         filtros={<BarraFiltros total={`${items.length} registros en el lote`} />}
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={items.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
         }
@@ -308,7 +307,11 @@ function TabDecisiones({
                         )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-xs">
-                      {etiquetaReglaLiberacion(d.reglaAplicada, d.pedidoRef, reglasSerie.data ?? [])}
+                      {etiquetaReglaLiberacion(
+                        d.reglaAplicada,
+                        d.pedidoRef,
+                        reglasSerie.data ?? [],
+                      )}
                       {d.motivo && (
                         <p className="mt-0.5 max-w-48 truncate text-ink-muted" title={d.motivo}>
                           {d.motivo}
@@ -325,13 +328,23 @@ function TabDecisiones({
                       {puedeDecidir &&
                         d.resultado === ResultadoLiberacion.Retenido &&
                         !d.reevaluadaPorId && (
-                          <Button variant="outline" size="sm" className="mr-2" onClick={() => setPorCorregir(d)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mr-2"
+                            onClick={() => setPorCorregir(d)}
+                          >
                             <Pencil className="mr-1 h-3.5 w-3.5" />
                             Corregir y reevaluar
                           </Button>
                         )}
                       {(d.reevaluadaPorId || d.reevaluaDecisionId) && (
-                        <Button variant="ghost" size="sm" className="mr-2" onClick={() => setHistorialDe(d.pedidoRef)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mr-2"
+                          onClick={() => setHistorialDe(d.pedidoRef)}
+                        >
                           <History className="mr-1 h-3.5 w-3.5" />
                           Historial
                         </Button>
@@ -396,7 +409,9 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
   const cancelar = useCancelarAutorizacionCredito();
   // M-239: segunda firma de Dirección y tabla de firmas por monto.
   const firmar = useFirmarAutorizacionCredito();
-  const puedeDireccion = useHasPermission(PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion);
+  const puedeDireccion = useHasPermission(
+    PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion,
+  );
   const usuarioActualId = useAuthStore((s) => s.user?.id);
   const [reglasAbiertas, setReglasAbiertas] = useState(false);
 
@@ -444,11 +459,10 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
         }
         filtros={<BarraFiltros total={`${items.length} registros en el lote`} />}
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={items.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
         }
@@ -532,13 +546,25 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
                             disabled={firmar.isPending}
                             onClick={() =>
                               firmar.mutate(
-                                { id: a.id, versionEsperada: a.version, idempotencyKey: crypto.randomUUID() },
                                 {
-                                  onSuccess: () => toast.success('Segunda firma registrada: la autorización quedó vigente.'),
+                                  id: a.id,
+                                  versionEsperada: a.version,
+                                  idempotencyKey: crypto.randomUUID(),
+                                },
+                                {
+                                  onSuccess: () =>
+                                    toast.success(
+                                      'Segunda firma registrada: la autorización quedó vigente.',
+                                    ),
                                   onError: (e) =>
-                                    toast.error(esApiError(e) ? e.problem.title : 'No se pudo registrar la firma.', {
-                                      description: esApiError(e) ? e.problem.detail : undefined,
-                                    }),
+                                    toast.error(
+                                      esApiError(e)
+                                        ? e.problem.title
+                                        : 'No se pudo registrar la firma.',
+                                      {
+                                        description: esApiError(e) ? e.problem.detail : undefined,
+                                      },
+                                    ),
                                 },
                               )
                             }
@@ -550,35 +576,35 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
                       {puedeOverride &&
                         (a.estado === EstadoAutorizacionCredito.Autorizada ||
                           a.estado === EstadoAutorizacionCredito.PendienteSegundaFirma) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-danger-fg"
-                          disabled={cancelar.isPending}
-                          onClick={() =>
-                            cancelar.mutate(
-                              {
-                                id: a.id,
-                                versionEsperada: a.version,
-                                // Key fresca por submit: el backend exige UUID v4 puro.
-                                idempotencyKey: crypto.randomUUID(),
-                              },
-                              {
-                                onSuccess: () => toast.success('Autorización cancelada.'),
-                                onError: (e) =>
-                                  toast.error(
-                                    esApiError(e)
-                                      ? e.problem.title
-                                      : 'No se pudo cancelar la autorización.',
-                                  ),
-                              },
-                            )
-                          }
-                        >
-                          <XCircle className="mr-1 h-3.5 w-3.5" />
-                          Cancelar
-                        </Button>
-                      )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-danger-fg"
+                            disabled={cancelar.isPending}
+                            onClick={() =>
+                              cancelar.mutate(
+                                {
+                                  id: a.id,
+                                  versionEsperada: a.version,
+                                  // Key fresca por submit: el backend exige UUID v4 puro.
+                                  idempotencyKey: crypto.randomUUID(),
+                                },
+                                {
+                                  onSuccess: () => toast.success('Autorización cancelada.'),
+                                  onError: (e) =>
+                                    toast.error(
+                                      esApiError(e)
+                                        ? e.problem.title
+                                        : 'No se pudo cancelar la autorización.',
+                                    ),
+                                },
+                              )
+                            }
+                          >
+                            <XCircle className="mr-1 h-3.5 w-3.5" />
+                            Cancelar
+                          </Button>
+                        )}
                     </TableCell>
                   </TableRow>
                 ))}

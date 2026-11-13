@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
@@ -110,7 +111,9 @@ export function FacturaDetallePage() {
             });
             return;
           }
-          toast.error("Error al autorizar la factura. Revisa los datos del registro; si continúa, avisa a soporte.");
+          toast.error(
+            'Error al autorizar la factura. Revisa los datos del registro; si continúa, avisa a soporte.',
+          );
         },
       },
     );
@@ -161,7 +164,9 @@ export function FacturaDetallePage() {
                 <DateTimeDisplay value={query.data.fechaContabilizacion} variant="media" /> · Vence:{' '}
                 <DateTimeDisplay value={query.data.fechaVencimiento} variant="media" />
                 {esContado(query.data.fechaVencimiento, query.data.fechaDocumento) && (
-                  <span title="El vencimiento coincide con la fecha del documento"> (contado, sin días de crédito)</span>
+                  <span title="El vencimiento coincide con la fecha del documento">
+                    {' '}
+                    (contado, sin días de crédito)</span>
                 )}
               </>
             }
@@ -179,8 +184,10 @@ export function FacturaDetallePage() {
               tono={query.data.revisionVigente.vencida ? 'error' : 'advertencia'}
               titulo={`En revisión: ${query.data.revisionVigente.motivoNombre ?? 'Sin motivo'}`}
             >
-              {query.data.revisionVigente.areaNombre ?? <span className="text-ink-muted">Sin área</span>} ·{' '}
-              {query.data.revisionVigente.diasHabiles}
+              {query.data.revisionVigente.areaNombre ?? (
+                <span className="text-ink-muted">Sin área</span>
+              )}{' '}
+              · {query.data.revisionVigente.diasHabiles}
               {query.data.revisionVigente.slaDias != null
                 ? ` de ${query.data.revisionVigente.slaDias}`
                 : ''}{' '}
@@ -223,7 +230,8 @@ export function FacturaDetallePage() {
                     onClick={() => setAutorizarAbierto(true)}
                     disabled={
                       autorizar.isPending ||
-                      (query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma) ||
+                      (query.data.esServicioComercioExterior &&
+                        !query.data.servicioCeSegundaFirma) ||
                       retencionesPendientes ||
                       query.data.estado === EstadoPasivo.EnRevision
                     }
@@ -238,17 +246,19 @@ export function FacturaDetallePage() {
                       query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma
                         ? 'Falta la segunda firma de Dirección Comercial en la orden de servicio.'
                         : query.data.estado === EstadoPasivo.EnRevision
-                        ? MOTIVO_AUTORIZAR_EN_REVISION
-                        : retencionesPendientes
-                          ? 'Fiscal debe revisar las retenciones antes de autorizar.'
-                          : undefined
+                          ? MOTIVO_AUTORIZAR_EN_REVISION
+                          : retencionesPendientes
+                            ? 'Fiscal debe revisar las retenciones antes de autorizar.'
+                            : undefined
                     }
                   >
                     <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
                     {query.data.esServicioComercioExterior ? 'Enviar a Tesorería' : 'Autorizar'}
                   </Button>
                   {query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma && (
-                    <span className="self-center text-xs text-ink-muted">Falta la segunda firma de Dirección Comercial en la orden de servicio.</span>
+                    <span className="self-center text-xs text-ink-muted">
+                      Falta la segunda firma de Dirección Comercial en la orden de servicio.
+                    </span>
                   )}
                   {query.data.estado === EstadoPasivo.EnRevision && (
                     <span
@@ -330,7 +340,9 @@ export function FacturaDetallePage() {
                     params={{ id: query.data.ordenCompraId }}
                     className="text-brand underline"
                   >
-                    {query.data.ordenCompraFolio?.trim() || <span className="text-ink-muted">Sin folio</span>}
+                    {query.data.ordenCompraFolio?.trim() || (
+                      <span className="text-ink-muted">Sin folio</span>
+                    )}
                   </Link>
                 ) : (
                   '—'
@@ -418,9 +430,7 @@ export function FacturaDetallePage() {
                   setRevisarAbierto(false);
                   toast.success('Retenciones marcadas como revisadas');
                 } catch (e) {
-                  setErrorRevision(
-                    errorUsuario(e, 'No se pudo guardar la revisión.'),
-                  );
+                  setErrorRevision(errorUsuario(e, 'No se pudo guardar la revisión.'));
                 }
               }}
             />
@@ -450,7 +460,12 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
                 // Una factura cancelada ya no es un pasivo: no queda saldo por pagar (P8.7).
-                { etiqueta: 'Saldo pendiente', monto: query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente, destacado: true },
+                {
+                  etiqueta: 'Saldo pendiente',
+                  monto:
+                    query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente,
+                  destacado: true,
+                },
                 { etiqueta: 'Elegible para pago', monto: query.data.elegible, destacado: true },
               ]}
             />
@@ -469,7 +484,7 @@ export function FacturaDetallePage() {
               Partidas ({query.data.lineas.length})
             </h2>
             <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
+              <Table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left">#</th>
@@ -502,7 +517,7 @@ export function FacturaDetallePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
           </section>
 
@@ -514,20 +529,34 @@ export function FacturaDetallePage() {
           </section>
 
           {/* U-4 (ALM-costo-06): diferencia del neto de la factura contra la entrada (revisión por costo o rechazo por tolerancia). */}
-          <IncidenciasDocumento modulo="cuentas_por_pagar" tipo="factura_proveedor" id={query.data.id}
-            titulo="Incidencias de costo de la factura" />
+          <IncidenciasDocumento
+            modulo="cuentas_por_pagar"
+            tipo="factura_proveedor"
+            id={query.data.id}
+            titulo="Incidencias de costo de la factura"
+          />
           {query.data.ordenCompraId && (
-            <IncidenciasDocumento modulo="cuentas_por_pagar" tipo="orden_compra" id={query.data.ordenCompraId}
-              titulo="Facturas de la orden rechazadas por tolerancia" />
+            <IncidenciasDocumento
+              modulo="cuentas_por_pagar"
+              tipo="orden_compra"
+              id={query.data.ordenCompraId}
+              titulo="Facturas de la orden rechazadas por tolerancia"
+            />
           )}
 
           <ConfirmarAccionDialog
             open={autorizarAbierto}
             onOpenChange={setAutorizarAbierto}
-            titulo={query.data.esServicioComercioExterior ? "Enviar servicio a Tesorería" : "Autorizar factura para pago"}
+            titulo={
+              query.data.esServicioComercioExterior
+                ? 'Enviar servicio a Tesorería'
+                : 'Autorizar factura para pago'
+            }
             resumen={
               <>
-                {query.data.esServicioComercioExterior ? 'Envías a Tesorería la factura' : 'Autorizas la factura'}{' '}
+                {query.data.esServicioComercioExterior
+                  ? 'Envías a Tesorería la factura'
+                  : 'Autorizas la factura'}{' '}
                 {query.data.serieProveedor ? `${query.data.serieProveedor}-` : ''}
                 {query.data.folioProveedor ?? 'sin folio'}
                 {query.data.proveedorNombre?.trim()
@@ -537,7 +566,9 @@ export function FacturaDetallePage() {
                 Pasa a Tesorería como pasivo listo para pago.
               </>
             }
-            verbo={query.data.esServicioComercioExterior ? "Enviar a Tesorería" : "Autorizar para pago"}
+            verbo={
+              query.data.esServicioComercioExterior ? 'Enviar a Tesorería' : 'Autorizar para pago'
+            }
             tono="primario"
             pendiente={autorizar.isPending}
             onConfirmar={handleAutorizar}
@@ -583,7 +614,9 @@ function Campo({ label, valor, mono }: CampoProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('text-sm [overflow-wrap:anywhere]', mono && 'break-all font-mono text-xs')}>{valor}</dd>
+      <dd className={cn('text-sm [overflow-wrap:anywhere]', mono && 'break-all font-mono text-xs')}>
+        {valor}
+      </dd>
     </div>
   );
 }
@@ -605,4 +638,3 @@ function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps
     </Badge>
   );
 }
-

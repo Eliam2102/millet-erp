@@ -5,13 +5,15 @@ import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { usePlantillasContables } from '../../api/motor';
 import type { LineaPlantillaContable, PlantillaContable } from '../../api/motor-types';
 import { fechaCorta } from '../../lib/dimensiones';
 import { mensajeMotor } from '../../lib/motor';
 
-const TEXTO_AUXILIAR: Record<string, string> = { Ninguno: '—', Proveedor: 'Proveedor', Cliente: 'Cliente' };
+const TEXTO_AUXILIAR: Record<string, string> = { Ninguno: '—', Proveedor: 'Proveedor', Cliente: 'Cliente',
+};
 
 /** Consulta de las plantillas del motor por tipo de evento (C1.4). Solo lectura: se mantienen por sistema. */
 export function PlantillasMotor() {
@@ -51,7 +53,7 @@ export function PlantillasMotor() {
           <p className="p-6 text-sm text-ink-muted">No hay plantillas registradas.</p>
         ) : (
           <div className="overflow-x-auto">
-            <Table className="w-full min-w-245 text-sm">
+            <Table paginada className="w-full min-w-245 text-sm">
               <TableHeader className="border-b border-line-divider bg-surface-subtle text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
                 <TableRow>
                   <TableHead className="h-9 w-10 px-3">
@@ -80,21 +82,38 @@ export function PlantillasMotor() {
                             aria-label={`${abierta ? 'Ocultar' : 'Ver'} líneas de ${p.tipoEvento}`}
                             onClick={() => alternar(p.id)}
                           >
-                            {abierta ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+                            {abierta ? (
+                              <ChevronDown aria-hidden="true" />
+                            ) : (
+                              <ChevronRight aria-hidden="true" />
+                            )}
                           </Button>
                         </TableCell>
-                        <TableCell className="px-3 font-mono text-xs font-medium">{p.tipoEvento}</TableCell>
+                        <TableCell className="px-3 font-mono text-xs font-medium">
+                          {p.tipoEvento}
+                        </TableCell>
                         <TableCell className="max-w-100 px-3">
                           <div className="truncate">{p.descripcion}</div>
-                          <div className="truncate text-xs text-ink-muted">Concepto: {p.concepto}</div>
+                          <div className="truncate text-xs text-ink-muted">
+                            Concepto: {p.concepto}
+                          </div>
                         </TableCell>
                         <TableCell className="px-3 text-right tabular-nums">{p.version}</TableCell>
-                        <TableCell className="whitespace-nowrap px-3 text-ink-secondary">{fechaCorta(p.vigenteDesde)}</TableCell>
-                        <TableCell className="px-3 font-mono text-xs">{p.tipoOperacionClave}</TableCell>
-                        <TableCell className="px-3 text-right tabular-nums">{p.lineas.length}</TableCell>
+                        <TableCell className="whitespace-nowrap px-3 text-ink-secondary">
+                          {fechaCorta(p.vigenteDesde)}
+                        </TableCell>
+                        <TableCell className="px-3 font-mono text-xs">
+                          {p.tipoOperacionClave}
+                        </TableCell>
+                        <TableCell className="px-3 text-right tabular-nums">
+                          {p.lineas.length}
+                        </TableCell>
                       </TableRow>
                       {abierta && (
-                        <TableRow id={`lineas-${p.id}`} className="border-b border-line-row bg-surface-subtle">
+                        <TableRow
+                          id={`lineas-${p.id}`}
+                          className="border-b border-line-row bg-surface-subtle"
+                        >
                           <TableCell colSpan={7} className="px-3 py-3">
                             <LineasPlantilla plantilla={p} />
                           </TableCell>
@@ -115,7 +134,7 @@ export function PlantillasMotor() {
 function LineasPlantilla({ plantilla }: { plantilla: PlantillaContable }) {
   const lineas = [...plantilla.lineas].sort((a, b) => a.orden - b.orden);
   return (
-    <Table aria-label={`Líneas de ${plantilla.tipoEvento}`} className="w-full text-sm">
+    <Table paginada aria-label={`Líneas de ${plantilla.tipoEvento}`} className="w-full text-sm">
       <TableHeader className="static bg-transparent text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
         <TableRow>
           <TableHead className="h-8 px-2 text-right">#</TableHead>
@@ -136,9 +155,13 @@ function LineasPlantilla({ plantilla }: { plantilla: PlantillaContable }) {
               <Badge variant={l.lado === 'Cargo' ? 'info' : 'neutral'}>{l.lado}</Badge>
             </TableCell>
             <TableCell className="px-2 font-mono text-xs">{l.campo}</TableCell>
-            <TableCell className="px-2 text-ink-secondary">{TEXTO_AUXILIAR[l.auxiliar] ?? l.auxiliar}</TableCell>
+            <TableCell className="px-2 text-ink-secondary">
+              {TEXTO_AUXILIAR[l.auxiliar] ?? l.auxiliar}
+            </TableCell>
             <TableCell className="px-2 text-ink-secondary">{alcance(l)}</TableCell>
-            <TableCell className="px-2 text-ink-secondary">{l.conCentroCosto ? 'Sí' : 'No'}</TableCell>
+            <TableCell className="px-2 text-ink-secondary">
+              {l.conCentroCosto ? 'Sí' : 'No'}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

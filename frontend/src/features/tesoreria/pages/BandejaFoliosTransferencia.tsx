@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { useState } from 'react';
 import { ReceiptText } from 'lucide-react';
 import {
@@ -21,7 +22,6 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { esApiError } from '@/lib/api';
 
 const TABS_ESTADO = opcionesEstado('folioTransferencia');
-const LIMITE = 20;
 
 /**
  * <c>Folios de transferencia</c> (F6.6, R16): Ingresos confirma el abono en el
@@ -29,11 +29,12 @@ const LIMITE = 20;
  * la transferencia. Aquí se consultan y se cancelan los que no se usaron.
  */
 export function BandejaFoliosTransferencia() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [estado, setEstado] = useState<EstadoFolioTransferencia | undefined>(undefined);
   const [texto, setTexto] = useState('');
   const [offset, setOffset] = useState(0);
   const folio = useDebouncedValue(texto.trim(), 200);
-  const query = useFoliosTransferencia({ estado, folio: folio || undefined, offset, limit: LIMITE });
+  const query = useFoliosTransferencia({ estado, folio: folio || undefined, offset, limit: limiteTabla });
   const conteos = useConteosPorEstado(
     tesoreriaKeys.foliosTransferencia(),
     '/api/v1/tesoreria/folios-transferencia',
@@ -84,7 +85,7 @@ export function BandejaFoliosTransferencia() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? offset}
-            limit={query.data?.limit ?? LIMITE}
+            limit={query.data?.limit ?? limiteTabla}
             onChange={(o) => setOffset(o)}
           />
         }

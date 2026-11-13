@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { TriangleAlert, ChevronDown, ChevronRight } from 'lucide-react';
 import {
@@ -150,8 +151,7 @@ export function ConflictResolutionDialog({
       baselineValues,
       latestRemote,
       campos,
-      fieldLabels,
-    ],
+      fieldLabels],
   );
 
   const [verTodosRemotos, setVerTodosRemotos] = useState(false);
@@ -161,8 +161,7 @@ export function ConflictResolutionDialog({
       onReaplicar();
     } else if (modoPreserve && form != null) {
       const cambiosLocalesObj = Object.fromEntries(
-        cambiosLocales.map((c) => [c.campo, c.local]),
-      );
+        cambiosLocales.map((c) => [c.campo, c.local]));
       form.reset({ ...latestRemote, ...cambiosLocalesObj });
     }
     onOpenChange(false);
@@ -231,8 +230,8 @@ export function ConflictResolutionDialog({
                       El otro usuario también cambió{' '}
                       {cambiosRemotos.length === 1
                         ? '1 campo'
-                        : `${cambiosRemotos.length} campos`}
-                      . {verTodosRemotos ? 'Ocultar' : 'Ver todos'}
+                        : `${cambiosRemotos.length} campos`}.{' '}
+                      {verTodosRemotos ? 'Ocultar' : 'Ver todos'}
                     </button>
                   )}
                   {verTodosRemotos && (
@@ -262,27 +261,18 @@ export function ConflictResolutionDialog({
                   pickDer={(e) => e.local}
                 />
               ) : (
-                <p className="text-muted-foreground">
-                  No tenías cambios sin guardar.
-                </p>
+                <p className="text-muted-foreground">No tenías cambios sin guardar.</p>
               )}
             </section>
           </div>
         )}
 
         {traceId != null && (
-          <p className="font-mono text-xs text-muted-foreground">
-            Código: {traceId}
-          </p>
+          <p className="font-mono text-xs text-muted-foreground">Código: {traceId}</p>
         )}
 
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleCancelar}
-            className="sm:order-1"
-          >
+          <Button type="button" variant="ghost" onClick={handleCancelar} className="sm:order-1">
             Cancelar
           </Button>
           {modoPreserve ? (
@@ -295,22 +285,12 @@ export function ConflictResolutionDialog({
               >
                 Solo refrescar (descartar mis cambios)
               </Button>
-              <Button
-                type="button"
-                onClick={handleReaplicar}
-                autoFocus
-                className="sm:order-3"
-              >
+              <Button type="button" onClick={handleReaplicar} autoFocus className="sm:order-3">
                 Reaplicar mis cambios
               </Button>
             </>
           ) : (
-            <Button
-              type="button"
-              onClick={handleSoloRefrescar}
-              autoFocus
-              className="sm:order-2"
-            >
+            <Button type="button" onClick={handleSoloRefrescar} autoFocus className="sm:order-2">
               Refrescar y revisar
             </Button>
           )}
@@ -350,16 +330,9 @@ function calcularDiff({
 } {
   const claves =
     campos ??
-    Array.from(
-      new Set([
-        ...Object.keys(local),
-        ...Object.keys(remote),
-        ...Object.keys(baseline),
-      ]),
-    );
+    Array.from(new Set([...Object.keys(local), ...Object.keys(remote), ...Object.keys(baseline)]));
 
-  const labelOf = (campo: string): string =>
-    fieldLabels?.[campo] ?? humanizar(campo);
+  const labelOf = (campo: string): string => fieldLabels?.[campo] ?? humanizar(campo);
 
   const cambiosLocales: DiffEntry[] = [];
   const cambiosRemotos: DiffEntry[] = [];
@@ -407,10 +380,7 @@ function equalDeep(a: unknown, b: unknown): boolean {
     const bk = Object.keys(b as object);
     if (ak.length !== bk.length) return false;
     return ak.every((k) =>
-      equalDeep(
-        (a as Record<string, unknown>)[k],
-        (b as Record<string, unknown>)[k],
-      ),
+      equalDeep((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
     );
   }
   return false;
@@ -436,16 +406,10 @@ interface DiffTableProps {
   pickDer: (entry: DiffEntry) => unknown;
 }
 
-function DiffTable({
-  entries,
-  columnaIzq,
-  columnaDer,
-  pickIzq,
-  pickDer,
-}: DiffTableProps) {
+function DiffTable({ entries, columnaIzq, columnaDer, pickIzq, pickDer }: DiffTableProps) {
   return (
     <div className="overflow-hidden rounded-md border">
-      <table className="w-full text-xs">
+      <Table className="w-full text-xs">
         <thead className="bg-muted/50">
           <tr>
             <th className="px-3 py-2 text-left font-medium">Campo</th>
@@ -455,21 +419,16 @@ function DiffTable({
         </thead>
         <tbody>
           {entries.map((e, i) => (
-            <tr
-              key={e.campo}
-              className={cn('border-t', i % 2 === 1 && 'bg-muted/20')}
-            >
+            <tr key={e.campo} className={cn('border-t', i % 2 === 1 && 'bg-muted/20')}>
               <td className="px-3 py-2 font-medium">{e.label}</td>
               <td className="px-3 py-2 font-mono text-muted-foreground">
                 {formatearValor(pickIzq(e))}
               </td>
-              <td className="px-3 py-2 font-mono">
-                {formatearValor(pickDer(e))}
-              </td>
+              <td className="px-3 py-2 font-mono">{formatearValor(pickDer(e))}</td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
     </div>
   );
 }

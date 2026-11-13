@@ -4,13 +4,17 @@ import { TextAreaField } from '@/components/erp';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useDecidirRoturaApp, useRoturasApp, type RoturaAppPendiente } from '@/features/almacen/api/useSalidasRotura';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { useDecidirRoturaApp, useRoturasApp, type RoturaAppPendiente,
+} from '@/features/almacen/api/useSalidasRotura';
 import { codigoSoporte, esApiError } from '@/lib/api';
 import { errorUsuario } from '@/lib/error-usuario';
 
-interface Grupo { articuloAw?: string; ancho?: number; alto?: number; lote?: string; piezas?: number; m2?: number }
-interface Datos { sucursal?: string; motivo?: string; piezas?: number; almacenes?: { grupos?: Grupo[] }[] }
+interface Grupo { articuloAw?: string; ancho?: number; alto?: number; lote?: string; piezas?: number; m2?: number;
+}
+interface Datos { sucursal?: string; motivo?: string; piezas?: number; almacenes?: { grupos?: Grupo[] }[];
+}
 
 /** Resumen legible del mensaje de la app (el backend manda el JSON crudo). */
 function resumen(payload: string) {
@@ -26,7 +30,10 @@ function resumen(payload: string) {
     motivo: datos.motivo ?? '—',
     piezas: datos.piezas ?? grupos.reduce((s, g) => s + (g.piezas ?? 0), 0),
     detalle: grupos.map((g) =>
-      [g.articuloAw, g.ancho && g.alto ? `${g.ancho}×${g.alto}` : null, g.lote ? `lote ${g.lote}` : null, g.piezas != null ? `${g.piezas} pzas` : null]
+      [g.articuloAw, g.ancho && g.alto ? `${g.ancho}×${g.alto}` : null,
+        g.lote ? `lote ${g.lote}` : null,
+        g.piezas != null ? `${g.piezas} pzas` : null,
+      ]
         .filter(Boolean)
         .join(' · '),
     ),
@@ -48,13 +55,17 @@ export function RoturasAppPorAutorizar() {
       { mensajeId: r.mensajeId, accion, motivo: motivo?.trim() },
       {
         onSuccess: (d) => {
-          toast.success(accion === 'autorizar' ? `Rotura de la app autorizada${d.folio ? ` (${d.folio})` : ''}: el saldo ya bajó` : 'Rotura de la app rechazada');
+          toast.success(
+            accion === 'autorizar'
+              ? `Rotura de la app autorizada${d.folio ? ` (${d.folio})` : ''}: el saldo ya bajó` : 'Rotura de la app rechazada',
+          );
           setAutorizando(null);
           setRechazando(null);
           setMotivo(null);
         },
         onError: (e) => {
-          toast.error(errorUsuario(e, 'No se pudo guardar la decisión'), { description: esApiError(e) ? codigoSoporte(e) : undefined });
+          toast.error(errorUsuario(e, 'No se pudo guardar la decisión'), { description: esApiError(e) ? codigoSoporte(e) : undefined,
+          });
           setAutorizando(null);
         },
       },
@@ -71,7 +82,7 @@ export function RoturasAppPorAutorizar() {
       ) : (
         <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Referencia</TableHead>
@@ -102,10 +113,17 @@ export function RoturasAppPorAutorizar() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
-                          <Button size="sm" aria-label={`Autorizar rotura de la app ${r.referencia ?? ''}`} onClick={() => setAutorizando(r)}>
+                          <Button size="sm" aria-label={`Autorizar rotura de la app ${r.referencia ?? ''}`}
+                            onClick={() => setAutorizando(r)}
+                          >
                             Autorizar
                           </Button>
-                          <Button size="sm" variant="outline" aria-label={`Rechazar rotura de la app ${r.referencia ?? ''}`} onClick={() => setRechazando(r)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            aria-label={`Rechazar rotura de la app ${r.referencia ?? ''}`}
+                            onClick={() => setRechazando(r)}
+                          >
                             Rechazar
                           </Button>
                         </div>

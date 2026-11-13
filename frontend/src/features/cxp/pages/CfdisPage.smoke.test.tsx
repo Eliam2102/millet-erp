@@ -9,8 +9,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import {
   CanalOrigenCfdi,
   EstadoCfdiRecibido,
-  TipoCfdi,
-} from '@/features/cxp/api/types';
+  TipoCfdi } from '@/features/cxp/api/types';
 
 let searchMock: Record<string, unknown> = {};
 vi.mock('@tanstack/react-router', () => ({
@@ -71,13 +70,10 @@ describe('<CfdisPage> — smoke', () => {
     mswServer.use(
       http.get(
         '*/api/v1/cuentas-por-pagar/cfdis',
-        () => new Promise(() => {}),
-      ),
-    );
+        () => new Promise(() => {})));
     render(<CfdisPage />, { wrapper: createQueryWrapper() });
     expect(
-      screen.getByRole('heading', { name: /CFDIs recibidos/i }),
-    ).toBeInTheDocument();
+      screen.getByRole('heading', { name: /CFDIs recibidos/i })).toBeInTheDocument();
   });
 
   it('estado empty muestra mensaje y filtros disponibles', async () => {
@@ -88,21 +84,18 @@ describe('<CfdisPage> — smoke', () => {
     );
     render(<CfdisPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument(),
-    );
+      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument());
     expect(screen.getByLabelText(/Buscar por UUID o folio/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Filtrar por estado/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Filtrar por tipo/i)).toBeInTheDocument();
     expect(
-      screen.getByLabelText(/Filtrar por RFC emisor/i),
-    ).toBeInTheDocument();
+      screen.getByLabelText(/Filtrar por RFC emisor/i)).toBeInTheDocument();
     expect(
-      screen.getByLabelText(/Solo por procesar > 5 días/i),
-    ).toBeInTheDocument();
+      screen.getByLabelText(/Solo por procesar > 5 días/i)).toBeInTheDocument();
   });
 
   it('busca y pagina en el servidor (q, offset, limit) y muestra el total', async () => {
-    searchMock = { q: 'F3A9', page: 2 };
+    searchMock = { q: 'F3A9', page: 2, pageSize: 25 };
     let url = '';
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/cfdis', ({ request }) => {
@@ -144,8 +137,7 @@ describe('<CfdisPage> — smoke', () => {
     );
     render(<CfdisPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(screen.getByText(/ABC010101AB1/i)).toBeInTheDocument(),
-    );
+      expect(screen.getByText(/ABC010101AB1/i)).toBeInTheDocument());
     // Badge "Por procesar" (no el label del checkbox "Solo por procesar...")
     expect(screen.getByText(/^Por procesar$/i)).toBeInTheDocument();
     expect(screen.getByText(/A-12345/i)).toBeInTheDocument();
@@ -177,7 +169,8 @@ describe('<CfdisPage> — smoke', () => {
               estatusSat: 2,
               fechaCancelacionSat: '2026-11-02T12:00:00Z',
             },
-            { ...base, id: 'c-3', uuidCfdi: '11111111-2222-3333-4444-555555555553', estatusSat: null },
+            { ...base, id: 'c-3', uuidCfdi: '11111111-2222-3333-4444-555555555553', estatusSat: null,
+            },
             { ...base, id: 'c-4', uuidCfdi: '11111111-2222-3333-4444-555555555554' },
           ],
           offset: 0,
@@ -188,8 +181,7 @@ describe('<CfdisPage> — smoke', () => {
     );
     render(<CfdisPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(screen.getAllByText(/ABC010101AB1/i).length).toBe(4),
-    );
+      expect(screen.getAllByText(/ABC010101AB1/i).length).toBe(4));
     expect(screen.getAllByText('Estatus SAT').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Vigente').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Cancelado/).length).toBeGreaterThan(0);
@@ -209,19 +201,16 @@ describe('<CfdisPage> — smoke', () => {
     );
     render(<CfdisPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument(),
-    );
+      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument());
     expect(
-      screen.getByRole('button', { name: /Cargar CFDI/i }),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: /Cargar CFDI/i })).toBeInTheDocument();
   });
 
   it('oculta el botón "Cargar CFDI" sin el permiso cargar-manual', async () => {
     useAuthStore.setState({
       permisos: [
         'cuentas_por_pagar.cfdis.leer',
-        'cuentas_por_pagar.cfdis.descartar',
-      ],
+        'cuentas_por_pagar.cfdis.descartar'],
     });
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/cfdis', () =>
@@ -230,11 +219,9 @@ describe('<CfdisPage> — smoke', () => {
     );
     render(<CfdisPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument(),
-    );
+      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument());
     expect(
-      screen.queryByRole('button', { name: /Cargar CFDI/i }),
-    ).not.toBeInTheDocument();
+      screen.queryByRole('button', { name: /Cargar CFDI/i })).not.toBeInTheDocument();
   });
 
   it('axe-core: cero violations en estado vacío', async () => {
@@ -247,8 +234,7 @@ describe('<CfdisPage> — smoke', () => {
       wrapper: createQueryWrapper(),
     });
     await waitFor(() =>
-      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument(),
-    );
+      expect(screen.getByText(/Sin CFDIs/i)).toBeInTheDocument());
     const results: AxeResults = await axe.run(container, {
       runOnly: {
         type: 'tag',

@@ -1,3 +1,5 @@
+import { Table } from '@/components/ui/table';
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
@@ -48,7 +50,7 @@ import { DescartarCfdiSheet } from '@/features/cxp/components/DescartarCfdiSheet
 import { MarcarDuplicadoSheet } from '@/features/cxp/components/MarcarDuplicadoSheet';
 import type { CfdisSearch } from '@/features/cxp/lib/cfdis-search-schema';
 import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
@@ -85,30 +87,24 @@ type SortKey =
  */
 export function CfdisPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeDescartar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarCfdisDescartar,
-  );
+    PermisosCanonicos.CuentasPorPagarCfdisDescartar);
   const puedeCargarManual = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
-  );
+    PermisosCanonicos.CuentasPorPagarCfdisCargarManual);
   const puedeCapturarFactura = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarFacturasCapturar,
-  );
+    PermisosCanonicos.CuentasPorPagarFacturasCapturar);
 
   const [cargarOpen, setCargarOpen] = useState(false);
   const [detalleTarget, setDetalleTarget] = useState<CfdiListItem | null>(
-    null,
-  );
+    null);
   const [capturarTarget, setCapturarTarget] = useState<CfdiListItem | null>(
-    null,
-  );
+    null);
   const [descartarTarget, setDescartarTarget] = useState<CfdiListItem | null>(
-    null,
-  );
+    null);
   const [duplicadoTarget, setDuplicadoTarget] = useState<CfdiListItem | null>(
-    null,
-  );
+    null);
 
   // «Vencidos»: PorProcesar recibidos hace más de N días; se corta al inicio del día para que la llave de caché sea estable.
   const recibidoAntesDe = useMemo(() => {
@@ -118,7 +114,7 @@ export function CfdisPage() {
     d.setDate(d.getDate() - DIAS_VENCIDO_UMBRAL);
     return d.toISOString();
   }, [search.soloVencidos]);
-  const { offset, limit } = paginaAOffsetLimit(search);
+  const { offset, limit } = paginaTabla;
 
   const query = useCfdis({
     estado: search.soloVencidos ? EstadoCfdiRecibido.PorProcesar : search.estado,
@@ -192,7 +188,7 @@ export function CfdisPage() {
             search.rfcEmisor ||
             search.soloVencidos
               ? 'No hay CFDIs que coincidan con los filtros aplicados.'
-              : "Aún no hay CFDI recibidos por descarga del SAT, correo o carga manual."
+              : 'Aún no hay CFDI recibidos por descarga del SAT, correo o carga manual.'
           }
         />
       ) : (
@@ -398,13 +394,12 @@ function TablaCfdis({
   const ordenados = useMemo(() => {
     if (sort == null) return items;
     return [...items].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+      compareItemsBy(a, b, sort.key, sort.dir));
   }, [items, sort]);
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
+      <Table className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="px-3 py-2 text-left">
@@ -497,7 +492,7 @@ function TablaCfdis({
                 <td className="px-3 py-2 font-mono text-xs">{c.rfcEmisor}</td>
                 <td className="px-3 py-2">{TipoCfdiLabels[c.tipo]}</td>
                 <td className="px-3 py-2 font-mono text-xs">
-                  {c.serie ? `${c.serie}-${c.folio ?? ''}` : c.folio ?? '—'}
+                  {c.serie ? `${c.serie}-${c.folio ?? ''}` : (c.folio ?? '—')}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <DateTimeDisplay value={c.fechaCfdi} variant="corta" />
@@ -564,7 +559,7 @@ function TablaCfdis({
             );
           })}
         </tbody>
-      </table>
+      </Table>
     </div>
   );
 }
@@ -572,5 +567,3 @@ function TablaCfdis({
 function abreviar(uuid: string): string {
   return uuid.length > 12 ? `${uuid.slice(0, 8)}…${uuid.slice(-4)}` : uuid;
 }
-
-

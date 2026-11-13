@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, PaginacionTabla } from '@/components/erp';
 import { Badge } from '@/components/ui/badge';
@@ -298,6 +299,7 @@ interface PanelVigentesTablaProps {
 type VigenteSortKey = 'depto' | 'rol' | 'usuario' | 'vigenteDesde';
 
 function PanelVigentesTabla({ items, deptosMap, usuariosMap, onRevocar }: PanelVigentesTablaProps) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [sort, setSort] = useState<SortState<VigenteSortKey> | null>(null);
   const [pagina, setPagina] = useState(0);
 
@@ -319,7 +321,7 @@ function PanelVigentesTabla({ items, deptosMap, usuariosMap, onRevocar }: PanelV
     return [...itemsEnriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsEnriquecidos, sort]);
 
-  const offset = Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / 10) - 1)) * 10;
+  const offset = Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / limiteTabla) - 1)) * limiteTabla;
   return (
     <div className="flex min-h-0 flex-col">
       <TableContainer maxHeightClassName="">
@@ -357,7 +359,7 @@ function PanelVigentesTabla({ items, deptosMap, usuariosMap, onRevocar }: PanelV
             </TableRow>
           </TableHeader>
           <TableBody className="[&_tr]:h-12">
-            {itemsOrdenados.slice(offset, offset + 10).map((a) => (
+            {itemsOrdenados.slice(offset, offset + limiteTabla).map((a) => (
               <TableRow key={a.id} className="border-t">
                 <TableCell className="px-3 py-2">{a.depto}</TableCell>
                 <TableCell className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</TableCell>
@@ -395,9 +397,8 @@ function PanelVigentesTabla({ items, deptosMap, usuariosMap, onRevocar }: PanelV
       <PaginacionTabla
         total={itemsOrdenados.length}
         offset={offset}
-        limit={10}
-        tamanos={[]}
-        onChange={(next) => setPagina(next / 10)}
+        limit={limiteTabla}
+        onChange={(next) => setPagina(next / limiteTabla)}
       />
     </div>
   );
@@ -478,6 +479,7 @@ interface PanelHistoricoTablaProps {
 type HistoricoSortKey = 'depto' | 'rol' | 'usuario' | 'vigenteDesde' | 'vigenteHasta';
 
 function PanelHistoricoTabla({ items, deptosMap, usuariosMap }: PanelHistoricoTablaProps) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [sort, setSort] = useState<SortState<HistoricoSortKey> | null>(null);
   const [pagina, setPagina] = useState(0);
 
@@ -496,7 +498,8 @@ function PanelHistoricoTabla({ items, deptosMap, usuariosMap }: PanelHistoricoTa
     return [...itemsEnriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsEnriquecidos, sort]);
 
-  const offset = Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / 10) - 1)) * 10;
+  const offset =
+    Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / limiteTabla) - 1)) * limiteTabla;
   return (
     <div className="flex min-h-0 flex-col">
       <TableContainer maxHeightClassName="">
@@ -541,7 +544,7 @@ function PanelHistoricoTabla({ items, deptosMap, usuariosMap }: PanelHistoricoTa
             </TableRow>
           </TableHeader>
           <TableBody className="[&_tr]:h-12">
-            {itemsOrdenados.slice(offset, offset + 10).map((a) => {
+            {itemsOrdenados.slice(offset, offset + limiteTabla).map((a) => {
               const vigente = a.vigenteHasta == null;
               return (
                 <TableRow key={a.id} className={cn('border-t', vigente && 'bg-success-bg/50')}>
@@ -567,9 +570,8 @@ function PanelHistoricoTabla({ items, deptosMap, usuariosMap }: PanelHistoricoTa
       <PaginacionTabla
         total={itemsOrdenados.length}
         offset={offset}
-        limit={10}
-        tamanos={[]}
-        onChange={(next) => setPagina(next / 10)}
+        limit={limiteTabla}
+        onChange={(next) => setPagina(next / limiteTabla)}
       />
     </div>
   );

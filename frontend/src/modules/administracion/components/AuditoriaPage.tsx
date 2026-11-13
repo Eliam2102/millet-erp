@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, PaginacionTabla } from '@/components/erp';
 import {
@@ -43,7 +44,6 @@ import {
   isUuid,
 } from './auditoria-utils';
 
-const PAGE_LIMIT = 50;
 const TODOS = '__todos__';
 const RANGO_DEFAULT_DIAS = 7;
 const RANGO_MAX_DIAS = 90;
@@ -88,6 +88,7 @@ const ACTOR_TIPOS: readonly { label: string; value: string }[] = [
  * registro, módulo, sucursal) sin GUIDs crudos expuestos al usuario.</para>
  */
 export function AuditoriaPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const hoy = useMemo(() => new Date(), []);
   const inicioDefault = useMemo(() => {
     const d = new Date(hoy);
@@ -127,7 +128,7 @@ export function AuditoriaPage() {
     hasta: formatYmd(hoy),
     sucursalId: sucursalActivaId ?? undefined,
     offset: 0,
-    limit: PAGE_LIMIT,
+    limit: limiteTabla,
   });
 
   const empresasQuery = useEmpresas({ limit: 200 });
@@ -147,7 +148,7 @@ export function AuditoriaPage() {
   const rolesQuery = useRoles({ limit: 200 });
   const roles = useMemo(() => rolesQuery.data?.items ?? [], [rolesQuery.data?.items]);
 
-  const auditoriaQuery = useAuditoria(filtrosAplicados);
+  const auditoriaQuery = useAuditoria({ ...filtrosAplicados, limit: limiteTabla });
   // ADM-BIT: exportar es un permiso aparte de consultar; sin él no aparece el botón.
   const puedeExportar = useHasPermission(PermisosCanonicos.AdminAuditoriaExportar);
   const exportacion = useMutation({
@@ -318,7 +319,7 @@ export function AuditoriaPage() {
       sucursalId: draftSucursalId || undefined,
       aggregateRootId: filtroAggregateRootId || undefined,
       offset: 0,
-      limit: PAGE_LIMIT,
+      limit: limiteTabla,
     });
   }
 
@@ -341,7 +342,7 @@ export function AuditoriaPage() {
       hasta: defaultHasta,
       sucursalId: sucursalActivaId ?? undefined,
       offset: 0,
-      limit: PAGE_LIMIT,
+      limit: limiteTabla,
     });
   }
 
@@ -364,8 +365,8 @@ export function AuditoriaPage() {
     });
   }
 
-  function cambiarPagina(nuevoOffset: number) {
-    setFiltrosAplicados((prev) => ({ ...prev, offset: nuevoOffset }));
+  function cambiarPagina(nuevoOffset: number, nuevoLimit = limiteTabla) {
+    setFiltrosAplicados((prev) => ({ ...prev, offset: nuevoOffset, limit: nuevoLimit }));
   }
 
   return (
@@ -639,8 +640,7 @@ export function AuditoriaPage() {
           <PaginacionTabla
             total={total}
             offset={offset}
-            limit={PAGE_LIMIT}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={cambiarPagina}
           />
         }

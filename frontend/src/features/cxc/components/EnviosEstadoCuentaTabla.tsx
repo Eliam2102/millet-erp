@@ -42,7 +42,7 @@ export function EnviosEstadoCuentaTabla({
           Aún no se ha enviado el estado de cuenta a este cliente.
         </p>
       ) : (
-        <Table>
+        <Table paginada>
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
@@ -53,7 +53,8 @@ export function EnviosEstadoCuentaTabla({
           </TableHeader>
           <TableBody>
             {envios.map((e) => {
-              const estado = ESTADOS[e.estado] ?? { etiqueta: e.estado, variante: 'neutral' as const };
+              const estado = ESTADOS[e.estado] ?? { etiqueta: e.estado, variante: 'neutral' as const,
+              };
               return (
                 <TableRow key={e.id}>
                   <TableCell className="tabular-nums">{formatDateTime(e.fecha)}</TableCell>

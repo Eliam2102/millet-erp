@@ -1,11 +1,11 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   EmptyState,
   ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+  TableSkeleton } from '@/components/erp';
 import {
   useEmitirReposicionManual,
   useReposiciones,
@@ -29,8 +29,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
  */
 export function ReposicionesCajaPage() {
   const puedeAdmin = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarReposicionesAdministrar,
-  );
+    PermisosCanonicos.CuentasPorPagarReposicionesAdministrar);
 
   const saldos = useSaldosReposicion();
   const reposiciones = useReposiciones();
@@ -53,9 +52,7 @@ export function ReposicionesCajaPage() {
             `Reposición emitida: ${r.montoTotal.toFixed(2)} ${r.moneda} (${r.numeroComprobaciones} comprobaciones)`,
           ),
         onError: (error) =>
-          toast.error(
-            esApiError(error) ? error.problem.title : 'Error al emitir.',
-          ),
+          toast.error(esApiError(error) ? error.problem.title : 'Error al emitir.'),
       },
     );
   }
@@ -80,7 +77,7 @@ export function ReposicionesCajaPage() {
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
+            <Table paginada className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   <th className="px-3 py-2 font-medium">Sucursal</th>
@@ -92,22 +89,13 @@ export function ReposicionesCajaPage() {
               </thead>
               <tbody>
                 {saldos.data!.map((s) => (
-                  <tr
-                    key={`${s.sucursalId}-${s.destino}-${s.moneda}`}
-                    className="border-t"
-                  >
-                    <td className="px-3 py-2">
-                      {nombreSucursal(s.sucursalId)}
-                    </td>
-                    <td className="px-3 py-2">
-                      {DestinoReposicionCajaLabels[s.destino]}
-                    </td>
+                  <tr key={`${s.sucursalId}-${s.destino}-${s.moneda}`} className="border-t">
+                    <td className="px-3 py-2">{nombreSucursal(s.sucursalId)}</td>
+                    <td className="px-3 py-2">{DestinoReposicionCajaLabels[s.destino]}</td>
                     <td className="px-3 py-2 pr-4 text-right tabular-nums">
                       <MoneyDisplay amount={s.saldo} currency={s.moneda} strong />
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {s.numeroComprobaciones}
-                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{s.numeroComprobaciones}</td>
                     {puedeAdmin ? (
                       <td className="px-3 py-2 text-right">
                         <Button
@@ -123,7 +111,7 @@ export function ReposicionesCajaPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         )}
       </section>
@@ -141,7 +129,7 @@ export function ReposicionesCajaPage() {
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
+            <Table paginada className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   <th className="px-3 py-2 font-medium">Fecha</th>
@@ -158,25 +146,17 @@ export function ReposicionesCajaPage() {
                     <td className="px-3 py-2 tabular-nums">
                       <DateTimeDisplay value={r.fechaEmision} variant="datetime" />
                     </td>
-                    <td className="px-3 py-2">
-                      {nombreSucursal(r.sucursalId)}
-                    </td>
-                    <td className="px-3 py-2">
-                      {DestinoReposicionCajaLabels[r.destino]}
-                    </td>
+                    <td className="px-3 py-2">{nombreSucursal(r.sucursalId)}</td>
+                    <td className="px-3 py-2">{DestinoReposicionCajaLabels[r.destino]}</td>
                     <td className="px-3 py-2 pr-4 text-right tabular-nums">
                       <MoneyDisplay amount={r.montoTotal} currency={r.moneda} strong />
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {r.numeroComprobaciones}
-                    </td>
-                    <td className="px-3 py-2">
-                      {r.esCorteManual ? 'Manual' : 'Automático'}
-                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{r.numeroComprobaciones}</td>
+                    <td className="px-3 py-2">{r.esCorteManual ? 'Manual' : 'Automático'}</td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         )}
       </section>

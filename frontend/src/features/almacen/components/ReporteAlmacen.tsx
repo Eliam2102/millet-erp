@@ -206,18 +206,23 @@ export function ReporteAlmacen<TFila>({
                   )}
                   PDF
                 </Button>
-                <ImprimirReporteButton type="button" variant="outline" size="sm" reporte={reporte} obtenerCelda={getCelda} />
+                <ImprimirReporteButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  reporte={reporte}
+                  obtenerCelda={getCelda}
+                />
               </div>
             }
           />
 
           <ListadoModulo
             pie={
-              <PaginacionTabla
+              <PaginacionTabla regionId={paginacion.regionId}
                 total={(filasVisibles ?? reporte.filas).length}
                 offset={paginacion.offset}
-                limit={10}
-                tamanos={[]}
+                limit={paginacion.limit}
                 onChange={paginacion.onChange}
               />
             }

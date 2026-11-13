@@ -190,11 +190,10 @@ export function CatalogoEditableTable<T extends { id: string; estatus: EstatusCa
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={filtrados.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.onChange}
           />
         }

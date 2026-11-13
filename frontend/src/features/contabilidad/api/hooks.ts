@@ -195,12 +195,12 @@ export function useAplicarImportacion() {
   });
 }
 
-export function useSolicitudesCatalogo(estado: string, offset: number) {
+export function useSolicitudesCatalogo(estado: string, offset: number, limit = 10) {
   return useQuery({
-    queryKey: ['contabilidad', 'solicitudes', estado, offset],
+    queryKey: ['contabilidad', 'solicitudes', estado, offset, limit],
     queryFn: async ({ signal }) => (await apiRequest<{
       items: import('./types').SolicitudCatalogo[]; total: number;
-    }>(`${BASE}/solicitudes${qs({ estado: estado || undefined, offset, limit: 10 })}`, { signal })).data,
+    }>(`${BASE}/solicitudes${qs({ estado: estado || undefined, offset, limit })}`, { signal })).data,
   });
 }
 

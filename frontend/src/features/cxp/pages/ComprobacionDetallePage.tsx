@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
@@ -10,8 +11,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoComprobacionChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
-  formatearFechaHora,
-} from '@/features/cxp/lib/formato';
+  formatearFechaHora } from '@/features/cxp/lib/formato';
 import { NoDeducibleBadge } from '@/features/cxp/components/NoDeducibleBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -60,8 +60,10 @@ export function ComprobacionDetallePage() {
             }
             descripcion={
               <>
-                Periodo: <DateTimeDisplay value={query.data.fechaInicio} variant="media" /> → <DateTimeDisplay value={query.data.fechaFin} variant="media" /> ·
-                Creada: {formatearFechaHora(query.data.fechaCreacion)}
+                Periodo: <DateTimeDisplay value={query.data.fechaInicio} variant="media" /> →{' '}
+                <DateTimeDisplay value={query.data.fechaFin} variant="media" /> ·
+                Creada:{' '}
+                {formatearFechaHora(query.data.fechaCreacion)}
               </>
             }
           />
@@ -193,7 +195,7 @@ export function ComprobacionDetallePage() {
               Líneas ({query.data.lineas.length})
             </h2>
             <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
+              <Table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left">Fecha CFDI</th>
@@ -250,7 +252,7 @@ export function ComprobacionDetallePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
           </section>
         </div>

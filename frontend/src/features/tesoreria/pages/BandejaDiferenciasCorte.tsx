@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AvisoEnLinea, ConfirmarAccionDialog, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { AvisoEnLinea, ConfirmarAccionDialog, EmptyState, ErrorState, TableSkeleton,
+} from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -114,7 +115,8 @@ export function BandejaDiferenciasCorte() {
       ) : query.isLoading ? (
         <TableSkeleton
           rows={5}
-          columns={[{ width: 'w-24' }, { width: 'w-28' }, { width: 'w-24' }, { width: 'w-24' }, { width: 'w-28' }, { width: 'w-32' }, { width: 'w-32' }]}
+          columns={[{ width: 'w-24' }, { width: 'w-28' }, { width: 'w-24' }, { width: 'w-24' }, { width: 'w-28' }, { width: 'w-32' }, { width: 'w-32' },
+          ]}
         />
       ) : items.length === 0 ? (
         <EmptyState
@@ -125,7 +127,7 @@ export function BandejaDiferenciasCorte() {
       ) : (
         <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Corte</TableHead>
@@ -154,7 +156,11 @@ export function BandejaDiferenciasCorte() {
                         <MoneyDisplay amount={d.importe} currency="MXN" strong />
                       </TableCell>
                       <TableCell className="text-right">
-                        {d.tipo === 'Faltante' ? <MoneyDisplay amount={d.importeDevuelto} currency="MXN" /> : '—'}
+                        {d.tipo === 'Faltante' ? (
+                          <MoneyDisplay amount={d.importeDevuelto} currency="MXN" />
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={TONO[d.estado]}>{ESTADO_DIFERENCIA_CORTE_LABELS[d.estado]}</Badge>
@@ -209,8 +215,7 @@ export function BandejaDiferenciasCorte() {
           aAutorizar && (
             <>
               Autorizar el {aAutorizar.tipo.toLowerCase()} de{' '}
-              <MoneyDisplay amount={Math.abs(aAutorizar.importe)} currency="MXN" strong /> del corte del{' '}
-              {aAutorizar.diaCorte}. Va a deudores funcionarios y empleados.
+              <MoneyDisplay amount={Math.abs(aAutorizar.importe)} currency="MXN" strong /> del corte del{aAutorizar.diaCorte}. Va a deudores funcionarios y empleados.
             </>
           )
         }
