@@ -7,6 +7,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { DateTimeDisplay } from '@/components/erp';
+import { Badge } from '@/components/ui/badge';
 import { CubrimientoBar } from '@/components/erp/display/CubrimientoBar';
 import { EmptyState } from '@/components/erp/feedback/EmptyState';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
@@ -72,6 +73,7 @@ export function ListaLineas({ lineas, resolverArticulo, cerrada = false }: Lista
                   <TableCell className="px-3 py-2 text-ink-muted">{l.posicion}</TableCell>
                   <TableCell className="px-3 py-2">
                     <div className="font-medium">{articulo}</div>
+                    {l.esActivoFijo && <Badge variant="info" className="mt-1">Activo fijo</Badge>}
                     {l.notas && <p className="mt-1 text-xs text-ink-muted">{l.notas}</p>}
                   </TableCell>
                   <TableCell className="hidden px-3 py-2 @4xl:table-cell">
