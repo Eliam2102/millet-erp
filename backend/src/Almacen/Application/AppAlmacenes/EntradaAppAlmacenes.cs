@@ -94,9 +94,11 @@ public static class EntradaAppAlmacenes
         try
         {
             // Eliam E3 (ficha MP-05): mismo criterio que la recepción de la pantalla (RecepcionVariante.ExigirLote): el lote es
-            // obligatorio en la hoja de A+W (con medida) y opcional en el resto.
+            // obligatorio en la hoja de A+W (con medida) y opcional en el resto. La carga inicial es la excepción: la existencia
+            // heredada sin lote entra como «lote de apertura» (lote NULL; diseño de artículo-variante-medida, S7).
+            var esCargaInicial = motivoClave == AlmCargaInicialLector.MotivoClave;
             foreach (var e in entradas)
-                if (e.ProductoAwVarianteId is not null && LineaMovimiento.NormalizarLote(e.Lote) is null)
+                if (!esCargaInicial && e.ProductoAwVarianteId is not null && LineaMovimiento.NormalizarLote(e.Lote) is null)
                     throw new BusinessRuleException("LOTE_REQUERIDO", $"Falta el lote de {Medida(e)}: es obligatorio en el vidrio de A+W.");
 
             // Mismo candado que la recepción de la pantalla (PERIODO_CERRADO / PERIODO_CONTABLE_NO_ADMITE).

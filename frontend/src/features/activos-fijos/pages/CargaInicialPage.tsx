@@ -30,6 +30,7 @@ export function CargaInicialPage() {
   const [versionArchivo, setVersion] = useState('1');
   const [totales, setTotales] = useState<Record<string, { valor: number; acumulada: number }>>({});
   const [resultado, setResultado] = useState<CargaResultado>();
+  const faltaAcumulada = resultado?.avisos?.some((a) => a.codigo === 'AF_CARGA_SIN_ACUMULADA');
   const [errorArchivo, setErrorArchivo] = useState('');
   const clases = useClasesActivo();
   const qc = useQueryClient();
@@ -46,11 +47,15 @@ export function CargaInicialPage() {
         JSON.stringify(Object.entries(totales).map(([clase, t]) => ({ clase, ...t }))),
       );
       // Fija el boundary para que los reintentos HTTP conserven el mismo cuerpo.
-      const body = await new Response(form).blob();
+      const multipart = new Response(form);
+      const contentType = multipart.headers.get('Content-Type')!;
+      const body = await multipart.blob();
       return (
         await apiRequest<CargaResultado>(`${AF_BASE}/carga/${confirmar ? 'confirmar' : 'previa'}`, {
           method: 'POST',
           body,
+          // Blob.type convierte el boundary a minúsculas; conservar el encabezado original.
+          headers: { 'Content-Type': contentType },
           idempotencyKey: confirmar ? crypto.randomUUID() : undefined,
         })
       ).data;
@@ -218,15 +223,17 @@ export function CargaInicialPage() {
           Prueba en seco
         </Button>
         <Button
-          disabled={!resultado?.valida || !!resultado.cargaId || cargar.isPending}
+          disabled={!resultado?.valida || faltaAcumulada || !!resultado.cargaId || cargar.isPending}
           title={
-            !resultado?.valida
-              ? 'Ejecute una prueba sin errores primero'
-              : resultado.cargaId
-                ? 'El archivo ya fue cargado'
-                : cargar.isPending
-                  ? 'Procesando archivo'
-                  : undefined
+            faltaAcumulada
+              ? 'Complete la depreciación acumulada antes de confirmar'
+              : !resultado?.valida
+                ? 'Ejecute una prueba sin errores primero'
+                : resultado.cargaId
+                  ? 'El archivo ya fue cargado'
+                  : cargar.isPending
+                    ? 'Procesando archivo'
+                    : undefined
           }
           onClick={() => cargar.mutate(true)}
         >
@@ -280,14 +287,16 @@ export function CargaInicialPage() {
       </section>
       {resultado && (
         <>
-          <Badge variant={resultado.valida ? 'success' : 'danger'}>
+          <Badge variant={faltaAcumulada ? 'warning' : resultado.valida ? 'success' : 'danger'}>
             {resultado.cargaId
               ? resultado.idempotente
                 ? 'Archivo ya cargado'
                 : 'Carga confirmada'
-              : resultado.valida
-                ? 'Validación correcta'
-                : 'Corrija los errores antes de cargar'}
+              : faltaAcumulada
+                ? 'Complete la depreciación acumulada antes de confirmar'
+                : resultado.valida
+                  ? 'Validación correcta'
+                  : 'Corrija los errores antes de cargar'}
           </Badge>
           <TablaLibro
             titulo="Errores por renglón"

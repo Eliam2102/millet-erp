@@ -1,3 +1,4 @@
+import { hoyLocalISO } from '@/lib/datetime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -10,6 +11,17 @@ const state = vi.hoisted(() => ({
   corridas: [] as unknown[],
   operaciones: [] as unknown[],
   error: null as Error | null,
+}));
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    to,
+    params,
+  }: {
+    children: React.ReactNode;
+    to: string;
+    params: { id: string };
+  }) => <a href={to.replace('$id', params.id)}>{children}</a>,
 }));
 vi.mock('../api/hooks', () => ({
   useGuardarActivo: () => ({ mutate: state.mutate, isPending: false, error: state.error }),
@@ -56,21 +68,24 @@ describe('Libro de activos P4', () => {
   });
   it('exige vista previa y envía el periodo consultado', () => {
     render(<DepreciacionPage />);
+    expect(screen.getByLabelText('Periodo *')).toHaveValue(hoyLocalISO().slice(0, 7));
     expect(screen.getByRole('button', { name: 'Confirmar corrida' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Vista previa' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar corrida' }));
     expect(state.mutate).toHaveBeenCalledWith({
       ruta: 'depreciacion',
-      body: { periodo: '2026-02-01' },
+      body: { periodo: `${hoyLocalISO().slice(0, 7)}-01` },
     });
-    fireEvent.change(screen.getByLabelText('Periodo *'), { target: { value: '2026-03' } });
+    fireEvent.change(screen.getByLabelText('Periodo *'), {
+      target: { value: hoyLocalISO().startsWith('2099-01') ? '2099-02' : '2099-01' },
+    });
     expect(screen.getByRole('button', { name: 'Confirmar corrida' })).toBeDisabled();
   });
   it('impide confirmar de nuevo y exige motivo al anular', () => {
     state.corridas = [
       {
         id: 'corrida',
-        periodo: '2026-02-01',
+        periodo: `${hoyLocalISO().slice(0, 7)}-01`,
         version: 3,
         revision: 1,
         anulada: false,
@@ -92,6 +107,25 @@ describe('Libro de activos P4', () => {
       version: 3,
       body: { motivo: 'Corrección de base' },
     });
+  });
+  it.each([true, false])('consulta la póliza de depreciación según permiso: %s', (permitido) => {
+    state.corridas = [
+      {
+        id: 'corrida',
+        periodo: `${hoyLocalISO().slice(0, 7)}-01`,
+        version: 1,
+        detalles: [],
+        polizaId: 'poliza-depreciacion',
+      },
+    ];
+    useAuthStore.setState({ permisos: permitido ? [P.ContabilidadPolizasLeer] : [] });
+    render(<DepreciacionPage />);
+    if (permitido)
+      expect(screen.getByRole('link', { name: 'Ver póliza' })).toHaveAttribute(
+        'href',
+        '/contabilidad/polizas/poliza-depreciacion',
+      );
+    else expect(screen.queryByRole('link', { name: 'Ver póliza' })).not.toBeInTheDocument();
   });
   it('oculta baja y ajuste sin permiso, y exige adjunto al solicitar baja', () => {
     const activo = { id: 'a', estado: 1, version: 4 } as Activo;

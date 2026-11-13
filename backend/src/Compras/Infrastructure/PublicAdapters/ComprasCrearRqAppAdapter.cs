@@ -125,11 +125,8 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
         if (proveedorId is null)
             return Error($"No existe un proveedor con clave A+W {s.ProveedorClaveAw}.");
 
-        var sucursal = await _maestros.Sucursales.AsNoTracking()
-            .Where(x => x.Clave == s.SucursalCodigo || x.ClaveAw == s.SucursalCodigo)
-            .Select(x => new { x.Id, x.Clave }).FirstOrDefaultAsync(ct);
-        if (sucursal is null)
-            return Error($"No existe la sucursal '{s.SucursalCodigo}'.");
+        var sucursal = await SucursalPorClaveApp.BuscarAsync(_maestros, s.SucursalCodigo, ct);
+        if (!sucursal.Encontrada) return Error(sucursal.Mensaje(s.SucursalCodigo));
 
         var claves = s.Lineas.Select(l => l.ArticuloAw).Distinct().ToList();
         var articulos = await (from a in _maestros.Articulos.AsNoTracking()
@@ -170,7 +167,7 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
                         l.Piezas, l.AnchoMm, l.AltoMm, s.FechaRequerida,
                         l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra, l.Posicion, s.CentroCostoId);
                 }).ToList(),
-                s.Comentario is { Length: > 500 } ? s.Comentario[..500] : s.Comentario);
+                Descripcion(s));
             rq.RegistrarCubrimiento(
                 rq.Lineas.Select(l => new CubrimientoLinea(l.Id, 0, l.Cantidad)).ToList(), DateTimeOffset.UtcNow);
         }
@@ -193,6 +190,18 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
             return new(true, ganador, null);
         }
         return new(false, rq.Folio.Valor, null);
+    }
+
+    /// <summary>
+    /// Comentario de la app más quién autorizó el envío en Almacenes (v11), visible en el detalle de la RQ. La hora es la del envío en
+    /// la zona que manda la app. Máximo 500 caracteres (la columna).
+    /// </summary>
+    public static string? Descripcion(CrearRqAppSolicitud s)
+    {
+        var autorizacion = s.AutorizadaPor is null ? null
+            : $"Autorizó en Almacenes: {s.AutorizadaPor}" + (s.AutorizadaEn is { } en ? $", {en:yyyy-MM-dd HH:mm}" : "");
+        var texto = string.Join(" · ", new[] { s.Comentario, autorizacion }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        return texto.Length == 0 ? null : texto.Length > 500 ? texto[..500] : texto;
     }
 
     private async Task<string?> FolioPrevioAsync(Guid empresaId, string folioExterno, CancellationToken ct)

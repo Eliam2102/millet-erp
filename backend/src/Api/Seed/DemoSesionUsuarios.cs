@@ -28,6 +28,9 @@ public sealed partial class DemoSesionSeedHostedService
         // Ningún perfil operativo gana bypass territorial, identidad ni administración
         // de roles por el hecho de tener acceso a su módulo.
         if (codigo.Contains("todas-sucursales", StringComparison.Ordinal)) return false;
+        // El alcance total de Facturación (caja.leer-todas) es solo corporativo: Contabilidad lo recibe
+        // abajo; Facturación y Caja (operativos) no, o verían las cajas de todas las sucursales (ADR-0051).
+        if (codigo == PermisosCanonicos.FacturacionCajaLeerTodas && rol != "Contabilidad") return false;
         if (codigo.StartsWith("compartido.catalogos.", StringComparison.Ordinal) && codigo.EndsWith(".leer", StringComparison.Ordinal)) return true;
         if (codigo is "admin.sucursales.leer" or "admin.departamentos.leer") return true;
         return rol switch

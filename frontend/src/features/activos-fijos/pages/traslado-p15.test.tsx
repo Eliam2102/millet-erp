@@ -3,10 +3,17 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { ActivoDetallePage } from './ActivoDetallePage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
+import { ApiError } from '@/lib/api';
 const state = vi.hoisted(() => ({
   mutate: vi.fn(),
+  error: null as Error | null,
   activo: {
     id: 'a',
+    ordenCompraId: 'oc-origen',
+    recepcionId: 'recepcion-origen',
+    facturaProveedorId: 'factura-origen',
+    polizaAltaId: 'poliza-origen',
+    documentoSoporte: 'ENSAYO · soporte ficticio',
     numero: 'AF-DEMO',
     descripcion: 'Activo sintético',
     estado: 1,
@@ -46,13 +53,13 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'a' }),
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
+  Link: ({ children, to, params }: { children: React.ReactNode; to?: string; params?: { id: string } }) => <a href={to?.replace('$id', params?.id ?? '')}>{children}</a>,
 }));
 vi.mock('../api/hooks', () => ({
   useActivo: () => ({ data: { data: state.activo } }),
   useActivos: () => ({ data: { items: [] } }),
   useClasesActivo: () => ({ data: [] }),
-  useGuardarActivo: () => ({ mutate: state.mutate, isPending: false }),
+  useGuardarActivo: () => ({ mutate: state.mutate, isPending: false, error: state.error }),
 }));
 vi.mock('../api/libro', () => ({ useLibroQuery: () => ({ data: { operaciones: [] } }) }));
 vi.mock('../components/HistorialActivo', () => ({ HistorialActivo: () => null }));
@@ -84,7 +91,28 @@ vi.mock('../components/ActivoForm', () => ({
 }));
 beforeEach(() => {
   state.mutate.mockClear();
+  state.error = null;
+  state.activo.estado = 1;
   useAuthStore.setState({ permisos: [P.ActivosFijosActivosVer, P.ActivosFijosTrasladosGestionar] });
+});
+it('muestra la causa y la acción de una capitalización rechazada sin nombres internos de campos', () => {
+  const motivo = 'Partida 1: La ubicación 101 del centro ADCON01 no está ligada a ninguna sucursal; pida a Contabilidad que la configure.';
+  state.activo.estado = 0;
+  state.error = new ApiError({
+    type: 'about:blank', status: 400, title: 'Errores de validación', code: 'VALIDATION_ERROR',
+    detail: `Errores de validación: partidas[0].dim3Id: ${motivo}`,
+    errores: [{ campo: 'partidas[0].dim3Id', codigo: 'CONTAB_DIM_UBICACION_SIN_SUCURSAL', mensaje: motivo }],
+  }, 400);
+  render(<ActivoDetallePage />);
+  expect(screen.getByRole('alert')).toHaveTextContent(motivo);
+  expect(screen.getByRole('alert')).not.toHaveTextContent('dim3Id');
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+it('conserva un mensaje de soporte y no expone el detalle interno de un fallo del servidor', () => {
+  state.error = new ApiError({ type: 'about:blank', status: 500, title: 'Error del servidor', detail: 'SQL exception: dato interno' }, 500);
+  render(<ActivoDetallePage />);
+  expect(screen.getByRole('alert')).not.toHaveTextContent('dato interno');
+  expect(screen.getByRole('alert')).toHaveTextContent('avisa a soporte');
 });
 async function historial() {
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'Traslados' }), {
@@ -134,4 +162,23 @@ it('oculta traslado sin permiso', async () => {
   render(<ActivoDetallePage />);
   await historial();
   expect(screen.queryByRole('button', { name: 'Trasladar' })).not.toBeInTheDocument();
+});
+
+
+it.each([true, false])('origen ofrece documentos legibles y respeta el permiso de consulta: %s', async (permitido) => {
+  if (permitido) useAuthStore.setState({ permisos: [P.ComprasOrdenesLeer, P.AlmacenEntradasLeer, P.CuentasPorPagarFacturasLeer, P.ContabilidadPolizasLeer] });
+  render(<ActivoDetallePage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Origen' }), { button: 0, ctrlKey: false });
+  fireEvent.click(screen.getByRole('tab', { name: 'Origen' }));
+  expect(await screen.findByText('ENSAYO · soporte ficticio')).toBeInTheDocument();
+  for (const [nombre, href] of [
+    ['Ver orden de compra', '/compras/ordenes/oc-origen'],
+    ['Ver recepción', '/almacen/recepciones/recepcion-origen'],
+    ['Ver factura de proveedor', '/cxp/facturas/factura-origen'],
+    ['Ver póliza de alta', '/contabilidad/polizas/poliza-origen'],
+  ]) {
+    if (permitido) expect(screen.getByRole('link', { name: nombre })).toHaveAttribute('href', href);
+    else expect(screen.queryByRole('link', { name: nombre })).not.toBeInTheDocument();
+  }
+  expect(screen.queryByText('poliza-origen')).not.toBeInTheDocument();
 });

@@ -16,6 +16,8 @@ public static class OtrEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorExpedientesLeer);
         g.MapGet("/bandeja", async (OtrServicio servicio, CancellationToken ct) => Results.Ok(await servicio.BandejaAsync(ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorExpedientesLeer);
+        g.MapGet("/rechazos", async (OtrServicio servicio, CancellationToken ct) => Results.Ok(await servicio.RechazosAsync(ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorOtrGestionar);
         var envio = g.MapGroup("/{id:guid}").WithDocumentoSucursalScope("envio_otr", "comercio_exterior.documentos")
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorOtrGestionar);
         envio.MapGet("/expedientes", async (Guid id, OtrServicio servicio, CancellationToken ct) => Results.Ok(await servicio.CandidatosAsync(id, ct)));

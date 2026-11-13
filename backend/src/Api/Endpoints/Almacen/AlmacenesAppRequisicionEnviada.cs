@@ -124,8 +124,20 @@ public static class AlmacenesAppRequisicionEnviada
         var posiciones = lineas.Where(x => x.Posicion is not null).Select(x => x.Posicion!.Value).ToList();
         if (posiciones.Count > 0 && (posiciones.Count != lineas.Count || posiciones.Distinct().Count() != posiciones.Count))
             return (null, "lineas[].posicion debe venir en todas las líneas y sin repetirse.");
+        // v11: autorizacion { usuario, fecha } opcional (las enviadas antes del 12-nov no la traen); si viene, completa.
+        string? autorizadaPor = null;
+        DateTimeOffset? autorizadaEn = null;
+        if (d.TryGetProperty("autorizacion", out var au) && au.ValueKind != JsonValueKind.Null)
+        {
+            autorizadaPor = au.ValueKind == JsonValueKind.Object ? Texto(au, "usuario")?.Trim() : null;
+            var fechaAu = au.ValueKind == JsonValueKind.Object ? Texto(au, "fecha") : null;
+            if (string.IsNullOrEmpty(autorizadaPor) || autorizadaPor.Length > 100 || fechaAu is null
+                || !DateTimeOffset.TryParse(fechaAu, CultureInfo.InvariantCulture, DateTimeStyles.None, out var en))
+                return (null, "datos.autorizacion debe traer usuario (hasta 100 caracteres) y fecha con zona horaria.");
+            autorizadaEn = en;
+        }
         return (new CrearRqAppSolicitud(folio.Trim(), sucursal.Trim(), claveAw.Value, fecha,
-            Texto(d, "comentario")?.Trim(), lineas), null);
+            Texto(d, "comentario")?.Trim(), lineas) { AutorizadaPor = autorizadaPor, AutorizadaEn = autorizadaEn }, null);
     }
 
     private static string? Texto(JsonElement o, string n) =>

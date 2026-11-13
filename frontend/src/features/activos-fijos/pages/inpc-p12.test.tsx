@@ -26,6 +26,7 @@ it('conserva el mismo cuerpo multipart en reintentos de una carga', async () => 
   vi.stubGlobal(
     'Response',
     class {
+      headers = new Headers({ 'Content-Type': 'multipart/form-data; boundary=WebKitCaseSensitive' });
       async blob() {
         return body;
       }
@@ -44,6 +45,7 @@ it('conserva el mismo cuerpo multipart en reintentos de una carga', async () => 
     ruta: 'inpc/excel',
     body,
     archivoHuella: '010203',
+    headers: { 'Content-Type': 'multipart/form-data; boundary=WebKitCaseSensitive' },
   });
   expect(state.mutate.mock.calls[1][0].body).toBe(state.mutate.mock.calls[0][0].body);
 });

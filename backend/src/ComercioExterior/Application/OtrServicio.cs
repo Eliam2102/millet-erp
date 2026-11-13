@@ -20,6 +20,7 @@ public sealed record OtrContenidoFila(string Cliente, string DireccionEntrega, s
 public sealed record OtrFila(Guid Id, string IdOrigen, int Version, long VersionAplicada, Guid SucursalId, EstadoOtrEnvio Estado, OtrContenidoFila Contenido, string? MotivoVinculacion);
 public sealed record OtrLineaDto(Guid Id, long VersionOrigen, string NumeroPedido, int Posicion, decimal Cantidad, string Unidad, EstadoOtrLinea Estado, string? Motivo, Guid? PartidaId);
 public sealed record OtrConflictoDto(Guid Id, long VersionOrigen, string Campo, string ValorOtr, string ValorErp, string ActorErp, DateTimeOffset FechaErp, DateTimeOffset RecibidoAt, Guid? ResueltoPorId, DateTimeOffset? ResueltoAt, bool? UsarOtr, string? Motivo, string Estado, long? SuperadoPorVersion);
+public sealed record OtrRechazoDto(Guid Id, string IdOrigen, long VersionOrigen, int Intentos, string? Motivo, DateTimeOffset Fecha);
 public sealed record OtrDetalle(Guid Id, string IdOrigen, int Version, long VersionAplicada, string Hash, Guid SucursalId, Guid ClienteId, Guid? ExpedienteId, Guid? ContenedorId, EstadoOtrEnvio Estado, OtrContenido Contenido, IReadOnlyList<OtrLineaDto> Lineas, IReadOnlyList<OtrConflictoDto> Conflictos, string? MotivoVinculacion);
 
 public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcablesReadPort pedidos, ExpedienteServicio seguridad,
@@ -44,6 +45,17 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
         // La bandeja no necesita materializar ni transferir las partidas históricas.
         return cabeceras.Select(x => new OtrFila(x.Id, x.IdOrigen, x.Version, x.VersionAplicada, x.SucursalId, x.Estado,
             JsonSerializer.Deserialize<OtrContenidoFila>(x.ContenidoJson)!, x.MotivoVinculacion)).ToArray();
+    }
+    /// <summary>Entradas OTR que el lector rechazó en definitiva (no llegaron a ser envío): id, versión y motivo para corregir el origen.</summary>
+    public async Task<IReadOnlyList<OtrRechazoDto>> RechazosAsync(CancellationToken cancellationToken)
+    {
+        // Un rechazo no tiene sucursal (se rechazó antes de resolverla): lo ve quien gestiona OTR en todas las sucursales.
+        await seguridad.PermisoAsync(PermisosCanonicos.ComercioExteriorOtrGestionar, cancellationToken);
+        if (await seguridad.SucursalesAsync(null, cancellationToken) is not null) return [];
+        return await db.OtrEntradasControl.AsNoTracking().Where(x => x.Rechazada)
+            .OrderByDescending(x => x.UpdatedAt).ThenBy(x => x.IdOrigen).Take(500)
+            .Select(x => new OtrRechazoDto(x.Id, x.IdOrigen, x.VersionOrigen, x.Intentos, x.UltimoError, x.UpdatedAt))
+            .ToArrayAsync(cancellationToken);
     }
     private async Task<IQueryable<OtrEnvio>> ConsultaAsync(Guid? expediente, CancellationToken cancellationToken)
     {
@@ -107,7 +119,7 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
     private async Task EvaluarSinVinculoAsync(OtrEnvio envio, CancellationToken cancellationToken)
     {
         var origen = await pedidos.BuscarPorNumeroAsync(envio.EmpresaId, envio.Lineas.Where(l => l.VersionOrigen == envio.VersionAplicada).Select(l => l.NumeroPedido).Distinct().ToArray(), cancellationToken);
-        foreach (var l in envio.Lineas.Where(l => l.VersionOrigen == envio.VersionAplicada))
+        foreach (var l in envio.Lineas.Where(l => l.VersionOrigen == envio.VersionAplicada && l.Estado != EstadoOtrLinea.Omitida))
             l.Pendiente(envio.MotivoVinculacion ?? (origen.Count(p => p.NumeroPedido == l.NumeroPedido) > 1 ? "CE_OTR_PEDIDO_AMBIGUO: hay más de un pedido con ese número A+W." : origen.Any(p => p.NumeroPedido == l.NumeroPedido) ? "CE_OTR_POR_VINCULAR: vincule un expediente para validar K3–K5." : "CE_OTR_PEDIDO_INEXISTENTE: no existe el pedido A+W en el ERP."));
     }
     private async Task ProponerAsync(OtrEnvio envio, Expediente e, Guid actor, CancellationToken cancellationToken)
@@ -115,7 +127,7 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
         var actual = e.Contenedores.SingleOrDefault(c => c.Id == envio.ContenedorId);
         e.GuardarContenedor(envio.ContenedorId!.Value, envio.Conciliar(actual, clock.UtcNow));
         var origen = await pedidos.BuscarPorNumeroAsync(envio.EmpresaId, envio.Lineas.Select(l => l.NumeroPedido).Distinct().ToArray(), cancellationToken);
-        foreach (var l in envio.Lineas.Where(l => l.VersionOrigen == envio.VersionAplicada && l.PartidaId is null))
+        foreach (var l in envio.Lineas.Where(l => l.VersionOrigen == envio.VersionAplicada && l.PartidaId is null && l.Estado != EstadoOtrLinea.Omitida))
         {
             var coincidencias = origen.Where(p => p.NumeroPedido == l.NumeroPedido).ToArray();
             if (coincidencias.Length > 1) { l.Pendiente("CE_OTR_PEDIDO_AMBIGUO: hay más de un pedido con ese número A+W."); continue; }
@@ -129,13 +141,20 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
             { l.Pendiente("CE_OTR_PARTIDA_EN_REVISION: revise la asignación anterior antes de proponer la nueva cantidad."); continue; }
             try
             {
-                if (p.Lineas.SingleOrDefault(x => x.Posicion == l.Posicion)?.Unidad != l.Unidad)
-                    throw new BusinessRuleException("CE_OTR_UNIDAD_DISTINTA", "La unidad no coincide con el pedido del ERP.");
+                ExigirPosicionYUnidad(p, l);
                 e.AsignarPartida(envio.ContenedorId.Value, p, l.Posicion, l.Cantidad, actor, propuesta: true);
                 var partida = e.Partidas.Last(); l.Proponer(partida.Id);
             }
             catch (BusinessRuleException ex) { l.Pendiente(ex.Code + ": " + ex.Message); }
         }
+    }
+    /// <summary>Primero la posición (una inexistente no es un problema de unidad) y después la unidad.</summary>
+    public static void ExigirPosicionYUnidad(PedidoEmbarcable pedido, OtrLinea linea)
+    {
+        var posicion = pedido.Lineas.SingleOrDefault(x => x.Posicion == linea.Posicion)
+            ?? throw new BusinessRuleException("CE_OTR_POSICION_INEXISTENTE", $"La posición {linea.Posicion} no existe en el pedido {linea.NumeroPedido} del ERP.");
+        if (posicion.Unidad != linea.Unidad)
+            throw new BusinessRuleException("CE_OTR_UNIDAD_DISTINTA", $"La unidad {linea.Unidad} no coincide con la del pedido ({posicion.Unidad}).");
     }
     private static string ValorAsignado(Expediente e, OtrEnvio envio, Guid pedido, OtrLinea linea)
     {
@@ -215,8 +234,7 @@ public sealed class OtrServicio(ComercioExteriorDbContext db, IPedidosEmbarcable
             envio.ResolverValor(conflicto.Id, request.UsarOtr, request.Motivo, seguridad.Actor, clock.UtcNow, ValorAsignado(e, envio, pedido.Id, linea), OtrEnvio.ClavePartida(linea.NumeroPedido, linea.Posicion));
             if (request.UsarOtr)
             {
-                if (pedido.Lineas.SingleOrDefault(l => l.Posicion == linea.Posicion)?.Unidad != linea.Unidad)
-                    throw new BusinessRuleException("CE_OTR_UNIDAD_DISTINTA", "La unidad no coincide con el pedido.");
+                ExigirPosicionYUnidad(pedido, linea);
                 foreach (var anterior in e.Partidas.Where(p => p.ContenedorId == envio.ContenedorId && p.PedidoFacturableId == pedido.Id && p.Posicion == linea.Posicion && p.Estado != EstadoPartida.Liberada).ToArray())
                 { e.QuitarPartida(anterior.Id, pedido.FacturaVigente); db.Partidas.Remove(anterior); }
                 if (await db.Expedientes.AnyAsync(x => x.Id != e.Id && x.Estado == EstadoExpediente.Abierto && x.VinculosPedidos.Any(v => v.Activo && v.PedidoFacturableId == pedido.Id), cancellationToken))

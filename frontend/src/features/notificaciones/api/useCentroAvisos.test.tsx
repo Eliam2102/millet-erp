@@ -7,7 +7,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { useCentroAvisos } from './useCentroAvisos';
 import type { CentroAvisosRespuesta } from './types';
 vi.mock('@/lib/api', () => ({ apiRequest: vi.fn() }));
-const sync = vi.hoisted(() => vi.fn(async () => undefined));
+const sync = vi.hoisted(() => vi.fn(async () => undefined as string | undefined));
 vi.mock('../audio/sonidoAvisos', () => ({ crearSonidoAvisos: () => ({ soportado: () => true, abrir: vi.fn(), cerrar: vi.fn(), recuperar: vi.fn(), establecerHabilitado: vi.fn(), probar: vi.fn(), sincronizar: sync }) }));
 const request = vi.mocked(apiRequest);
 const user = { id: 'usuario' } as NonNullable<ReturnType<typeof useAuthStore.getState>['user']>;
@@ -22,6 +22,18 @@ beforeEach(() => {
   request.mockImplementation(async path => ({ data: String(path).endsWith('preferencia-sonido') ? { habilitado: false } : respuesta() }) as never);
 });
 describe('Consulta contextual del centro', () => {
+  it('conserva un motivo visible del último intento de sonido', async () => {
+    sync.mockResolvedValueOnce('Se recuperó un origen de avisos; esta consulta fue silenciosa.');
+    const { result } = renderHook(() => useCentroAvisos({ condicion: 'Todas' }), { wrapper });
+    await waitFor(() => expect(result.current.estadoAudio).toContain('consulta fue silenciosa'));
+  });
+  it('activar sonido sincroniza el corte de pendientes antes de terminar la activación', async () => {
+    const { result } = renderHook(() => useCentroAvisos({ condicion: 'Todas' }), { wrapper });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    await act(async () => { await result.current.cambiarSonido.mutateAsync(true); });
+    expect(request.mock.calls.filter(([path]) => String(path).endsWith('/sincronizar'))).toHaveLength(2);
+    expect(result.current.sonidoHabilitado).toBe(true);
+  });
   it('pagina sin limitar totales ni novedades y envía cursor anterior', async () => {
     const { result, rerender } = renderHook(({ continuacion }) => useCentroAvisos({ condicion: 'Todas', continuacion }), { wrapper, initialProps: { continuacion: undefined as string | undefined } });
     await waitFor(() => expect(result.current.data?.totalSinLeerConocido).toBe(35)); expect(sync).toHaveBeenCalledWith('35', true, [{ id: 'compras', estado: 'Complete' }]);

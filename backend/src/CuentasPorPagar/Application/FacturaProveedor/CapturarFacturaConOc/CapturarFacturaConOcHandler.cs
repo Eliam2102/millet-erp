@@ -552,9 +552,10 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 $"No hay tipo de cambio de {command.Moneda.ToUpperInvariant()} registrado para {fecha:yyyy-MM-dd}. " +
                 "Regístralo en Catálogos › Monedas antes de capturar la factura.");
         var tolerancia = catalogo is > 0 && _toleranciaTc is not null ? await _toleranciaTc.ToleranciaPctAsync(cancellationToken) : 0m;
+        var toleranciaAbs = catalogo is > 0 && _toleranciaTc is not null ? await _toleranciaTc.ToleranciaAbsolutaMxnAsync(cancellationToken) : 0m;
         var permiso = command.ConfirmaTipoCambio && _permisos is not null
             && await _permisos.TieneAsync(PermisosCanonicos.ContabilidadTipoCambioAutorizarSustituto, cancellationToken);
-        var decision = TipoCambioCapturaFactura.Decidir(command.TipoCambio.Value, catalogo, tolerancia, command.ConfirmaTipoCambio, permiso, fecha);
+        var decision = TipoCambioCapturaFactura.Decidir(command.TipoCambio.Value, catalogo, tolerancia, toleranciaAbs, command.ConfirmaTipoCambio, permiso, fecha);
         if (decision.Confirmado) _tcCatalogoConfirmado = catalogo;
         return decision.Valor;
     }

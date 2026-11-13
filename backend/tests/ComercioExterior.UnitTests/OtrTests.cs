@@ -177,4 +177,37 @@ public sealed class OtrTests
         reemplazo.Vincular(e); e.GuardarContenedor(reemplazo.ContenedorId!.Value, reemplazo.Conciliar(null, Ahora));
         Codigo("CE_CANTIDAD_EXCEDE_PEDIDO", () => e.AsignarPartida(reemplazo.ContenedorId.Value, p, 1, 10, Actor));
     }
+    [Fact]
+    public void Una_linea_en_cero_no_rechaza_la_piramide_queda_omitida_con_aviso_y_la_negativa_si()
+    {
+        var o = new OtrEnvio(Empresa, "DEMO-CEROS");
+        Assert.True(o.Aplicar(1, Contenido() with { Lineas = [new("DEMO-PED", 1, 10, "H87"), new("DEMO-PED", 2, 0, "H87")] }));
+        Assert.Equal(EstadoOtrEnvio.PorVincular, o.Estado);
+        var cero = o.Lineas.Single(l => l.Posicion == 2);
+        Assert.Equal(EstadoOtrLinea.Omitida, cero.Estado); Assert.StartsWith("CE_OTR_CANTIDAD_CERO", cero.Motivo);
+        Assert.Equal(EstadoOtrLinea.Pendiente, o.Lineas.Single(l => l.Posicion == 1).Estado);
+        Codigo("CE_OTR_DATOS_INVALIDOS", () => o.Aplicar(2, Contenido() with { Lineas = [new("DEMO-PED", 1, -1, "H87")] }));
+    }
+    [Fact]
+    public void Historico_no_cambia_el_hash_de_lineas_vigentes_y_un_envio_historico_vuelve_a_por_vincular_si_llega_un_pedido_vigente()
+    {
+        var a = new OtrEnvio(Empresa, "DEMO-H1"); a.Aplicar(1, Contenido());
+        var b = new OtrEnvio(Empresa, "DEMO-H2"); b.Aplicar(1, Contenido() with { Lineas = [new("DEMO-PED", 1, 10, "H87", Historico: false)] });
+        Assert.Equal(a.Hash, b.Hash);
+        var h = new OtrEnvio(Empresa, "DEMO-H3"); h.Aplicar(1, Contenido() with { Lineas = [new("DEMO-PED", 1, 10, "H87", Historico: true)] });
+        Assert.Equal(EstadoOtrEnvio.HistoricoSap, h.Estado);
+        Codigo("CE_OTR_HISTORICO_SAP", () => h.Vincular(Expediente()));
+        h.Aplicar(2, Contenido() with { Lineas = [new("DEMO-PED", 1, 10, "H87", Historico: true), new("DEMO-HIJO", 1, 5, "H87")] });
+        Assert.Equal(EstadoOtrEnvio.PorVincular, h.Estado);
+    }
+    [Fact]
+    public void La_posicion_inexistente_se_reporta_antes_que_la_unidad()
+    {
+        var o = Envio(); var l = Assert.Single(o.Lineas);
+        var sinPosicion = new PedidoEmbarcable(Guid.NewGuid(), "DEMO-PED", Cliente, "DEMO", Sucursal, true, "Importado", 1, [new(7, null, "DEMO", 10, "MTK")], null, null);
+        Codigo("CE_OTR_POSICION_INEXISTENTE", () => Millet.ComercioExterior.Application.OtrServicio.ExigirPosicionYUnidad(sinPosicion, l));
+        var otraUnidad = sinPosicion with { Lineas = [new(1, null, "DEMO", 10, "MTK")] };
+        Codigo("CE_OTR_UNIDAD_DISTINTA", () => Millet.ComercioExterior.Application.OtrServicio.ExigirPosicionYUnidad(otraUnidad, l));
+        Millet.ComercioExterior.Application.OtrServicio.ExigirPosicionYUnidad(otraUnidad with { Lineas = [new(1, null, "DEMO", 10, "H87")] }, l);
+    }
 }

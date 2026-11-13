@@ -188,7 +188,7 @@ public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? clie
     [
         NormalizadorEventos.FacturaVentaTimbrada, NormalizadorEventos.FacturaAnticipoTimbrada, NormalizadorEventos.NotaCreditoTimbrada,
         NormalizadorEventos.ComprobanteCancelado, NormalizadorEventos.CobroMostradorRegistrado, NormalizadorEventos.CobroMostradorCancelado,
-        NormalizadorEventos.CajaSesionCerrada, NormalizadorEventos.FacturaBancoTerminalLigada,
+        NormalizadorEventos.CajaSesionCerrada, NormalizadorEventos.FacturaBancoTerminalLigada, NormalizadorEventos.TerminalLiquidacionRegistrada,
     ], StringComparer.Ordinal);
 }
 
