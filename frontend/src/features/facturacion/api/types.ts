@@ -1465,6 +1465,8 @@ export interface ComprobanteDetalleResponse {
   uuid: string | null;
   receptorRfc: string;
   clienteClave?: string | null;
+  /** H-U40: tipo de cambio del CFDI (null en MXN). */
+  tipoCambio?: number | null;
   receptorNombre: string;
   moneda: string;
   subtotal: number;
