@@ -54,9 +54,7 @@ export function PartidasAbiertas() {
   const tamano = useTamanoPagina();
   const search = {
     ...ruta,
-    pageSize: new URLSearchParams(window.location.search).has('pageSize')
-      ? ruta.pageSize
-      : tamano.limit,
+    pageSize: ruta.pageSize ?? tamano.limit,
   };
   const navigate = useNavigate();
 

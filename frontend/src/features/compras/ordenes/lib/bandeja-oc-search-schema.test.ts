@@ -12,7 +12,7 @@ import {
 } from '@/features/compras/ordenes/api/types';
 
 describe('BandejaOcSearchSchema', () => {
-  it('input vacío: aplica defaults page=1, pageSize=10', () => {
+  it('input vacío: conserva page=1 sin cantidad explícita', () => {
     expect(BandejaOcSearchSchema.parse({})).toEqual(DEFAULT_BANDEJA_OC_SEARCH);
   });
 
