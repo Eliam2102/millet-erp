@@ -103,6 +103,46 @@ describe('<PolizaDetallePage>', () => {
     expect(cuerpos[1]).toEqual({ body: { motivo: 'FIX Captura duplicada', periodoAnio: 2026, periodoNumero: 11 }, ifMatch: '"4"', idem: true });
   });
 
+  it('H-U30: quien puede aprobar anulaciones aprueba la solicitud desde el detalle', async () => {
+    servidor(poliza({
+      anulacionPendiente: { solicitudId: 's1', motivo: 'FIX Captura duplicada', solicitadaPorId: 'u1', solicitadaPor: 'FIX Analista', solicitadaEn: '2026-11-09T15:00:00Z' },
+    }));
+    const llamadas: { idem: boolean }[] = [];
+    mswServer.use(http.post(`${API}/polizas/solicitudes-anulacion/s1/aprobar`, ({ request }) => {
+      llamadas.push({ idem: !!request.headers.get('Idempotency-Key') });
+      return HttpResponse.json(poliza({ id: 'p9', folio: 'TT-000200' }));
+    }));
+    permisos(PermisosCanonicos.ContabilidadPolizasAnularAprobar);
+    useAuthStore.setState({ user: { id: 'u2', email: 'x@e.com', nombre: 'FIX Gerente' } });
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+
+    const region = await screen.findByRole('region', { name: 'Anulación pendiente' });
+    fireEvent.click(within(region).getByRole('button', { name: 'Aprobar anulación' }));
+    expect(await screen.findByText(/Anulación aprobada: la póliza quedó anulada por TT-000200/)).toBeInTheDocument();
+    expect(llamadas).toEqual([{ idem: true }]);
+    expect(within(region).getByRole('button', { name: 'Rechazar' })).toBeEnabled();
+  });
+
+  it('H-U30: quien pidió la anulación no la decide; sin permiso no hay botones', async () => {
+    const p = poliza({
+      anulacionPendiente: { solicitudId: 's1', motivo: 'FIX Captura duplicada', solicitadaPorId: 'u1', solicitadaPor: 'FIX Analista', solicitadaEn: '2026-11-09T15:00:00Z' },
+    });
+    servidor(p);
+    permisos(PermisosCanonicos.ContabilidadPolizasAnularAprobar);
+    useAuthStore.setState({ user: { id: 'u1', email: 'x@e.com', nombre: 'FIX Analista' } });
+    const { unmount } = render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    const region = await screen.findByRole('region', { name: 'Anulación pendiente' });
+    expect(within(region).getByRole('button', { name: 'Aprobar anulación' })).toBeDisabled();
+    expect(within(region).getByRole('button', { name: 'Rechazar' })).toBeDisabled();
+    unmount();
+
+    servidor(p);
+    permisos();
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    const sinPermiso = await screen.findByRole('region', { name: 'Anulación pendiente' });
+    expect(within(sinPermiso).queryByRole('button', { name: 'Aprobar anulación' })).not.toBeInTheDocument();
+  });
+
   it('M-212: con una anulación pendiente muestra el distintivo y no deja pedir otra', async () => {
     servidor(poliza({
       anulacionPendiente: { solicitudId: 's1', motivo: 'FIX Captura duplicada', solicitadaPorId: 'u1', solicitadaPor: 'FIX Analista', solicitadaEn: '2026-11-09T15:00:00Z' },
