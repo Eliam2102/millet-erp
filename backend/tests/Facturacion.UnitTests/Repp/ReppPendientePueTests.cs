@@ -47,7 +47,7 @@ public sealed class ReppPendientePueTests
         await db.SaveChangesAsync();
 
         await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora))
-            .Handle(new(Guid.NewGuid(), Pago(pue.Total, new(pue.Id, pue.Total))), default);
+            .Handle(new(Guid.NewGuid(), Pago(pue.Total, new PagoClienteFacturaAplicadaPayload(pue.Id, pue.Total))), default);
 
         (await db.ReppPendientes.CountAsync()).Should().Be(0);
         (await db.EventosProcesados.CountAsync()).Should().Be(1, "el evento queda procesado aunque no haya REP");
@@ -62,7 +62,7 @@ public sealed class ReppPendientePueTests
         await db.SaveChangesAsync();
 
         await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora))
-            .Handle(new(Guid.NewGuid(), Pago(pue.Total + 700m, new(pue.Id, pue.Total), new(ppd.Id, 700m))), default);
+            .Handle(new(Guid.NewGuid(), Pago(pue.Total + 700m, new PagoClienteFacturaAplicadaPayload(pue.Id, pue.Total), new PagoClienteFacturaAplicadaPayload(ppd.Id, 700m))), default);
 
         var pendiente = await db.ReppPendientes.Include(p => p.Facturas).SingleAsync();
         pendiente.Monto.Should().Be(700m);
