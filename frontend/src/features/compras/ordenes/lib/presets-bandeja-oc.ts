@@ -105,10 +105,9 @@ export function detectarPresetActivo(
 }
 
 /**
- * Igualdad campo-a-campo de los filtros que un preset declara. La
- * paginación (<c>page</c>/<c>pageSize</c>) se compara también: si el
- * usuario está en página 2, ningún preset coincide hasta que vuelva
- * a la 1 — comportamiento esperado (un preset reinicia el cursor).
+ * Compara filtros y página; la cantidad elegida no cambia el filtro activo.
+ * En página 2 ningún preset coincide hasta volver a la 1, porque un preset
+ * reinicia el cursor.
  */
 function matchSearch(a: BandejaOcSearch, b: BandejaOcSearch): boolean {
   return (
@@ -122,7 +121,6 @@ function matchSearch(a: BandejaOcSearch, b: BandejaOcSearch): boolean {
     a.fechaDesde === b.fechaDesde &&
     a.fechaHasta === b.fechaHasta &&
     a.q === b.q &&
-    a.page === b.page &&
-    a.pageSize === b.pageSize
+    a.page === b.page
   );
 }

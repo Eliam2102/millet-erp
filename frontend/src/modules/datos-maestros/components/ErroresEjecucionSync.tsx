@@ -89,7 +89,7 @@ export function ErroresEjecucionSync({
           const expandido = abierto === clave;
           const Icono = c?.conflicto ? AlertTriangle : XCircle;
           return (
-            <li
+            <li data-fila-registro
               key={`${er.referencia}-${offset + i}`}
               className="grid gap-x-4 gap-y-2 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto]"
             >

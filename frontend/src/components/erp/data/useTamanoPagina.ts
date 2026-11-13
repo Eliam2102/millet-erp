@@ -54,6 +54,8 @@ export function useTamanoPagina(tabla = 'principal', maximo = 100, inicial = 10,
       }
       setLimiteEdicion(null);
       if (actual !== 'auto' || region.clientHeight <= 0) return;
+      // Carga, error o vacío conservan la última cantidad medida con registros reales.
+      if (!region.querySelector('tbody tr, [data-fila-registro]')) return;
       const cabecera = region.querySelector('thead')?.getBoundingClientRect().height ?? (region.querySelector('table') ? 36 : 0);
       const filas = Array.from(region.querySelectorAll('tbody tr, [data-fila-registro]')).slice(0, 5);
       const altoFila = Math.max(44, ...filas.map((f) => f.getBoundingClientRect().height));

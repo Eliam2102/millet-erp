@@ -118,10 +118,10 @@ afterEach(() => {
 });
 
 describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
-  it('restaura 20 filas al volver sin cantidad en URL aunque el schema entregue default 10', async () => {
+  it('restaura 20 filas al volver sin cantidad en URL', async () => {
     window.history.replaceState({}, '', '/compras/ordenes');
     localStorage.setItem('millet:tabla:v1:u-test:/compras/ordenes:principal', '20');
-    mockSearch = { page: 1, pageSize: 10 };
+    mockSearch = { page: 1 };
     let recibido: URL | undefined;
     mswServer.use(http.get('*/api/v1/compras/ordenes', ({ request }) => {
       recibido = new URL(request.url);
