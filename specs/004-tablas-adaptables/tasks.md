@@ -25,3 +25,9 @@ T001→T002→T003→T004→T005/T006/T007→T008→T009/T010→T011→T012. Imp
 Investigación de familias independiente de documentación. Las vistas se pueden comprobar en paralelo después de estabilizar componentes; no se requiere otra intervención en QA.
 ## Strategy
 Base común primero, propagación completa por familias, excepciones explícitas para captura/reportes, validación sin declarar QA.
+
+
+## Phase 7: Correcciones verificadas en QA
+- [x] T013 Reproducir con prueba roja el bucle carga→datos de Expedientes y registrar número de consultas/cancelaciones conforme FR-008/SC-006; evidencia fuera del repo.
+- [x] T014 Corregir la medición compartida para estabilizar cantidad y consultas sin pisar el ajuste de preferencia/URL de PR738; conservar captura y tamaño manual.
+- [ ] T015 Validar el conjunto: cantidades guardadas al volver, enlace SPA sin remount, auto/redimensionado, consultas CE acotadas y captura con menú en móvil/escritorio. Integración y portal coordinados; no declarar cierre QA sin evidencia real.

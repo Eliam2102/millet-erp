@@ -46,6 +46,8 @@ export function useTamanoPagina(tabla = 'principal', maximo = 100, inicial = 10,
     const region = (regionId ? document.getElementById(regionId) : null) ?? Array.from(document.querySelectorAll<HTMLElement>('[data-table-viewport]')).find((r) => !r.querySelector('[data-table-viewport]') && r.clientHeight > 0);
     if (!region) return;
     const medir = () => {
+      // El placeholder no representa el alto de las filas recibidas.
+      if (region.querySelector('[aria-busy="true"]')) return;
       if (region.querySelector('form, [data-edicion-activa]')) {
         setLimiteEdicion((previo) => previo ?? Math.min(maximo, actual === 'auto' ? automatico : actual));
         return;
