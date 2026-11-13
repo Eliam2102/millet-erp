@@ -40,7 +40,10 @@ export function RedondeosPorAutorizarPanel() {
           const ocupado = autorizar.isPending || rechazar.isPending;
           return (
             <li key={s.id} className="flex flex-wrap items-center gap-2 py-2">
-              <span className="font-mono text-xs text-ink-muted">Factura {s.facturaProveedorId.slice(0, 8)}</span>
+              <span className="text-xs">
+                <span className="font-mono">{s.folioProveedor ?? s.facturaProveedorId.slice(0, 8)}</span>
+                {s.proveedorRazonSocial && <span className="text-ink-muted"> · {s.proveedorRazonSocial}</span>}
+              </span>
               <span className="font-mono tabular-nums">
                 {s.redondeo > 0 ? 'A favor' : 'En contra'} {formatoMonto(Math.abs(s.redondeo), 'MXN')}
               </span>

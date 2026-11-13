@@ -473,6 +473,13 @@ export interface RedondeoPagoResponse {
   solicitadoPor: string;
   resueltoPor: string | null;
   motivoRechazo: string | null;
+  /** Solo en el GET de lectura: datos de la factura y de la solicitud. Los POST no los traen. */
+  folioProveedor?: string | null;
+  proveedorId?: string | null;
+  proveedorRazonSocial?: string | null;
+  fecha?: string;
+  /** Autorizada y aún sin consumir por un pago. */
+  usable?: boolean;
 }
 
 /** Mirror de `AplicacionPagoResponse`. */
