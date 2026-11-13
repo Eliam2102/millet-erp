@@ -65,7 +65,11 @@ public sealed record FacturaDetalleResponse(
     bool ProveedorBloqueado = false,
     string? ProveedorMotivoBloqueo = null,
     Guid? SolicitanteRevisionId = null,
-    bool EsServicioComercioExterior = false, bool ServicioCeSegundaFirma = false);
+    bool EsServicioComercioExterior = false, bool ServicioCeSegundaFirma = false, string? ProveedorClave = null,
+    RevisionReppResponse? RevisionRepp = null);
+
+public sealed record RevisionReppResponse(bool Pendiente, DateTimeOffset? UltimaAutorizacionEn, IReadOnlyList<PagoRevisionReppResponse> Pagos);
+public sealed record PagoRevisionReppResponse(Guid PagoId, DateOnly FechaPago, decimal Importe, decimal CubiertoRepp, string? Moneda);
 
 /// <summary>Revisión por área en curso (C-06): motivo, área, fecha de envío y plazo en días hábiles.</summary>
 public sealed record RevisionVigenteResponse(
@@ -150,6 +154,22 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
                 motivo?.SlaDias is int sla && dias >= PlazoRevision.Umbrales(sla).Vencido);
         }
 
+        RevisionReppResponse? revisionRepp = null;
+        if (f.Estado == EstadoPasivo.EnRevision && f.EnRevision && f.MotivoRevisionId == Domain.FacturaProveedor.FacturaProveedor.MotivoFaltaReppId)
+        {
+            var autorizacion = await _db.FacturasProveedor.AsNoTracking()
+                .Where(x => x.Id == f.Id && x.EmpresaId == f.EmpresaId)
+                .SelectMany(x => x.Bitacora)
+                .Where(x => x.EstadoNuevo == EstadoPasivo.Autorizada && x.OcurridoEn <= f.FechaEntradaRevision)
+                .Select(x => (DateTimeOffset?)x.OcurridoEn).MaxAsync(cancellationToken);
+            var pagos = await _db.PagosProveedorLocal.AsNoTracking()
+                .Where(p => p.EmpresaId == f.EmpresaId && p.FacturaProveedorId == f.Id && !p.Revertido)
+                .OrderBy(p => p.FechaPago).ThenBy(p => p.PagoId)
+                .Select(p => new PagoRevisionReppResponse(p.PagoId, p.FechaPago, p.Importe, p.CubiertoRepp, p.Moneda))
+                .ToListAsync(cancellationToken);
+            revisionRepp = new RevisionReppResponse(!f.ReppRecibido, autorizacion, pagos);
+        }
+
         // Con recepción explícita, su folio; sin ella (la conciliación 3 vías usa todas las de la OC), los folios de las recepciones de la OC.
         var recepciones = _db.RecepcionesOcLocal.AsNoTracking();
         recepciones = f.RecepcionId is Guid rid
@@ -199,11 +219,13 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
                 l.Cantidad, l.ClaveUnidad, l.PrecioUnitario, l.Importe, l.Descuento,
                 l.LineaOcId, l.ConceptoContableId)).ToList(),
             ProveedorNombre: proveedor?.RazonSocial,
+            ProveedorClave: proveedor?.Clave,
             SucursalNombre: sucursal is null ? null : $"{sucursal.Codigo} · {sucursal.Nombre}",
             Elegible: elegibilidad.ElegiblePendiente, Retenido: elegibilidad.Retenido,
             RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal,
             RetencionesRevisadasEn: f.RetencionesRevisadasEn, RetencionesRevisionMotivo: f.RetencionesRevisionMotivo,
             RevisionVigente: revision,
+            RevisionRepp: revisionRepp,
             ProveedorBloqueado: proveedor?.Bloqueado ?? false,
             ProveedorMotivoBloqueo: proveedor?.MotivoBloqueo,
             SolicitanteRevisionId: f.SolicitanteRevisionId,

@@ -8,6 +8,7 @@ using Millet.Identidad.Domain;
 using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
+using Millet.Documentos;
 using Millet.SharedKernel.Domain;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -65,11 +66,17 @@ public static class OrganizacionEndpoints
             }
 
             var total = await query.CountAsync(ct);
-            var items = await query
+            var pagina = await query
                 .OrderBy(s => s.Clave)
                 .Skip(off).Take(lim)
-                .Select(s => new SucursalListItem(s.Id, s.Clave, s.Nombre, s.Tipo, s.Estatus))
                 .ToListAsync(ct);
+            var items = pagina.Select(s =>
+            {
+                var direccion = string.Join("\n", PdfDomicilio.Lineas(s.Calle, s.NumeroExterior, s.NumeroInterior,
+                    s.Colonia, s.Ciudad, s.Municipio, s.Estado, s.CodigoPostal, s.Pais));
+                return new SucursalListItem(s.Id, s.Clave, s.Nombre, s.Tipo, s.Estatus,
+                    string.IsNullOrWhiteSpace(direccion) ? null : direccion);
+            }).ToArray();
 
             return Results.Ok(new PagedCatalogoResponse<SucursalListItem>(items, off, lim, total));
         })
@@ -370,7 +377,8 @@ public sealed record SucursalListItem(
     string Clave,
     string Nombre,
     TipoSucursal Tipo,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    string? DireccionEntrega = null);
 
 public sealed record DepartamentoListItem(
     Guid Id,

@@ -11,6 +11,7 @@ using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Api.IntegrationTests.Contabilidad;
+using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
 using Millet.DatosMaestros.Domain;
@@ -24,13 +25,40 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// variante y saldo en la sucursal MID; no toca datos de otras pruebas.
 /// </summary>
 [Collection(ApiCompartida.Nombre)]
-public class AlmacenesAppSalidasTests
+public class AlmacenesAppSalidasTests : IAsyncLifetime
 {
     private const string Ruta = "/api/v1/integraciones/almacenes/mensajes";
     private const string Llave = "llave-test-almacenes";
     private readonly WebApplicationFactory<Program> _factory;
 
     public AlmacenesAppSalidasTests(WebApplicationFactory<Program> factory) => _factory = factory;
+
+    private readonly List<PeriodoContableFixture> _calendarios = [];
+
+    public async Task InitializeAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        // Año FIX reservado: no comparte ni modifica el calendario corriente de otras suites.
+        var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, ContabTestKit.EmpresaBootstrapId, 2097);
+        _calendarios.Add(calendario);
+        await calendario.SembrarAsync(10, abrirTodos: true);
+        // Las entradas usan hoy; si ya existe ese ejercicio, se conserva tal como está.
+        var hoy = DateTimeOffset.UtcNow;
+        var contab = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+        if (!await contab.Ejercicios.IgnoreQueryFilters().AnyAsync(e =>
+                e.EmpresaId == ContabTestKit.EmpresaBootstrapId && e.Anio == hoy.Year))
+        {
+            var actual = new PeriodoContableFixture(db.Database.GetConnectionString()!, ContabTestKit.EmpresaBootstrapId, hoy.Year);
+            _calendarios.Add(actual);
+            await actual.SembrarAsync(hoy.Month);
+        }
+    }
+
+    public async Task DisposeAsync()
+    {
+        foreach (var calendario in _calendarios) await calendario.DisposeAsync();
+    }
 
     private const decimal Area = 8.9304m; // m² de la hoja 2440x3660 (AreaHoja.M2)
 
@@ -80,7 +108,7 @@ public class AlmacenesAppSalidasTests
         {
             Content = JsonContent.Create(new
             {
-                mensajeId = id, tipo, version = 1, fecha = "2026-10-06T17:47:00-06:00",
+                mensajeId = id, tipo, version = 1, fecha = "2097-10-06T17:47:00-06:00",
                 origen = "AlmacenRQ_MP", referencia = "SAL-1", datos,
             }),
         };
@@ -620,7 +648,7 @@ public class AlmacenesAppSalidasTests
         var n = Guid.NewGuid().ToString("N")[..10];
         string Sobre(string id, string tipo, string referencia, object datos) => JsonSerializer.Serialize(new
         {
-            mensajeId = id, tipo, version = 1, fecha = "2026-11-05T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
+            mensajeId = id, tipo, version = 1, fecha = "2097-11-05T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
         });
         var (m1, m2, m3) = ($"L1-{n}", $"L2-{n}", $"L3-{n}");
         // m1: pide 2 hojas y hay 1 (sin existencia); m2: misma referencia, sí alcanzaría; m3: otra referencia.
@@ -693,8 +721,6 @@ public class AlmacenesAppSalidasTests
     {
         await AsegurarAlmacenGeneralMidAsync();
         var s = await SembrarAsync(0);
-        await using var periodo = await Millet.Api.IntegrationTests.Compras.CompraAPagoDemoTests.AbrirPeriodoSiHaceFaltaAsync(
-            _factory, DateOnly.FromDateTime(DateTime.UtcNow));
         await using var f = ConLlave();
         var id = Guid.NewGuid().ToString();
         var a = await Acuse(await f.CreateClient().SendAsync(Req(id, "ENTRADA_ALMACEN", DatosEntrada("EN-1", s.ArticuloAw, 10, reclamadas: 2))));
@@ -716,7 +742,7 @@ public class AlmacenesAppSalidasTests
         var n = Guid.NewGuid().ToString("N")[..10];
         string Sobre(string id, string referencia, object datos) => JsonSerializer.Serialize(new
         {
-            mensajeId = id, tipo = "ENTRADA_ALMACEN", version = 1, fecha = "2026-11-09T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
+            mensajeId = id, tipo = "ENTRADA_ALMACEN", version = 1, fecha = "2097-11-09T10:00:00-06:00", origen = "AlmacenRQ_MP", referencia, datos,
         });
         var (m1, m2) = ($"E1-{n}", $"E2-{n}");
         origen.Encolar(m1, "ENTRADA_ALMACEN", $"EN-{n}", Sobre(m1, $"EN-{n}", DatosEntrada($"EN-{n}", "NO-EXISTE-" + n, 3)));

@@ -1,3 +1,5 @@
+import { RevisionReppContexto } from '../components/RevisionReppContexto';
+import { PolizasDocumento } from '@/features/contabilidad/components/polizas/PolizasDocumento';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
@@ -192,6 +194,10 @@ export function FacturaDetallePage() {
             </AvisoEnLinea>
           )}
 
+
+
+          <RevisionReppContexto contexto={query.data.revisionRepp} />
+
           {/* Sub-topbar con acciones contextuales; sin acciones (Pagada, Cancelada sin motivo) no se pinta. */}
           <div
             className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2 empty:hidden"
@@ -313,7 +319,7 @@ export function FacturaDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre?.trim() || 'Sin proveedor'}
+              valor={<><span className="font-mono">{query.data.proveedorClave?.trim() || 'Sin código'}</span>{' · '}<span>{query.data.proveedorNombre?.trim() || 'Sin proveedor'}</span></>}
               mono={query.data.proveedorNombre == null}
             />
             <Campo
@@ -357,6 +363,8 @@ export function FacturaDetallePage() {
               valor={query.data.tipoCambio != null ? formatCantidad(query.data.tipoCambio, 4) : '—'}
             />
           </dl>
+
+          <PolizasDocumento modulo="cuentas_por_pagar" tipo="factura_proveedor" documentoId={query.data.id} />
 
           {query.data.estado === EstadoPasivo.Capturada && puedeEditar && (
             <EditarDatosP8 key={`${query.data.id}-${query.data.version}`} factura={query.data} />
@@ -447,7 +455,7 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Anticipo aplicado', monto: query.data.anticipoAplicadoTotal },
                 { etiqueta: 'NC aplicadas', monto: query.data.ncAplicadasTotal },
                 { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
-                { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
+                { etiqueta: query.data.esServicioComercioExterior ? 'Retenido por autorización de servicio' : 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
                 // Una factura cancelada ya no es un pasivo: no queda saldo por pagar (P8.7).
                 { etiqueta: 'Saldo pendiente', monto: query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente, destacado: true },
@@ -575,7 +583,7 @@ export function FacturaDetallePage() {
 
 interface CampoProps {
   label: string;
-  valor: string;
+  valor: React.ReactNode;
   mono?: boolean;
 }
 

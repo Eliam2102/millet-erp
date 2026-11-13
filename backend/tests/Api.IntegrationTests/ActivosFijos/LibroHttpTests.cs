@@ -22,6 +22,17 @@ namespace Millet.Api.IntegrationTests.ActivosFijos;
 public sealed partial class LibroHttpTests
 {
     private const string Base = "/api/v1/activos-fijos";
+    [Fact]
+    public async Task Configuracion_ausente_devuelve_json_nulo_para_iniciar_el_libro()
+    {
+        await using var e = await ExpedientesHttpTests.Escenario.CrearAsync();
+        using var cliente = await e.ClienteAsync(true, permisosCe: false, permisosAf: true);
+        using var respuesta = await cliente.GetAsync($"{Base}/configuracion-libro");
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Equal("application/json", respuesta.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(JsonValueKind.Null, (await respuesta.Content.ReadFromJsonAsync<JsonElement>()).ValueKind);
+    }
+
     [Theory] [InlineData(false)] [InlineData(true)]
     public async Task CA1_CA2_CA3_CA12_Corrida_real_unica_anulacion_recalculo_y_conciliacion(bool cerrado)
     {

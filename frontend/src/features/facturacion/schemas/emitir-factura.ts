@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cabeEnDecimales, normalizarCodigoUnidad } from '@/components/erp/forms/decimales-unidad';
 import { zId } from '@/lib/z-id';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
 
@@ -15,6 +16,8 @@ export const EmitirFacturaLineaSchema = z.object({
   claveProdServSat: z.string().min(1, 'Clave SAT requerida').max(10),
   descripcion: z.string().min(1, 'Describe el concepto').max(1000),
   claveUnidadSat: z.string().min(1, 'Unidad SAT requerida').max(10),
+  // Metadato de lectura; el servidor vuelve a resolverlo desde el maestro.
+  decimalesCantidad: z.number().int().min(0).max(6).nullable().optional(),
   cantidad: z.number().positive('La cantidad debe ser mayor a 0'),
   valorUnitario: z.number().min(0, 'El valor no puede ser negativo'),
   descuento: z.number().min(0, 'El descuento no puede ser negativo'),
@@ -35,7 +38,22 @@ export const EmitirFacturaLineaSchema = z.object({
   // Carrier FE (no viaja al backend): peso unitario del artículo, base para
   // derivar la cantidad aduanera (peso × cantidad). Fase 1c.
   pesoUnitarioKg: z.number().min(0).nullable(),
+}).superRefine((linea, ctx) => {
+  const d = decimalesCantidadFactura(linea);
+  if (d != null && Number.isFinite(linea.cantidad)
+    && (!cabeEnDecimales(linea.cantidad, d) || Number(linea.cantidad.toFixed(d)) !== linea.cantidad)) {
+    ctx.addIssue({ code: 'custom', path: ['cantidad'], message: d === 0
+      ? 'Captura una cantidad entera de piezas.'
+      : `La unidad permite hasta ${d} decimales en la cantidad.` });
+  }
 });
+
+export function decimalesCantidadFactura(linea: {
+  productoId?: string | null; claveUnidadSat?: string | null; decimalesCantidad?: number | null;
+}): number | null {
+  return linea.productoId != null ? linea.decimalesCantidad ?? null
+    : normalizarCodigoUnidad(linea.claveUnidadSat) === 'H87' ? 0 : null;
+}
 
 export type EmitirFacturaLineaValues = z.infer<typeof EmitirFacturaLineaSchema>;
 

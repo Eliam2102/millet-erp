@@ -62,4 +62,30 @@ public sealed class F1AProductoFiscalTests
             .ValidarAsync(new("AAA010101AAA", "FICTICIO", "601", "97000", "G03", "MEX", forma, metodo), CancellationToken.None);
     }
 
+    [Fact]
+    public async Task FB48_Lecturas_producto_resuelven_FK_antes_de_codigo_legacy_y_conservan_null()
+    {
+        using var db = new Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext(
+            new DbContextOptionsBuilder<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new FakeEmpresaContext(Guid.NewGuid()));
+        var piezas = new Millet.Catalogos.Domain.UnidadMedida(Guid.NewGuid(), "PZA", "Pieza ficticia",
+            Millet.Catalogos.Domain.DimensionUnidad.Conteo, 1, 0, true);
+        var kilos = new Millet.Catalogos.Domain.UnidadMedida(Guid.NewGuid(), "KG", "Kg ficticio",
+            Millet.Catalogos.Domain.DimensionUnidad.Peso, 1, 3, true);
+        db.UnidadesMedida.AddRange(piezas, kilos);
+        var porFk = new ProductoAw(Guid.NewGuid(), "FB48-FK", "FICTICIO FK", "PZA", unidadMedidaId: kilos.Id);
+        var legacy = new ProductoAw(Guid.NewGuid(), "FB48-LEGACY", "FICTICIO LEGACY", " pza. ");
+        var desconocido = new ProductoAw(Guid.NewGuid(), "FB48-UNKNOWN", "FICTICIO UNKNOWN", "LEGACY");
+        db.ProductosAw.AddRange(porFk, legacy, desconocido);
+        await db.SaveChangesAsync();
+        var adapter = new ProductosReadAdapter(db);
+        Assert.Equal(3, (await adapter.ObtenerAsync(porFk.Id, CancellationToken.None))!.DecimalesCantidad);
+        Assert.Equal(0, (await adapter.ResolverPorReferenciaAsync(legacy.ReferenciaExterna, CancellationToken.None))!.DecimalesCantidad);
+        Assert.Null((await adapter.ObtenerAsync(desconocido.Id, CancellationToken.None))!.DecimalesCantidad);
+        var lookup = await adapter.BuscarAsync("FB48-", null, 20, CancellationToken.None);
+        Assert.Equal(3, lookup.Single(x => x.ProductoId == porFk.Id).DecimalesCantidad);
+        Assert.Equal(0, lookup.Single(x => x.ProductoId == legacy.Id).DecimalesCantidad);
+        Assert.Null(lookup.Single(x => x.ProductoId == desconocido.Id).DecimalesCantidad);
+    }
+
 }

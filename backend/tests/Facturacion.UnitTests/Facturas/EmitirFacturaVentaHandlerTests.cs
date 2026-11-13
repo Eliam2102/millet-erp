@@ -918,4 +918,58 @@ public sealed class EmitirFacturaVentaHandlerTests
         (await db.EfectosComprobante.SingleAsync(e => e.ComprobanteId == resp.Id && e.Tipo == TipoEfectoComprobante.EstadoPedido))
             .Intentos.Should().Be(1);
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FB48_Concepto_manual_H87_fraccionario_se_rechaza_antes_de_folio_y_PAC(bool desdePedido)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var sender = new FakeSender(new ReservarFolioResponse("FB48-1", 1, ""));
+        var fiscal = new FakeFiscalApiClient();
+        var command = Command();
+        if (desdePedido) command = command with { PedidoFacturableId = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal).Id };
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => Handler(db, empresa, sender: sender, fiscal: fiscal)
+            .Handle(command with { Lineas = [command.Lineas[0] with { Cantidad = 4.9999m }] }, CancellationToken.None));
+        Assert.Equal("CANTIDAD_DECIMALES_EXCEDE_UNIDAD", error.Code);
+        Assert.Contains("1", error.Message);
+        Assert.Equal(0, sender.VecesReservoFolio);
+        Assert.Null(fiscal.UltimaEmision);
+        Assert.Empty(db.FacturasVenta);
+    }
+
+    [Theory]
+    [InlineData(0, 4.5, false)]
+    [InlineData(0, 4, true)]
+    [InlineData(3, 1.125, true)]
+    [InlineData(3, 1.1255, false)]
+    [InlineData(4, 1.1255, true)]
+    [InlineData(null, 4.5, true)]
+    public async Task FB48_Producto_usa_precision_del_maestro_y_no_unidad_SAT(int? decimales, double cantidad, bool valida)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var producto = Guid.NewGuid();
+        var maestro = new ProductoFiscalLectura(producto, "FICTICIO", "01010101", "H87", "02", 0.16m,
+            null, null, "Aw", DecimalesCantidad: decimales);
+        var command = Command();
+        command = command with { Lineas = [command.Lineas[0] with { ProductoId = producto, Cantidad = (decimal)cantidad }] };
+        var sender = new FakeSender(new ReservarFolioResponse("FB48-2", 2, ""));
+        var fiscal = new FakeFiscalApiClient();
+        var handler = Handler(db, empresa, productos: new FakeProductosReadPort(maestro), sender: sender, fiscal: fiscal);
+        if (valida)
+        {
+            await handler.Handle(command, CancellationToken.None);
+            Assert.Equal((decimal)cantidad, (await db.FacturasVenta.SingleAsync()).Lineas.Single().Cantidad);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(command, CancellationToken.None));
+            Assert.Equal("CANTIDAD_DECIMALES_EXCEDE_UNIDAD", error.Code);
+            Assert.Equal(0, sender.VecesReservoFolio);
+            Assert.Null(fiscal.UltimaEmision);
+            Assert.Empty(db.FacturasVenta);
+        }
+    }
+
 }

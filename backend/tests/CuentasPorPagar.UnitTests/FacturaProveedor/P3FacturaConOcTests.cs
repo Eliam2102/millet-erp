@@ -47,6 +47,62 @@ public sealed class P3FacturaConOcTests
     }
 #endif
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Detalle_REPP_historico_sin_autorizacion_ni_pagos_no_inventa_datos(bool recibido)
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var f = await a.Db.FacturasProveedor.SingleAsync(x => x.Id == captura.Id);
+        f.EnviarARevision(Domain.FacturaProveedor.FacturaProveedor.MotivoFaltaReppId, Guid.NewGuid(), null, a.Ahora);
+        if (recibido) f.MarcarReppRecibido();
+        await a.Db.SaveChangesAsync();
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
+            .Handle(new GetFacturaPorIdQuery(f.Id), default);
+        detalle.RevisionRepp.Should().NotBeNull();
+        detalle.RevisionRepp!.UltimaAutorizacionEn.Should().BeNull();
+        detalle.RevisionRepp.Pagos.Should().BeEmpty();
+        detalle.RevisionRepp.Pendiente.Should().Be(!recibido);
+    }
+
+    [Fact]
+    public async Task Detalle_REPP_expone_autorizacion_y_pagos_del_documento_sin_mutarlos()
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var f = await a.Db.FacturasProveedor.SingleAsync(x => x.Id == captura.Id);
+        f.Autorizar(null, a.Ahora.AddDays(-1));
+        f.RegistrarPago(100, a.Ahora, "Pago ficticio");
+        f.EnviarARevision(Domain.FacturaProveedor.FacturaProveedor.MotivoFaltaReppId, Guid.NewGuid(), null, a.Ahora);
+        var pago = new PagoProveedorLocal(f.EmpresaId, f.Id, Guid.NewGuid(), 100, DateOnly.FromDateTime(a.Ahora.DateTime));
+        pago.AsignarMoneda("MXN", null);
+        a.Db.PagosProveedorLocal.Add(pago);
+        var otroPago = new PagoProveedorLocal(f.EmpresaId, Guid.NewGuid(), Guid.NewGuid(), 999, DateOnly.FromDateTime(a.Ahora.DateTime));
+        a.Db.PagosProveedorLocal.Add(otroPago);
+        var revertido = new PagoProveedorLocal(f.EmpresaId, f.Id, Guid.NewGuid(), 888, DateOnly.FromDateTime(a.Ahora.DateTime));
+        revertido.Revertir();
+        a.Db.PagosProveedorLocal.Add(revertido);
+#if !P3_POSTGRES
+        // Proyección inconsistente sintética: el lector nunca debe mezclar empresas.
+        a.Db.PagosProveedorLocal.Add(new PagoProveedorLocal(Guid.NewGuid(), f.Id, Guid.NewGuid(), 777, DateOnly.FromDateTime(a.Ahora.DateTime)));
+#endif
+        await a.Db.SaveChangesAsync();
+        var version = f.Version;
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
+            .Handle(new GetFacturaPorIdQuery(f.Id), default);
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(detalle);
+        json.TryGetProperty("RevisionRepp", out var contexto).Should().BeTrue();
+        contexto.GetProperty("Pendiente").GetBoolean().Should().BeTrue();
+        contexto.GetProperty("UltimaAutorizacionEn").GetDateTimeOffset().Should().Be(a.Ahora.AddDays(-1));
+        contexto.GetProperty("Pagos").GetArrayLength().Should().Be(1);
+        contexto.GetProperty("Pagos")[0].GetProperty("PagoId").GetGuid().Should().Be(pago.PagoId);
+        contexto.GetProperty("Pagos")[0].GetProperty("CubiertoRepp").GetDecimal().Should().Be(0);
+        f.Version.Should().Be(version);
+        pago.CubiertoRepp.Should().Be(0);
+    }
+
+
+    [Theory]
     [InlineData(10, 20, 0, 200, EstadoPasivo.Capturada)]
     [InlineData(10, 20.05, 0, 200.5, EstadoPasivo.Capturada)]
     [InlineData(10, 21, 0, 210, EstadoPasivo.Cancelada)]
@@ -155,6 +211,7 @@ public sealed class P3FacturaConOcTests
         var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
             .Handle(new GetFacturaPorIdQuery(captura.Id), default);
 
+        detalle.RevisionRepp.Should().BeNull();
         detalle.RevisionVigente.Should().NotBeNull();
         var r = detalle.RevisionVigente!;
         r.AreaNombre.Should().Be("Almacén");

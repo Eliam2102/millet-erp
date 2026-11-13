@@ -26,3 +26,21 @@ describe('Motivos de rechazo de negocio en órdenes', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(estado === EstadoOrdenCompra.Borrador ? motivo : `${motivo} Revisa los datos y resuelve lo pendiente antes de continuar.`));
   });
 });
+
+it.each([
+  [EstadoOrdenCompra.Borrador, 'Transmitir a autorización', 'primera firma de Comercio Exterior'],
+  [EstadoOrdenCompra.EnAutorizacionJefeCompras, 'Aprobar nivel 1', 'CxP podrá registrar la factura'],
+  [EstadoOrdenCompra.EnAutorizacionDireccion, 'Aprobar nivel 2', 'CxP podrá enviar el pasivo a Tesorería'],
+] as const)('explica el siguiente paso del servicio CE en estado %s', (estado, boton, descripcion) => {
+  useAuthStore.setState({ user: { id: 'firmante', email: 'ensayo@example.invalid', nombre: 'Firmante ficticio' }, permisos: [
+    PermisosCanonicos.ComprasOrdenesCrear, PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
+    PermisosCanonicos.ComprasOrdenesAutorizarNivel2,
+    PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1,
+    PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2,
+  ] });
+  const oc = { id: 'oc-ce', folio: 'OC-CE-ENSAYO', estado, esServicioComercioExterior: true,
+    compradorTitularId: 'capturista', lineas: [], adjuntos: [], autorizaciones: [] } as unknown as OrdenCompraDetalleResponse;
+  render(<AccionesOC oc={oc} />, { wrapper: createQueryWrapper() });
+  fireEvent.click(screen.getByRole('button', { name: boton }));
+  expect(within(screen.getByRole('alertdialog')).getByText(new RegExp(descripcion))).toBeInTheDocument();
+});

@@ -156,13 +156,21 @@ internal static class PropuestaAplicacionMapper
         var abiertas = await db.PropuestasAplicacionPago.AsNoTracking()
             .Where(x => x.Estado == EstadoPropuestaAplicacion.Propuesta
                 || (x.Estado == EstadoPropuestaAplicacion.Confirmada && !x.ReppTimbrado))
-            .SelectMany(x => x.Facturas.Select(f => new { x.Id, x.CreatedAt, f.FacturaCarteraId, f.ImporteAplicado }))
+            .SelectMany(x => x.Facturas.Select(f => new { x.Id, x.CreatedAt, f.FacturaCarteraId, f.ImporteAplicado, f.NumParcialidad }))
             .Where(x => ids.Contains(x.FacturaCarteraId))
             .ToListAsync(ct);
-        return ids.Where(saldos.ContainsKey).ToDictionary(id => id, id => saldos[id] - abiertas
-            .Where(x => x.FacturaCarteraId == id
-                && (x.CreatedAt < p.CreatedAt || (x.CreatedAt == p.CreatedAt && x.Id.CompareTo(p.Id) <= 0)))
-            .Sum(x => x.ImporteAplicado));
+        return ids.Where(saldos.ContainsKey).ToDictionary(id => id, id =>
+        {
+            var numero = p.Facturas.First(f => f.FacturaCarteraId == id).NumParcialidad;
+            // Con fechas iguales, la parcialidad fija la secuencia antes que el identificador.
+            return saldos[id] - abiertas
+                .Where(x => x.FacturaCarteraId == id
+                    && (x.CreatedAt < p.CreatedAt || (x.CreatedAt == p.CreatedAt
+                        && (x.NumParcialidad is int n && numero is int actual && n != actual
+                            ? n < actual
+                            : x.Id.CompareTo(p.Id) <= 0))))
+                .Sum(x => x.ImporteAplicado);
+        });
     }
 
     public static bool EsAbierta(EstadoPropuestaAplicacion estado, bool reppTimbrado) =>

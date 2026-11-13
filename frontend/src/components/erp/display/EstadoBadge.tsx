@@ -60,6 +60,7 @@ export type EstadoBadgeProps =
   | {
       tipo: 'orden-compra';
       estado: EstadoOrdenCompra;
+      servicioCe?: boolean;
       className?: string;
     };
 
@@ -125,9 +126,9 @@ export function EnAlmacenBadge({
 
 export function EstadoBadge(props: EstadoBadgeProps) {
   if (props.tipo === 'orden-compra') {
-    const label = estadoOcToString(props.estado);
+    const label = estadoOcToString(props.estado, props.servicioCe);
     const key = estadoOcToKey(props.estado);
-    const definicion = obtenerDefinicionOc(key)?.resumen;
+    const definicion = props.servicioCe ? label : obtenerDefinicionOc(key)?.resumen;
     return (
       <DomainTermTooltip term={key} definicion={definicion}>
         <span

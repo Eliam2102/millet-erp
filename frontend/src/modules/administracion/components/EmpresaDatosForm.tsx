@@ -136,7 +136,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
       className="rounded-lg bg-surface-card p-4 shadow-card"
     >
       <FormSeccion titulo="Datos de la empresa">
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <FormRow
             id="empresa-rfc"
             label="RFC"
@@ -152,7 +152,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <FormRow
             label="Régimen fiscal"
             required
@@ -181,7 +181,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <div className="md:col-span-2">
             <FormRow
               id="empresa-razon-social"
@@ -199,7 +199,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
           </div>
         </FormCampo>
 
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <FormRow
             id="empresa-tasa"
             label="Tasa IVA default"
@@ -255,7 +255,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <FormRow
             id="empresa-cp"
             label="Código postal fiscal"
@@ -283,7 +283,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
+        <FormCampo span={6}>
           <div className="md:col-span-2">
             <FormRow
               id="empresa-nombre"

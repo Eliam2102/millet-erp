@@ -286,4 +286,22 @@ public sealed class FacturarDesdeProformaTests
 
         ex.Code.Should().Be("FAC_PROFORMA_EMISION_NO_DISPONIBLE");
     }
+    [Fact]
+    public async Task FB48_Proforma_aprobada_con_fraccion_H87_no_emite_factura()
+    {
+        var (empresa, db, pedido, sender, pac, _, cambiar) = Escenario();
+        using var _db = db;
+        cambiar(4.5m);
+        var proforma = await GenerarProforma(db, empresa, sender, pedido.Id);
+        await Aprobar(db, pedido.Id, proforma.Id);
+
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => Facturar(db, empresa, sender)
+            .Handle(new EmitirFacturaDesdeProformaCommand(pedido.Id, proforma.Id), CancellationToken.None));
+
+        error.Code.Should().Be("CANTIDAD_DECIMALES_EXCEDE_UNIDAD");
+        pac.UltimaEmision.Should().BeNull();
+        db.FacturasVenta.Should().BeEmpty();
+        sender.Emisiones.Should().ContainSingle();
+    }
+
 }

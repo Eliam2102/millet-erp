@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -24,12 +24,16 @@ vi.mock('@/features/facturacion/components/SustituirFacturaPanel', () => ({
 }));
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
+  Link: ({ children, to, params }: { children: React.ReactNode; to: string; params?: { id: string } }) => (
+    <a href={params ? to.replace('$id', params.id) : to}>{children}</a>
   ),
   useParams: () => ({ id: 'f-1' }),
   useSearch: () => ({}),
 }));
+
+beforeEach(() => {
+  mswServer.use(http.get('*/api/v1/contabilidad/polizas/por-documento', () => HttpResponse.json({ items: [], total: 0, offset: 0, limit: 10 })));
+});
 
 const detalle = {
   id: 'f-1',
@@ -105,6 +109,14 @@ describe('<DetalleFactura> — smoke', () => {
     const xml = screen.getByRole('button', { name: /^XML$/i });
     if (habilitado) expect(xml).toBeEnabled();
     else expect(xml).toBeDisabled();
+  });
+
+  it.each(['CLI-001', 'CLI-002', null])('A21 conserva nombre histórico y muestra clave %s al abrir factura', async (clienteClave) => {
+    mswServer.use(http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({ ...detalle, clienteClave })));
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await screen.findByText('A-1');
+    expect(screen.getAllByText(clienteClave ?? 'Sin código')[0]).toBeVisible();
+    expect(screen.getAllByText(/Público en general/).length).toBeGreaterThan(0);
   });
 
   it('renderiza folio, conceptos, cadena de relaciones y bitácora de envío', async () => {
@@ -430,4 +442,22 @@ describe('<DetalleFactura> — smoke', () => {
     expect(aviso).toHaveTextContent('Sustitución rechazada.');
     expect(aviso).toHaveTextContent('«El cliente conserva la original»');
   });
+});
+
+
+it('integra la póliza del cliente mediante su identidad canónica', async () => {
+  const consultas: URL[] = [];
+  mswServer.use(
+    http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json(detalle)),
+    http.get('*/api/v1/contabilidad/polizas/por-documento', ({ request }) => {
+      consultas.push(new URL(request.url));
+      return HttpResponse.json({ items: [{ id: 'poliza-c-21', folio: 'IN-000021', fecha: '2026-11-12', estado: 'Autorizada', polizaAnuladaId: null, anuladaPorPolizaId: null, polizaRelacionadaId: null, relacion: null }], total: 1, offset: 0, limit: 10 });
+    }),
+  );
+  render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByRole('link', { name: 'IN-000021' })).toHaveAttribute('href', '/contabilidad/polizas/poliza-c-21');
+  expect(consultas.length).toBeGreaterThan(0);
+  expect(consultas[0].searchParams.get('modulo')).toBe('facturacion');
+  expect(consultas[0].searchParams.get('tipo')).toBe('comprobante');
+  expect(consultas[0].searchParams.get('documentoId')).toBe('f-1');
 });
