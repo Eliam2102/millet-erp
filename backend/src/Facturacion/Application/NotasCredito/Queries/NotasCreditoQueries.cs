@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.NotasCredito.Queries;
@@ -16,19 +17,22 @@ namespace Millet.Facturacion.Application.NotasCredito.Queries;
 /// (requiere <c>facturacion.caja.leer-todas</c>).
 /// </summary>
 public sealed record BandejaNotasCreditoQuery(
-    EstadoTimbrado? Estado, int Offset, int Limit, bool SoloSinAsignar = false)
+    EstadoTimbrado? Estado, int Offset, int Limit, bool SoloSinAsignar = false, string? Q = null)
     : IRequest<BandejaNotasCreditoResponse>;
 
 public sealed record BandejaNotasCreditoResponse(
     IReadOnlyList<NotaCreditoBandejaItem> Items,
-    int? SinAsignarCount);
+    int? SinAsignarCount,
+    int Total = 0);
 
 public sealed record NotaCreditoBandejaItem(
     Guid Id, string Folio, string Estado, string? Uuid, string ReceptorNombre, string ReceptorRfc,
     string Motivo, decimal Total, string Moneda, DateTimeOffset? FechaTimbrado,
     // 86e3wjt5r: bandeja «Por autorizar» de las notas que llegan de A+W.
     string? FolioAw = null, string? FacturaFolio = null, DateTimeOffset? FechaRecibida = null,
-    string? VendedorAw = null);
+    string? VendedorAw = null,
+    // M-087: arriba del umbral se requiere también la firma de Crédito y Cobranza.
+    bool RequiereFirmaCredito = false, bool FirmadaGerente = false, bool FirmadaCredito = false);
 
 public sealed class BandejaNotasCreditoHandler
     : IRequestHandler<BandejaNotasCreditoQuery, BandejaNotasCreditoResponse>
@@ -36,38 +40,53 @@ public sealed class BandejaNotasCreditoHandler
     private readonly FacturacionDbContext _db;
     private readonly IAlcanceCajaEvaluator _alcance;
 
-    public BandejaNotasCreditoHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance)
+    private readonly AutorizarNotaCredito.NotasCreditoAwOptions _umbral;
+
+    public BandejaNotasCreditoHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance,
+        Microsoft.Extensions.Options.IOptions<AutorizarNotaCredito.NotasCreditoAwOptions>? opciones = null)
     {
         _db = db;
         _alcance = alcance;
+        _umbral = opciones?.Value ?? new AutorizarNotaCredito.NotasCreditoAwOptions();
     }
 
     public async Task<BandejaNotasCreditoResponse> Handle(
         BandejaNotasCreditoQuery query, CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(query.Limit <= 0 ? 50 : query.Limit, 1, 200);
         var q = _db.NotasCredito.AsNoTracking();
         if (query.Estado is { } estado) q = q.Where(n => n.Estado == estado);
+        if (query.Q?.Trim() is { Length: > 0 } texto)
+        {
+            var patron = PaginacionExtensions.PatronContiene(texto);
+            q = q.Where(n => EF.Functions.ILike(n.Folio, patron)
+                          || (n.Uuid != null && EF.Functions.ILike(n.Uuid, patron))
+                          || EF.Functions.ILike(n.ReceptorNombre, patron)
+                          || EF.Functions.ILike(n.ReceptorRfc, patron));
+        }
 
         (q, var sinAsignarCount) = await AlcanceBandejaHelper.AplicarAsync(
             _alcance, q, query.SoloSinAsignar, cancellationToken);
 
-        var rows = await q
+        var pagina = await q
             .OrderByDescending(n => n.FolioNumero)
-            .Skip(Math.Max(0, query.Offset)).Take(limit)
+            .ThenBy(n => n.Id)
             .Select(n => new
             {
                 n.Id, n.Folio, n.Estado, n.Uuid, n.ReceptorNombre, n.ReceptorRfc,
                 n.Motivo, n.Total, n.Moneda, n.FechaTimbrado, n.AwNumeroNota, n.CreatedAt, n.AwVendedor,
+                n.TipoCambio, n.FirmaGerentePorId, n.FirmaCreditoPorId,
                 FacturaFolio = _db.FacturasVenta.Where(f => f.Id == n.FacturaRelacionadaId).Select(f => f.Folio).FirstOrDefault()
             })
-            .ToListAsync(cancellationToken);
+            .ToPaginaAsync(query.Offset, query.Limit, cancellationToken);
 
-        var items = rows.Select(r => new NotaCreditoBandejaItem(
+        var items = pagina.Items.Select(r => new NotaCreditoBandejaItem(
             r.Id, r.Folio, r.Estado.ToString(), r.Uuid, r.ReceptorNombre, r.ReceptorRfc,
-            r.Motivo.ToString(), r.Total, r.Moneda, r.FechaTimbrado, r.AwNumeroNota, r.FacturaFolio, r.CreatedAt, r.AwVendedor)).ToList();
+            r.Motivo.ToString(), r.Total, r.Moneda, r.FechaTimbrado, r.AwNumeroNota, r.FacturaFolio, r.CreatedAt, r.AwVendedor,
+            r.Estado == EstadoTimbrado.PorAutorizar
+                && Math.Round(r.Total * (r.TipoCambio ?? 1m), 2, MidpointRounding.AwayFromZero) > _umbral.UmbralSegundaFirmaMxn,
+            r.FirmaGerentePorId is not null, r.FirmaCreditoPorId is not null)).ToList();
 
-        return new BandejaNotasCreditoResponse(items, sinAsignarCount);
+        return new BandejaNotasCreditoResponse(items, sinAsignarCount, pagina.Total);
     }
 }
 

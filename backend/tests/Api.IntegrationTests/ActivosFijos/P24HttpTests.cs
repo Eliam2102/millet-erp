@@ -23,7 +23,7 @@ public sealed partial class LibroHttpTests
         using var otro = await e.ClienteAsync(true, permisosCe: false, permisosAf: true);
         var a = await autor.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");
         var version = a.GetProperty("version").GetInt32();
-        var datos = new { tipo = "Baja", fecha = "2027-02-01", importe = 0, motivo = "Siniestro", solicitadoPor = "Área usuaria", evidencia = "data:application/pdf;base64,JVBERi0xLjc=" };
+        var datos = new { tipo = "Baja", fecha = "2027-02-01", importe = 0, motivo = "Siniestro", solicitadoPor = "Área usuaria", evidencia = "data:application/pdf;base64," + Convert.ToBase64String(Millet.Api.Seed.DemoSesionSeedHostedService.CrearPdf("Evidencia QA sintética")) };
         var respuestas = await Task.WhenAll(Post(autor, $"activos/{id}/operaciones", datos, version), Post(autor, $"activos/{id}/operaciones", datos, version));
         try
         {

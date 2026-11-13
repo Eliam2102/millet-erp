@@ -105,6 +105,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mswServer.use(
     http.get('*/api/v1/facturacion/emisor-defaults', () => HttpResponse.json(EMISOR)),
+    // CCE121: el TipoCambioUSD del CCE viene del catálogo (DOF del día hábil anterior).
+    http.get('*/api/v1/facturacion/catalogos/tipo-cambio-dof', () =>
+      HttpResponse.json({ moneda: 'USD', fecha: '2026-11-10', valor: 18.6297 }),
+    ),
     // FAC-ING-PR3: el selector de canal consume el lookup del catálogo.
     http.get('*/api/v1/facturacion/catalogos/canales-venta', () =>
       HttpResponse.json([
@@ -319,7 +323,10 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(screen.queryByLabelText('clave-pedimento')).not.toBeInTheDocument();
     const cambiar = (name: string, value: string) =>
       fireEvent.change(container.querySelector(`[name="${name}"]`)!, { target: { value } });
-    cambiar('cceTcDof', '20');
+    // CCE121: el TC DOF no se captura; se muestra el del catálogo y viaja en la emisión.
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('18.6297')).toHaveAttribute('readonly'),
+    );
     cambiar('cceReceptorNumRegIdTrib', 'DEMO-TAX');
     cambiar('cceReceptorDomicilioCalle', 'Main St 1');
     cambiar('cceReceptorDomicilioEstado', 'Texas');
@@ -327,7 +334,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     fireEvent.change(screen.getByLabelText('pais'), { target: { value: 'USA' } });
     fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
     fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
-      target: { value: '70071999' },
+      target: { value: '7007199900' },
     });
     fireEvent.change(screen.getByLabelText('unidad-aduana'), { target: { value: '06' } });
     cambiar('lineas.0.cantidadAduana', '1');
@@ -339,7 +346,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
         expect.objectContaining({
           pedidoFacturableId: p.pedidoFacturableId,
           comportamientoFiscal: 3,
-          cce: expect.objectContaining({ claveDePedimento: 'A1', incoterm: 'DDP' }),
+          cce: expect.objectContaining({ claveDePedimento: 'A1', incoterm: 'DDP', tcDof: 18.6297 }),
         }),
       ),
     );
@@ -394,10 +401,10 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(valor('cceReceptorDomicilioCodigoPostal')).toBe('78701');
     const cambiar = (name: string, value: string) =>
       fireEvent.change(container.querySelector(`[name="${name}"]`)!, { target: { value } });
-    cambiar('cceTcDof', '18.42');
+    await screen.findByDisplayValue('18.6297');
     fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
     fireEvent.change(screen.getByLabelText('fraccion-arancelaria'), {
-      target: { value: '70071999' },
+      target: { value: '7007199900' },
     });
     fireEvent.change(screen.getByLabelText('unidad-aduana'), { target: { value: '06' } });
     cambiar('lineas.0.cantidadAduana', '1');
@@ -717,6 +724,11 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       const tabPosiciones = screen.getByRole('tab', { name: /Partidas/i });
       expect(tabPosiciones.querySelector('[aria-label$="errores"]')).not.toBeNull();
     });
+    // H-U13: el rechazo no es mudo; lista campo y motivo y abre la pestaña con error.
+    const aviso = await screen.findByText(/No se emitió: corrige estos datos/i);
+    expect(aviso).toBeTruthy();
+    expect(screen.getAllByText(/Partida 1/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('tab', { name: /Partidas/i }).getAttribute('data-state')).toBe('active');
   });
 
   it('Cancelar sin cambios invoca onCancel sin confirm', async () => {
@@ -1348,5 +1360,43 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
     fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
     await waitFor(() => expect(emitidas).toHaveLength(1));
     expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '' }));
+  });
+});
+
+
+describe('FB48 paso de piezas', () => {
+  it('retira el error de cantidad al corregir una fracción a entero sin cambiar producto ni emitir', async () => {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    const { container } = render(
+      <EmitirFacturaForm
+        prefill={{ lineas: [{ productoId: null, claveProdServSat: '01010101', descripcion: 'Piezas de prueba',
+          claveUnidadSat: 'H87', cantidad: 4.5, valorUnitario: 10, descuento: 0, requierePedimento: false }] }}
+        onSuccess={vi.fn()} onCancel={vi.fn()}
+      />, { wrapper: createQueryWrapper() },
+    );
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /Partidas/i }), { button: 0, ctrlKey: false });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
+    await waitFor(() => expect(container.querySelector('input[name="lineas.0.cantidad"]')).not.toBeNull());
+    const cantidad = container.querySelector('input[name="lineas.0.cantidad"]') as HTMLInputElement;
+    await waitFor(() => expect(cantidad).toHaveAttribute('aria-invalid', 'true'));
+    expect(screen.getByText('Captura una cantidad entera de piezas.')).toBeVisible();
+
+    fireEvent.change(cantidad, { target: { value: '4' } });
+
+    await waitFor(() => expect(cantidad).toHaveAttribute('aria-invalid', 'false'));
+    expect(screen.queryByText('Captura una cantidad entera de piezas.')).toBeNull();
+    expect(cantidad).toHaveValue(4);
+  });
+
+  it('disminuye cinco piezas a cuatro en vez de 4.9999', async () => {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    const { container } = render(<EmitirFacturaForm onSuccess={vi.fn()} onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(container.querySelector('input[name="lineas.0.cantidad"]')).not.toBeNull());
+    const cantidad = container.querySelector('input[name="lineas.0.cantidad"]') as HTMLInputElement;
+    expect(cantidad).toHaveAttribute('step', '1');
+    fireEvent.change(cantidad, { target: { value: '5' } });
+    cantidad.stepDown();
+    fireEvent.input(cantidad);
+    expect(cantidad.value).toBe('4');
   });
 });

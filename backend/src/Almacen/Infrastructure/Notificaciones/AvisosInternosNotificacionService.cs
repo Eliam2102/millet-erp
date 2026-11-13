@@ -10,7 +10,8 @@ namespace Millet.Almacen.Infrastructure.Notificaciones;
 
 /// <summary>
 /// Avisos de Almacén (86e3tac2y): primero dentro del ERP (campana del destinatario, una sola vez por vale o ajuste) y, solo cuando
-/// se creó algún aviso nuevo, el correo por <see cref="CorreoNotificacionService"/>. Los destinatarios son roles: quien tenga el
+/// se creó algún aviso nuevo o no hay nadie con el permiso (86e40b4rf: sin usuarios el correo configurado sale igual; si no hay
+/// correos configurados, <see cref="CorreoNotificacionService"/> deja el registro), el correo por <see cref="CorreoNotificacionService"/>. Los destinatarios son roles: quien tenga el
 /// permiso <c>almacen.avisos.*</c> (y, en el vale, esté en la sucursal del vale).
 /// </summary>
 public sealed class AvisosInternosNotificacionService(
@@ -68,11 +69,15 @@ public sealed class AvisosInternosNotificacionService(
             $"Se cerró el inventario de {anio}-{mes:00}; el acta espera tu revisión.", "/almacen/cierre-mes", cancellationToken);
     }
 
-    /// <summary>Crea un aviso por destinatario que aún no lo tenga; devuelve si hubo alguno nuevo.</summary>
+    /// <summary>
+    /// Crea un aviso por destinatario que aún no lo tenga. Devuelve si toca mandar el correo: hubo alguno nuevo, o no hay usuarios con el
+    /// permiso (el correo a los destinatarios configurados no depende del aviso interno). Solo es falso si todos ya lo tenían.
+    /// </summary>
     private async Task<bool> CrearAsync(Guid empresaId, string tipo, Guid referenciaId, IEnumerable<Guid> para,
         string titulo, string mensaje, string ruta, CancellationToken ct)
     {
         var ids = para.Distinct().ToArray();
+        if (ids.Length == 0) return true;
         var existentes = await db.AvisosAlmacen.AsNoTracking()
             .Where(a => a.Tipo == tipo && a.ReferenciaId == referenciaId && ids.Contains(a.UsuarioDestinoId))
             .Select(a => a.UsuarioDestinoId).ToListAsync(ct);

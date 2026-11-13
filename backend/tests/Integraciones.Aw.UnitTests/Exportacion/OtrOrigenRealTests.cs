@@ -25,9 +25,9 @@ public sealed class OtrLectorRealSqlTests
     [Fact]
     public void La_consulta_Real_solo_lee_las_tablas_de_OTR_y_no_usa_OPENQUERY_ni_escribe()
     {
-        var sql = OtrTablasAdapter.CabeceraReal(new OtrOptions()) + " " + OtrTablasAdapter.LineasReal;
+        var sql = OtrTablasAdapter.CabeceraReal(new OtrOptions()) + " " + OtrTablasAdapter.LineasReal(new OtrOptions()) + " " + OtrTablasAdapter.HijosReal;
         Assert.StartsWith("SELECT", sql);
-        Assert.Contains("OTR.SYSADM.OTR_ROUTES", sql); Assert.Contains("OTR.SYSADM.OTR_CONTAINERS_ACTIONS", sql); Assert.Contains("OTR.SYSADM.OTR_CONTAINER_POSITIONS", sql);
+        Assert.Contains("OTR.SYSADM.OTR_ROUTES", sql); Assert.Contains("MILMAIN.SYSADM.BW_AUFTR_POS", sql); Assert.Contains("OTR.SYSADM.OTR_CONTAINERS_ACTIONS", sql); Assert.Contains("OTR.SYSADM.OTR_CONTAINER_POSITIONS", sql);
         Assert.DoesNotContain("OPENQUERY", sql);
         foreach (var palabra in new[] { "INSERT", "UPDATE", "DELETE", "MERGE", "EXEC", "DROP", "ALTER", "INTO" })
             Assert.DoesNotMatch($@"\b{palabra}\b", sql);

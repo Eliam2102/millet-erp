@@ -47,6 +47,62 @@ public sealed class P3FacturaConOcTests
     }
 #endif
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Detalle_REPP_historico_sin_autorizacion_ni_pagos_no_inventa_datos(bool recibido)
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var f = await a.Db.FacturasProveedor.SingleAsync(x => x.Id == captura.Id);
+        f.EnviarARevision(Domain.FacturaProveedor.FacturaProveedor.MotivoFaltaReppId, Guid.NewGuid(), null, a.Ahora);
+        if (recibido) f.MarcarReppRecibido();
+        await a.Db.SaveChangesAsync();
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
+            .Handle(new GetFacturaPorIdQuery(f.Id), default);
+        detalle.RevisionRepp.Should().NotBeNull();
+        detalle.RevisionRepp!.UltimaAutorizacionEn.Should().BeNull();
+        detalle.RevisionRepp.Pagos.Should().BeEmpty();
+        detalle.RevisionRepp.Pendiente.Should().Be(!recibido);
+    }
+
+    [Fact]
+    public async Task Detalle_REPP_expone_autorizacion_y_pagos_del_documento_sin_mutarlos()
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var f = await a.Db.FacturasProveedor.SingleAsync(x => x.Id == captura.Id);
+        f.Autorizar(null, a.Ahora.AddDays(-1));
+        f.RegistrarPago(100, a.Ahora, "Pago ficticio");
+        f.EnviarARevision(Domain.FacturaProveedor.FacturaProveedor.MotivoFaltaReppId, Guid.NewGuid(), null, a.Ahora);
+        var pago = new PagoProveedorLocal(f.EmpresaId, f.Id, Guid.NewGuid(), 100, DateOnly.FromDateTime(a.Ahora.DateTime));
+        pago.AsignarMoneda("MXN", null);
+        a.Db.PagosProveedorLocal.Add(pago);
+        var otroPago = new PagoProveedorLocal(f.EmpresaId, Guid.NewGuid(), Guid.NewGuid(), 999, DateOnly.FromDateTime(a.Ahora.DateTime));
+        a.Db.PagosProveedorLocal.Add(otroPago);
+        var revertido = new PagoProveedorLocal(f.EmpresaId, f.Id, Guid.NewGuid(), 888, DateOnly.FromDateTime(a.Ahora.DateTime));
+        revertido.Revertir();
+        a.Db.PagosProveedorLocal.Add(revertido);
+#if !P3_POSTGRES
+        // Proyección inconsistente sintética: el lector nunca debe mezclar empresas.
+        a.Db.PagosProveedorLocal.Add(new PagoProveedorLocal(Guid.NewGuid(), f.Id, Guid.NewGuid(), 777, DateOnly.FromDateTime(a.Ahora.DateTime)));
+#endif
+        await a.Db.SaveChangesAsync();
+        var version = f.Version;
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
+            .Handle(new GetFacturaPorIdQuery(f.Id), default);
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(detalle);
+        json.TryGetProperty("RevisionRepp", out var contexto).Should().BeTrue();
+        contexto.GetProperty("Pendiente").GetBoolean().Should().BeTrue();
+        contexto.GetProperty("UltimaAutorizacionEn").GetDateTimeOffset().Should().Be(a.Ahora.AddDays(-1));
+        contexto.GetProperty("Pagos").GetArrayLength().Should().Be(1);
+        contexto.GetProperty("Pagos")[0].GetProperty("PagoId").GetGuid().Should().Be(pago.PagoId);
+        contexto.GetProperty("Pagos")[0].GetProperty("CubiertoRepp").GetDecimal().Should().Be(0);
+        f.Version.Should().Be(version);
+        pago.CubiertoRepp.Should().Be(0);
+    }
+
+
+    [Theory]
     [InlineData(10, 20, 0, 200, EstadoPasivo.Capturada)]
     [InlineData(10, 20.05, 0, 200.5, EstadoPasivo.Capturada)]
     [InlineData(10, 21, 0, 210, EstadoPasivo.Cancelada)]
@@ -155,6 +211,7 @@ public sealed class P3FacturaConOcTests
         var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
             .Handle(new GetFacturaPorIdQuery(captura.Id), default);
 
+        detalle.RevisionRepp.Should().BeNull();
         detalle.RevisionVigente.Should().NotBeNull();
         var r = detalle.RevisionVigente!;
         r.AreaNombre.Should().Be("Almacén");
@@ -419,6 +476,103 @@ public sealed class P3FacturaConOcTests
         (await a.Elegibilidad.CalcularAsync(f2, default)).ElegiblePendiente.Should().Be(40); // quedan 2 de 4 piezas
     }
 
+    [Theory]
+    [InlineData(false, true, "OC_ESTADO_NO_FACTURABLE")]
+    [InlineData(true, false, "CE_SERVICIO_SIN_PRIMERA_FIRMA")]
+    public async Task Captura_antes_de_N2_solo_admite_servicio_CE_con_N1(bool ce, bool n1, string codigo)
+    {
+        await using var a = new Ambiente();
+        a.ConfigurarServicioCe(ce, n1, false);
+        var captura = () => a.Handler.Handle(a.Command(10, 20), default);
+        (await captura.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be(codigo);
+        (await a.Db.FacturasProveedor.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Servicio_CE_captura_pasivo_con_N1_y_solo_se_libera_y_es_elegible_tras_N2()
+    {
+        await using var a = new Ambiente();
+        a.ConfigurarServicioCe(true, true, false);
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var factura = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == captura.Id);
+        factura.EsServicioComercioExterior.Should().BeTrue();
+        factura.Estado.Should().Be(EstadoPasivo.Capturada);
+        (await a.Elegibilidad.CalcularAsync(factura, default)).ElegiblePendiente.Should().Be(0);
+        var handler = new Millet.CuentasPorPagar.Application.FacturaProveedor.AutorizarFactura.AutorizarFacturaHandler(
+            a.Db, new UsuarioServicioCe(), a.Mediator, a, a);
+        var comando = new Millet.CuentasPorPagar.Application.FacturaProveedor.AutorizarFactura.AutorizarFacturaCommand(factura.Id, factura.Version);
+        var liberar = () => handler.Handle(comando, default);
+        (await liberar.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CE_SERVICIO_SIN_SEGUNDA_FIRMA");
+        a.ConfigurarServicioCe(true, true, true);
+        (await handler.Handle(comando, default)).Estado.Should().Be(EstadoPasivo.Autorizada);
+        (await a.Elegibilidad.CalcularAsync(factura, default)).ElegiblePendiente.Should().Be(200);
+        // La segunda firma no puede seguir habilitando pagos si la OC ya no está vigente.
+        a.ConfigurarServicioCe(true, true, false);
+        (await a.Elegibilidad.CalcularAsync(factura, default)).ElegiblePendiente.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(0, 0, 200, false)]
+    [InlineData(100, 100, 100, false)]
+    [InlineData(200, 200, 0, false)]
+    [InlineData(200, 0, 200, false)]
+    [InlineData(0, 200, 200, true)]
+    public async Task Saldo_para_cierre_usa_pago_vigente_y_detecta_reversa_o_proyeccion_pendiente(decimal proyectado, decimal real, decimal saldo, bool pendiente)
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var f = await a.Db.FacturasProveedor.SingleAsync(x => x.Id == captura.Id);
+        f.Autorizar(null, a.Ahora);
+        if (proyectado > 0) f.RegistrarPago(proyectado, a.Ahora, "Prueba ficticia", confirmadoPorTesoreria: true);
+        await a.Db.SaveChangesAsync();
+        var adapter = new Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter(a.Db, new PagosCe(real), a);
+        var resultado = (await adapter.ObtenerSaldosAsync(a.Current!.Value, [f.Id], default)).Single();
+        resultado.SaldoPendiente.Should().Be(saldo);
+        resultado.PagoPorConciliar.Should().Be(pendiente);
+        (await adapter.ObtenerSaldosAsync(Guid.NewGuid(), [f.Id], default)).Should().BeEmpty();
+    }
+
+    private sealed class PagosCe(decimal importe) : Millet.CuentasPorPagar.Application.PublicPorts.IPagosFacturaCeReadPort
+    {
+        public Task<IReadOnlyDictionary<Guid, decimal>> ImportesVigentesAsync(Guid empresa, IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, decimal>>(ids.ToDictionary(id => id, _ => importe));
+        public Task<DateOnly?> UltimoPagoAsync(Guid factura, CancellationToken ct) => Task.FromResult<DateOnly?>(null);
+    }
+
+    [Fact]
+    public async Task Servicio_CE_conserva_una_factura_completa_por_OC_y_permite_corregir_una_cancelada()
+    {
+        await using var a = new Ambiente(); a.ConfigurarServicioCe(true, true, false);
+        var parcial = () => a.Handler.Handle(a.Command(4, 20), default);
+        (await parcial.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CE_SERVICIO_FACTURA_INCOMPLETA");
+        var capturada = await a.Handler.Handle(a.Command(10, 20), default);
+        var repetida = () => a.Handler.Handle(a.Command(10, 20), default);
+        (await repetida.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CE_SERVICIO_FACTURA_EXISTENTE");
+        var primera = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == capturada.Id);
+        primera.Cancelar(MotivoCancelacion.ErrorCaptura, "Corrección de prueba", null, a.Ahora); await a.Db.SaveChangesAsync();
+        (await a.Handler.Handle(a.Command(10, 20), default)).Estado.Should().Be(EstadoPasivo.Capturada);
+        (await a.Db.FacturasProveedor.CountAsync(f => f.Estado != EstadoPasivo.Cancelada)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Servicio_CE_factura_sustituta_no_reutiliza_la_segunda_firma_anterior()
+    {
+        await using var a = new Ambiente(); a.ConfigurarServicioCe(true, true, true);
+        var primera = await a.Handler.Handle(a.Command(10, 20), default);
+        var f = await a.Db.FacturasProveedor.SingleAsync(f => f.Id == primera.Id);
+        f.Cancelar(MotivoCancelacion.ErrorCaptura, "Corrección posterior a N2", null, a.Ahora);
+        await a.Db.SaveChangesAsync();
+        var recapturar = () => a.Handler.Handle(a.Command(10, 20), default);
+        (await recapturar.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CE_SERVICIO_REAUTORIZACION_REQUERIDA");
+        (await a.Db.FacturasProveedor.CountAsync()).Should().Be(1);
+    }
+
+    private sealed class UsuarioServicioCe : ICurrentUserContext
+    {
+        public Guid? UserId => Guid.Parse("22222222-2222-2222-2222-222222222222");
+        public string? UserName => "Prueba CE";
+    }
+
     internal sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage, Millet.CuentasPorPagar.Domain.Ports.Administracion.IToleranciaGeneralReadPort
     {
         public Guid? Current { get; } = Guid.NewGuid();
@@ -431,6 +585,7 @@ public sealed class P3FacturaConOcTests
         public CapturarFacturaConOcHandler Handler { get; }
         public ElegibilidadFacturaService Elegibilidad { get; }
         public OcRecepcionRegistradaHandler Recepciones { get; }
+        public IMediator Mediator => new Mediator(_services);
         public CapturaEventos Eventos { get; } = new();
         public AlmacenRevisionFake Almacen { get; } = new();
         public bool OcDisponible { get; set; } = true;
@@ -474,6 +629,10 @@ public sealed class P3FacturaConOcTests
                 [new(_oc.Lineas[0].ArticuloId, "30102400", "Material ficticio P3", cantidad, "H87", null, precio, cantidad * precio, null, LineaId, null)]);
         public OcRecepcionRegistradaCommand Recepcion(decimal cantidad) => new(Guid.NewGuid(), new(Current!.Value, Ahora, Guid.NewGuid(), "REC-P3-FICTICIA", _oc.Id,
             new(2026, 10, 9), true, null, null, [new(Guid.NewGuid(), LineaId, _oc.Lineas[0].ArticuloId, "H87", cantidad, 20, cantidad * 20)]));
+        public void ConfigurarServicioCe(bool ce, bool n1, bool n2) =>
+            _oc = _oc with { EsServicioComercioExterior = ce, ServicioCeNivel1Autorizado = n1, ServicioCeNivel2Autorizado = n2,
+                Estado = n2 ? "Autorizada" : "EnAutorizacionDireccion", ServicioConfirmado = false,
+                Lineas = [_oc.Lineas[0] with { EsServicio = true, CantidadRecibida = 0 }] };
         public void ActualizarRecibido(decimal cantidad) => _oc = _oc with { Lineas = [_oc.Lineas[0] with { CantidadRecibida = cantidad }] };
         // 86e3tacbn: la OC es de servicio (Almacén no lo recibe) y el área solicitante lo confirmó o no.
         public void ConfigurarServicio(bool confirmado) =>

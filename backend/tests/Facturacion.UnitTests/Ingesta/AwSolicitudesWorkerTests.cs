@@ -143,4 +143,30 @@ public sealed class AwSolicitudesWorkerTests
         procesadas.Should().Be(3);
         FakeProcesarNotaHandler.Procesadas.Should().Equal("NC-1/v1", "NC-1/v2", "NC-2/v1", "NC-FALLA/v1");
     }
+
+    [Fact]
+    public async Task Solo_notas_de_credito_lee_las_notas_y_no_toca_la_cola_de_pedidos()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(null));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
+        services.AddSingleton<IAwSolicitudesReader>(new FakeReader([new(Guid.NewGuid(), "5001", OperacionAw.Alta, 1, Ahora)]));
+        services.AddSingleton<IAwNotasCreditoPort>(new FakeNotas(
+            [new(Guid.NewGuid(), "NC-7", 1, "AW-1", null, "CLI-1", "Bonificacion", 100m, null, Ahora)]));
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<FakeProcesarHandler>());
+        var sp = services.BuildServiceProvider();
+        using var signal = new AwSolicitudesTickSignal();
+        var worker = new AwSolicitudesWorker(sp.GetRequiredService<IServiceScopeFactory>(),
+            new MonitorFijo(new AwSolicitudesOptions { EmpresaId = Guid.NewGuid(), SoloNotasCredito = true, IntervalSeconds = 1 }),
+            signal, new CapturaLogger());
+        FakeProcesarHandler.Procesados.Clear();
+        FakeProcesarNotaHandler.Procesadas.Clear();
+
+        await worker.StartAsync(CancellationToken.None);
+        for (var i = 0; i < 50 && FakeProcesarNotaHandler.Procesadas.Count == 0; i++) await Task.Delay(100);
+        await worker.StopAsync(CancellationToken.None);
+
+        FakeProcesarNotaHandler.Procesadas.Should().Contain("NC-7/v1");
+        FakeProcesarHandler.Procesados.Should().BeEmpty(); // ningún pedido se ingirió
+    }
 }

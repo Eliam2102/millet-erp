@@ -58,6 +58,19 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
 
         var (vehiculo, operador) = await CargarTransporteAsync(command.VehiculoId, command.OperadorId, cancellationToken);
 
+        // M-354: un tramo de transportista tercero no emite Carta Porte de Millet (se valida antes de reservar folio).
+        Dominio.TramoTraslado? tramo = null;
+        if (command.TramoId is Guid tramoId)
+        {
+            tramo = await _db.TramosTraslado.FirstOrDefaultAsync(t => t.Id == tramoId, cancellationToken)
+                ?? throw new EntityNotFoundException("TRAMO_NO_ENCONTRADO", $"No existe el tramo {tramoId}.");
+            tramo.ExigirEmiteCartaPorte();
+            if (tramo.CartaPorteId is not null)
+                throw new BusinessRuleException("TRAMO_YA_TIENE_CARTA_PORTE", "El tramo ya tiene su Carta Porte.");
+            if (command.PedidoFacturableId is Guid pid && pid != tramo.PedidoFacturableId)
+                throw new BusinessRuleException("TRAMO_DE_OTRO_PEDIDO", "El tramo pertenece a otro pedido.");
+        }
+
         // F12-PR1: snapshot del emisor (falla sin CP fiscal, sin quemar folio).
         var emisor = await EmisorSnapshot.ResolverAsync(
             _empresasFiscal, empresaId, cancellationToken);
@@ -80,15 +93,16 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
             cartaPortePreviaId: null, command.PedidoFacturableId, command.FechaSalida, command.FechaLlegadaEstimada,
             command.MontoServicio, command.TasaIvaServicio,
             command.OrigenCodigoPostal, command.OrigenEstado, command.DestinoCodigoPostal, command.DestinoEstado);
+        tramo?.VincularCartaPorte(cp.Id); // se guarda con la Carta Porte, antes del PAC
 
         foreach (var m in command.Mercancias)
             cp.AgregarMercancia(m.Descripcion, m.BienesTransp, m.ClaveUnidad, m.Cantidad, m.PesoEnKg, m.MaterialPeligroso);
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             cp, CfdiEmisionBuilder.DesdeCartaPorte(cp, vehiculo, operador, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, cp)); // M-173: guardada en proceso antes del PAC
 
-        _db.CartasPorte.Add(cp);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EmitirCartaPorteResponse(cp.Id, cp.Tipo.ToString(), cp.Estado.ToString(), cp.Uuid, cp.Folio, cp.Total, cp.CartaPortePreviaId);

@@ -39,6 +39,55 @@ public static class ContabilidadIvaEndpoints
         .WithSummary("Borrador de la póliza de liquidación de IVA del mes con las cuentas de los roles (el contador la revisa y autoriza)")
         .Produces<PolizaResponse>(StatusCodes.Status201Created).ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-311: papel de trabajo del mes (foto inmutable, acuse y diferencias). Reusa los permisos de pólizas: leer / capturar.
+        g.MapGet("/papel-trabajo", async ([FromQuery] int anio, [FromQuery] int mes, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new PapelTrabajoIvaQuery(anio, mes), ct)))
+        .RequireAuthorization(leer).WithName("PapelTrabajoIva")
+        .WithSummary("Foto guardada de la liquidación de IVA del mes, su acuse y las diferencias fiscales")
+        .Produces<PapelTrabajoIvaResponse>().ProducesProblem(StatusCodes.Status404NotFound);
+
+        g.MapPost("/papel-trabajo/detectar", async ([FromQuery] int anio, [FromQuery] int mes, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new DetectarDiferenciasIvaCommand(anio, mes), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(capturar).WithName("DetectarDiferenciasIva")
+        .WithSummary("Compara la foto del mes con lo que el mes muestra hoy y registra las diferencias pendientes")
+        .Produces<PapelTrabajoIvaResponse>().ProducesProblem(StatusCodes.Status404NotFound);
+
+        g.MapPost("/papel-trabajo/acuse", async ([FromQuery] int anio, [FromQuery] int mes, IFormFile archivo, IMediator mediator, CancellationToken ct) =>
+        {
+            await using var ms = new MemoryStream();
+            await archivo.CopyToAsync(ms, ct);
+            return Results.Ok(await mediator.Send(new AdjuntarAcuseIvaCommand(anio, mes, archivo.FileName, archivo.ContentType, ms.ToArray()), ct));
+        })
+        .DisableAntiforgery().WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(capturar).WithName("AdjuntarAcuseIva")
+        .WithSummary("Adjunta el acuse de la declaración de IVA (uno por mes, no se reemplaza)")
+        .Produces<AcuseIvaResponse>().ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        g.MapPost("/papel-trabajo/diferencias/{id:guid}/ligar-ajuste", async (Guid id, LigarAjusteIvaRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new LigarAjusteDiferenciaIvaCommand(id, b.AjustePolizaId), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(capturar).WithName("LigarAjusteDiferenciaIva")
+        .WithSummary("Cierra una diferencia fiscal ligándola a la póliza de ajuste que la corrige")
+        .Produces<DiferenciaFiscalIvaResponse>().ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-209 (CA4): recalcular el IVA de una factura de proveedor contra su XML. Sin «aplicar», solo la vista previa de la diferencia;
+        // con él, póliza de ajuste ligada al documento (la original no se anula) y saldo de IVA corregido.
+        var corregir = PermissionPolicyProvider.Prefix + PermisosCanonicos.ContabilidadIvaCorregirDocumento;
+        g.MapPost("/documentos/{saldoId:guid}/recalcular", async (Guid saldoId, RecalcularIvaRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RecalcularIvaDocumentoCommand(saldoId, b.Motivo, b.Aplicar), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(corregir).WithName("RecalcularIvaDocumento")
+        .WithSummary("Recalcula el IVA de una factura de proveedor contra su XML; con aplicar=true genera la póliza de ajuste")
+        .Produces<RecalculoIvaResponse>().ProducesValidationProblem().ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         return app;
     }
 }
+
+/// <summary>M-209 (CA4): motivo (obligatorio al aplicar) y si se aplica o solo se previsualiza.</summary>
+public sealed record RecalcularIvaRequest(string? Motivo, bool Aplicar);
+
+/// <summary>M-311: póliza de ajuste que corrige la diferencia.</summary>
+public sealed record LigarAjusteIvaRequest(Guid AjustePolizaId);

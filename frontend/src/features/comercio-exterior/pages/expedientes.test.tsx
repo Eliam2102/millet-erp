@@ -243,7 +243,10 @@ describe('CE-01a', () => {
     render(<DocumentosPanel data={data} />, { wrapper: createQueryWrapper() });
     expect(screen.getByText(/Faltan: Pedimento/)).toBeInTheDocument();
     expect(screen.getByText(/Hay tipos de documento sin etapa asignada/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ir a la configuración' })).toHaveAttribute('href', '#ce-configuracion-documentos');
+    expect(screen.getByRole('link', { name: 'Ir a la configuración' })).toHaveAttribute(
+      'href',
+      '#ce-configuracion-documentos',
+    );
     expect(screen.getByText('Versión 1')).toBeInTheDocument();
     expect(screen.getByText('Versión 2')).toBeInTheDocument();
     expect(screen.getByText('Reemplazada')).toBeInTheDocument();
@@ -268,6 +271,14 @@ describe('CE-01a', () => {
         motivo: 'DEMO ruta sin ISF',
       },
     });
+  });
+  it('P25 reemplaza sólo el documento elegido y permite volver a agregar', async () => {
+    useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesAdjuntosSubir] });
+    render(<DocumentosPanel data={data} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: 'Reemplazar este documento' }));
+    expect(screen.getByRole('status')).toHaveTextContent('El siguiente archivo reemplazará');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar reemplazo' }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
   it('la revisión documental tiene permiso propio', () => {
     render(<DocumentosPanel data={data} />, { wrapper: createQueryWrapper() });
@@ -413,5 +424,120 @@ describe('CE-01b · Hitos', () => {
     expect(state.navigate).toHaveBeenLastCalledWith(
       expect.objectContaining({ search: { atraso: true, offset: 0 } }),
     );
+  });
+});
+
+describe('M-373 · Corregir hito y requisito condicional', () => {
+  const resuelto = {
+    id: 'h-2',
+    clave: 'planeado',
+    nombre: 'Planeado',
+    orden: 2,
+    fechaCompromiso: '2026-11-10',
+    fechaReal: '2026-11-12',
+    responsableUsuarioId: 'u-1',
+    responsableNombre: 'Ingrid Pérez',
+    evidenciaAdjuntoId: null,
+    omitido: false,
+    motivo: null,
+    motivoCambioCompromiso: null,
+    atrasado: false,
+    diasAtraso: 0,
+  };
+  it('sin el permiso de corrección no ofrece corregir un hito registrado', () => {
+    useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesHitosRegistrar] });
+    render(<HitosPanel data={{ ...data, hitos: [resuelto] }} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(screen.queryByRole('button', { name: 'Corregir Planeado' })).not.toBeInTheDocument();
+  });
+  it('corrige 12-nov a 10-nov y exige motivo antes de guardar', async () => {
+    useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesHitosCorregir] });
+    state.accion.mockResolvedValue({ data });
+    render(<HitosPanel data={{ ...data, hitos: [resuelto] }} />, {
+      wrapper: createQueryWrapper(),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Corregir Planeado' }));
+    fireEvent.change(screen.getByLabelText(/Fecha real corregida/), {
+      target: { value: '2026-11-10' },
+    });
+    const guardar = screen.getByRole('button', { name: 'Guardar corrección' });
+    expect(guardar).toBeDisabled();
+    expect(guardar).toHaveAttribute('title', 'Capture el motivo de la corrección.');
+    fireEvent.change(screen.getByLabelText(/Motivo de la corrección/), {
+      target: { value: 'Se capturó la fecha del correo' },
+    });
+    fireEvent.click(guardar);
+    await waitFor(() =>
+      expect(state.accion).toHaveBeenCalledWith({
+        accion: 'hitos/planeado/corregir',
+        body: {
+          clave: 'planeado',
+          fechaReal: '2026-11-10',
+          omitir: false,
+          motivo: 'Se capturó la fecha del correo',
+        },
+      }),
+    );
+  });
+  it('muestra el historial con valor anterior, nuevo, usuario y motivo, y el aviso cerrado', () => {
+    render(
+      <HitosPanel
+        data={{
+          ...data,
+          hitos: [
+            {
+              ...resuelto,
+              fechaReal: '2026-11-10',
+              correcciones: [
+                {
+                  id: 'c-1',
+                  fechaRealAnterior: '2026-11-12',
+                  omitidoAnterior: false,
+                  fechaRealNueva: '2026-11-10',
+                  omitidoNuevo: false,
+                  motivo: 'Se capturó la fecha del correo',
+                  usuarioId: 'u-2',
+                  usuarioNombre: 'Janette Ruiz',
+                  fecha: '2026-11-13T18:00:00Z',
+                },
+              ],
+            },
+          ],
+          avisos: [
+            {
+              id: 'av-1',
+              hitoId: 'h-2',
+              hitoNombre: 'Planeado',
+              fechaCompromiso: '2026-11-10',
+              fechaAviso: '2026-11-11',
+              cerradoEn: '2026-11-13',
+              motivoCierre: 'Atraso eliminado al corregir el hito.',
+            },
+          ],
+        }}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    const historial = screen.getByRole('region', { name: 'Correcciones de Planeado' });
+    expect(historial).toHaveTextContent('Janette Ruiz');
+    expect(historial).toHaveTextContent('Motivo: Se capturó la fecha del correo');
+    expect(historial).toHaveTextContent('→');
+    expect(screen.getByRole('region', { name: 'Avisos de hitos vencidos' })).toHaveTextContent(
+      'Atraso eliminado al corregir el hito.',
+    );
+  });
+  it('marca un tipo de documento como condicional desde la configuración', () => {
+    useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesDocumentosRevisar] });
+    render(<DocumentosPanel data={data} />, { wrapper: createQueryWrapper() });
+    const casillas = screen.getAllByRole('checkbox', {
+      name: 'Condicional: se pide sólo cuando aplica',
+    });
+    expect(casillas[0]).not.toBeChecked();
+    fireEvent.click(casillas[0]);
+    expect(state.accion).toHaveBeenCalledWith({
+      accion: 'requisito-condicional',
+      body: { tipoDocumentoId: 'pedimento', condicional: true },
+    });
   });
 });

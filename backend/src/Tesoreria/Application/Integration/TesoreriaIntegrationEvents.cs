@@ -48,6 +48,8 @@ public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     public Guid? SucursalId { get; init; }
     public Guid? ProveedorId { get; init; }
     public decimal? TipoCambioPago { get; init; }
+    /// <summary>M-326 (b, aditivo): redondeo autorizado (±≤0.99) incluido en <c>Monto</c>; el efectivo pagado es <c>Monto − Redondeo</c>. 0 si no hubo.</summary>
+    public decimal Redondeo { get; init; }
     public const string WireEventType = "tesoreria.pago-factura-proveedor.aplicado.v1";
 }
 
@@ -210,7 +212,9 @@ public sealed record DepositoCajaConfirmadoIntegrationEvent(
     decimal ImporteCorte,
     decimal SaldoPorDepositar,
     bool CorteCompleto,
-    Guid ConfirmadaPor)
+    Guid ConfirmadaPor,
+    // M-174: cuenta contable de la cuenta bancaria de la ficha (campo aditivo); Contabilidad carga ahí y no a la única del rol BANCOS.
+    string? CuentaContableRef = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.deposito-caja.confirmado.v1";
@@ -262,4 +266,25 @@ public sealed record MovimientoBancarioRegistradoIntegrationEvent(
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.movimiento-bancario.registrado.v1";
+}
+
+/// <summary>
+/// <c>tesoreria.cheque.rebotado.v1</c> (M-372) — el banco devolvió un cheque del cliente. CxC lo consume y levanta la
+/// alerta de cartera para cobrarlo por otra vía. <c>Contramovimiento</c> = true si el cheque ya se había acreditado y se
+/// compensó el ingreso; false si rebotó antes de acreditarse.
+/// </summary>
+public sealed record ChequeRebotadoIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid ChequeId,
+    Guid ClienteId,
+    string BancoEmisor,
+    string Numero,
+    decimal Importe,
+    string Moneda,
+    string Motivo,
+    bool Contramovimiento)
+    : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
+{
+    public const string WireEventType = "tesoreria.cheque.rebotado.v1";
 }

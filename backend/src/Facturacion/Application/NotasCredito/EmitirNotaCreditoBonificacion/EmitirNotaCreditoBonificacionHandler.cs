@@ -143,17 +143,19 @@ public sealed class EmitirNotaCreditoBonificacionHandler
             facturaRelacionadaId: factura.Id,
             montoTotal: command.MontoTotal,
             tasaIva: command.TasaIva,
-            descripcion: command.Descripcion);
+            descripcion: command.Descripcion,
+            motivo: command.Devolucion ? MotivoNotaCredito.Devolucion : MotivoNotaCredito.Bonificacion);
 
         nc.FijarComentarios(command.Comentarios);
         if (!string.IsNullOrWhiteSpace(factura.Uuid))
-            nc.AgregarRelacion(factura.Uuid!, "01");
+            nc.AgregarRelacion(factura.Uuid!, command.Devolucion ? "03" : "01");
         if (command.Reembolso is { } reembolso)
             nc.ProgramarReembolso(reembolso.Banco, reembolso.Clabe, reembolso.Titular);
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, nc));
 
         // F10-PR1: evento de NC de bonificación timbrada.
         if (nc.Estado == EstadoTimbrado.Timbrado)
@@ -164,7 +166,6 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         // F6.3: con «Devolver dinero al cliente», la solicitud a Tesorería sale en la misma transacción que el timbre.
         await ReembolsoNotaCredito.SolicitarProgramadoSiAplicaAsync(_db, _eventos, nc, _user.UserId, ahora, cancellationToken);
 
-        _db.NotasCredito.Add(nc);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EmitirNotaCreditoBonificacionResponse(

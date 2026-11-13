@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS dbo.aw_retorno (
     motivo              text,
     intentos            integer     NOT NULL DEFAULT 0 CHECK (intentos >= 0),
     UNIQUE (numero_pedido, secuencia),
-    CHECK (tipo <> 1 OR COALESCE(estatus_destino, 0) IN (70, 115)),
+    CHECK (tipo <> 1 OR COALESCE(estatus_destino, 0) IN (70, 72, 115)),
     CHECK ((COALESCE(estatus_destino, 0) = 70 AND COALESCE(origen, 0) IN (1, 2)) OR (COALESCE(estatus_destino, 0) <> 70 AND origen IS NULL)),
     CHECK (origen IS DISTINCT FROM 2 OR usuario_libera IS NOT NULL),
     CHECK (tipo <> 2 OR saldo IS NOT NULL),
@@ -197,6 +197,19 @@ CREATE TABLE IF NOT EXISTS dbo.vw_erp_pedido_componente (
     ancho_mm        numeric,
     m2_por_pieza    numeric,
     importe         numeric
+);
+
+-- Albaranes de A+W por posición (vista vw_erp_albaran_pos del script 20); el lote de PT es numero_pedido-numero_posicion.
+CREATE TABLE IF NOT EXISTS dbo.vw_erp_albaran_pos (
+    numero_pedido    text    NOT NULL,
+    numero_posicion  integer NOT NULL,
+    pedido_albaran   text    NOT NULL,
+    posicion_albaran integer NOT NULL,
+    piezas           numeric(28, 8) NOT NULL,
+    albaran_folio    integer NOT NULL,
+    albaran_fecha    date    NOT NULL,
+    estatus_pedido   integer,
+    PRIMARY KEY (albaran_folio, pedido_albaran, posicion_albaran)
 );
 
 -- Limpieza de A+W ('<indf>' y vacíos → NULL), como dbo.fn_limpia / fn_solo_alfanumerico de 03_create_views.sql.

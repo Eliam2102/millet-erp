@@ -60,11 +60,33 @@ El script `backend/scripts/contabilidad-asignar-cuentas-roles.sql` asigna estas 
 | AJUSTE_INVENTARIO | 504.25.02.00 MERMAS | 50 y 54 |
 | IVA_ACREDITABLE_PAGADO | 118.01.01.00 IVA 16% PAGADO | S3 y S8 |
 | COMISIONES_BANCARIAS | 701.10.00.00 COMISIONES BANCARIAS | S7 |
+| GASTOS_IMPORTACION_POR_APLICAR | 201.07.00.00 GASTOS ADUANALES POR APLICAR | M-169 (respuesta del 10-nov) |
+| GASTO_IMPORTACION_HONORARIOS_PF | 601.73.01.00 HONORARIOS ADUANALES PERSONAS FÍSICAS | M-169 |
+| GASTO_IMPORTACION_HONORARIOS_PM | 601.73.02.00 HONORARIOS ADUANALES PERSONAS MORALES | M-169 |
 
 **Notas de Contabilidad:**
 - **Merma:** «la cuenta de DESPERDICIO tiene otro uso», así que la merma no va a 504.25.01.00.
 - **IVA de la comisión bancaria:** va a 118.01.01.00 (IVA pagado), porque el banco ya la cobró.
 - **Factura de proveedor:** se registra sin descontar retenciones; el «descuento» se hace al pagar (renglón 8). Es parte de la regla de retenciones pendiente (§4).
+
+### Gasto de importación por grupo contable (M-169)
+
+La póliza del costo de importación (`almacen.expediente.costo-aplicado.v1`) carga el gasto por el grupo contable del concepto de Comercio Exterior. El grupo se configura por concepto en *Comercio exterior › Expediente › Gastos y prorrateo › Configurar bases por concepto*.
+
+| Concepto de CE (valor inicial) | Grupo | Rol | Cuenta |
+|---|---|---|---|
+| Honorarios del agente aduanal, proveedor persona física | Honorarios aduanales | GASTO_IMPORTACION_HONORARIOS_PF | 601.73.01.00 |
+| Honorarios del agente aduanal, proveedor persona moral | Honorarios aduanales | GASTO_IMPORTACION_HONORARIOS_PM | 601.73.02.00 |
+| Flete internacional, flete nacional, maniobras | Fletes y maniobras | GASTO_IMPORTACION_FLETES_MANIOBRAS | Por abrir (Millet, en pruebas) |
+| Almacenaje | Almacenajes | GASTO_IMPORTACION_ALMACENAJES | Por abrir (Millet, en pruebas) |
+| Seguro, gastos aduanales, terceros, IGI, DTA, PRV, otros | Otros gastos de importación | GASTO_IMPORTACION_OTROS | Por abrir (Millet, en pruebas) |
+| Contrapartida | — | GASTOS_IMPORTACION_POR_APLICAR | 201.07.00.00 |
+
+- La persona física o moral sale del maestro de proveedores (tipo de persona, derivado del RFC: 13 caracteres = física).
+- El IVA de importación no entra al costo ni a la póliza.
+- La migración `M169GastoImportacionPorGrupo` asigna las tres cuentas si ya existen en el catálogo; si no, las asigna este script después de importar el catálogo.
+- Mientras un rol de grupo no tenga cuenta, el evento queda en Rechazos con «Rol sin cuenta». Al asignarle la cuenta se reprocesa sin duplicar la póliza.
+- Un evento anterior a M-169, sin desglose, sigue cargando todo a `GASTO_IMPORTACION`.
 
 ### Después de correr el script
 
@@ -74,7 +96,7 @@ En *Contabilidad › Motor › Rechazos*, filtrar por causa «Rol sin cuenta» y
 
 | Rol | Por qué |
 |---|---|
-| EFECTIVO_CAJA_COBRANZA, CAJA | Contabilidad dice que el corte de caja no genera asiento (renglones 42 y 43). Sigue pendiente decidir si la póliza del efectivo se hace por cobro o por corte. La cuenta 101.01.02.00 está confirmada para el depósito al banco (S12) |
+| EFECTIVO_CAJA_COBRANZA, CAJA | **Ya asignados (M-174):** 101.01.02.00, por la migración `M174EfectivoPorCobro`, si la cuenta existe y el rol no tenía cuenta. Contabilidad (6-nov): una póliza por cada cobro, también en efectivo; el corte de caja no genera asiento y el depósito confirmado va contra la cuenta contable de su cuenta bancaria |
 | DEUDORES_FUNCIONARIOS_EMPLEADOS | Faltante o sobrante del arqueo (S13): Contabilidad no respondió |
 | RETENCIONES_POR_PAGAR, RETENCIONES_CLIENTES | Rol base. Desde 86e3zcbjw cada concepto tiene su rol (§4.1) y su script |
 | BANCOS, BANCOS_MN, GASTO, CONSUMO, INVENTARIO | Dependen de otro catálogo (§4) |
@@ -153,7 +175,7 @@ En la configuración del libro de Activos Fijos:
 | Utilidad y pérdida en venta o baja (renglones 65 y 66) | Contabilidad las quiere **por clase** | Hoy es una sola cuenta de utilidad y una de pérdida para toda la empresa. Se necesita un campo por clase |
 
 ## 6. Pendientes con Contabilidad (mismo hilo del 5-nov)
-- Póliza del efectivo de caja: por cobro o por corte.
+- ~~Póliza del efectivo de caja: por cobro o por corte.~~ Resuelto el 6-nov: por cobro (M-174).
 - Cuentas de retención que faltan en el catálogo (§4.1).
 - Área y equipo por omisión (tarea H1, 86e3z5w25).
 - Faltante o sobrante del arqueo de caja (S13).

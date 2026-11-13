@@ -3,7 +3,8 @@
  *
  * Se arma al compilar (plugin de vite.config.ts) porque el dominio de la API
  * cambia por ambiente (VITE_API_BASE_URL). Fuentes permitidas y por qué:
- * - script-src 'self': sólo el bundle propio; nada de inline ni eval.
+ * - script-src 'self' 'wasm-unsafe-eval': bundle propio y WASM de Yoga/PDF;
+ *   no permite scripts inline ni eval de JavaScript.
  * - style-src 'unsafe-inline': React y Radix usan atributos style en línea;
  *   no ejecutan código. Google Fonts sirve la hoja de IBM Plex.
  * - connect-src: la API (HTTPS y WebSocket de SignalR) y Microsoft Entra
@@ -38,7 +39,7 @@ export function construirCsp(apiBaseUrl: string | undefined): string {
 
   const directivas: Record<string, string[]> = {
     'default-src': ["'self'"],
-    'script-src': ["'self'"],
+    'script-src': ["'self'", "'wasm-unsafe-eval'"],
     'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
     'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
     'img-src': ["'self'", 'data:', 'blob:'],

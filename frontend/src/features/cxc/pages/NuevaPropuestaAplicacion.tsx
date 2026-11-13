@@ -116,12 +116,12 @@ export function NuevaPropuestaAplicacion({
     [seleccion],
   );
   const tolerancia = tolerancias.data?.[moneda] ?? 0;
-  const { diferencia, faltaTolerancia, esAjusteNoFiscal, excedeTolerancia } = diferenciaDeposito(
+  const { diferencia, faltaTolerancia, esAjusteNoFiscal, excedeTolerancia, esRedondeo, esExcedenteRedondeo } = diferenciaDeposito(
     montoDeposito || 0,
     sumaAplicada,
     tolerancias.isSuccess ? tolerancia : null,
   );
-  const depositoExcedente = diferencia > 0 && seleccion.size > 0;
+  const depositoExcedente = diferencia > 0 && !esExcedenteRedondeo && seleccion.size > 0;
   const importesInvalidos = Array.from(seleccion.entries()).some(([uuid, imp]) => {
     const f = facturas.data?.find((x) => x.uuid === uuid);
     // C7.4-a: una factura que no es PPD no admite parcialidades (el backend lo rechaza).
@@ -380,6 +380,19 @@ export function NuevaPropuestaAplicacion({
             <p className="text-xs text-danger-fg">
               La diferencia excede la tolerancia no fiscal ({formatoMonto(tolerancia, moneda)}).
               Corrige los importes o gestiona la diferencia con el cliente.
+            </p>
+          )}
+          {esExcedenteRedondeo && seleccion.size > 0 && (
+            <p className="text-xs text-warning-fg" role="note">
+              El depósito es {formatoMonto(diferencia, moneda)} mayor que lo aplicado. Por ser de hasta $0.99, el excedente no
+              queda como saldo a favor: se registra en la cuenta REDONDEO. Requiere la autorización del Gerente de Área (permiso
+              «autorizar redondeo»), otra persona distinta de quien propone, antes de que la propuesta llegue a Tesorería.
+            </p>
+          )}
+          {esRedondeo && (
+            <p className="text-xs text-ink-muted" role="note">
+              El depósito es {formatoMonto(-diferencia, moneda)} menor que lo aplicado. Es un redondeo de hasta $0.99: se
+              registra en la cuenta REDONDEO, sin motivo, pero lo debe autorizar el Gerente de Área antes de que la propuesta llegue a Tesorería.
             </p>
           )}
           {esAjusteNoFiscal && (

@@ -65,7 +65,9 @@ public sealed record RegistrarSalidaLineaInput(
     // F1-MP-01: medida de la hoja (vidrio crudo). Exigida si el artículo está ligado a A+W; rechazada si no.
     Guid? ProductoAwVarianteId = null,
     // F1-MP-01 S4b: lote de la existencia de la que sale. Obligatorio con medida si el rack tiene existencia con lote.
-    string? Lote = null);
+    string? Lote = null,
+    // M-172: línea de producción destino; obligatoria si el artículo se consume por tambor a línea.
+    Guid? LineaProduccionId = null);
 
 public sealed record RegistrarSalidaResponse(
     Guid SalidaId,
@@ -118,6 +120,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
     private readonly IArticuloReadPort? _articulos;
     private readonly IVarianteVidrioReadPort? _variantes;
 
+    // M-450: si la cuenta de consumo exige área o equipo, la línea sin centro (de la RQ) no sale. Opcional solo para pruebas.
+    private readonly Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? _dimensiones;
+
     public RegistrarSalidaConRequisicionHandler(
         AlmacenDbContext db,
         IComprasRequisicionReadPort rqPort,
@@ -126,10 +131,12 @@ public sealed class RegistrarSalidaConRequisicionHandler
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion, ApartadosRequisicionService apartados,
-        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null,
+        Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? dimensiones = null)
     {
         _articulos = articulos;
         _variantes = variantes;
+        _dimensiones = dimensiones;
         _db = db;
         _rqPort = rqPort;
         _events = events;
@@ -185,6 +192,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
             conversiones.Add(await Recepciones.RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, rq!.Lineas.Single(l => l.LineaId == input.LineaRqId).UnidadMedida ?? "PZA", variante, cancellationToken));
         }
+        // M-335: la salida de vidrio por medida es consumo de materia prima; no se captura en el ERP si ya viene de la app.
+        if (variantes.Any(v => v is not null))
+            await AppAlmacenes.OrigenCapturaMpReglas.ExigirErpAsync(_db, Domain.AppAlmacenes.OrigenCapturaMp.Consumo, cancellationToken);
         var lineasDocumento = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         await ValidarRqAsync(rq, lineasDocumento, i => conversiones[i].CantidadBase, cancellationToken);
 
@@ -225,6 +235,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
         // F5 (86e3pc50v): la RQ y el almacén de la salida deben ser de la misma sucursal.
         Catalogo.SucursalDestinoGuard.Validar(rq?.SucursalId, sucursalId, "SALIDA_SUCURSAL_DISTINTA",
             "La requisición es de otra sucursal: entrega desde un almacén de la sucursal de la requisición.");
+        // M-172: silicón/Ködispace por tambor exigen línea destino y piezas enteras (antes de tocar el saldo).
+        var tambores = await Tambores.TamboresEnLinea.ValidarAsync(_db, _articulos, request.Lineas,
+            i => conversiones[i].CantidadBase, sucursalId, cancellationToken);
 
         // F7-PR3 (A18): si hay bloqueo activo de salidas para el sub DERIVADO,
         // rechazar — está en conteo anual.
@@ -258,6 +271,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
             request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase, Derivada: variantes[i] is not null)),
             cancellationToken);
         SalidaAcuse.Exigir(request.PersonaDestinatariaId, request.AcuseRecibeNombre);
+        await ExigenciaCentroSalida.VerificarAsync(_dimensiones, empresaId, sucursalId, request.FechaMovimiento,
+            [.. request.Lineas.Select(l => ResolverCentroCostoHeredado(rq, l.LineaRqId, l.ArticuloId))],
+            "de la requisición no trae centro de costo: corrígela en la requisición", cancellationToken);
 
         var movimiento = new MovimientoInventario(
             id: movimientoId,
@@ -374,6 +390,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
             "SALIDA_SIN_USUARIO", "Se requiere usuario autenticado.");
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
+        await Tambores.TamboresEnLinea.RegistrarAsync(_db, tambores, movimientoId, folio.Valor, DateTimeOffset.UtcNow, cancellationToken);
 
         // 6. P7: el apartado se consume antes del SaveChanges. El trigger PG
         //    decrementa la cantidad física al INSERT de la línea; no hay

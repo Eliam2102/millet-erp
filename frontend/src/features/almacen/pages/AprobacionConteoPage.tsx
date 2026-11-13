@@ -46,8 +46,10 @@ import {
 } from '@/features/almacen/components/EtiquetasConteo';
 import { useConteo } from '@/features/almacen/api/useConteos';
 import {
+  faltaAreaEquipoConteo,
   useAgregarRecuento,
   useAplicarConteo,
+  useDimensionesConteo,
   useAprobarConteo,
   useAprobarLineaIndividualmente,
   useEvaluarVariaciones,
@@ -70,6 +72,7 @@ import {
 import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { VariacionBadge } from '@/features/almacen/components/VariacionBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { DescargarActaConteoButton } from '@/features/almacen/components/DescargarActaConteoButton';
 import { montoNetoConteo } from '@/features/almacen/lib/monto-neto-conteo';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { formatMoney, mxn } from '@/lib/money';
@@ -114,6 +117,9 @@ export function AprobacionConteoPage() {
   const [aplicarOpen, setAplicarOpen] = useState(false);
 
   const aplicarIdempotencyKey = useFormIdempotencyKey();
+  // M-450 (86e3zr7ft): área y equipo del ajuste cuando la cuenta del ajuste los exige (regla C-03).
+  const [areaClave, setAreaClave] = useState('');
+  const [equipoClave, setEquipoClave] = useState('');
 
   // Mismo criterio que el backend al aprobar: requiere recuento, sin recuento
   // ni aprobación individual.
@@ -164,7 +170,12 @@ export function AprobacionConteoPage() {
   function ejecutarAplicar() {
     if (!id) return;
     aplicar.mutate(
-      { conteoId: id, idempotencyKey: aplicarIdempotencyKey },
+      {
+        conteoId: id,
+        idempotencyKey: aplicarIdempotencyKey,
+        areaClave: areaClave.trim() || null,
+        equipoClave: equipoClave.trim() || null,
+      },
       {
         onSuccess: (resp) => {
           toast.success(
@@ -181,6 +192,10 @@ export function AprobacionConteoPage() {
   const enConciliacion = conteo?.estado === EstadoConteo.EnConciliacion;
   const aprobado = conteo?.estado === EstadoConteo.Aprobado;
   const aplicado = conteo?.estado === EstadoConteo.Aplicado;
+  const dimensiones = useDimensionesConteo(id, aprobado);
+  const exigeArea = dimensiones.data?.exigeArea ?? false;
+  const exigeEquipo = dimensiones.data?.exigeEquipo ?? false;
+  const faltaDimension = faltaAreaEquipoConteo(areaClave, equipoClave, exigeArea, exigeEquipo);
 
   return (
     <div className="space-y-5">
@@ -274,6 +289,7 @@ export function AprobacionConteoPage() {
                       Aplicar (generar movimientos)
                     </Button>
                   )}
+                  {aplicado && id && <DescargarActaConteoButton conteoId={id} />}
                   {aplicado && (
                     <p className="text-sm text-success-fg flex items-center gap-2">
                       <Lock className="h-4 w-4" />
@@ -356,9 +372,39 @@ export function AprobacionConteoPage() {
               del conteo y la justificación de cada variación.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {(exigeArea || exigeEquipo) && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Área (clave)" required={exigeArea && !equipoClave.trim()}>
+                  <Input
+                    aria-label="Área (clave)"
+                    value={areaClave}
+                    maxLength={40}
+                    onChange={(e) => setAreaClave(e.target.value)}
+                  />
+                </Field>
+                <Field label="Equipo (clave)" required={exigeEquipo}>
+                  <Input
+                    aria-label="Equipo (clave)"
+                    value={equipoClave}
+                    maxLength={40}
+                    onChange={(e) => setEquipoClave(e.target.value)}
+                  />
+                </Field>
+              </div>
+              <p className="text-xs text-ink-muted">
+                La cuenta {dimensiones.data?.cuentaCodigo} del ajuste de inventario pide{' '}
+                {exigeEquipo ? 'área y equipo' : 'el área'} (regla C-03). Con el equipo, el área se toma de él.
+              </p>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={aplicar.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction disabled={aplicar.isPending} onClick={ejecutarAplicar}>
+            <AlertDialogAction
+              disabled={aplicar.isPending || faltaDimension || dimensiones.isLoading}
+              title={faltaDimension ? `Captura ${exigeEquipo ? 'el área y el equipo' : 'el área'} del ajuste.` : undefined}
+              onClick={ejecutarAplicar}
+            >
               {aplicar.isPending ? 'Aplicando…' : 'Aplicar'}
             </AlertDialogAction>
           </AlertDialogFooter>

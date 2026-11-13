@@ -1,3 +1,5 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { ImprimirEtiquetas } from '../components/ImprimirEtiquetas';
 import { useState } from 'react';
 import { EmpleadoSelector } from '@/components/erp/selectors/EmpleadoSelector';
@@ -23,10 +25,11 @@ import { useActivos, useClasesActivo } from '../api/hooks';
 import { useNuevoActivo } from '../components/nuevo-activo-context';
 import { dinero, estadoActivo } from '../api/types';
 export function ActivosPage() {
+  const { limit } = useTamanoPagina();
   const [responsableEmpleado, setResponsableEmpleado] = useState(false);
   const filtros = useSearch({ from: '/_app/activos-fijos/activos/' });
   const navigate = useNavigate();
-  const query = useActivos(filtros);
+  const query = useActivos({ ...filtros, limit });
   const clases = useClasesActivo();
   const nuevo = useNuevoActivo();
   const gestionar = useHasPermission(P.ActivosFijosActivosGestionar);
@@ -118,27 +121,12 @@ export function ActivosPage() {
           </div>
         }
         pie={
-          <div className="flex items-center justify-between p-3 text-xs">
-            <span>{query.data?.total ?? 0} activos</span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={!filtros.offset}
-                title={!filtros.offset ? 'Primera página' : undefined}
-                onClick={() => filtrar({ offset: Math.max(0, (filtros.offset ?? 0) - 10) })}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                disabled={(filtros.offset ?? 0) + 10 >= (query.data?.total ?? 0)}
-                title="Avanzar si hay más registros"
-                onClick={() => filtrar({ offset: (filtros.offset ?? 0) + 10 })}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={filtros.offset ?? 0}
+            limit={limit}
+            onChange={(offset) => filtrar({ offset })}
+          />
         }
       >
         {query.isPending ? (

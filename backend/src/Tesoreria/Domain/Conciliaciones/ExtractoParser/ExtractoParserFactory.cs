@@ -33,6 +33,9 @@ public sealed class ExtractoParserFactory
             _parsers["SANTANDER"] = santander;
         }
 
+        // MIFEL: perfil listo, sin layout hasta recibir el archivo real (M-102).
+        _parsers.TryAdd("MIFEL", new MifelExtractoParser());
+
         // Alias canónicos
         _parsers.TryAdd("GENERICO", bbva);
         _parsers.TryAdd("CSV", bbva);
@@ -93,10 +96,9 @@ public sealed class ExtractoParserFactory
 
         string encabezadosMuestra = string.Join("\n", primerasLineas).ToUpperInvariant();
 
-        // Si contiene palabras clave explícitas o cabecera unificada Cargo/Abono de Getnet/Santander
-        if (encabezadosMuestra.Contains("GETNET") ||
-            encabezadosMuestra.Contains("SANTANDER") ||
-            encabezadosMuestra.Contains("CARGO/ABONO") ||
+        // Cabecera unificada Cargo/Abono de Getnet/Santander. No se busca la palabra «SANTANDER»:
+        // el auxiliar BBVA la trae en la referencia de los CIE de clientes con cuenta Santander.
+        if (encabezadosMuestra.Contains("CARGO/ABONO") ||
             encabezadosMuestra.Contains("CARGO / ABONO") ||
             encabezadosMuestra.Contains("CARGO_ABONO"))
         {

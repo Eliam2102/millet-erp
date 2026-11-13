@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { CargaMaestrosDialog } from './CargaMaestrosDialog';
 import { PaginacionTabla, BarraFiltros } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -87,7 +88,10 @@ export function F1AProductoFiscal({ producto }: { producto: ProductoAwDetalle })
     );
   }
   return (
-    <section id="ficha-fiscal-producto" className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat text-sm text-ink">
+    <section
+      id="ficha-fiscal-producto"
+      className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat text-sm text-ink"
+    >
       <h2 className="text-lg font-semibold">Revisión fiscal del producto</h2>
       <div className="flex flex-wrap gap-2">
         <Badge variant={faltantes.length ? 'warning' : 'info'}>
@@ -155,6 +159,7 @@ const vacia: FichaFiscal = {
   tasaRetencionIsr: null,
 };
 export function F1AFiscalPanel() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const reglas = useF1AQuery<ReglaFiscal[]>(`${FISCAL}/reglas`);
   const guardar = useF1AMutation();
   const [editar, setEditar] = useState<ReglaFiscal | null>(null);
@@ -201,63 +206,66 @@ export function F1AFiscalPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reglas.data?.slice(pagina * 10, pagina * 10 + 10).map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    {r.campo}: {r.valor}
-                    <Badge variant={r.activa ? 'success' : 'neutral'}>
-                      {r.activa ? 'Activa' : 'Inactiva'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono">{r.ficha.claveProdServSat}</TableCell>
-                  <TableCell>{r.ficha.claveUnidadSat}</TableCell>
-                  <TableCell className="tabular-nums">{r.ficha.tasaIvaTraslado * 100} %</TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setEditar(r);
-                        setCampo(r.campo);
-                        setValor(r.valor);
-                        setDescripcion(r.descripcion);
-                        setFicha(r.ficha);
-                      }}
-                    >
-                      Editar
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setHistorial(r.id)}>
-                      Historial
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={guardar.isPending}
-                      onClick={() =>
-                        guardar.mutate(
-                          {
-                            path: `${FISCAL}/reglas/${r.id}`,
-                            method: 'PUT',
-                            body: { ...r, activa: !r.activa },
-                          },
-                          { onError: (e) => toast.error(mensajeF1A(e)) },
-                        )
-                      }
-                    >
-                      {r.activa ? 'Desactivar' : 'Reactivar'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {reglas.data
+                ?.slice(pagina * limiteTabla, pagina * limiteTabla + limiteTabla)
+                .map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      {r.campo}: {r.valor}
+                      <Badge variant={r.activa ? 'success' : 'neutral'}>
+                        {r.activa ? 'Activa' : 'Inactiva'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono">{r.ficha.claveProdServSat}</TableCell>
+                    <TableCell>{r.ficha.claveUnidadSat}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {r.ficha.tasaIvaTraslado * 100} %
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setEditar(r);
+                          setCampo(r.campo);
+                          setValor(r.valor);
+                          setDescripcion(r.descripcion);
+                          setFicha(r.ficha);
+                        }}
+                      >
+                        Editar
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setHistorial(r.id)}>
+                        Historial
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={guardar.isPending}
+                        onClick={() =>
+                          guardar.mutate(
+                            {
+                              path: `${FISCAL}/reglas/${r.id}`,
+                              method: 'PUT',
+                              body: { ...r, activa: !r.activa },
+                            },
+                            { onError: (e) => toast.error(mensajeF1A(e)) },
+                          )
+                        }
+                      >
+                        {r.activa ? 'Desactivar' : 'Reactivar'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </ListadoModulo>
         <PaginacionTabla
           total={reglas.data?.length ?? 0}
-          offset={pagina * 10}
-          limit={10}
-          tamanos={[]}
-          onChange={(offset) => setPagina(offset / 10)}
+          offset={pagina * limiteTabla}
+          limit={limiteTabla}
+          onChange={(offset) => setPagina(offset / limiteTabla)}
         />
         {historial && <Historial id={historial} tipo="Regla" />}
         <form

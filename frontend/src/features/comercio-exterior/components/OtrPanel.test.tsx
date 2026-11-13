@@ -4,10 +4,15 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { OtrPanel, OtrDetalle } from './OtrPanel';
 import { OtrBandejaPage } from '../pages/OtrBandejaPage';
-import type { OtrEnvio } from '../api/otr';
-const state = vi.hoisted(() => ({ data: [] as OtrEnvio[], mutar: vi.fn() }));
+import type { OtrEnvio, OtrRechazo } from '../api/otr';
+const state = vi.hoisted(() => ({ data: [] as OtrEnvio[], mutar: vi.fn(), rechazos: [] as OtrRechazo[] }));
 vi.mock('../api/otr', () => ({
   useOtrEnvios: () => ({ data: state.data, isError: false }),
+  useOtrBandeja: () => ({ data: state.data.map((e) => ({
+    id: e.id, idOrigen: e.idOrigen, version: e.version, versionAplicada: e.versionAplicada,
+    sucursalId: e.sucursalId, estado: e.estado, motivoVinculacion: e.motivoVinculacion, contenido: e.contenido,
+  })), isError: false }),
+  useOtrRechazos: (enabled: boolean) => ({ data: enabled ? state.rechazos : undefined, isError: false }),
   useOtrAccion: () => ({ mutateAsync: state.mutar, isPending: false, isError: false }),
   useOtrCandidatos: () => ({ data: [{ id: 'exp', folio: 'CE-EXP-DEMO' }], isError: false }),
 }));
@@ -89,7 +94,7 @@ it('la bandeja muestra envíos por vincular y abre el selector de expediente', (
   state.data = [{ ...envio, estado: 1, expedienteId: null }];
   render(<OtrBandejaPage />);
   expect(screen.getByRole('heading', { name: 'Bandeja OTR' })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: 'Por vincular' })).toHaveAttribute(
+  expect(screen.getByRole('tab', { name: /Por vincular\s*1/ })).toHaveAttribute(
     'aria-selected',
     'true',
   );
@@ -97,7 +102,7 @@ it('la bandeja muestra envíos por vincular y abre el selector de expediente', (
   fireEvent.change(screen.getByLabelText(/Expediente abierto/), { target: { value: 'exp' } });
   fireEvent.click(screen.getByRole('button', { name: 'Vincular envío' }));
   expect(state.mutar).toHaveBeenCalledWith({
-    envio: state.data[0],
+    envio: expect.objectContaining({ id: envio.id, version: envio.version }),
     ruta: 'vincular',
     body: { expedienteId: 'exp' },
   });
@@ -158,14 +163,14 @@ it('filtra estados cargados y pagina diez envíos sin ofrecer vincular los ya vi
   expect(screen.getAllByRole('row')).toHaveLength(11);
   fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
   expect(screen.getByRole('cell', { name: 'OTR-PRUEBA-11' })).toBeInTheDocument();
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Vinculados' }), {
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Vinculados\s*1/ }), {
     button: 0,
     ctrlKey: false,
   });
   expect(screen.getByRole('cell', { name: 'OTR-VINCULADO' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled();
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Todos' }), { button: 0, ctrlKey: false });
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Todos\s*13/ }), { button: 0, ctrlKey: false });
   expect(screen.getByText('1–10 de 13')).toBeInTheDocument();
 });
 
@@ -173,4 +178,80 @@ it('los conflictos muestran el nombre de negocio del campo', () => {
   render(<OtrDetalle envio={envio} />);
   expect(screen.getByText(/Peso \(kg\)/)).toBeInTheDocument();
   expect(screen.queryByText(/PesoKg/)).not.toBeInTheDocument();
+});
+
+
+it.each(['CE_OTR_SUCURSAL_DESCONOCIDA', 'CE_OTR_CLIENTE_DESCONOCIDO', 'CE_OTR_OTRO'])('explica %s sin habilitar la vinculación', (motivoVinculacion) => {
+  state.data = [{ ...envio, estado: 1, motivoVinculacion, versionAplicada: 1792666512345 }];
+  render(<OtrBandejaPage />);
+  const button = screen.getByRole('button', { name: 'Vincular envío' });
+  expect(button).toBeDisabled();
+  expect(button).toHaveAccessibleDescription(/antes de vincular/);
+  expect(screen.queryByText(motivoVinculacion)).not.toBeInTheDocument();
+  expect(screen.getByRole('cell', { name: '1792666512345' })).toBeInTheDocument();
+  expect(state.mutar).not.toHaveBeenCalled();
+});
+
+
+it('la búsqueda actualiza los conteos y reinicia la paginación', () => {
+  state.data = Array.from({ length: 12 }, (_, i) => ({ ...envio, id: `busca-${i}`, idOrigen: `BUSCA-${i}`, estado: 1 }));
+  render(<OtrBandejaPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Buscar envío OTR o cliente' }), { target: { value: 'BUSCA-11' } });
+  expect(screen.getByRole('tab', { name: /Por vincular\s*1$/ })).toBeInTheDocument();
+  expect(screen.getByRole('cell', { name: 'BUSCA-11' })).toBeInTheDocument();
+  expect(screen.getByText('1–1 de 1')).toBeInTheDocument();
+});
+
+
+it('ofrece revalidar sucursal sólo con gestión corporativa y envía la versión del registro', () => {
+  state.data = [{ ...envio, estado: 1, expedienteId: null, motivoVinculacion: 'CE_OTR_SUCURSAL_DESCONOCIDA' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Revalidar sucursal' }));
+  expect(state.mutar).toHaveBeenCalledWith({ envio: expect.objectContaining({ id: envio.id, version: envio.version }), ruta: 'revalidar-sucursal' });
+  expect(state.mutar.mock.calls[0][0].envio).not.toHaveProperty('lineas');
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('consulta Cancelados sin mostrar acciones de revalidación o vinculación', () => {
+  state.data = [{ ...envio, estado: 3, motivoVinculacion: 'CE_OTR_SUCURSAL_DESCONOCIDA' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Cancelados\s*1/ }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('cell', { name: 'DEMO-OTR-1' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Revalidar sucursal' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('Histórico SAP se consulta en su pestaña sin acciones de vinculación', () => {
+  state.data = [{ ...envio, estado: 4, motivoVinculacion: null }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar] });
+  render(<OtrBandejaPage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Histórico SAP\s*1/ }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('cell', { name: 'DEMO-OTR-1' })).toBeInTheDocument();
+  expect(screen.getByText('Ya facturado en SAP; sólo consulta.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('los rechazos del lector se listan con su motivo sólo para la gestión corporativa', () => {
+  state.data = [];
+  state.rechazos = [{ id: 'r1', idOrigen: '7001-C9', versionOrigen: 1792666512345, intentos: 1, motivo: 'CE_OTR_VARIOS_CLIENTES', fecha: '2026-11-12T12:00:00Z' }];
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar] });
+  const sinTodas = render(<OtrBandejaPage />);
+  expect(screen.queryByRole('tab', { name: /Rechazados/ })).not.toBeInTheDocument();
+  sinTodas.unmount();
+  useAuthStore.setState({ permisos: [P.ComercioExteriorOtrGestionar, P.ComercioExteriorDocumentosGestionarTodasSucursales] });
+  render(<OtrBandejaPage />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /Rechazados\s*1/ }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('cell', { name: '7001-C9' })).toBeInTheDocument();
+  expect(screen.getByText('La pirámide trae piezas de varios clientes.')).toBeInTheDocument();
+  expect(screen.getByText('1 rechazos')).toBeInTheDocument();
+});
+
+it('una partida omitida explica el motivo guardado', () => {
+  state.data = [{ ...envio, lineas: [{ ...envio.lineas[0], estado: 4, motivo: 'CE_OTR_CANTIDAD_CERO: sin piezas' }] }];
+  render(<OtrPanel expedienteId="exp" />);
+  expect(screen.getByText('OTR mandó la posición sin piezas; se omitió y no detiene el resto del envío.')).toBeInTheDocument();
+  expect(screen.getByText('Omitida')).toBeInTheDocument();
 });

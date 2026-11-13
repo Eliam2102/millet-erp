@@ -935,7 +935,7 @@ resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subsc
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\', \'comercio_exterior.anticipo-agente.gastos-aplicados.v1\')'
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.anticipo-agente.saldo-transferido.v1\', \'comercio_exterior.anticipo-agente.solicitado.v1\', \'comercio_exterior.anticipo-agente.gastos-aplicados.v1\', \'comercio_exterior.anticipo-agente.comprobacion-revertida.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -962,7 +962,7 @@ resource comercioExteriorFacturacionFilter 'Microsoft.ServiceBus/namespaces/topi
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'comercio_exterior.contenedor.embarcado.v1\', \'comercio_exterior.contenedor.cancelado.v1\')'
+      sqlExpression: 'user.EventType IN (\'comercio_exterior.contenedor.embarcado.v1\', \'comercio_exterior.contenedor.preparado.v1\', \'comercio_exterior.contenedor.cancelado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -989,7 +989,7 @@ resource contabFacturacionFilter 'Microsoft.ServiceBus/namespaces/topics/subscri
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.factura-anticipo.timbrada.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.caja-sesion.cerrada.v1\', \'facturacion.terminal.factura-banco-ligada.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.factura-anticipo.timbrada.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.caja-sesion.cerrada.v1\', \'facturacion.terminal.factura-banco-ligada.v1\', \'facturacion.terminal.liquidacion-registrada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1014,7 +1014,7 @@ resource contabCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/r
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.revaluacion.registrada.v1\', \'cuentas_por_pagar.revaluacion.revertida.v1\', \'cuentas_por_pagar.gasto.registrado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\', \'cuentas_por_pagar.anticipo.amortizado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.revaluacion.registrada.v1\', \'cuentas_por_pagar.revaluacion.revertida.v1\', \'cuentas_por_pagar.gasto.registrado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\', \'cuentas_por_pagar.anticipo.amortizado.v1\', \'cuentas_por_pagar.anticipo-agente.comprobacion-revertida.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1064,7 +1064,7 @@ resource contabAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptio
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.salida_inventario.registrada.v1\', \'almacen.salida_rotura.registrada.v1\', \'almacen.expediente.costo-aplicado.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.ajuste_inventario.aplicado.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.salida_inventario.registrada.v1\', \'almacen.entrada_inventario.registrada.v1\', \'almacen.salida_rotura.registrada.v1\', \'almacen.expediente.costo-aplicado.v1\', \'almacen.devolucion_interna.aplicada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1162,7 +1162,7 @@ resource ceAlmacenP20Filter 'Microsoft.ServiceBus/namespaces/topics/subscription
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_oc.cancelada.v1\', \'almacen.recepcion_activo.anulada.v1\', \'almacen.oc_devolucion.registrada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -1188,24 +1188,9 @@ resource ptEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
   }
 }
 
-var ptSubscriptions = [
-  {
-    name: 'cuentas-por-cobrar-pt-sub'
-    types: ['producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.contra-entrega.no-liquidada.v1']
-  }
-  {
-    name: 'integraciones-aw-pt-sub'
-    types: ['producto_terminado.pedido.estado-cambiado.v1', 'producto_terminado.pedido.facturado-entregado.v1']
-  }
-  {
-    name: 'contabilidad-producto-terminado-sub'
-    types: ['producto_terminado.entrega.confirmada.v1']
-  }
-]
-
-resource ptSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = [for s in ptSubscriptions: {
+resource ptCxcSub 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: ptEventsTopic
-  name: s.name
+  name: 'cuentas-por-cobrar-pt-sub'
   properties: {
     deadLetteringOnMessageExpiration: true
     deadLetteringOnFilterEvaluationExceptions: true
@@ -1214,19 +1199,69 @@ resource ptSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@20
     lockDuration: 'PT1M'
     enableBatchedOperations: true
   }
-}]
+}
 
-resource ptSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = [for (s, i) in ptSubscriptions: {
-  parent: ptSubscription[i]
+resource ptCxcSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptCxcSub
   name: 'EventTypeFilter'
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (${join(map(s.types, t => '\'${t}\''), ', ')})'
+      sqlExpression: 'user.EventType IN (\'producto_terminado.pedido.estado-cambiado.v1\', \'producto_terminado.contra-entrega.no-liquidada.v1\')'
       compatibilityLevel: 20
     }
   }
-}]
+}
+
+resource ptAwSub 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: ptEventsTopic
+  name: 'integraciones-aw-pt-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource ptAwSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptAwSub
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'producto_terminado.pedido.estado-cambiado.v1\', \'producto_terminado.pedido.en-ruta.v1\', \'producto_terminado.pedido.facturado-entregado.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+resource ptContabilidadSub 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: ptEventsTopic
+  name: 'contabilidad-producto-terminado-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource ptContabilidadSubFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: ptContabilidadSub
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'producto_terminado.entrega.confirmada.v1\', \'producto_terminado.traspaso.salida-autorizada.v1\', \'producto_terminado.traspaso.entrada-registrada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
 
 // PT aplica la decisión de liberación de CxC (CxcDecisionLocalConsumer).
 resource ptCxcDecisionSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {

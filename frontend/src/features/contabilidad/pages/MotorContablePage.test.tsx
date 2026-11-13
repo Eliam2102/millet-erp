@@ -186,4 +186,50 @@ describe('<MotorContablePage>', () => {
     expect(await screen.findByRole('link', { name: 'Ver póliza' })).toHaveAttribute('href', '/contabilidad/polizas/p9');
     expect(screen.queryByRole('button', { name: /^Reprocesar/ })).not.toBeInTheDocument();
   });
+
+  it('M-207: un rechazo por tipo de cambio se captura con valor y motivo y queda por autorizar', async () => {
+    mswServer.use(
+      http.get(`${API}/motor/rechazos`, () => HttpResponse.json([
+        rechazo({ causa: 'TipoCambioFueraDeTolerancia', detalle: '18.9500|18.4520',
+          mensaje: 'TC del documento 18.9500, catálogo 18.4520 (2.70 %): fuera de la tolerancia de 1 %.' }),
+      ])),
+      http.post(`${API}/motor/rechazos/:id/tipo-cambio`, async ({ request }) => {
+        peticiones.push({ url: request.url, body: await request.json(), idem: request.headers.get('Idempotency-Key') });
+        return HttpResponse.json(rechazo({ causa: 'TipoCambioFueraDeTolerancia', tcPorAutorizar: true, tcAccion: 'Sustituto', tcValor: 18.46 }));
+      }),
+    );
+    conPermisos(PermisosCanonicos.ContabilidadRechazosGestionar);
+    render(<MotorContablePage search={{}} onSearch={vi.fn()} />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText('Tipo de cambio fuera de tolerancia')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Tipo de cambio de/ }));
+    const dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByText(/TC del documento 18\.9500, catálogo 18\.4520 \(diferencia 2\.70 %\)/)).toBeInTheDocument();
+    fireEvent.change(within(dialogo).getByLabelText(/Tipo de cambio sustituto/), { target: { value: '18.46' } });
+    fireEvent.change(within(dialogo).getByLabelText(/Motivo/), { target: { value: 'FIX DOF del 13-nov' } });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar para autorizar' }));
+
+    await waitFor(() => expect(peticiones).toHaveLength(1));
+    expect(peticiones[0].body).toEqual({ accion: 'Sustituto', valor: 18.46, motivo: 'FIX DOF del 13-nov' });
+    expect(peticiones[0].idem).toBeTruthy();
+  });
+
+  it('M-207: «Autorizar» solo aparece con el permiso y en un TC capturado por autorizar', async () => {
+    mswServer.use(
+      http.get(`${API}/motor/rechazos`, () => HttpResponse.json([
+        rechazo({ causa: 'TipoCambioFaltante', detalle: 'USD', tcPorAutorizar: true, tcAccion: 'Sustituto', tcValor: 18.46, tcCapturadoPor: 'Analista FIX' }),
+      ])),
+    );
+    conPermisos(PermisosCanonicos.ContabilidadRechazosGestionar);
+    const { unmount } = render(<MotorContablePage search={{}} onSearch={vi.fn()} />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Por autorizar')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Autorizar tipo de cambio/ })).not.toBeInTheDocument();
+    unmount();
+
+    conPermisos(PermisosCanonicos.ContabilidadRechazosGestionar, PermisosCanonicos.ContabilidadTipoCambioAutorizarSustituto);
+    render(<MotorContablePage search={{}} onSearch={vi.fn()} />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByRole('button', { name: /^Autorizar tipo de cambio/ })).toBeInTheDocument();
+    expect(screen.getByText(/TC 18\.4600 · capturó Analista FIX/)).toBeInTheDocument();
+  });
 });
+

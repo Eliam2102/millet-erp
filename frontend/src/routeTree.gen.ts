@@ -13,9 +13,9 @@ import { Route as AppRouteImport } from './routes/_app';
 import { Route as LoginRouteImport } from './routes/login';
 import { Route as PortalProveedoresRouteImport } from './routes/portal-proveedores';
 import { Route as AppIndexRouteImport } from './routes/_app/index';
+import { Route as AppActivosFijosAutorizacionesRouteImport } from './routes/_app/activos-fijos/autorizaciones';
 import { Route as AppActivosFijosCargaInicialRouteImport } from './routes/_app/activos-fijos/carga-inicial';
 import { Route as AppActivosFijosClasesRouteImport } from './routes/_app/activos-fijos/clases';
-import { Route as AppActivosFijosAutorizacionesRouteImport } from './routes/_app/activos-fijos/autorizaciones';
 import { Route as AppActivosFijosConciliacionRouteImport } from './routes/_app/activos-fijos/conciliacion';
 import { Route as AppActivosFijosConfiguracionLibroRouteImport } from './routes/_app/activos-fijos/configuracion-libro';
 import { Route as AppActivosFijosConteosRouteImport } from './routes/_app/activos-fijos/conteos';
@@ -36,6 +36,7 @@ import { Route as AppAlmacenConsumosRevisionRouteImport } from './routes/_app/al
 import { Route as AppAlmacenMensajesAppRouteImport } from './routes/_app/almacen/mensajes-app';
 import { Route as AppAlmacenMermasRouteImport } from './routes/_app/almacen/mermas';
 import { Route as AppAlmacenNormasConsumoRouteImport } from './routes/_app/almacen/normas-consumo';
+import { Route as AppAlmacenOrigenCapturaRouteImport } from './routes/_app/almacen/origen-captura';
 import { Route as AppAlmacenReordenRouteImport } from './routes/_app/almacen/reorden';
 import { Route as AppAlmacenRevisionRouteImport } from './routes/_app/almacen/revision';
 import { Route as AppAlmacenSaldosRouteImport } from './routes/_app/almacen/saldos';
@@ -43,6 +44,7 @@ import { Route as AppAlmacenSaldosJerarquiaRouteImport } from './routes/_app/alm
 import { Route as AppAlmacenSalidasRoturaRouteImport } from './routes/_app/almacen/salidas-rotura';
 import { Route as AppAlmacenSubAlmacenesRouteImport } from './routes/_app/almacen/sub-almacenes';
 import { Route as AppAlmacenTallerRouteImport } from './routes/_app/almacen/taller';
+import { Route as AppAlmacenTamboresLineaRouteImport } from './routes/_app/almacen/tambores-linea';
 import { Route as AppAlmacenUbicacionesRouteImport } from './routes/_app/almacen/ubicaciones';
 import { Route as AppCentrosCostoIndexRouteImport } from './routes/_app/centros-costo/index';
 import { Route as AppCentrosCostoAsignacionesRouteImport } from './routes/_app/centros-costo/asignaciones';
@@ -58,6 +60,8 @@ import { Route as AppContabilidadImportacionRouteImport } from './routes/_app/co
 import { Route as AppContabilidadMotorRouteImport } from './routes/_app/contabilidad/motor';
 import { Route as AppContabilidadMovimientosPruebaRouteImport } from './routes/_app/contabilidad/movimientos-prueba';
 import { Route as AppContabilidadPeriodosRouteImport } from './routes/_app/contabilidad/periodos';
+import { Route as AppContabilidadIncidenciasRouteImport } from './routes/_app/contabilidad/incidencias';
+import { Route as AppContabilidadSaldosInicialesRouteImport } from './routes/_app/contabilidad/saldos-iniciales';
 import { Route as AppCxcIndexRouteImport } from './routes/_app/cxc/index';
 import { Route as AppCxpIndexRouteImport } from './routes/_app/cxp/index';
 import { Route as AppCxpAnticiposRouteImport } from './routes/_app/cxp/anticipos';
@@ -69,16 +73,18 @@ import { Route as AppFacturacionAyudaRouteImport } from './routes/_app/facturaci
 import { Route as AppFacturacionCajaRouteImport } from './routes/_app/facturacion/caja';
 import { Route as AppFacturacionCancelacionesRouteImport } from './routes/_app/facturacion/cancelaciones';
 import { Route as AppFacturacionContingenciasRouteImport } from './routes/_app/facturacion/contingencias';
+import { Route as AppIncidenciasIndexRouteImport } from './routes/_app/incidencias/index';
+import { Route as AppIncidenciasIdRouteImport } from './routes/_app/incidencias/$id';
+import { Route as AppProductoTerminadoCasosRouteImport } from './routes/_app/producto-terminado/casos';
 import { Route as AppProductoTerminadoEntregasRouteImport } from './routes/_app/producto-terminado/entregas';
 import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
 import { Route as AppProductoTerminadoHojasSalidaRouteImport } from './routes/_app/producto-terminado/hojas-salida';
 import { Route as AppProductoTerminadoLiquidacionRouteImport } from './routes/_app/producto-terminado/liquidacion';
 import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/producto-terminado/piezas';
 import { Route as AppProductoTerminadoSalidasRouteImport } from './routes/_app/producto-terminado/salidas';
+import { Route as AppProductoTerminadoSolicitudesRouteImport } from './routes/_app/producto-terminado/solicitudes';
 import { Route as AppProductoTerminadoTraspasosRouteImport } from './routes/_app/producto-terminado/traspasos';
 import { Route as AppSistemaDisenoIndexRouteImport } from './routes/_app/sistema-diseno/index';
-import { Route as AppIncidenciasIndexRouteImport } from './routes/_app/incidencias/index';
-import { Route as AppIncidenciasIdRouteImport } from './routes/_app/incidencias/$id';
 import { Route as AppTesoreriaIndexRouteImport } from './routes/_app/tesoreria/index';
 import { Route as AppActivosFijosActivosIndexRouteImport } from './routes/_app/activos-fijos/activos/index';
 import { Route as AppActivosFijosActivosIdRouteImport } from './routes/_app/activos-fijos/activos/$id';
@@ -91,6 +97,7 @@ import { Route as AppAdminEmpleadosIndexRouteImport } from './routes/_app/admin/
 import { Route as AppAdminEmpleadosIdRouteImport } from './routes/_app/admin/empleados/$id';
 import { Route as AppAdminEmpresasIndexRouteImport } from './routes/_app/admin/empresas/index';
 import { Route as AppAdminEmpresasIdRouteImport } from './routes/_app/admin/empresas/$id';
+import { Route as AppAdminIntegracionesTableroRouteImport } from './routes/_app/admin/integraciones/tablero';
 import { Route as AppAdminParametrosIndexRouteImport } from './routes/_app/admin/parametros/index';
 import { Route as AppAdminPuestosIndexRouteImport } from './routes/_app/admin/puestos/index';
 import { Route as AppAdminRolesIndexRouteImport } from './routes/_app/admin/roles/index';
@@ -98,6 +105,7 @@ import { Route as AppAdminRolesIdRouteImport } from './routes/_app/admin/roles/$
 import { Route as AppAdminSeriesIndexRouteImport } from './routes/_app/admin/series/index';
 import { Route as AppAdminSucursalesIndexRouteImport } from './routes/_app/admin/sucursales/index';
 import { Route as AppAdminSucursalesIdRouteImport } from './routes/_app/admin/sucursales/$id';
+import { Route as AppAdminTramosIndexRouteImport } from './routes/_app/admin/tramos/index';
 import { Route as AppAdminUsuariosIndexRouteImport } from './routes/_app/admin/usuarios/index';
 import { Route as AppAdminUsuariosIdRouteImport } from './routes/_app/admin/usuarios/$id';
 import { Route as AppAlmacenDevolucionesIndexRouteImport } from './routes/_app/almacen/devoluciones/index';
@@ -107,6 +115,7 @@ import { Route as AppAlmacenRecepcionesIndexRouteImport } from './routes/_app/al
 import { Route as AppAlmacenRecepcionesIdRouteImport } from './routes/_app/almacen/recepciones/$id';
 import { Route as AppAlmacenReportesIndexRouteImport } from './routes/_app/almacen/reportes/index';
 import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_app/almacen/reportes/alfak-historial';
+import { Route as AppAlmacenReportesConsumoInsumosLineaRouteImport } from './routes/_app/almacen/reportes/consumo-insumos-linea';
 import { Route as AppAlmacenReportesKardexRouteImport } from './routes/_app/almacen/reportes/kardex';
 import { Route as AppAlmacenReportesMpCnkRouteImport } from './routes/_app/almacen/reportes/mp-cnk';
 import { Route as AppAlmacenReportesTrazabilidadMpRouteImport } from './routes/_app/almacen/reportes/trazabilidad-mp';
@@ -115,13 +124,13 @@ import { Route as AppAlmacenSalidasIdRouteImport } from './routes/_app/almacen/s
 import { Route as AppComercioExteriorExpedientesIndexRouteImport } from './routes/_app/comercio-exterior/expedientes/index';
 import { Route as AppComercioExteriorExpedientesIdRouteImport } from './routes/_app/comercio-exterior/expedientes/$id';
 import { Route as AppComprasAdminAprobadoresRouteImport } from './routes/_app/compras/admin/aprobadores';
+import { Route as AppComprasIntegracionesAlmCompraRouteImport } from './routes/_app/compras/integraciones/alm-compra';
 import { Route as AppComprasOrdenesIndexRouteImport } from './routes/_app/compras/ordenes/index';
 import { Route as AppComprasOrdenesIdRouteImport } from './routes/_app/compras/ordenes/$id';
 import { Route as AppComprasOrdenesPartidasAbiertasRouteImport } from './routes/_app/compras/ordenes/partidas-abiertas';
 import { Route as AppComprasOrdenesPendientesAutorizacionRouteImport } from './routes/_app/compras/ordenes/pendientes-autorizacion';
 import { Route as AppComprasPendientesIndexRouteImport } from './routes/_app/compras/pendientes/index';
 import { Route as AppComprasPendientesIdRouteImport } from './routes/_app/compras/pendientes/$id';
-import { Route as AppComprasIntegracionesAlmCompraRouteImport } from './routes/_app/compras/integraciones/alm-compra';
 import { Route as AppComprasReportesAnalisisProveedoresRouteImport } from './routes/_app/compras/reportes/analisis-proveedores';
 import { Route as AppComprasRequisicionesIndexRouteImport } from './routes/_app/compras/requisiciones/index';
 import { Route as AppComprasRequisicionesIdRouteImport } from './routes/_app/compras/requisiciones/$id';
@@ -129,14 +138,20 @@ import { Route as AppContabilidadCatalogoIndexRouteImport } from './routes/_app/
 import { Route as AppContabilidadCatalogoIdRouteImport } from './routes/_app/contabilidad/catalogo.$id';
 import { Route as AppContabilidadPolizasIndexRouteImport } from './routes/_app/contabilidad/polizas.index';
 import { Route as AppContabilidadPolizasIdRouteImport } from './routes/_app/contabilidad/polizas.$id';
+import { Route as AppContabilidadPolizasImportarNominaRouteImport } from './routes/_app/contabilidad/polizas.importar-nomina';
 import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/contabilidad/polizas.saldos';
+import { Route as AppContabilidadReportesAuditorRouteImport } from './routes/_app/contabilidad/reportes.auditor';
 import { Route as AppContabilidadReportesAuxiliarRouteImport } from './routes/_app/contabilidad/reportes.auxiliar';
+import { Route as AppContabilidadReportesBalanceGeneralRouteImport } from './routes/_app/contabilidad/reportes.balance-general';
 import { Route as AppContabilidadReportesBalanzaRouteImport } from './routes/_app/contabilidad/reportes.balanza';
-import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './routes/_app/contabilidad/reportes.cuenta-puente';
-import { Route as AppContabilidadReportesDiferenciasCambiariasRouteImport } from './routes/_app/contabilidad/reportes.diferencias-cambiarias';
 import { Route as AppContabilidadReportesConciliacionAuxiliaresRouteImport } from './routes/_app/contabilidad/reportes.conciliacion-auxiliares';
-import { Route as AppContabilidadReportesLiquidacionIvaRouteImport } from './routes/_app/contabilidad/reportes.liquidacion-iva';
+import { Route as AppContabilidadReportesContabilidadElectronicaRouteImport } from './routes/_app/contabilidad/reportes.contabilidad-electronica';
+import { Route as AppContabilidadReportesCuentaPuenteRouteImport } from './routes/_app/contabilidad/reportes.cuenta-puente';
 import { Route as AppContabilidadReportesDiarioRouteImport } from './routes/_app/contabilidad/reportes.diario';
+import { Route as AppContabilidadReportesDiferenciasCambiariasRouteImport } from './routes/_app/contabilidad/reportes.diferencias-cambiarias';
+import { Route as AppContabilidadReportesEstadoResultadosRouteImport } from './routes/_app/contabilidad/reportes.estado-resultados';
+import { Route as AppContabilidadReportesIntegracionRouteImport } from './routes/_app/contabilidad/reportes.integracion';
+import { Route as AppContabilidadReportesLiquidacionIvaRouteImport } from './routes/_app/contabilidad/reportes.liquidacion-iva';
 import { Route as AppContabilidadReportesMayorRouteImport } from './routes/_app/contabilidad/reportes.mayor';
 import { Route as AppCxcAlertasIndexRouteImport } from './routes/_app/cxc/alertas/index';
 import { Route as AppCxcAnticiposIndexRouteImport } from './routes/_app/cxc/anticipos/index';
@@ -167,6 +182,7 @@ import { Route as AppCxpReportesAntiguedadRouteImport } from './routes/_app/cxp/
 import { Route as AppCxpReportesAntiguedadAnticiposRouteImport } from './routes/_app/cxp/reportes.antiguedad-anticipos';
 import { Route as AppCxpReportesAuxiliarRouteImport } from './routes/_app/cxp/reportes.auxiliar';
 import { Route as AppCxpReportesCarteraRouteImport } from './routes/_app/cxp/reportes.cartera';
+import { Route as AppCxpReportesDiotRouteImport } from './routes/_app/cxp/reportes.diot';
 import { Route as AppCxpReportesPasivosObrasRouteImport } from './routes/_app/cxp/reportes.pasivos-obras';
 import { Route as AppCxpReportesTcRouteImport } from './routes/_app/cxp/reportes.tc';
 import { Route as AppCxpReportesTcPendientesRouteImport } from './routes/_app/cxp/reportes.tc-pendientes';
@@ -191,13 +207,14 @@ import { Route as AppFacturacionPedidosIndexRouteImport } from './routes/_app/fa
 import { Route as AppFacturacionPedidosIdRouteImport } from './routes/_app/facturacion/pedidos/$id';
 import { Route as AppFacturacionPedidosExcepcionesRouteImport } from './routes/_app/facturacion/pedidos/excepciones';
 import { Route as AppFacturacionReportesCierreDiaRouteImport } from './routes/_app/facturacion/reportes/cierre-dia';
-import { Route as AppFacturacionReportesConciliacionSatRouteImport } from './routes/_app/facturacion/reportes/conciliacion-sat';
 import { Route as AppFacturacionReportesComparativaAnticiposRouteImport } from './routes/_app/facturacion/reportes/comparativa-anticipos';
+import { Route as AppFacturacionReportesConciliacionSatRouteImport } from './routes/_app/facturacion/reportes/conciliacion-sat';
 import { Route as AppFacturacionReportesEstadosAnticiposRouteImport } from './routes/_app/facturacion/reportes/estados-anticipos';
 import { Route as AppFacturacionReportesLiquidacionCajaRouteImport } from './routes/_app/facturacion/reportes/liquidacion-caja';
 import { Route as AppFacturacionReppIndexRouteImport } from './routes/_app/facturacion/repp/index';
 import { Route as AppFacturacionReppIdRouteImport } from './routes/_app/facturacion/repp/$id';
 import { Route as AppFacturacionReppPendientesRouteImport } from './routes/_app/facturacion/repp/pendientes';
+import { Route as AppTesoreriaChequesIndexRouteImport } from './routes/_app/tesoreria/cheques/index';
 import { Route as AppTesoreriaConciliacionIndexRouteImport } from './routes/_app/tesoreria/conciliacion/index';
 import { Route as AppTesoreriaCorridasIndexRouteImport } from './routes/_app/tesoreria/corridas/index';
 import { Route as AppTesoreriaCorridasIdRouteImport } from './routes/_app/tesoreria/corridas/$id';
@@ -272,6 +289,12 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppActivosFijosAutorizacionesRoute =
+  AppActivosFijosAutorizacionesRouteImport.update({
+    id: '/activos-fijos/autorizaciones',
+    path: '/activos-fijos/autorizaciones',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppActivosFijosCargaInicialRoute =
   AppActivosFijosCargaInicialRouteImport.update({
     id: '/activos-fijos/carga-inicial',
@@ -281,11 +304,6 @@ const AppActivosFijosCargaInicialRoute =
 const AppActivosFijosClasesRoute = AppActivosFijosClasesRouteImport.update({
   id: '/activos-fijos/clases',
   path: '/activos-fijos/clases',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppActivosFijosAutorizacionesRoute = AppActivosFijosAutorizacionesRouteImport.update({
-  id: '/activos-fijos/autorizaciones',
-  path: '/activos-fijos/autorizaciones',
   getParentRoute: () => AppRoute,
 } as any);
 const AppActivosFijosConciliacionRoute =
@@ -380,12 +398,11 @@ const AppAlmacenConsumosRevisionRoute =
     path: '/almacen/consumos-revision',
     getParentRoute: () => AppRoute,
   } as any);
-const AppAlmacenMensajesAppRoute =
-  AppAlmacenMensajesAppRouteImport.update({
-    id: '/almacen/mensajes-app',
-    path: '/almacen/mensajes-app',
-    getParentRoute: () => AppRoute,
-  } as any);
+const AppAlmacenMensajesAppRoute = AppAlmacenMensajesAppRouteImport.update({
+  id: '/almacen/mensajes-app',
+  path: '/almacen/mensajes-app',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppAlmacenMermasRoute = AppAlmacenMermasRouteImport.update({
   id: '/almacen/mermas',
   path: '/almacen/mermas',
@@ -394,6 +411,11 @@ const AppAlmacenMermasRoute = AppAlmacenMermasRouteImport.update({
 const AppAlmacenNormasConsumoRoute = AppAlmacenNormasConsumoRouteImport.update({
   id: '/almacen/normas-consumo',
   path: '/almacen/normas-consumo',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAlmacenOrigenCapturaRoute = AppAlmacenOrigenCapturaRouteImport.update({
+  id: '/almacen/origen-captura',
+  path: '/almacen/origen-captura',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenReordenRoute = AppAlmacenReordenRouteImport.update({
@@ -430,6 +452,11 @@ const AppAlmacenSubAlmacenesRoute = AppAlmacenSubAlmacenesRouteImport.update({
 const AppAlmacenTallerRoute = AppAlmacenTallerRouteImport.update({
   id: '/almacen/taller',
   path: '/almacen/taller',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAlmacenTamboresLineaRoute = AppAlmacenTamboresLineaRouteImport.update({
+  id: '/almacen/tambores-linea',
+  path: '/almacen/tambores-linea',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenUbicacionesRoute = AppAlmacenUbicacionesRouteImport.update({
@@ -514,6 +541,17 @@ const AppContabilidadPeriodosRoute = AppContabilidadPeriodosRouteImport.update({
   path: '/contabilidad/periodos',
   getParentRoute: () => AppRoute,
 } as any);
+const AppContabilidadIncidenciasRoute = AppContabilidadIncidenciasRouteImport.update({
+  id: '/contabilidad/incidencias',
+  path: '/contabilidad/incidencias',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppContabilidadSaldosInicialesRoute =
+  AppContabilidadSaldosInicialesRouteImport.update({
+    id: '/contabilidad/saldos-iniciales',
+    path: '/contabilidad/saldos-iniciales',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCxcIndexRoute = AppCxcIndexRouteImport.update({
   id: '/cxc/',
   path: '/cxc/',
@@ -571,6 +609,22 @@ const AppFacturacionContingenciasRoute =
     path: '/facturacion/contingencias',
     getParentRoute: () => AppRoute,
   } as any);
+const AppIncidenciasIndexRoute = AppIncidenciasIndexRouteImport.update({
+  id: '/incidencias/',
+  path: '/incidencias/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppIncidenciasIdRoute = AppIncidenciasIdRouteImport.update({
+  id: '/incidencias/$id',
+  path: '/incidencias/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppProductoTerminadoCasosRoute =
+  AppProductoTerminadoCasosRouteImport.update({
+    id: '/producto-terminado/casos',
+    path: '/producto-terminado/casos',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppProductoTerminadoEntregasRoute =
   AppProductoTerminadoEntregasRouteImport.update({
     id: '/producto-terminado/entregas',
@@ -607,6 +661,12 @@ const AppProductoTerminadoSalidasRoute =
     path: '/producto-terminado/salidas',
     getParentRoute: () => AppRoute,
   } as any);
+const AppProductoTerminadoSolicitudesRoute =
+  AppProductoTerminadoSolicitudesRouteImport.update({
+    id: '/producto-terminado/solicitudes',
+    path: '/producto-terminado/solicitudes',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppProductoTerminadoTraspasosRoute =
   AppProductoTerminadoTraspasosRouteImport.update({
     id: '/producto-terminado/traspasos',
@@ -616,16 +676,6 @@ const AppProductoTerminadoTraspasosRoute =
 const AppSistemaDisenoIndexRoute = AppSistemaDisenoIndexRouteImport.update({
   id: '/sistema-diseno/',
   path: '/sistema-diseno/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppIncidenciasIndexRoute = AppIncidenciasIndexRouteImport.update({
-  id: '/incidencias/',
-  path: '/incidencias/',
-  getParentRoute: () => AppRoute,
-} as any);
-const AppIncidenciasIdRoute = AppIncidenciasIdRouteImport.update({
-  id: '/incidencias/$id',
-  path: '/incidencias/$id',
   getParentRoute: () => AppRoute,
 } as any);
 const AppTesoreriaIndexRoute = AppTesoreriaIndexRouteImport.update({
@@ -693,6 +743,12 @@ const AppAdminEmpresasIdRoute = AppAdminEmpresasIdRouteImport.update({
   path: '/admin/empresas/$id',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAdminIntegracionesTableroRoute =
+  AppAdminIntegracionesTableroRouteImport.update({
+    id: '/admin/integraciones/tablero',
+    path: '/admin/integraciones/tablero',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminParametrosIndexRoute = AppAdminParametrosIndexRouteImport.update({
   id: '/admin/parametros/',
   path: '/admin/parametros/',
@@ -726,6 +782,11 @@ const AppAdminSucursalesIndexRoute = AppAdminSucursalesIndexRouteImport.update({
 const AppAdminSucursalesIdRoute = AppAdminSucursalesIdRouteImport.update({
   id: '/admin/sucursales/$id',
   path: '/admin/sucursales/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAdminTramosIndexRoute = AppAdminTramosIndexRouteImport.update({
+  id: '/admin/tramos/',
+  path: '/admin/tramos/',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAdminUsuariosIndexRoute = AppAdminUsuariosIndexRouteImport.update({
@@ -777,6 +838,12 @@ const AppAlmacenReportesAlfakHistorialRoute =
     path: '/almacen/reportes/alfak-historial',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAlmacenReportesConsumoInsumosLineaRoute =
+  AppAlmacenReportesConsumoInsumosLineaRouteImport.update({
+    id: '/almacen/reportes/consumo-insumos-linea',
+    path: '/almacen/reportes/consumo-insumos-linea',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenReportesKardexRoute =
   AppAlmacenReportesKardexRouteImport.update({
     id: '/almacen/reportes/kardex',
@@ -822,6 +889,12 @@ const AppComprasAdminAprobadoresRoute =
     path: '/compras/admin/aprobadores',
     getParentRoute: () => AppRoute,
   } as any);
+const AppComprasIntegracionesAlmCompraRoute =
+  AppComprasIntegracionesAlmCompraRouteImport.update({
+    id: '/compras/integraciones/alm-compra',
+    path: '/compras/integraciones/alm-compra',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasOrdenesIndexRoute = AppComprasOrdenesIndexRouteImport.update({
   id: '/compras/ordenes/',
   path: '/compras/ordenes/',
@@ -855,12 +928,6 @@ const AppComprasPendientesIdRoute = AppComprasPendientesIdRouteImport.update({
   path: '/compras/pendientes/$id',
   getParentRoute: () => AppRoute,
 } as any);
-const AppComprasIntegracionesAlmCompraRoute =
-  AppComprasIntegracionesAlmCompraRouteImport.update({
-    id: '/compras/integraciones/alm-compra',
-    path: '/compras/integraciones/alm-compra',
-    getParentRoute: () => AppRoute,
-  } as any);
 const AppComprasReportesAnalisisProveedoresRoute =
   AppComprasReportesAnalisisProveedoresRouteImport.update({
     id: '/compras/reportes/analisis-proveedores',
@@ -903,10 +970,22 @@ const AppContabilidadPolizasIdRoute =
     path: '/contabilidad/polizas/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadPolizasImportarNominaRoute =
+  AppContabilidadPolizasImportarNominaRouteImport.update({
+    id: '/contabilidad/polizas/importar-nomina',
+    path: '/contabilidad/polizas/importar-nomina',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadPolizasSaldosRoute =
   AppContabilidadPolizasSaldosRouteImport.update({
     id: '/contabilidad/polizas/saldos',
     path: '/contabilidad/polizas/saldos',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesAuditorRoute =
+  AppContabilidadReportesAuditorRouteImport.update({
+    id: '/contabilidad/reportes/auditor',
+    path: '/contabilidad/reportes/auditor',
     getParentRoute: () => AppRoute,
   } as any);
 const AppContabilidadReportesAuxiliarRoute =
@@ -915,22 +994,16 @@ const AppContabilidadReportesAuxiliarRoute =
     path: '/contabilidad/reportes/auxiliar',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadReportesBalanceGeneralRoute =
+  AppContabilidadReportesBalanceGeneralRouteImport.update({
+    id: '/contabilidad/reportes/balance-general',
+    path: '/contabilidad/reportes/balance-general',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppContabilidadReportesBalanzaRoute =
   AppContabilidadReportesBalanzaRouteImport.update({
     id: '/contabilidad/reportes/balanza',
     path: '/contabilidad/reportes/balanza',
-    getParentRoute: () => AppRoute,
-  } as any);
-const AppContabilidadReportesCuentaPuenteRoute =
-  AppContabilidadReportesCuentaPuenteRouteImport.update({
-    id: '/contabilidad/reportes/cuenta-puente',
-    path: '/contabilidad/reportes/cuenta-puente',
-    getParentRoute: () => AppRoute,
-  } as any);
-const AppContabilidadReportesDiferenciasCambiariasRoute =
-  AppContabilidadReportesDiferenciasCambiariasRouteImport.update({
-    id: '/contabilidad/reportes/diferencias-cambiarias',
-    path: '/contabilidad/reportes/diferencias-cambiarias',
     getParentRoute: () => AppRoute,
   } as any);
 const AppContabilidadReportesConciliacionAuxiliaresRoute =
@@ -939,16 +1012,46 @@ const AppContabilidadReportesConciliacionAuxiliaresRoute =
     path: '/contabilidad/reportes/conciliacion-auxiliares',
     getParentRoute: () => AppRoute,
   } as any);
-const AppContabilidadReportesLiquidacionIvaRoute =
-  AppContabilidadReportesLiquidacionIvaRouteImport.update({
-    id: '/contabilidad/reportes/liquidacion-iva',
-    path: '/contabilidad/reportes/liquidacion-iva',
+const AppContabilidadReportesContabilidadElectronicaRoute =
+  AppContabilidadReportesContabilidadElectronicaRouteImport.update({
+    id: '/contabilidad/reportes/contabilidad-electronica',
+    path: '/contabilidad/reportes/contabilidad-electronica',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesCuentaPuenteRoute =
+  AppContabilidadReportesCuentaPuenteRouteImport.update({
+    id: '/contabilidad/reportes/cuenta-puente',
+    path: '/contabilidad/reportes/cuenta-puente',
     getParentRoute: () => AppRoute,
   } as any);
 const AppContabilidadReportesDiarioRoute =
   AppContabilidadReportesDiarioRouteImport.update({
     id: '/contabilidad/reportes/diario',
     path: '/contabilidad/reportes/diario',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesDiferenciasCambiariasRoute =
+  AppContabilidadReportesDiferenciasCambiariasRouteImport.update({
+    id: '/contabilidad/reportes/diferencias-cambiarias',
+    path: '/contabilidad/reportes/diferencias-cambiarias',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesEstadoResultadosRoute =
+  AppContabilidadReportesEstadoResultadosRouteImport.update({
+    id: '/contabilidad/reportes/estado-resultados',
+    path: '/contabilidad/reportes/estado-resultados',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesIntegracionRoute =
+  AppContabilidadReportesIntegracionRouteImport.update({
+    id: '/contabilidad/reportes/integracion',
+    path: '/contabilidad/reportes/integracion',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadReportesLiquidacionIvaRoute =
+  AppContabilidadReportesLiquidacionIvaRouteImport.update({
+    id: '/contabilidad/reportes/liquidacion-iva',
+    path: '/contabilidad/reportes/liquidacion-iva',
     getParentRoute: () => AppRoute,
   } as any);
 const AppContabilidadReportesMayorRoute =
@@ -1108,6 +1211,11 @@ const AppCxpReportesCarteraRoute = AppCxpReportesCarteraRouteImport.update({
   path: '/cxp/reportes/cartera',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxpReportesDiotRoute = AppCxpReportesDiotRouteImport.update({
+  id: '/cxp/reportes/diot',
+  path: '/cxp/reportes/diot',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppCxpReportesPasivosObrasRoute =
   AppCxpReportesPasivosObrasRouteImport.update({
     id: '/cxp/reportes/pasivos-obras',
@@ -1243,16 +1351,16 @@ const AppFacturacionReportesCierreDiaRoute =
     path: '/facturacion/reportes/cierre-dia',
     getParentRoute: () => AppRoute,
   } as any);
-const AppFacturacionReportesConciliacionSatRoute =
-  AppFacturacionReportesConciliacionSatRouteImport.update({
-    id: '/facturacion/reportes/conciliacion-sat',
-    path: '/facturacion/reportes/conciliacion-sat',
-    getParentRoute: () => AppRoute,
-  } as any);
 const AppFacturacionReportesComparativaAnticiposRoute =
   AppFacturacionReportesComparativaAnticiposRouteImport.update({
     id: '/facturacion/reportes/comparativa-anticipos',
     path: '/facturacion/reportes/comparativa-anticipos',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionReportesConciliacionSatRoute =
+  AppFacturacionReportesConciliacionSatRouteImport.update({
+    id: '/facturacion/reportes/conciliacion-sat',
+    path: '/facturacion/reportes/conciliacion-sat',
     getParentRoute: () => AppRoute,
   } as any);
 const AppFacturacionReportesEstadosAnticiposRoute =
@@ -1281,6 +1389,12 @@ const AppFacturacionReppPendientesRoute =
   AppFacturacionReppPendientesRouteImport.update({
     id: '/facturacion/repp/pendientes',
     path: '/facturacion/repp/pendientes',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaChequesIndexRoute =
+  AppTesoreriaChequesIndexRouteImport.update({
+    id: '/tesoreria/cheques/',
+    path: '/tesoreria/cheques/',
     getParentRoute: () => AppRoute,
   } as any);
 const AppTesoreriaConciliacionIndexRoute =
@@ -1609,9 +1723,9 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute;
   '/login': typeof LoginRoute;
   '/portal-proveedores': typeof PortalProveedoresRoute;
+  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
-  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -1630,6 +1744,7 @@ export interface FileRoutesByFullPath {
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -1637,6 +1752,7 @@ export interface FileRoutesByFullPath {
   '/almacen/salidas-rotura': typeof AppAlmacenSalidasRoturaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
   '/almacen/taller': typeof AppAlmacenTallerRoute;
+  '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -1650,6 +1766,8 @@ export interface FileRoutesByFullPath {
   '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
+  '/contabilidad/incidencias': typeof AppContabilidadIncidenciasRoute;
+  '/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
   '/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
@@ -1658,12 +1776,15 @@ export interface FileRoutesByFullPath {
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/facturacion/contingencias': typeof AppFacturacionContingenciasRoute;
+  '/incidencias/$id': typeof AppIncidenciasIdRoute;
+  '/producto-terminado/casos': typeof AppProductoTerminadoCasosRoute;
   '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
+  '/producto-terminado/solicitudes': typeof AppProductoTerminadoSolicitudesRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
   '/admin/': typeof AppAdminIndexRoute;
   '/almacen/': typeof AppAlmacenIndexRoute;
@@ -1672,43 +1793,50 @@ export interface FileRoutesByFullPath {
   '/cxc/': typeof AppCxcIndexRoute;
   '/cxp/': typeof AppCxpIndexRoute;
   '/facturacion/': typeof AppFacturacionIndexRoute;
-  '/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
   '/incidencias/': typeof AppIncidenciasIndexRoute;
-  '/incidencias/$id': typeof AppIncidenciasIdRoute;
+  '/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
   '/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
   '/admin/empleados/$id': typeof AppAdminEmpleadosIdRoute;
   '/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
+  '/admin/integraciones/tablero': typeof AppAdminIntegracionesTableroRoute;
   '/admin/roles/$id': typeof AppAdminRolesIdRoute;
   '/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
   '/admin/usuarios/$id': typeof AppAdminUsuariosIdRoute;
   '/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
+  '/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
+  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
-  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/contabilidad/polizas/importar-nomina': typeof AppContabilidadPolizasImportarNominaRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
+  '/contabilidad/reportes/auditor': typeof AppContabilidadReportesAuditorRoute;
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
+  '/contabilidad/reportes/balance-general': typeof AppContabilidadReportesBalanceGeneralRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
-  '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
-  '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
-  '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
+  '/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
   '/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
+  '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
+  '/contabilidad/reportes/estado-resultados': typeof AppContabilidadReportesEstadoResultadosRoute;
+  '/contabilidad/reportes/integracion': typeof AppContabilidadReportesIntegracionRoute;
+  '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
   '/contabilidad/reportes/mayor': typeof AppContabilidadReportesMayorRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
@@ -1724,6 +1852,7 @@ export interface FileRoutesByFullPath {
   '/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
   '/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
+  '/cxp/reportes/diot': typeof AppCxpReportesDiotRoute;
   '/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
   '/cxp/reportes/tc-pendientes': typeof AppCxpReportesTcPendientesRoute;
@@ -1739,8 +1868,8 @@ export interface FileRoutesByFullPath {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
-  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
+  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
@@ -1763,6 +1892,7 @@ export interface FileRoutesByFullPath {
   '/admin/roles/': typeof AppAdminRolesIndexRoute;
   '/admin/series/': typeof AppAdminSeriesIndexRoute;
   '/admin/sucursales/': typeof AppAdminSucursalesIndexRoute;
+  '/admin/tramos/': typeof AppAdminTramosIndexRoute;
   '/admin/usuarios/': typeof AppAdminUsuariosIndexRoute;
   '/almacen/devoluciones/': typeof AppAlmacenDevolucionesIndexRoute;
   '/almacen/inventarios/': typeof AppAlmacenInventariosIndexRoute;
@@ -1800,6 +1930,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/notas-credito/': typeof AppFacturacionNotasCreditoIndexRoute;
   '/facturacion/pedidos/': typeof AppFacturacionPedidosIndexRoute;
   '/facturacion/repp/': typeof AppFacturacionReppIndexRoute;
+  '/tesoreria/cheques/': typeof AppTesoreriaChequesIndexRoute;
   '/tesoreria/conciliacion/': typeof AppTesoreriaConciliacionIndexRoute;
   '/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
   '/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
@@ -1853,9 +1984,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute;
   '/portal-proveedores': typeof PortalProveedoresRoute;
   '/': typeof AppIndexRoute;
+  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
-  '/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -1874,6 +2005,7 @@ export interface FileRoutesByTo {
   '/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
   '/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
+  '/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -1881,6 +2013,7 @@ export interface FileRoutesByTo {
   '/almacen/salidas-rotura': typeof AppAlmacenSalidasRoturaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
   '/almacen/taller': typeof AppAlmacenTallerRoute;
+  '/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -1894,6 +2027,8 @@ export interface FileRoutesByTo {
   '/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
+  '/contabilidad/incidencias': typeof AppContabilidadIncidenciasRoute;
+  '/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
   '/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
@@ -1902,12 +2037,15 @@ export interface FileRoutesByTo {
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/facturacion/contingencias': typeof AppFacturacionContingenciasRoute;
+  '/incidencias/$id': typeof AppIncidenciasIdRoute;
+  '/producto-terminado/casos': typeof AppProductoTerminadoCasosRoute;
   '/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
+  '/producto-terminado/solicitudes': typeof AppProductoTerminadoSolicitudesRoute;
   '/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
   '/admin': typeof AppAdminIndexRoute;
   '/almacen': typeof AppAlmacenIndexRoute;
@@ -1916,43 +2054,50 @@ export interface FileRoutesByTo {
   '/cxc': typeof AppCxcIndexRoute;
   '/cxp': typeof AppCxpIndexRoute;
   '/facturacion': typeof AppFacturacionIndexRoute;
-  '/sistema-diseno': typeof AppSistemaDisenoIndexRoute;
   '/incidencias': typeof AppIncidenciasIndexRoute;
-  '/incidencias/$id': typeof AppIncidenciasIdRoute;
+  '/sistema-diseno': typeof AppSistemaDisenoIndexRoute;
   '/tesoreria': typeof AppTesoreriaIndexRoute;
   '/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
   '/admin/empleados/$id': typeof AppAdminEmpleadosIdRoute;
   '/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
+  '/admin/integraciones/tablero': typeof AppAdminIntegracionesTableroRoute;
   '/admin/roles/$id': typeof AppAdminRolesIdRoute;
   '/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
   '/admin/usuarios/$id': typeof AppAdminUsuariosIdRoute;
   '/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
+  '/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
+  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
-  '/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/contabilidad/polizas/importar-nomina': typeof AppContabilidadPolizasImportarNominaRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
+  '/contabilidad/reportes/auditor': typeof AppContabilidadReportesAuditorRoute;
   '/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
+  '/contabilidad/reportes/balance-general': typeof AppContabilidadReportesBalanceGeneralRoute;
   '/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
-  '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
-  '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
-  '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
+  '/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  '/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
   '/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
+  '/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
+  '/contabilidad/reportes/estado-resultados': typeof AppContabilidadReportesEstadoResultadosRoute;
+  '/contabilidad/reportes/integracion': typeof AppContabilidadReportesIntegracionRoute;
+  '/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
   '/contabilidad/reportes/mayor': typeof AppContabilidadReportesMayorRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
@@ -1968,6 +2113,7 @@ export interface FileRoutesByTo {
   '/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
   '/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
+  '/cxp/reportes/diot': typeof AppCxpReportesDiotRoute;
   '/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
   '/cxp/reportes/tc-pendientes': typeof AppCxpReportesTcPendientesRoute;
@@ -1983,8 +2129,8 @@ export interface FileRoutesByTo {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
-  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
+  '/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
@@ -2007,6 +2153,7 @@ export interface FileRoutesByTo {
   '/admin/roles': typeof AppAdminRolesIndexRoute;
   '/admin/series': typeof AppAdminSeriesIndexRoute;
   '/admin/sucursales': typeof AppAdminSucursalesIndexRoute;
+  '/admin/tramos': typeof AppAdminTramosIndexRoute;
   '/admin/usuarios': typeof AppAdminUsuariosIndexRoute;
   '/almacen/devoluciones': typeof AppAlmacenDevolucionesIndexRoute;
   '/almacen/inventarios': typeof AppAlmacenInventariosIndexRoute;
@@ -2044,6 +2191,7 @@ export interface FileRoutesByTo {
   '/facturacion/notas-credito': typeof AppFacturacionNotasCreditoIndexRoute;
   '/facturacion/pedidos': typeof AppFacturacionPedidosIndexRoute;
   '/facturacion/repp': typeof AppFacturacionReppIndexRoute;
+  '/tesoreria/cheques': typeof AppTesoreriaChequesIndexRoute;
   '/tesoreria/conciliacion': typeof AppTesoreriaConciliacionIndexRoute;
   '/tesoreria/corridas': typeof AppTesoreriaCorridasIndexRoute;
   '/tesoreria/cuentas': typeof AppTesoreriaCuentasIndexRoute;
@@ -2099,9 +2247,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute;
   '/portal-proveedores': typeof PortalProveedoresRoute;
   '/_app/': typeof AppIndexRoute;
+  '/_app/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/_app/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/_app/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
-  '/_app/activos-fijos/autorizaciones': typeof AppActivosFijosAutorizacionesRoute;
   '/_app/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
   '/_app/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
   '/_app/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
@@ -2120,6 +2268,7 @@ export interface FileRoutesById {
   '/_app/almacen/mensajes-app': typeof AppAlmacenMensajesAppRoute;
   '/_app/almacen/mermas': typeof AppAlmacenMermasRoute;
   '/_app/almacen/normas-consumo': typeof AppAlmacenNormasConsumoRoute;
+  '/_app/almacen/origen-captura': typeof AppAlmacenOrigenCapturaRoute;
   '/_app/almacen/reorden': typeof AppAlmacenReordenRoute;
   '/_app/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/_app/almacen/saldos': typeof AppAlmacenSaldosRoute;
@@ -2127,6 +2276,7 @@ export interface FileRoutesById {
   '/_app/almacen/salidas-rotura': typeof AppAlmacenSalidasRoturaRoute;
   '/_app/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
   '/_app/almacen/taller': typeof AppAlmacenTallerRoute;
+  '/_app/almacen/tambores-linea': typeof AppAlmacenTamboresLineaRoute;
   '/_app/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/_app/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/_app/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
@@ -2140,6 +2290,8 @@ export interface FileRoutesById {
   '/_app/contabilidad/motor': typeof AppContabilidadMotorRoute;
   '/_app/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
+  '/_app/contabilidad/incidencias': typeof AppContabilidadIncidenciasRoute;
+  '/_app/contabilidad/saldos-iniciales': typeof AppContabilidadSaldosInicialesRoute;
   '/_app/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/_app/cxp/cfdis': typeof AppCxpCfdisRoute;
   '/_app/cxp/revaluacion': typeof AppCxpRevaluacionRoute;
@@ -2148,12 +2300,15 @@ export interface FileRoutesById {
   '/_app/facturacion/caja': typeof AppFacturacionCajaRoute;
   '/_app/facturacion/cancelaciones': typeof AppFacturacionCancelacionesRoute;
   '/_app/facturacion/contingencias': typeof AppFacturacionContingenciasRoute;
+  '/_app/incidencias/$id': typeof AppIncidenciasIdRoute;
+  '/_app/producto-terminado/casos': typeof AppProductoTerminadoCasosRoute;
   '/_app/producto-terminado/entregas': typeof AppProductoTerminadoEntregasRoute;
   '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/_app/producto-terminado/hojas-salida': typeof AppProductoTerminadoHojasSalidaRoute;
   '/_app/producto-terminado/liquidacion': typeof AppProductoTerminadoLiquidacionRoute;
   '/_app/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/_app/producto-terminado/salidas': typeof AppProductoTerminadoSalidasRoute;
+  '/_app/producto-terminado/solicitudes': typeof AppProductoTerminadoSolicitudesRoute;
   '/_app/producto-terminado/traspasos': typeof AppProductoTerminadoTraspasosRoute;
   '/_app/admin/': typeof AppAdminIndexRoute;
   '/_app/almacen/': typeof AppAlmacenIndexRoute;
@@ -2162,43 +2317,50 @@ export interface FileRoutesById {
   '/_app/cxc/': typeof AppCxcIndexRoute;
   '/_app/cxp/': typeof AppCxpIndexRoute;
   '/_app/facturacion/': typeof AppFacturacionIndexRoute;
-  '/_app/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
   '/_app/incidencias/': typeof AppIncidenciasIndexRoute;
-  '/_app/incidencias/$id': typeof AppIncidenciasIdRoute;
+  '/_app/sistema-diseno/': typeof AppSistemaDisenoIndexRoute;
   '/_app/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/_app/activos-fijos/activos/$id': typeof AppActivosFijosActivosIdRoute;
   '/_app/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
   '/_app/admin/empleados/$id': typeof AppAdminEmpleadosIdRoute;
   '/_app/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
+  '/_app/admin/integraciones/tablero': typeof AppAdminIntegracionesTableroRoute;
   '/_app/admin/roles/$id': typeof AppAdminRolesIdRoute;
   '/_app/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
   '/_app/admin/usuarios/$id': typeof AppAdminUsuariosIdRoute;
   '/_app/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/_app/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
   '/_app/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
+  '/_app/almacen/reportes/consumo-insumos-linea': typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   '/_app/almacen/reportes/kardex': typeof AppAlmacenReportesKardexRoute;
   '/_app/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/_app/almacen/reportes/trazabilidad-mp': typeof AppAlmacenReportesTrazabilidadMpRoute;
   '/_app/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
   '/_app/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/_app/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
+  '/_app/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/_app/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/_app/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
   '/_app/compras/ordenes/pendientes-autorizacion': typeof AppComprasOrdenesPendientesAutorizacionRoute;
   '/_app/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
-  '/_app/compras/integraciones/alm-compra': typeof AppComprasIntegracionesAlmCompraRoute;
   '/_app/compras/reportes/analisis-proveedores': typeof AppComprasReportesAnalisisProveedoresRoute;
   '/_app/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/_app/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/_app/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/_app/contabilidad/polizas/importar-nomina': typeof AppContabilidadPolizasImportarNominaRoute;
   '/_app/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
+  '/_app/contabilidad/reportes/auditor': typeof AppContabilidadReportesAuditorRoute;
   '/_app/contabilidad/reportes/auxiliar': typeof AppContabilidadReportesAuxiliarRoute;
+  '/_app/contabilidad/reportes/balance-general': typeof AppContabilidadReportesBalanceGeneralRoute;
   '/_app/contabilidad/reportes/balanza': typeof AppContabilidadReportesBalanzaRoute;
-  '/_app/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
-  '/_app/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   '/_app/contabilidad/reportes/conciliacion-auxiliares': typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
-  '/_app/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
+  '/_app/contabilidad/reportes/contabilidad-electronica': typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  '/_app/contabilidad/reportes/cuenta-puente': typeof AppContabilidadReportesCuentaPuenteRoute;
   '/_app/contabilidad/reportes/diario': typeof AppContabilidadReportesDiarioRoute;
+  '/_app/contabilidad/reportes/diferencias-cambiarias': typeof AppContabilidadReportesDiferenciasCambiariasRoute;
+  '/_app/contabilidad/reportes/estado-resultados': typeof AppContabilidadReportesEstadoResultadosRoute;
+  '/_app/contabilidad/reportes/integracion': typeof AppContabilidadReportesIntegracionRoute;
+  '/_app/contabilidad/reportes/liquidacion-iva': typeof AppContabilidadReportesLiquidacionIvaRoute;
   '/_app/contabilidad/reportes/mayor': typeof AppContabilidadReportesMayorRoute;
   '/_app/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/_app/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
@@ -2214,6 +2376,7 @@ export interface FileRoutesById {
   '/_app/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
   '/_app/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/_app/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
+  '/_app/cxp/reportes/diot': typeof AppCxpReportesDiotRoute;
   '/_app/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/_app/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
   '/_app/cxp/reportes/tc-pendientes': typeof AppCxpReportesTcPendientesRoute;
@@ -2229,8 +2392,8 @@ export interface FileRoutesById {
   '/_app/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/_app/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/_app/facturacion/reportes/cierre-dia': typeof AppFacturacionReportesCierreDiaRoute;
-  '/_app/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/_app/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
+  '/_app/facturacion/reportes/conciliacion-sat': typeof AppFacturacionReportesConciliacionSatRoute;
   '/_app/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/_app/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
@@ -2253,6 +2416,7 @@ export interface FileRoutesById {
   '/_app/admin/roles/': typeof AppAdminRolesIndexRoute;
   '/_app/admin/series/': typeof AppAdminSeriesIndexRoute;
   '/_app/admin/sucursales/': typeof AppAdminSucursalesIndexRoute;
+  '/_app/admin/tramos/': typeof AppAdminTramosIndexRoute;
   '/_app/admin/usuarios/': typeof AppAdminUsuariosIndexRoute;
   '/_app/almacen/devoluciones/': typeof AppAlmacenDevolucionesIndexRoute;
   '/_app/almacen/inventarios/': typeof AppAlmacenInventariosIndexRoute;
@@ -2290,6 +2454,7 @@ export interface FileRoutesById {
   '/_app/facturacion/notas-credito/': typeof AppFacturacionNotasCreditoIndexRoute;
   '/_app/facturacion/pedidos/': typeof AppFacturacionPedidosIndexRoute;
   '/_app/facturacion/repp/': typeof AppFacturacionReppIndexRoute;
+  '/_app/tesoreria/cheques/': typeof AppTesoreriaChequesIndexRoute;
   '/_app/tesoreria/conciliacion/': typeof AppTesoreriaConciliacionIndexRoute;
   '/_app/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
   '/_app/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
@@ -2345,9 +2510,9 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/portal-proveedores'
+    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
-    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/conciliacion'
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
@@ -2366,6 +2531,7 @@ export interface FileRouteTypes {
     | '/almacen/mensajes-app'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
+    | '/almacen/origen-captura'
     | '/almacen/reorden'
     | '/almacen/revision'
     | '/almacen/saldos'
@@ -2373,6 +2539,7 @@ export interface FileRouteTypes {
     | '/almacen/salidas-rotura'
     | '/almacen/sub-almacenes'
     | '/almacen/taller'
+    | '/almacen/tambores-linea'
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
@@ -2386,6 +2553,8 @@ export interface FileRouteTypes {
     | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
+    | '/contabilidad/incidencias'
+    | '/contabilidad/saldos-iniciales'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
     | '/cxp/revaluacion'
@@ -2394,12 +2563,15 @@ export interface FileRouteTypes {
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
     | '/facturacion/contingencias'
+    | '/incidencias/$id'
+    | '/producto-terminado/casos'
     | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
     | '/producto-terminado/liquidacion'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
+    | '/producto-terminado/solicitudes'
     | '/producto-terminado/traspasos'
     | '/admin/'
     | '/almacen/'
@@ -2408,43 +2580,50 @@ export interface FileRouteTypes {
     | '/cxc/'
     | '/cxp/'
     | '/facturacion/'
-    | '/sistema-diseno/'
     | '/incidencias/'
-    | '/incidencias/$id'
+    | '/sistema-diseno/'
     | '/tesoreria/'
     | '/activos-fijos/activos/$id'
     | '/admin/$modulo/settings'
     | '/admin/empleados/$id'
     | '/admin/empresas/$id'
+    | '/admin/integraciones/tablero'
     | '/admin/roles/$id'
     | '/admin/sucursales/$id'
     | '/admin/usuarios/$id'
     | '/almacen/inventarios/$id'
     | '/almacen/recepciones/$id'
     | '/almacen/reportes/alfak-historial'
+    | '/almacen/reportes/consumo-insumos-linea'
     | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
+    | '/compras/integraciones/alm-compra'
     | '/compras/ordenes/$id'
     | '/compras/ordenes/partidas-abiertas'
     | '/compras/ordenes/pendientes-autorizacion'
     | '/compras/pendientes/$id'
-    | '/compras/integraciones/alm-compra'
     | '/compras/reportes/analisis-proveedores'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
     | '/contabilidad/polizas/$id'
+    | '/contabilidad/polizas/importar-nomina'
     | '/contabilidad/polizas/saldos'
+    | '/contabilidad/reportes/auditor'
     | '/contabilidad/reportes/auxiliar'
+    | '/contabilidad/reportes/balance-general'
     | '/contabilidad/reportes/balanza'
-    | '/contabilidad/reportes/cuenta-puente'
-    | '/contabilidad/reportes/diferencias-cambiarias'
     | '/contabilidad/reportes/conciliacion-auxiliares'
-    | '/contabilidad/reportes/liquidacion-iva'
+    | '/contabilidad/reportes/contabilidad-electronica'
+    | '/contabilidad/reportes/cuenta-puente'
     | '/contabilidad/reportes/diario'
+    | '/contabilidad/reportes/diferencias-cambiarias'
+    | '/contabilidad/reportes/estado-resultados'
+    | '/contabilidad/reportes/integracion'
+    | '/contabilidad/reportes/liquidacion-iva'
     | '/contabilidad/reportes/mayor'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
@@ -2460,6 +2639,7 @@ export interface FileRouteTypes {
     | '/cxp/reportes/antiguedad-anticipos'
     | '/cxp/reportes/auxiliar'
     | '/cxp/reportes/cartera'
+    | '/cxp/reportes/diot'
     | '/cxp/reportes/pasivos-obras'
     | '/cxp/reportes/tc'
     | '/cxp/reportes/tc-pendientes'
@@ -2475,8 +2655,8 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/cierre-dia'
-    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/comparativa-anticipos'
+    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
@@ -2499,6 +2679,7 @@ export interface FileRouteTypes {
     | '/admin/roles/'
     | '/admin/series/'
     | '/admin/sucursales/'
+    | '/admin/tramos/'
     | '/admin/usuarios/'
     | '/almacen/devoluciones/'
     | '/almacen/inventarios/'
@@ -2536,6 +2717,7 @@ export interface FileRouteTypes {
     | '/facturacion/notas-credito/'
     | '/facturacion/pedidos/'
     | '/facturacion/repp/'
+    | '/tesoreria/cheques/'
     | '/tesoreria/conciliacion/'
     | '/tesoreria/corridas/'
     | '/tesoreria/cuentas/'
@@ -2589,9 +2771,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/portal-proveedores'
     | '/'
+    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
-    | '/activos-fijos/autorizaciones'
     | '/activos-fijos/conciliacion'
     | '/activos-fijos/configuracion-libro'
     | '/activos-fijos/conteos'
@@ -2610,6 +2792,7 @@ export interface FileRouteTypes {
     | '/almacen/mensajes-app'
     | '/almacen/mermas'
     | '/almacen/normas-consumo'
+    | '/almacen/origen-captura'
     | '/almacen/reorden'
     | '/almacen/revision'
     | '/almacen/saldos'
@@ -2617,6 +2800,7 @@ export interface FileRouteTypes {
     | '/almacen/salidas-rotura'
     | '/almacen/sub-almacenes'
     | '/almacen/taller'
+    | '/almacen/tambores-linea'
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
@@ -2630,6 +2814,8 @@ export interface FileRouteTypes {
     | '/contabilidad/motor'
     | '/contabilidad/movimientos-prueba'
     | '/contabilidad/periodos'
+    | '/contabilidad/incidencias'
+    | '/contabilidad/saldos-iniciales'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
     | '/cxp/revaluacion'
@@ -2638,12 +2824,15 @@ export interface FileRouteTypes {
     | '/facturacion/caja'
     | '/facturacion/cancelaciones'
     | '/facturacion/contingencias'
+    | '/incidencias/$id'
+    | '/producto-terminado/casos'
     | '/producto-terminado/entregas'
     | '/producto-terminado/excepciones'
     | '/producto-terminado/hojas-salida'
     | '/producto-terminado/liquidacion'
     | '/producto-terminado/piezas'
     | '/producto-terminado/salidas'
+    | '/producto-terminado/solicitudes'
     | '/producto-terminado/traspasos'
     | '/admin'
     | '/almacen'
@@ -2652,43 +2841,50 @@ export interface FileRouteTypes {
     | '/cxc'
     | '/cxp'
     | '/facturacion'
-    | '/sistema-diseno'
     | '/incidencias'
-    | '/incidencias/$id'
+    | '/sistema-diseno'
     | '/tesoreria'
     | '/activos-fijos/activos/$id'
     | '/admin/$modulo/settings'
     | '/admin/empleados/$id'
     | '/admin/empresas/$id'
+    | '/admin/integraciones/tablero'
     | '/admin/roles/$id'
     | '/admin/sucursales/$id'
     | '/admin/usuarios/$id'
     | '/almacen/inventarios/$id'
     | '/almacen/recepciones/$id'
     | '/almacen/reportes/alfak-historial'
+    | '/almacen/reportes/consumo-insumos-linea'
     | '/almacen/reportes/kardex'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/reportes/trazabilidad-mp'
     | '/almacen/salidas/$id'
     | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
+    | '/compras/integraciones/alm-compra'
     | '/compras/ordenes/$id'
     | '/compras/ordenes/partidas-abiertas'
     | '/compras/ordenes/pendientes-autorizacion'
     | '/compras/pendientes/$id'
-    | '/compras/integraciones/alm-compra'
     | '/compras/reportes/analisis-proveedores'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
     | '/contabilidad/polizas/$id'
+    | '/contabilidad/polizas/importar-nomina'
     | '/contabilidad/polizas/saldos'
+    | '/contabilidad/reportes/auditor'
     | '/contabilidad/reportes/auxiliar'
+    | '/contabilidad/reportes/balance-general'
     | '/contabilidad/reportes/balanza'
-    | '/contabilidad/reportes/cuenta-puente'
-    | '/contabilidad/reportes/diferencias-cambiarias'
     | '/contabilidad/reportes/conciliacion-auxiliares'
-    | '/contabilidad/reportes/liquidacion-iva'
+    | '/contabilidad/reportes/contabilidad-electronica'
+    | '/contabilidad/reportes/cuenta-puente'
     | '/contabilidad/reportes/diario'
+    | '/contabilidad/reportes/diferencias-cambiarias'
+    | '/contabilidad/reportes/estado-resultados'
+    | '/contabilidad/reportes/integracion'
+    | '/contabilidad/reportes/liquidacion-iva'
     | '/contabilidad/reportes/mayor'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
@@ -2704,6 +2900,7 @@ export interface FileRouteTypes {
     | '/cxp/reportes/antiguedad-anticipos'
     | '/cxp/reportes/auxiliar'
     | '/cxp/reportes/cartera'
+    | '/cxp/reportes/diot'
     | '/cxp/reportes/pasivos-obras'
     | '/cxp/reportes/tc'
     | '/cxp/reportes/tc-pendientes'
@@ -2719,8 +2916,8 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/cierre-dia'
-    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/comparativa-anticipos'
+    | '/facturacion/reportes/conciliacion-sat'
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
@@ -2743,6 +2940,7 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/series'
     | '/admin/sucursales'
+    | '/admin/tramos'
     | '/admin/usuarios'
     | '/almacen/devoluciones'
     | '/almacen/inventarios'
@@ -2780,6 +2978,7 @@ export interface FileRouteTypes {
     | '/facturacion/notas-credito'
     | '/facturacion/pedidos'
     | '/facturacion/repp'
+    | '/tesoreria/cheques'
     | '/tesoreria/conciliacion'
     | '/tesoreria/corridas'
     | '/tesoreria/cuentas'
@@ -2834,9 +3033,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/portal-proveedores'
     | '/_app/'
+    | '/_app/activos-fijos/autorizaciones'
     | '/_app/activos-fijos/carga-inicial'
     | '/_app/activos-fijos/clases'
-    | '/_app/activos-fijos/autorizaciones'
     | '/_app/activos-fijos/conciliacion'
     | '/_app/activos-fijos/configuracion-libro'
     | '/_app/activos-fijos/conteos'
@@ -2855,6 +3054,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/mensajes-app'
     | '/_app/almacen/mermas'
     | '/_app/almacen/normas-consumo'
+    | '/_app/almacen/origen-captura'
     | '/_app/almacen/reorden'
     | '/_app/almacen/revision'
     | '/_app/almacen/saldos'
@@ -2862,6 +3062,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/salidas-rotura'
     | '/_app/almacen/sub-almacenes'
     | '/_app/almacen/taller'
+    | '/_app/almacen/tambores-linea'
     | '/_app/almacen/ubicaciones'
     | '/_app/centros-costo/asignaciones'
     | '/_app/centros-costo/configuracion'
@@ -2875,6 +3076,8 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/motor'
     | '/_app/contabilidad/movimientos-prueba'
     | '/_app/contabilidad/periodos'
+    | '/_app/contabilidad/incidencias'
+    | '/_app/contabilidad/saldos-iniciales'
     | '/_app/cxp/anticipos'
     | '/_app/cxp/cfdis'
     | '/_app/cxp/revaluacion'
@@ -2883,12 +3086,15 @@ export interface FileRouteTypes {
     | '/_app/facturacion/caja'
     | '/_app/facturacion/cancelaciones'
     | '/_app/facturacion/contingencias'
+    | '/_app/incidencias/$id'
+    | '/_app/producto-terminado/casos'
     | '/_app/producto-terminado/entregas'
     | '/_app/producto-terminado/excepciones'
     | '/_app/producto-terminado/hojas-salida'
     | '/_app/producto-terminado/liquidacion'
     | '/_app/producto-terminado/piezas'
     | '/_app/producto-terminado/salidas'
+    | '/_app/producto-terminado/solicitudes'
     | '/_app/producto-terminado/traspasos'
     | '/_app/admin/'
     | '/_app/almacen/'
@@ -2897,43 +3103,50 @@ export interface FileRouteTypes {
     | '/_app/cxc/'
     | '/_app/cxp/'
     | '/_app/facturacion/'
-    | '/_app/sistema-diseno/'
     | '/_app/incidencias/'
-    | '/_app/incidencias/$id'
+    | '/_app/sistema-diseno/'
     | '/_app/tesoreria/'
     | '/_app/activos-fijos/activos/$id'
     | '/_app/admin/$modulo/settings'
     | '/_app/admin/empleados/$id'
     | '/_app/admin/empresas/$id'
+    | '/_app/admin/integraciones/tablero'
     | '/_app/admin/roles/$id'
     | '/_app/admin/sucursales/$id'
     | '/_app/admin/usuarios/$id'
     | '/_app/almacen/inventarios/$id'
     | '/_app/almacen/recepciones/$id'
     | '/_app/almacen/reportes/alfak-historial'
+    | '/_app/almacen/reportes/consumo-insumos-linea'
     | '/_app/almacen/reportes/kardex'
     | '/_app/almacen/reportes/mp-cnk'
     | '/_app/almacen/reportes/trazabilidad-mp'
     | '/_app/almacen/salidas/$id'
     | '/_app/comercio-exterior/expedientes/$id'
     | '/_app/compras/admin/aprobadores'
+    | '/_app/compras/integraciones/alm-compra'
     | '/_app/compras/ordenes/$id'
     | '/_app/compras/ordenes/partidas-abiertas'
     | '/_app/compras/ordenes/pendientes-autorizacion'
     | '/_app/compras/pendientes/$id'
-    | '/_app/compras/integraciones/alm-compra'
     | '/_app/compras/reportes/analisis-proveedores'
     | '/_app/compras/requisiciones/$id'
     | '/_app/contabilidad/catalogo/$id'
     | '/_app/contabilidad/polizas/$id'
+    | '/_app/contabilidad/polizas/importar-nomina'
     | '/_app/contabilidad/polizas/saldos'
+    | '/_app/contabilidad/reportes/auditor'
     | '/_app/contabilidad/reportes/auxiliar'
+    | '/_app/contabilidad/reportes/balance-general'
     | '/_app/contabilidad/reportes/balanza'
-    | '/_app/contabilidad/reportes/cuenta-puente'
-    | '/_app/contabilidad/reportes/diferencias-cambiarias'
     | '/_app/contabilidad/reportes/conciliacion-auxiliares'
-    | '/_app/contabilidad/reportes/liquidacion-iva'
+    | '/_app/contabilidad/reportes/contabilidad-electronica'
+    | '/_app/contabilidad/reportes/cuenta-puente'
     | '/_app/contabilidad/reportes/diario'
+    | '/_app/contabilidad/reportes/diferencias-cambiarias'
+    | '/_app/contabilidad/reportes/estado-resultados'
+    | '/_app/contabilidad/reportes/integracion'
+    | '/_app/contabilidad/reportes/liquidacion-iva'
     | '/_app/contabilidad/reportes/mayor'
     | '/_app/cxc/aplicaciones/$id'
     | '/_app/cxc/lineas-credito/$id'
@@ -2949,6 +3162,7 @@ export interface FileRouteTypes {
     | '/_app/cxp/reportes/antiguedad-anticipos'
     | '/_app/cxp/reportes/auxiliar'
     | '/_app/cxp/reportes/cartera'
+    | '/_app/cxp/reportes/diot'
     | '/_app/cxp/reportes/pasivos-obras'
     | '/_app/cxp/reportes/tc'
     | '/_app/cxp/reportes/tc-pendientes'
@@ -2964,8 +3178,8 @@ export interface FileRouteTypes {
     | '/_app/facturacion/pedidos/$id'
     | '/_app/facturacion/pedidos/excepciones'
     | '/_app/facturacion/reportes/cierre-dia'
-    | '/_app/facturacion/reportes/conciliacion-sat'
     | '/_app/facturacion/reportes/comparativa-anticipos'
+    | '/_app/facturacion/reportes/conciliacion-sat'
     | '/_app/facturacion/reportes/estados-anticipos'
     | '/_app/facturacion/reportes/liquidacion-caja'
     | '/_app/facturacion/repp/$id'
@@ -2988,6 +3202,7 @@ export interface FileRouteTypes {
     | '/_app/admin/roles/'
     | '/_app/admin/series/'
     | '/_app/admin/sucursales/'
+    | '/_app/admin/tramos/'
     | '/_app/admin/usuarios/'
     | '/_app/almacen/devoluciones/'
     | '/_app/almacen/inventarios/'
@@ -3025,6 +3240,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/notas-credito/'
     | '/_app/facturacion/pedidos/'
     | '/_app/facturacion/repp/'
+    | '/_app/tesoreria/cheques/'
     | '/_app/tesoreria/conciliacion/'
     | '/_app/tesoreria/corridas/'
     | '/_app/tesoreria/cuentas/'
@@ -3111,6 +3327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/activos-fijos/autorizaciones': {
+      id: '/_app/activos-fijos/autorizaciones';
+      path: '/activos-fijos/autorizaciones';
+      fullPath: '/activos-fijos/autorizaciones';
+      preLoaderRoute: typeof AppActivosFijosAutorizacionesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/activos-fijos/carga-inicial': {
       id: '/_app/activos-fijos/carga-inicial';
       path: '/activos-fijos/carga-inicial';
@@ -3123,13 +3346,6 @@ declare module '@tanstack/react-router' {
       path: '/activos-fijos/clases';
       fullPath: '/activos-fijos/clases';
       preLoaderRoute: typeof AppActivosFijosClasesRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/activos-fijos/autorizaciones': {
-      id: '/_app/activos-fijos/autorizaciones';
-      path: '/activos-fijos/autorizaciones';
-      fullPath: '/activos-fijos/autorizaciones';
-      preLoaderRoute: typeof AppActivosFijosAutorizacionesRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/activos-fijos/conciliacion': {
@@ -3272,6 +3488,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlmacenNormasConsumoRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/almacen/origen-captura': {
+      id: '/_app/almacen/origen-captura';
+      path: '/almacen/origen-captura';
+      fullPath: '/almacen/origen-captura';
+      preLoaderRoute: typeof AppAlmacenOrigenCapturaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/almacen/reorden': {
       id: '/_app/almacen/reorden';
       path: '/almacen/reorden';
@@ -3319,6 +3542,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/taller';
       fullPath: '/almacen/taller';
       preLoaderRoute: typeof AppAlmacenTallerRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/tambores-linea': {
+      id: '/_app/almacen/tambores-linea';
+      path: '/almacen/tambores-linea';
+      fullPath: '/almacen/tambores-linea';
+      preLoaderRoute: typeof AppAlmacenTamboresLineaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/ubicaciones': {
@@ -3426,6 +3656,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadPeriodosRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/incidencias': {
+      id: '/_app/contabilidad/incidencias';
+      path: '/contabilidad/incidencias';
+      fullPath: '/contabilidad/incidencias';
+      preLoaderRoute: typeof AppContabilidadIncidenciasRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/saldos-iniciales': {
+      id: '/_app/contabilidad/saldos-iniciales';
+      path: '/contabilidad/saldos-iniciales';
+      fullPath: '/contabilidad/saldos-iniciales';
+      preLoaderRoute: typeof AppContabilidadSaldosInicialesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxc/': {
       id: '/_app/cxc/';
       path: '/cxc';
@@ -3503,6 +3747,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturacionContingenciasRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/incidencias/': {
+      id: '/_app/incidencias/';
+      path: '/incidencias';
+      fullPath: '/incidencias/';
+      preLoaderRoute: typeof AppIncidenciasIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/incidencias/$id': {
+      id: '/_app/incidencias/$id';
+      path: '/incidencias/$id';
+      fullPath: '/incidencias/$id';
+      preLoaderRoute: typeof AppIncidenciasIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/casos': {
+      id: '/_app/producto-terminado/casos';
+      path: '/producto-terminado/casos';
+      fullPath: '/producto-terminado/casos';
+      preLoaderRoute: typeof AppProductoTerminadoCasosRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/producto-terminado/entregas': {
       id: '/_app/producto-terminado/entregas';
       path: '/producto-terminado/entregas';
@@ -3545,6 +3810,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductoTerminadoSalidasRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/producto-terminado/solicitudes': {
+      id: '/_app/producto-terminado/solicitudes';
+      path: '/producto-terminado/solicitudes';
+      fullPath: '/producto-terminado/solicitudes';
+      preLoaderRoute: typeof AppProductoTerminadoSolicitudesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/producto-terminado/traspasos': {
       id: '/_app/producto-terminado/traspasos';
       path: '/producto-terminado/traspasos';
@@ -3557,20 +3829,6 @@ declare module '@tanstack/react-router' {
       path: '/sistema-diseno';
       fullPath: '/sistema-diseno/';
       preLoaderRoute: typeof AppSistemaDisenoIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/incidencias/': {
-      id: '/_app/incidencias/';
-      path: '/incidencias';
-      fullPath: '/incidencias/';
-      preLoaderRoute: typeof AppIncidenciasIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/incidencias/$id': {
-      id: '/_app/incidencias/$id';
-      path: '/incidencias/$id';
-      fullPath: '/incidencias/$id';
-      preLoaderRoute: typeof AppIncidenciasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/': {
@@ -3657,6 +3915,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminEmpresasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/integraciones/tablero': {
+      id: '/_app/admin/integraciones/tablero';
+      path: '/admin/integraciones/tablero';
+      fullPath: '/admin/integraciones/tablero';
+      preLoaderRoute: typeof AppAdminIntegracionesTableroRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/parametros/': {
       id: '/_app/admin/parametros/';
       path: '/admin/parametros';
@@ -3704,6 +3969,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/sucursales/$id';
       fullPath: '/admin/sucursales/$id';
       preLoaderRoute: typeof AppAdminSucursalesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/admin/tramos/': {
+      id: '/_app/admin/tramos/';
+      path: '/admin/tramos';
+      fullPath: '/admin/tramos/';
+      preLoaderRoute: typeof AppAdminTramosIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/admin/usuarios/': {
@@ -3769,6 +4041,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlmacenReportesAlfakHistorialRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/almacen/reportes/consumo-insumos-linea': {
+      id: '/_app/almacen/reportes/consumo-insumos-linea';
+      path: '/almacen/reportes/consumo-insumos-linea';
+      fullPath: '/almacen/reportes/consumo-insumos-linea';
+      preLoaderRoute: typeof AppAlmacenReportesConsumoInsumosLineaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/almacen/reportes/kardex': {
       id: '/_app/almacen/reportes/kardex';
       path: '/almacen/reportes/kardex';
@@ -3825,6 +4104,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppComprasAdminAprobadoresRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/compras/integraciones/alm-compra': {
+      id: '/_app/compras/integraciones/alm-compra';
+      path: '/compras/integraciones/alm-compra';
+      fullPath: '/compras/integraciones/alm-compra';
+      preLoaderRoute: typeof AppComprasIntegracionesAlmCompraRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/compras/ordenes/': {
       id: '/_app/compras/ordenes/';
       path: '/compras/ordenes';
@@ -3865,13 +4151,6 @@ declare module '@tanstack/react-router' {
       path: '/compras/pendientes/$id';
       fullPath: '/compras/pendientes/$id';
       preLoaderRoute: typeof AppComprasPendientesIdRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/compras/integraciones/alm-compra': {
-      id: '/_app/compras/integraciones/alm-compra';
-      path: '/compras/integraciones/alm-compra';
-      fullPath: '/compras/integraciones/alm-compra';
-      preLoaderRoute: typeof AppComprasIntegracionesAlmCompraRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/compras/reportes/analisis-proveedores': {
@@ -3923,11 +4202,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadPolizasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/polizas/importar-nomina': {
+      id: '/_app/contabilidad/polizas/importar-nomina';
+      path: '/contabilidad/polizas/importar-nomina';
+      fullPath: '/contabilidad/polizas/importar-nomina';
+      preLoaderRoute: typeof AppContabilidadPolizasImportarNominaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/contabilidad/polizas/saldos': {
       id: '/_app/contabilidad/polizas/saldos';
       path: '/contabilidad/polizas/saldos';
       fullPath: '/contabilidad/polizas/saldos';
       preLoaderRoute: typeof AppContabilidadPolizasSaldosRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/reportes/auditor': {
+      id: '/_app/contabilidad/reportes/auditor';
+      path: '/contabilidad/reportes/auditor';
+      fullPath: '/contabilidad/reportes/auditor';
+      preLoaderRoute: typeof AppContabilidadReportesAuditorRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/reportes/auxiliar': {
@@ -3937,25 +4230,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadReportesAuxiliarRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/contabilidad/reportes/balance-general': {
+      id: '/_app/contabilidad/reportes/balance-general';
+      path: '/contabilidad/reportes/balance-general';
+      fullPath: '/contabilidad/reportes/balance-general';
+      preLoaderRoute: typeof AppContabilidadReportesBalanceGeneralRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/contabilidad/reportes/balanza': {
       id: '/_app/contabilidad/reportes/balanza';
       path: '/contabilidad/reportes/balanza';
       fullPath: '/contabilidad/reportes/balanza';
       preLoaderRoute: typeof AppContabilidadReportesBalanzaRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/contabilidad/reportes/cuenta-puente': {
-      id: '/_app/contabilidad/reportes/cuenta-puente';
-      path: '/contabilidad/reportes/cuenta-puente';
-      fullPath: '/contabilidad/reportes/cuenta-puente';
-      preLoaderRoute: typeof AppContabilidadReportesCuentaPuenteRouteImport;
-      parentRoute: typeof AppRoute;
-    };
-    '/_app/contabilidad/reportes/diferencias-cambiarias': {
-      id: '/_app/contabilidad/reportes/diferencias-cambiarias';
-      path: '/contabilidad/reportes/diferencias-cambiarias';
-      fullPath: '/contabilidad/reportes/diferencias-cambiarias';
-      preLoaderRoute: typeof AppContabilidadReportesDiferenciasCambiariasRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/reportes/conciliacion-auxiliares': {
@@ -3965,11 +4251,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/contabilidad/reportes/liquidacion-iva': {
-      id: '/_app/contabilidad/reportes/liquidacion-iva';
-      path: '/contabilidad/reportes/liquidacion-iva';
-      fullPath: '/contabilidad/reportes/liquidacion-iva';
-      preLoaderRoute: typeof AppContabilidadReportesLiquidacionIvaRouteImport;
+    '/_app/contabilidad/reportes/contabilidad-electronica': {
+      id: '/_app/contabilidad/reportes/contabilidad-electronica';
+      path: '/contabilidad/reportes/contabilidad-electronica';
+      fullPath: '/contabilidad/reportes/contabilidad-electronica';
+      preLoaderRoute: typeof AppContabilidadReportesContabilidadElectronicaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/reportes/cuenta-puente': {
+      id: '/_app/contabilidad/reportes/cuenta-puente';
+      path: '/contabilidad/reportes/cuenta-puente';
+      fullPath: '/contabilidad/reportes/cuenta-puente';
+      preLoaderRoute: typeof AppContabilidadReportesCuentaPuenteRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/reportes/diario': {
@@ -3977,6 +4270,34 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/reportes/diario';
       fullPath: '/contabilidad/reportes/diario';
       preLoaderRoute: typeof AppContabilidadReportesDiarioRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/reportes/diferencias-cambiarias': {
+      id: '/_app/contabilidad/reportes/diferencias-cambiarias';
+      path: '/contabilidad/reportes/diferencias-cambiarias';
+      fullPath: '/contabilidad/reportes/diferencias-cambiarias';
+      preLoaderRoute: typeof AppContabilidadReportesDiferenciasCambiariasRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/reportes/estado-resultados': {
+      id: '/_app/contabilidad/reportes/estado-resultados';
+      path: '/contabilidad/reportes/estado-resultados';
+      fullPath: '/contabilidad/reportes/estado-resultados';
+      preLoaderRoute: typeof AppContabilidadReportesEstadoResultadosRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/reportes/integracion': {
+      id: '/_app/contabilidad/reportes/integracion';
+      path: '/contabilidad/reportes/integracion';
+      fullPath: '/contabilidad/reportes/integracion';
+      preLoaderRoute: typeof AppContabilidadReportesIntegracionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/reportes/liquidacion-iva': {
+      id: '/_app/contabilidad/reportes/liquidacion-iva';
+      path: '/contabilidad/reportes/liquidacion-iva';
+      fullPath: '/contabilidad/reportes/liquidacion-iva';
+      preLoaderRoute: typeof AppContabilidadReportesLiquidacionIvaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/reportes/mayor': {
@@ -4189,6 +4510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxpReportesCarteraRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/cxp/reportes/diot': {
+      id: '/_app/cxp/reportes/diot';
+      path: '/cxp/reportes/diot';
+      fullPath: '/cxp/reportes/diot';
+      preLoaderRoute: typeof AppCxpReportesDiotRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxp/reportes/pasivos-obras': {
       id: '/_app/cxp/reportes/pasivos-obras';
       path: '/cxp/reportes/pasivos-obras';
@@ -4357,18 +4685,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturacionReportesCierreDiaRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/facturacion/reportes/conciliacion-sat': {
-      id: '/_app/facturacion/reportes/conciliacion-sat';
-      path: '/facturacion/reportes/conciliacion-sat';
-      fullPath: '/facturacion/reportes/conciliacion-sat';
-      preLoaderRoute: typeof AppFacturacionReportesConciliacionSatRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/facturacion/reportes/comparativa-anticipos': {
       id: '/_app/facturacion/reportes/comparativa-anticipos';
       path: '/facturacion/reportes/comparativa-anticipos';
       fullPath: '/facturacion/reportes/comparativa-anticipos';
       preLoaderRoute: typeof AppFacturacionReportesComparativaAnticiposRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/facturacion/reportes/conciliacion-sat': {
+      id: '/_app/facturacion/reportes/conciliacion-sat';
+      path: '/facturacion/reportes/conciliacion-sat';
+      fullPath: '/facturacion/reportes/conciliacion-sat';
+      preLoaderRoute: typeof AppFacturacionReportesConciliacionSatRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/facturacion/reportes/estados-anticipos': {
@@ -4404,6 +4732,13 @@ declare module '@tanstack/react-router' {
       path: '/facturacion/repp/pendientes';
       fullPath: '/facturacion/repp/pendientes';
       preLoaderRoute: typeof AppFacturacionReppPendientesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/tesoreria/cheques/': {
+      id: '/_app/tesoreria/cheques/';
+      path: '/tesoreria/cheques';
+      fullPath: '/tesoreria/cheques/';
+      preLoaderRoute: typeof AppTesoreriaChequesIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/conciliacion/': {
@@ -4806,9 +5141,9 @@ const AppAlmacenInventariosIdRouteWithChildren =
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute;
+  AppActivosFijosAutorizacionesRoute: typeof AppActivosFijosAutorizacionesRoute;
   AppActivosFijosCargaInicialRoute: typeof AppActivosFijosCargaInicialRoute;
   AppActivosFijosClasesRoute: typeof AppActivosFijosClasesRoute;
-  AppActivosFijosAutorizacionesRoute: typeof AppActivosFijosAutorizacionesRoute;
   AppActivosFijosConciliacionRoute: typeof AppActivosFijosConciliacionRoute;
   AppActivosFijosConfiguracionLibroRoute: typeof AppActivosFijosConfiguracionLibroRoute;
   AppActivosFijosConteosRoute: typeof AppActivosFijosConteosRoute;
@@ -4827,6 +5162,7 @@ interface AppRouteChildren {
   AppAlmacenMensajesAppRoute: typeof AppAlmacenMensajesAppRoute;
   AppAlmacenMermasRoute: typeof AppAlmacenMermasRoute;
   AppAlmacenNormasConsumoRoute: typeof AppAlmacenNormasConsumoRoute;
+  AppAlmacenOrigenCapturaRoute: typeof AppAlmacenOrigenCapturaRoute;
   AppAlmacenReordenRoute: typeof AppAlmacenReordenRoute;
   AppAlmacenRevisionRoute: typeof AppAlmacenRevisionRoute;
   AppAlmacenSaldosRoute: typeof AppAlmacenSaldosRoute;
@@ -4834,6 +5170,7 @@ interface AppRouteChildren {
   AppAlmacenSalidasRoturaRoute: typeof AppAlmacenSalidasRoturaRoute;
   AppAlmacenSubAlmacenesRoute: typeof AppAlmacenSubAlmacenesRoute;
   AppAlmacenTallerRoute: typeof AppAlmacenTallerRoute;
+  AppAlmacenTamboresLineaRoute: typeof AppAlmacenTamboresLineaRoute;
   AppAlmacenUbicacionesRoute: typeof AppAlmacenUbicacionesRoute;
   AppCentrosCostoAsignacionesRoute: typeof AppCentrosCostoAsignacionesRoute;
   AppCentrosCostoConfiguracionRoute: typeof AppCentrosCostoConfiguracionRoute;
@@ -4847,6 +5184,8 @@ interface AppRouteChildren {
   AppContabilidadMotorRoute: typeof AppContabilidadMotorRoute;
   AppContabilidadMovimientosPruebaRoute: typeof AppContabilidadMovimientosPruebaRoute;
   AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
+  AppContabilidadIncidenciasRoute: typeof AppContabilidadIncidenciasRoute;
+  AppContabilidadSaldosInicialesRoute: typeof AppContabilidadSaldosInicialesRoute;
   AppCxpAnticiposRoute: typeof AppCxpAnticiposRoute;
   AppCxpCfdisRoute: typeof AppCxpCfdisRoute;
   AppCxpRevaluacionRoute: typeof AppCxpRevaluacionRoute;
@@ -4855,12 +5194,15 @@ interface AppRouteChildren {
   AppFacturacionCajaRoute: typeof AppFacturacionCajaRoute;
   AppFacturacionCancelacionesRoute: typeof AppFacturacionCancelacionesRoute;
   AppFacturacionContingenciasRoute: typeof AppFacturacionContingenciasRoute;
+  AppIncidenciasIdRoute: typeof AppIncidenciasIdRoute;
+  AppProductoTerminadoCasosRoute: typeof AppProductoTerminadoCasosRoute;
   AppProductoTerminadoEntregasRoute: typeof AppProductoTerminadoEntregasRoute;
   AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
   AppProductoTerminadoHojasSalidaRoute: typeof AppProductoTerminadoHojasSalidaRoute;
   AppProductoTerminadoLiquidacionRoute: typeof AppProductoTerminadoLiquidacionRoute;
   AppProductoTerminadoPiezasRoute: typeof AppProductoTerminadoPiezasRoute;
   AppProductoTerminadoSalidasRoute: typeof AppProductoTerminadoSalidasRoute;
+  AppProductoTerminadoSolicitudesRoute: typeof AppProductoTerminadoSolicitudesRoute;
   AppProductoTerminadoTraspasosRoute: typeof AppProductoTerminadoTraspasosRoute;
   AppAdminIndexRoute: typeof AppAdminIndexRoute;
   AppAlmacenIndexRoute: typeof AppAlmacenIndexRoute;
@@ -4869,43 +5211,50 @@ interface AppRouteChildren {
   AppCxcIndexRoute: typeof AppCxcIndexRoute;
   AppCxpIndexRoute: typeof AppCxpIndexRoute;
   AppFacturacionIndexRoute: typeof AppFacturacionIndexRoute;
-  AppSistemaDisenoIndexRoute: typeof AppSistemaDisenoIndexRoute;
   AppIncidenciasIndexRoute: typeof AppIncidenciasIndexRoute;
-  AppIncidenciasIdRoute: typeof AppIncidenciasIdRoute;
+  AppSistemaDisenoIndexRoute: typeof AppSistemaDisenoIndexRoute;
   AppTesoreriaIndexRoute: typeof AppTesoreriaIndexRoute;
   AppActivosFijosActivosIdRoute: typeof AppActivosFijosActivosIdRoute;
   AppAdminModuloSettingsRoute: typeof AppAdminModuloSettingsRoute;
   AppAdminEmpleadosIdRoute: typeof AppAdminEmpleadosIdRoute;
   AppAdminEmpresasIdRoute: typeof AppAdminEmpresasIdRoute;
+  AppAdminIntegracionesTableroRoute: typeof AppAdminIntegracionesTableroRoute;
   AppAdminRolesIdRoute: typeof AppAdminRolesIdRoute;
   AppAdminSucursalesIdRoute: typeof AppAdminSucursalesIdRoute;
   AppAdminUsuariosIdRoute: typeof AppAdminUsuariosIdRoute;
   AppAlmacenInventariosIdRoute: typeof AppAlmacenInventariosIdRouteWithChildren;
   AppAlmacenRecepcionesIdRoute: typeof AppAlmacenRecepcionesIdRoute;
   AppAlmacenReportesAlfakHistorialRoute: typeof AppAlmacenReportesAlfakHistorialRoute;
+  AppAlmacenReportesConsumoInsumosLineaRoute: typeof AppAlmacenReportesConsumoInsumosLineaRoute;
   AppAlmacenReportesKardexRoute: typeof AppAlmacenReportesKardexRoute;
   AppAlmacenReportesMpCnkRoute: typeof AppAlmacenReportesMpCnkRoute;
   AppAlmacenReportesTrazabilidadMpRoute: typeof AppAlmacenReportesTrazabilidadMpRoute;
   AppAlmacenSalidasIdRoute: typeof AppAlmacenSalidasIdRoute;
   AppComercioExteriorExpedientesIdRoute: typeof AppComercioExteriorExpedientesIdRoute;
   AppComprasAdminAprobadoresRoute: typeof AppComprasAdminAprobadoresRoute;
+  AppComprasIntegracionesAlmCompraRoute: typeof AppComprasIntegracionesAlmCompraRoute;
   AppComprasOrdenesIdRoute: typeof AppComprasOrdenesIdRoute;
   AppComprasOrdenesPartidasAbiertasRoute: typeof AppComprasOrdenesPartidasAbiertasRoute;
   AppComprasOrdenesPendientesAutorizacionRoute: typeof AppComprasOrdenesPendientesAutorizacionRoute;
   AppComprasPendientesIdRoute: typeof AppComprasPendientesIdRoute;
-  AppComprasIntegracionesAlmCompraRoute: typeof AppComprasIntegracionesAlmCompraRoute;
   AppComprasReportesAnalisisProveedoresRoute: typeof AppComprasReportesAnalisisProveedoresRoute;
   AppComprasRequisicionesIdRoute: typeof AppComprasRequisicionesIdRoute;
   AppContabilidadCatalogoIdRoute: typeof AppContabilidadCatalogoIdRoute;
   AppContabilidadPolizasIdRoute: typeof AppContabilidadPolizasIdRoute;
+  AppContabilidadPolizasImportarNominaRoute: typeof AppContabilidadPolizasImportarNominaRoute;
   AppContabilidadPolizasSaldosRoute: typeof AppContabilidadPolizasSaldosRoute;
+  AppContabilidadReportesAuditorRoute: typeof AppContabilidadReportesAuditorRoute;
   AppContabilidadReportesAuxiliarRoute: typeof AppContabilidadReportesAuxiliarRoute;
+  AppContabilidadReportesBalanceGeneralRoute: typeof AppContabilidadReportesBalanceGeneralRoute;
   AppContabilidadReportesBalanzaRoute: typeof AppContabilidadReportesBalanzaRoute;
-  AppContabilidadReportesCuentaPuenteRoute: typeof AppContabilidadReportesCuentaPuenteRoute;
-  AppContabilidadReportesDiferenciasCambiariasRoute: typeof AppContabilidadReportesDiferenciasCambiariasRoute;
   AppContabilidadReportesConciliacionAuxiliaresRoute: typeof AppContabilidadReportesConciliacionAuxiliaresRoute;
-  AppContabilidadReportesLiquidacionIvaRoute: typeof AppContabilidadReportesLiquidacionIvaRoute;
+  AppContabilidadReportesContabilidadElectronicaRoute: typeof AppContabilidadReportesContabilidadElectronicaRoute;
+  AppContabilidadReportesCuentaPuenteRoute: typeof AppContabilidadReportesCuentaPuenteRoute;
   AppContabilidadReportesDiarioRoute: typeof AppContabilidadReportesDiarioRoute;
+  AppContabilidadReportesDiferenciasCambiariasRoute: typeof AppContabilidadReportesDiferenciasCambiariasRoute;
+  AppContabilidadReportesEstadoResultadosRoute: typeof AppContabilidadReportesEstadoResultadosRoute;
+  AppContabilidadReportesIntegracionRoute: typeof AppContabilidadReportesIntegracionRoute;
+  AppContabilidadReportesLiquidacionIvaRoute: typeof AppContabilidadReportesLiquidacionIvaRoute;
   AppContabilidadReportesMayorRoute: typeof AppContabilidadReportesMayorRoute;
   AppCxcAplicacionesIdRoute: typeof AppCxcAplicacionesIdRoute;
   AppCxcLineasCreditoIdRoute: typeof AppCxcLineasCreditoIdRoute;
@@ -4921,6 +5270,7 @@ interface AppRouteChildren {
   AppCxpReportesAntiguedadAnticiposRoute: typeof AppCxpReportesAntiguedadAnticiposRoute;
   AppCxpReportesAuxiliarRoute: typeof AppCxpReportesAuxiliarRoute;
   AppCxpReportesCarteraRoute: typeof AppCxpReportesCarteraRoute;
+  AppCxpReportesDiotRoute: typeof AppCxpReportesDiotRoute;
   AppCxpReportesPasivosObrasRoute: typeof AppCxpReportesPasivosObrasRoute;
   AppCxpReportesTcRoute: typeof AppCxpReportesTcRoute;
   AppCxpReportesTcPendientesRoute: typeof AppCxpReportesTcPendientesRoute;
@@ -4936,8 +5286,8 @@ interface AppRouteChildren {
   AppFacturacionPedidosIdRoute: typeof AppFacturacionPedidosIdRoute;
   AppFacturacionPedidosExcepcionesRoute: typeof AppFacturacionPedidosExcepcionesRoute;
   AppFacturacionReportesCierreDiaRoute: typeof AppFacturacionReportesCierreDiaRoute;
-  AppFacturacionReportesConciliacionSatRoute: typeof AppFacturacionReportesConciliacionSatRoute;
   AppFacturacionReportesComparativaAnticiposRoute: typeof AppFacturacionReportesComparativaAnticiposRoute;
+  AppFacturacionReportesConciliacionSatRoute: typeof AppFacturacionReportesConciliacionSatRoute;
   AppFacturacionReportesEstadosAnticiposRoute: typeof AppFacturacionReportesEstadosAnticiposRoute;
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
   AppFacturacionReppIdRoute: typeof AppFacturacionReppIdRoute;
@@ -4960,6 +5310,7 @@ interface AppRouteChildren {
   AppAdminRolesIndexRoute: typeof AppAdminRolesIndexRoute;
   AppAdminSeriesIndexRoute: typeof AppAdminSeriesIndexRoute;
   AppAdminSucursalesIndexRoute: typeof AppAdminSucursalesIndexRoute;
+  AppAdminTramosIndexRoute: typeof AppAdminTramosIndexRoute;
   AppAdminUsuariosIndexRoute: typeof AppAdminUsuariosIndexRoute;
   AppAlmacenDevolucionesIndexRoute: typeof AppAlmacenDevolucionesIndexRoute;
   AppAlmacenInventariosIndexRoute: typeof AppAlmacenInventariosIndexRoute;
@@ -4997,6 +5348,7 @@ interface AppRouteChildren {
   AppFacturacionNotasCreditoIndexRoute: typeof AppFacturacionNotasCreditoIndexRoute;
   AppFacturacionPedidosIndexRoute: typeof AppFacturacionPedidosIndexRoute;
   AppFacturacionReppIndexRoute: typeof AppFacturacionReppIndexRoute;
+  AppTesoreriaChequesIndexRoute: typeof AppTesoreriaChequesIndexRoute;
   AppTesoreriaConciliacionIndexRoute: typeof AppTesoreriaConciliacionIndexRoute;
   AppTesoreriaCorridasIndexRoute: typeof AppTesoreriaCorridasIndexRoute;
   AppTesoreriaCuentasIndexRoute: typeof AppTesoreriaCuentasIndexRoute;
@@ -5047,9 +5399,9 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppActivosFijosAutorizacionesRoute: AppActivosFijosAutorizacionesRoute,
   AppActivosFijosCargaInicialRoute: AppActivosFijosCargaInicialRoute,
   AppActivosFijosClasesRoute: AppActivosFijosClasesRoute,
-  AppActivosFijosAutorizacionesRoute: AppActivosFijosAutorizacionesRoute,
   AppActivosFijosConciliacionRoute: AppActivosFijosConciliacionRoute,
   AppActivosFijosConfiguracionLibroRoute:
     AppActivosFijosConfiguracionLibroRoute,
@@ -5070,6 +5422,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenMensajesAppRoute: AppAlmacenMensajesAppRoute,
   AppAlmacenMermasRoute: AppAlmacenMermasRoute,
   AppAlmacenNormasConsumoRoute: AppAlmacenNormasConsumoRoute,
+  AppAlmacenOrigenCapturaRoute: AppAlmacenOrigenCapturaRoute,
   AppAlmacenReordenRoute: AppAlmacenReordenRoute,
   AppAlmacenRevisionRoute: AppAlmacenRevisionRoute,
   AppAlmacenSaldosRoute: AppAlmacenSaldosRoute,
@@ -5077,6 +5430,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenSalidasRoturaRoute: AppAlmacenSalidasRoturaRoute,
   AppAlmacenSubAlmacenesRoute: AppAlmacenSubAlmacenesRoute,
   AppAlmacenTallerRoute: AppAlmacenTallerRoute,
+  AppAlmacenTamboresLineaRoute: AppAlmacenTamboresLineaRoute,
   AppAlmacenUbicacionesRoute: AppAlmacenUbicacionesRoute,
   AppCentrosCostoAsignacionesRoute: AppCentrosCostoAsignacionesRoute,
   AppCentrosCostoConfiguracionRoute: AppCentrosCostoConfiguracionRoute,
@@ -5090,6 +5444,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppContabilidadMotorRoute: AppContabilidadMotorRoute,
   AppContabilidadMovimientosPruebaRoute: AppContabilidadMovimientosPruebaRoute,
   AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,
+  AppContabilidadIncidenciasRoute: AppContabilidadIncidenciasRoute,
+  AppContabilidadSaldosInicialesRoute: AppContabilidadSaldosInicialesRoute,
   AppCxpAnticiposRoute: AppCxpAnticiposRoute,
   AppCxpCfdisRoute: AppCxpCfdisRoute,
   AppCxpRevaluacionRoute: AppCxpRevaluacionRoute,
@@ -5098,12 +5454,15 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionCajaRoute: AppFacturacionCajaRoute,
   AppFacturacionCancelacionesRoute: AppFacturacionCancelacionesRoute,
   AppFacturacionContingenciasRoute: AppFacturacionContingenciasRoute,
+  AppIncidenciasIdRoute: AppIncidenciasIdRoute,
+  AppProductoTerminadoCasosRoute: AppProductoTerminadoCasosRoute,
   AppProductoTerminadoEntregasRoute: AppProductoTerminadoEntregasRoute,
   AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
   AppProductoTerminadoHojasSalidaRoute: AppProductoTerminadoHojasSalidaRoute,
   AppProductoTerminadoLiquidacionRoute: AppProductoTerminadoLiquidacionRoute,
   AppProductoTerminadoPiezasRoute: AppProductoTerminadoPiezasRoute,
   AppProductoTerminadoSalidasRoute: AppProductoTerminadoSalidasRoute,
+  AppProductoTerminadoSolicitudesRoute: AppProductoTerminadoSolicitudesRoute,
   AppProductoTerminadoTraspasosRoute: AppProductoTerminadoTraspasosRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAlmacenIndexRoute: AppAlmacenIndexRoute,
@@ -5112,56 +5471,64 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxcIndexRoute: AppCxcIndexRoute,
   AppCxpIndexRoute: AppCxpIndexRoute,
   AppFacturacionIndexRoute: AppFacturacionIndexRoute,
-  AppSistemaDisenoIndexRoute: AppSistemaDisenoIndexRoute,
   AppIncidenciasIndexRoute: AppIncidenciasIndexRoute,
-  AppIncidenciasIdRoute: AppIncidenciasIdRoute,
+  AppSistemaDisenoIndexRoute: AppSistemaDisenoIndexRoute,
   AppTesoreriaIndexRoute: AppTesoreriaIndexRoute,
   AppActivosFijosActivosIdRoute: AppActivosFijosActivosIdRoute,
   AppAdminModuloSettingsRoute: AppAdminModuloSettingsRoute,
   AppAdminEmpleadosIdRoute: AppAdminEmpleadosIdRoute,
   AppAdminEmpresasIdRoute: AppAdminEmpresasIdRoute,
+  AppAdminIntegracionesTableroRoute: AppAdminIntegracionesTableroRoute,
   AppAdminRolesIdRoute: AppAdminRolesIdRoute,
   AppAdminSucursalesIdRoute: AppAdminSucursalesIdRoute,
   AppAdminUsuariosIdRoute: AppAdminUsuariosIdRoute,
   AppAlmacenInventariosIdRoute: AppAlmacenInventariosIdRouteWithChildren,
   AppAlmacenRecepcionesIdRoute: AppAlmacenRecepcionesIdRoute,
   AppAlmacenReportesAlfakHistorialRoute: AppAlmacenReportesAlfakHistorialRoute,
+  AppAlmacenReportesConsumoInsumosLineaRoute:
+    AppAlmacenReportesConsumoInsumosLineaRoute,
   AppAlmacenReportesKardexRoute: AppAlmacenReportesKardexRoute,
   AppAlmacenReportesMpCnkRoute: AppAlmacenReportesMpCnkRoute,
   AppAlmacenReportesTrazabilidadMpRoute: AppAlmacenReportesTrazabilidadMpRoute,
   AppAlmacenSalidasIdRoute: AppAlmacenSalidasIdRoute,
   AppComercioExteriorExpedientesIdRoute: AppComercioExteriorExpedientesIdRoute,
   AppComprasAdminAprobadoresRoute: AppComprasAdminAprobadoresRoute,
+  AppComprasIntegracionesAlmCompraRoute: AppComprasIntegracionesAlmCompraRoute,
   AppComprasOrdenesIdRoute: AppComprasOrdenesIdRoute,
   AppComprasOrdenesPartidasAbiertasRoute:
     AppComprasOrdenesPartidasAbiertasRoute,
   AppComprasOrdenesPendientesAutorizacionRoute:
     AppComprasOrdenesPendientesAutorizacionRoute,
   AppComprasPendientesIdRoute: AppComprasPendientesIdRoute,
-  AppComprasIntegracionesAlmCompraRoute:
-    AppComprasIntegracionesAlmCompraRoute,
   AppComprasReportesAnalisisProveedoresRoute:
     AppComprasReportesAnalisisProveedoresRoute,
   AppComprasRequisicionesIdRoute: AppComprasRequisicionesIdRoute,
   AppContabilidadCatalogoIdRoute: AppContabilidadCatalogoIdRoute,
   AppContabilidadPolizasIdRoute: AppContabilidadPolizasIdRoute,
+  AppContabilidadPolizasImportarNominaRoute:
+    AppContabilidadPolizasImportarNominaRoute,
   AppContabilidadPolizasSaldosRoute: AppContabilidadPolizasSaldosRoute,
-  AppContabilidadReportesAuxiliarRoute:
-    AppContabilidadReportesAuxiliarRoute,
-  AppContabilidadReportesBalanzaRoute:
-    AppContabilidadReportesBalanzaRoute,
-  AppContabilidadReportesCuentaPuenteRoute:
-    AppContabilidadReportesCuentaPuenteRoute,
-  AppContabilidadReportesDiferenciasCambiariasRoute:
-    AppContabilidadReportesDiferenciasCambiariasRoute,
+  AppContabilidadReportesAuditorRoute: AppContabilidadReportesAuditorRoute,
+  AppContabilidadReportesAuxiliarRoute: AppContabilidadReportesAuxiliarRoute,
+  AppContabilidadReportesBalanceGeneralRoute:
+    AppContabilidadReportesBalanceGeneralRoute,
+  AppContabilidadReportesBalanzaRoute: AppContabilidadReportesBalanzaRoute,
   AppContabilidadReportesConciliacionAuxiliaresRoute:
     AppContabilidadReportesConciliacionAuxiliaresRoute,
+  AppContabilidadReportesContabilidadElectronicaRoute:
+    AppContabilidadReportesContabilidadElectronicaRoute,
+  AppContabilidadReportesCuentaPuenteRoute:
+    AppContabilidadReportesCuentaPuenteRoute,
+  AppContabilidadReportesDiarioRoute: AppContabilidadReportesDiarioRoute,
+  AppContabilidadReportesDiferenciasCambiariasRoute:
+    AppContabilidadReportesDiferenciasCambiariasRoute,
+  AppContabilidadReportesEstadoResultadosRoute:
+    AppContabilidadReportesEstadoResultadosRoute,
+  AppContabilidadReportesIntegracionRoute:
+    AppContabilidadReportesIntegracionRoute,
   AppContabilidadReportesLiquidacionIvaRoute:
     AppContabilidadReportesLiquidacionIvaRoute,
-  AppContabilidadReportesDiarioRoute:
-    AppContabilidadReportesDiarioRoute,
-  AppContabilidadReportesMayorRoute:
-    AppContabilidadReportesMayorRoute,
+  AppContabilidadReportesMayorRoute: AppContabilidadReportesMayorRoute,
   AppCxcAplicacionesIdRoute: AppCxcAplicacionesIdRoute,
   AppCxcLineasCreditoIdRoute: AppCxcLineasCreditoIdRoute,
   AppCxpAdminAprobadoresRoute: AppCxpAdminAprobadoresRoute,
@@ -5177,6 +5544,7 @@ const AppRouteChildren: AppRouteChildren = {
     AppCxpReportesAntiguedadAnticiposRoute,
   AppCxpReportesAuxiliarRoute: AppCxpReportesAuxiliarRoute,
   AppCxpReportesCarteraRoute: AppCxpReportesCarteraRoute,
+  AppCxpReportesDiotRoute: AppCxpReportesDiotRoute,
   AppCxpReportesPasivosObrasRoute: AppCxpReportesPasivosObrasRoute,
   AppCxpReportesTcRoute: AppCxpReportesTcRoute,
   AppCxpReportesTcPendientesRoute: AppCxpReportesTcPendientesRoute,
@@ -5192,9 +5560,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionPedidosIdRoute: AppFacturacionPedidosIdRoute,
   AppFacturacionPedidosExcepcionesRoute: AppFacturacionPedidosExcepcionesRoute,
   AppFacturacionReportesCierreDiaRoute: AppFacturacionReportesCierreDiaRoute,
-  AppFacturacionReportesConciliacionSatRoute: AppFacturacionReportesConciliacionSatRoute,
   AppFacturacionReportesComparativaAnticiposRoute:
     AppFacturacionReportesComparativaAnticiposRoute,
+  AppFacturacionReportesConciliacionSatRoute:
+    AppFacturacionReportesConciliacionSatRoute,
   AppFacturacionReportesEstadosAnticiposRoute:
     AppFacturacionReportesEstadosAnticiposRoute,
   AppFacturacionReportesLiquidacionCajaRoute:
@@ -5221,6 +5590,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRolesIndexRoute: AppAdminRolesIndexRoute,
   AppAdminSeriesIndexRoute: AppAdminSeriesIndexRoute,
   AppAdminSucursalesIndexRoute: AppAdminSucursalesIndexRoute,
+  AppAdminTramosIndexRoute: AppAdminTramosIndexRoute,
   AppAdminUsuariosIndexRoute: AppAdminUsuariosIndexRoute,
   AppAlmacenDevolucionesIndexRoute: AppAlmacenDevolucionesIndexRoute,
   AppAlmacenInventariosIndexRoute: AppAlmacenInventariosIndexRoute,
@@ -5259,6 +5629,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionNotasCreditoIndexRoute: AppFacturacionNotasCreditoIndexRoute,
   AppFacturacionPedidosIndexRoute: AppFacturacionPedidosIndexRoute,
   AppFacturacionReppIndexRoute: AppFacturacionReppIndexRoute,
+  AppTesoreriaChequesIndexRoute: AppTesoreriaChequesIndexRoute,
   AppTesoreriaConciliacionIndexRoute: AppTesoreriaConciliacionIndexRoute,
   AppTesoreriaCorridasIndexRoute: AppTesoreriaCorridasIndexRoute,
   AppTesoreriaCuentasIndexRoute: AppTesoreriaCuentasIndexRoute,

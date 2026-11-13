@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
@@ -9,8 +10,7 @@ import {
   FileUp,
   Lock,
   Plus,
-  Wallet,
-} from 'lucide-react';
+  Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,8 +32,7 @@ import {
 } from '@/features/cxp/api/useEstadosCuentaTc';
 import {
   EstadoCuentaTcStatus,
-  type EstadoCuentaTc,
-} from '@/features/cxp/api/types';
+  type EstadoCuentaTc } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -61,8 +60,7 @@ export function EstadosCuentaTcPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const puedeRegistrar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento,
-  );
+    PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento);
   const [sheetAbierto, setSheetAbierto] = useState(false);
 
   const query = useEstadosCuentaTc({
@@ -214,11 +212,9 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
   const marcarPagado = useMarcarEstadoCuentaPagadoBanco();
 
   const puedeCerrar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarTcCerrarEstadoCuenta,
-  );
+    PermisosCanonicos.CuentasPorPagarTcCerrarEstadoCuenta);
   const puedeRegistrar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento,
-  );
+    PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento);
 
   function dispatch(label: string, p: Promise<unknown>) {
     p.then(
@@ -279,9 +275,7 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
       })
       .then(
         (res) => {
-          toast.success(
-            `Cerrado. Total banco: ${res.totalBancoMxn.toFixed(2)} MXN`,
-          );
+          toast.success(`Cerrado. Total banco: ${res.totalBancoMxn.toFixed(2)} MXN`);
         },
         (error) => {
           if (esApiError(error)) {
@@ -307,7 +301,7 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
+      <Table className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="px-3 py-2 text-left">Periodo</th>
@@ -329,18 +323,10 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                 {abreviar(ec.tarjetaId)}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {ec.lineasCount}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {fmt(ec.totalBancoMxn)}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {fmt(ec.totalConciliadoMxn)}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {fmt(ec.diferenciaMxn)}
-              </td>
+              <td className="px-3 py-2 text-right font-mono">{ec.lineasCount}</td>
+              <td className="px-3 py-2 text-right font-mono">{fmt(ec.totalBancoMxn)}</td>
+              <td className="px-3 py-2 text-right font-mono">{fmt(ec.totalConciliadoMxn)}</td>
+              <td className="px-3 py-2 text-right font-mono">{fmt(ec.diferenciaMxn)}</td>
               <td className="px-3 py-2">
                 <EstadoCuentaTcChip estado={ec.estado} />
               </td>
@@ -376,7 +362,7 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       <ConfirmarAccionDialog
         open={aCerrar !== null}
         onOpenChange={(o) => !o && setACerrar(null)}
@@ -388,7 +374,8 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
               una factura agregada contra el banco
               {aCerrar.totalBancoMxn != null && (
                 <>
-                  {' '}por <MoneyDisplay amount={aCerrar.totalBancoMxn} currency="MXN" strong />
+                  {' '}
+                  por <MoneyDisplay amount={aCerrar.totalBancoMxn} currency="MXN" strong />
                 </>
               )}
               .
@@ -438,30 +425,31 @@ function Acciones({
           <input
             ref={fileRef}
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) onSubir(f);
               e.target.value = '';
+              if (!f) return;
+              if (!/\.xlsx$/i.test(f.name) || f.size === 0 || f.size > 50 * 1024 * 1024) {
+                toast.error('Selecciona un Excel .xlsx de más de 0 bytes y hasta 50 MB.');
+                return;
+              }
+              onSubir(f);
             }}
           />
           <Button
             variant="outline"
             size="sm"
             onClick={() => fileRef.current?.click()}
+            title="Excel .xlsx de hasta 50 MB"
             disabled={isPending}
           >
             <FileUp className="mr-1 size-3.5" />
             Subir archivo
           </Button>
           {ec.perfilParserUsado && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConciliar}
-              disabled={isPending}
-            >
+            <Button variant="outline" size="sm" onClick={onConciliar} disabled={isPending}>
               <Calculator className="mr-1 size-3.5" />
               Conciliar auto
             </Button>
@@ -470,34 +458,19 @@ function Acciones({
       )}
       {/* La tolerancia es configurable: el servidor decide si la diferencia se acepta. */}
       {enConciliacion && puedeCerrar && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onMarcarConciliado}
-          disabled={isPending}
-        >
+        <Button variant="outline" size="sm" onClick={onMarcarConciliado} disabled={isPending}>
           <CheckCircle2 className="mr-1 size-3.5" />
           Marcar conciliado
         </Button>
       )}
       {conciliado && puedeCerrar && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onCerrar}
-          disabled={isPending}
-        >
+        <Button variant="outline" size="sm" onClick={onCerrar} disabled={isPending}>
           <Lock className="mr-1 size-3.5" />
           Cerrar
         </Button>
       )}
       {cerrado && puedeCerrar && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onMarcarPagado}
-          disabled={isPending}
-        >
+        <Button variant="outline" size="sm" onClick={onMarcarPagado} disabled={isPending}>
           <Wallet className="mr-1 size-3.5" />
           Marcar pagado
         </Button>

@@ -33,7 +33,8 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
 
     private static DateOnly FechaHoy() => Millet.SharedKernel.Application.FechaContable.HoyLocal(DateTimeOffset.UtcNow);
 
-    private sealed record Escenario(string Suf, HttpClient Admin, HttpClient Analista, HttpClient Supervisor, Guid Sucursal, Guid Gasto, Guid Banco, Guid Tipo, string Clave)
+    private sealed record Escenario(string Suf, HttpClient Admin, HttpClient Analista, HttpClient Supervisor, Guid Sucursal, Guid Gasto, Guid Banco, Guid Tipo, string Clave,
+        HttpClient Aprobador)
     {
         public List<int> Anios { get; } = [];
     }
@@ -43,6 +44,11 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
 
     private static readonly string[] PermisosSupervisor =
         [PermisosCanonicos.ContabilidadPolizasLeer, PermisosCanonicos.ContabilidadPolizasAutorizar, PermisosCanonicos.ContabilidadPolizasAnular,
+         PermisosCanonicos.ContabilidadMovimientosGestionarTodasSucursales];
+
+    /// <summary>M-212: la segunda firma de la anulación (aprueba o rechaza la que pidió otra persona).</summary>
+    private static readonly string[] PermisosAprobador =
+        [PermisosCanonicos.ContabilidadPolizasLeer, PermisosCanonicos.ContabilidadPolizasAnularAprobar,
          PermisosCanonicos.ContabilidadMovimientosGestionarTodasSucursales];
 
     private async Task<Escenario> CrearEscenarioAsync()
@@ -60,7 +66,8 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
         Assert.Equal(HttpStatusCode.Created, tipo.StatusCode);
         var analista = await ClienteConPermisosAsync(factory, PermisosAnalista);
         var supervisor = await ClienteConPermisosAsync(factory, PermisosSupervisor);
-        return new(suf, admin, analista, supervisor, Id(await Json(sucursal)), Id(gasto), Id(banco), Id(await Json(tipo)), clave);
+        var aprobador = await ClienteConPermisosAsync(factory, PermisosAprobador);
+        return new(suf, admin, analista, supervisor, Id(await Json(sucursal)), Id(gasto), Id(banco), Id(await Json(tipo)), clave, aprobador);
     }
 
     private async Task LimpiarAsync(Escenario? e)
@@ -70,6 +77,7 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
         var like = $"FIX-{e.Suf}-%";
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE consumidor = 'POLIZA' AND referencia IN (SELECT id::text FROM contabilidad.polizas WHERE tipo_operacion_id = {0})", e.Tipo);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.solicitudes_anulacion_poliza WHERE poliza_id IN (SELECT id FROM contabilidad.polizas WHERE tipo_operacion_id = {0})", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.polizas WHERE tipo_operacion_id = {0}", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.consecutivos_poliza WHERE tipo_operacion_id = {0}", e.Tipo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.tipos_documento_contable WHERE id = {0}", e.Tipo);
@@ -82,6 +90,7 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
         }
         await LimpiarClienteAsync(e.Analista);
         await LimpiarClienteAsync(e.Supervisor);
+        await LimpiarClienteAsync(e.Aprobador);
     }
 
     private static object Partida(Escenario e, Guid cuenta, decimal cargo, decimal abono) =>
@@ -113,8 +122,22 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
         return await Json(r);
     }
 
-    private static Task<HttpResponseMessage> AnularAsync(HttpClient c, JsonElement p, string motivo = Motivo, int? anio = null, int? numero = null) =>
-        Send(c, HttpMethod.Post, $"{Polizas}/{Id(p)}/anular", new { motivo, periodoAnio = anio, periodoNumero = numero }, Etag(p));
+    private static Task<HttpResponseMessage> SolicitarAnulacionAsync(HttpClient c, JsonElement p, string motivo = Motivo, int? anio = null, int? numero = null) =>
+        Send(c, HttpMethod.Post, $"{Polizas}/{Id(p)}/solicitar-anulacion", new { motivo, periodoAnio = anio, periodoNumero = numero }, Etag(p));
+
+    private static Task<HttpResponseMessage> AprobarAnulacionAsync(HttpClient c, JsonElement solicitud) =>
+        Send(c, HttpMethod.Post, $"{Polizas}/solicitudes-anulacion/{Id(solicitud)}/aprobar");
+
+    /// <summary>
+    /// M-212: anular = solicitar (<paramref name="c"/>) y aprobar (el aprobador del escenario). Un error de la solicitud se devuelve tal
+    /// cual (la solicitud verifica lo mismo que la anulación); si no, la respuesta de la aprobación (201 con la póliza de anulación).
+    /// </summary>
+    private static async Task<HttpResponseMessage> AnularAsync(Escenario e, HttpClient c, JsonElement p, string motivo = Motivo, int? anio = null, int? numero = null)
+    {
+        var solicitud = await SolicitarAnulacionAsync(c, p, motivo, anio, numero);
+        if (solicitud.StatusCode != HttpStatusCode.Created) return solicitud;
+        return await AprobarAnulacionAsync(e.Aprobador, await Json(solicitud));
+    }
 
     private static async Task<JsonElement> ObtenerAsync(HttpClient c, Guid id) => await Json(await c.GetAsync($"{Polizas}/{id}"));
 
@@ -293,10 +316,10 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
             Assert.Equal(1234.56m, con[e.Gasto].Cargos);
 
             // Sin el permiso de anular: 403. Sin motivo: 400.
-            Assert.Equal(HttpStatusCode.Forbidden, (await AnularAsync(e.Analista, original)).StatusCode);
-            Assert.Equal(HttpStatusCode.BadRequest, (await AnularAsync(e.Supervisor, original, "corto")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await AnularAsync(e, e.Analista, original)).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await AnularAsync(e, e.Supervisor, original, "corto")).StatusCode);
 
-            var r = await AnularAsync(e.Supervisor, original);
+            var r = await AnularAsync(e, e.Supervisor, original);
             Assert.Equal(HttpStatusCode.Created, r.StatusCode);
             var anulacion = await Json(r);
             var folioOriginal = original.GetProperty("folio").GetString();
@@ -323,13 +346,105 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
             Assert.Equal((0m, 0m), despues[e.Gasto]);
 
             // K10.3-b: otra anulación se impide (también la de la propia anulación).
-            var segunda = await AnularAsync(e.Supervisor, anulada);
+            var segunda = await AnularAsync(e, e.Supervisor, anulada);
             Assert.Equal(HttpStatusCode.Conflict, segunda.StatusCode);
             Assert.Equal("CONTAB_POLIZA_YA_ANULADA", await Code(segunda));
-            var deAnulacion = await AnularAsync(e.Supervisor, anulacion);
+            var deAnulacion = await AnularAsync(e, e.Supervisor, anulacion);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, deAnulacion.StatusCode);
         }
         finally { await LimpiarAsync(e); }
+    }
+
+    // ── M-212 · anulación con segunda firma ─────────────────────────────────
+
+    private const string MotivoM212 = "FIX el gasto se registró dos veces";
+
+    [Fact]
+    public async Task M212_CA1_CA3_CA5_la_anulacion_se_solicita_la_poliza_sigue_vigente_y_la_aprueba_otra_persona()
+    {
+        Escenario? e = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            var original = await AutorizadaAsync(e, Hoy());
+
+            // CA1: la solicitud no toca la póliza ni crea la espejo; la póliza muestra la anulación pendiente.
+            var r = await SolicitarAnulacionAsync(e.Supervisor, original, MotivoM212);
+            Assert.Equal(HttpStatusCode.Created, r.StatusCode);
+            var solicitud = await Json(r);
+            Assert.Equal("Pendiente", solicitud.GetProperty("estado").GetString());
+            var vigente = await ObtenerAsync(e.Supervisor, Id(original));
+            Assert.Equal("Autorizada", vigente.GetProperty("estado").GetString());
+            Assert.Equal(Id(solicitud), vigente.GetProperty("anulacionPendiente").GetProperty("solicitudId").GetGuid());
+            Assert.Equal(0, await Contar(factory.Services, "polizas", $"poliza_anulada_id = '{Id(original)}'"));
+
+            // CA5: una segunda solicitud para la misma póliza se rechaza por duplicada.
+            var duplicada = await SolicitarAnulacionAsync(e.Supervisor, vigente, MotivoM212);
+            Assert.Equal(HttpStatusCode.Conflict, duplicada.StatusCode);
+            Assert.Equal("CONTAB_ANULACION_YA_SOLICITADA", await Code(duplicada));
+
+            // Sin el permiso de aprobar: 403. La bandeja la muestra.
+            Assert.Equal(HttpStatusCode.Forbidden, (await AprobarAnulacionAsync(e.Supervisor, solicitud)).StatusCode);
+            var bandeja = await Json(await e.Aprobador.GetAsync($"{Polizas}/solicitudes-anulacion"));
+            Assert.Contains(bandeja.EnumerateArray(), x => x.GetProperty("id").GetGuid() == Id(solicitud)
+                && x.GetProperty("polizaFolio").GetString() == original.GetProperty("folio").GetString());
+
+            // CA3: otra persona la aprueba; nace la anulación con el motivo de la solicitud.
+            var aprobada = await AprobarAnulacionAsync(e.Aprobador, solicitud);
+            Assert.Equal(HttpStatusCode.Created, aprobada.StatusCode);
+            var anulacion = await Json(aprobada);
+            Assert.Equal($"Anulación de {original.GetProperty("folio").GetString()}", anulacion.GetProperty("concepto").GetString());
+            var anulada = await ObtenerAsync(e.Supervisor, Id(original));
+            Assert.Equal("Anulada", anulada.GetProperty("estado").GetString());
+            Assert.Equal(MotivoM212, anulada.GetProperty("motivoAnulacion").GetString());
+            Assert.Equal(JsonValueKind.Null, anulada.GetProperty("anulacionPendiente").ValueKind);
+            Assert.Equal(1, await Contar(factory.Services, "solicitudes_anulacion_poliza",
+                $"id = '{Id(solicitud)}' AND estado = 1 AND poliza_anulacion_id = '{Id(anulacion)}' AND decidida_por_id IS NOT NULL"));
+
+            // Una solicitud decidida no se vuelve a decidir.
+            Assert.Equal(HttpStatusCode.Conflict, (await AprobarAnulacionAsync(e.Aprobador, solicitud)).StatusCode);
+        }
+        finally { await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task M212_CA2_CA4_quien_solicita_no_aprueba_y_el_rechazo_deja_la_poliza_y_permite_pedir_otra()
+    {
+        Escenario? e = null;
+        HttpClient? ambos = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            ambos = await ClienteConPermisosAsync(factory,
+                [.. PermisosSupervisor, PermisosCanonicos.ContabilidadPolizasAnularAprobar]);
+            var original = await AutorizadaAsync(e, Hoy());
+            var solicitud = await Json(await SolicitarAnulacionAsync(ambos, original, MotivoM212));
+
+            // CA2: aunque tenga los dos permisos, quien solicitó no aprueba.
+            var propia = await AprobarAnulacionAsync(ambos, solicitud);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, propia.StatusCode);
+            Assert.Equal("CONTAB_ANULACION_MISMA_PERSONA", await Code(propia));
+            Assert.Contains("Otra persona con facultad debe aprobar la anulación", (await Json(propia)).GetProperty("detail").GetString());
+            Assert.Equal("Autorizada", (await ObtenerAsync(e.Supervisor, Id(original))).GetProperty("estado").GetString());
+
+            // CA4: otra persona la rechaza con motivo; la póliza no cambia y se puede pedir otra.
+            var sinMotivo = await Send(e.Aprobador, HttpMethod.Post, $"{Polizas}/solicitudes-anulacion/{Id(solicitud)}/rechazar", new { motivo = "no" });
+            Assert.Equal(HttpStatusCode.BadRequest, sinMotivo.StatusCode);
+            var rechazo = await Send(e.Aprobador, HttpMethod.Post, $"{Polizas}/solicitudes-anulacion/{Id(solicitud)}/rechazar",
+                new { motivo = "FIX la póliza es correcta" });
+            Assert.Equal(HttpStatusCode.OK, rechazo.StatusCode);
+            Assert.Equal("Rechazada", (await Json(rechazo)).GetProperty("estado").GetString());
+            var vigente = await ObtenerAsync(e.Supervisor, Id(original));
+            Assert.Equal("Autorizada", vigente.GetProperty("estado").GetString());
+            Assert.Equal(original.GetProperty("version").GetInt32(), vigente.GetProperty("version").GetInt32());
+            Assert.Equal(JsonValueKind.Null, vigente.GetProperty("anulacionPendiente").ValueKind);
+            Assert.Equal(HttpStatusCode.Created, (await SolicitarAnulacionAsync(ambos, vigente, MotivoM212)).StatusCode);
+        }
+        finally
+        {
+            if (ambos is not null) await LimpiarClienteAsync(ambos);
+            await LimpiarAsync(e);
+        }
     }
 
     [Fact]
@@ -340,7 +455,7 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
         {
             e = await CrearEscenarioAsync();
             var original = await AutorizadaAsync(e, Hoy());
-            var r = await Task.WhenAll(AnularAsync(e.Supervisor, original), AnularAsync(e.Supervisor, original));
+            var r = await Task.WhenAll(AnularAsync(e, e.Supervisor, original), AnularAsync(e, e.Supervisor, original));
             Assert.Single(r, x => x.StatusCode == HttpStatusCode.Created);
             Assert.Single(r, x => x.StatusCode == HttpStatusCode.Conflict);
             Assert.Equal(1, await Contar(factory.Services, "polizas", $"poliza_anulada_id = '{Id(original)}'"));
@@ -365,13 +480,13 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
             (await Send(e.Admin, HttpMethod.Post, $"{Base}/periodos/{Id(enero)}/cerrar", new { motivo = "FIX cierre de enero de prueba" }, Etag(enero)))
                 .EnsureSuccessStatusCode();
 
-            var sinDestino = await AnularAsync(e.Supervisor, original);
+            var sinDestino = await AnularAsync(e, e.Supervisor, original);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, sinDestino.StatusCode);
             Assert.Equal("CONTAB_POLIZA_ANULACION_REQUIERE_PERIODO", await Code(sinDestino));
-            var aCerrado = await AnularAsync(e.Supervisor, original, anio: anio, numero: 1);
+            var aCerrado = await AnularAsync(e, e.Supervisor, original, anio: anio, numero: 1);
             Assert.Equal("CONTAB_PERIODO_CERRADO", await Code(aCerrado));
 
-            var r = await AnularAsync(e.Supervisor, original, anio: anio, numero: 2);
+            var r = await AnularAsync(e, e.Supervisor, original, anio: anio, numero: 2);
             Assert.Equal(HttpStatusCode.Created, r.StatusCode);
             var anulacion = await Json(r);
             Assert.Equal(2, anulacion.GetProperty("periodoNumero").GetInt32());
@@ -380,7 +495,7 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
 
             // Con el periodo original abierto no se elige otro destino.
             var otra = await AutorizadaAsync(e, new DateOnly(anio, 3, 5));
-            var conDestino = await AnularAsync(e.Supervisor, otra, anio: anio, numero: 2);
+            var conDestino = await AnularAsync(e, e.Supervisor, otra, anio: anio, numero: 2);
             Assert.Equal("CONTAB_POLIZA_ANULACION_PERIODO_ORIGINAL_ABIERTO", await Code(conDestino));
         }
         finally { await LimpiarAsync(e); }
@@ -420,6 +535,148 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
             Assert.Equal("CONTAB_PERIODO_CERRADO", ex.Code); // la fecha 31-dic cae en el 12 (cerrado); el 13 nunca se resuelve por fecha
         }
         finally { await LimpiarAsync(e); }
+    }
+
+    [Theory]
+    [InlineData("facturacion", "comprobante")]
+    [InlineData("cuentas_por_pagar", "factura_proveedor")]
+    public async Task Por_documento_filtra_triple_y_empresa_antes_de_paginar_sin_generar_polizas(string modulo, string tipo)
+    {
+        Escenario? e = null;
+        HttpClient? lector = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            lector = await ClienteConPermisosAsync(factory, PermisosCanonicos.ContabilidadPolizasLeer);
+            var documentoId = Guid.NewGuid();
+            Guid originalId, reversaId, anulacionId, borradorId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var sp = scope.ServiceProvider;
+                // Sólo fixture aislado: incluye otra empresa con el mismo GUID de origen para verificar el filtro HTTP.
+                using var bypass = sp.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+                var db = sp.GetRequiredService<ContabilidadDbContext>();
+                var tipoPoliza = await db.TiposDocumento.SingleAsync(t => t.Id == e.Tipo);
+                var documento = new DocumentoOrigenPoliza(modulo, tipo, documentoId, "FIX mismo folio", null);
+                DatosPartida[] partidas = [
+                    new(e.Gasto, "FIX gasto", null, 116m, 0m, "MXN", 1m, null, e.Sucursal, null, null, null, null, null, null, null),
+                    new(e.Banco, "FIX banco", null, 0m, 116m, "MXN", 1m, null, e.Sucursal, null, null, null, null, null, null, null),
+                ];
+                var original = Millet.Contabilidad.Domain.Poliza.CrearAutomatica(Guid.NewGuid(), tipoPoliza, Hoy(), Hoy().Year,
+                    Hoy().Month, "FIX B19 original", documento, $"FIX-B19:{documentoId}", partidas, 1, DateTimeOffset.UtcNow);
+                original.EmpresaId = EmpresaBootstrapId;
+                var reversa = original.Revertir(Guid.NewGuid(), tipoPoliza, Hoy(), Hoy().Year, Hoy().Month, 2,
+                    null, "FIX B19", DateTimeOffset.UtcNow);
+                var anulacion = original.Anular(Guid.NewGuid(), tipoPoliza, Hoy(), Hoy().Year, Hoy().Month, 3,
+                    "FIX B19 documento cancelado", null, "FIX B19", DateTimeOffset.UtcNow);
+                anulacion.EmpresaId = EmpresaBootstrapId;
+                foreach (var poliza in new[] { original, reversa, anulacion })
+                {
+                    foreach (var partida in poliza.Partidas) partida.EmpresaId = EmpresaBootstrapId;
+                    db.Polizas.Add(poliza);
+                }
+                originalId = original.Id; reversaId = reversa.Id; anulacionId = anulacion.Id;
+                var fechaBorrador = Hoy().AddDays(1);
+                var borrador = Millet.Contabilidad.Domain.Poliza.CrearManual(Guid.NewGuid(), tipoPoliza, fechaBorrador,
+                    fechaBorrador.Year, fechaBorrador.Month, "FIX B19 borrador sin folio", documento, [], null, "FIX B19");
+                borrador.EmpresaId = EmpresaBootstrapId;
+                borradorId = borrador.Id;
+                db.Polizas.Add(borrador);
+                void Distractor(string otroModulo, string otroTipo, Guid otroId, Guid empresaId)
+                {
+                    var p = Millet.Contabilidad.Domain.Poliza.CrearManual(Guid.NewGuid(), tipoPoliza, Hoy().AddDays(1), Hoy().Year,
+                        Hoy().Month, "FIX B19 mismo texto", new DocumentoOrigenPoliza(otroModulo, otroTipo, otroId, "FIX mismo folio", null), [], null, "FIX B19");
+                    p.EmpresaId = empresaId;
+                    db.Polizas.Add(p);
+                }
+                Distractor("otro_modulo", tipo, documentoId, EmpresaBootstrapId);
+                Distractor(modulo, "otro_tipo", documentoId, EmpresaBootstrapId);
+                Distractor(modulo, tipo, Guid.NewGuid(), EmpresaBootstrapId);
+                Distractor(modulo, tipo, documentoId, Guid.NewGuid());
+                await db.SaveChangesAsync();
+            }
+            var url = $"{Polizas}/por-documento?modulo={modulo}&tipo={tipo}&documentoId={documentoId}";
+            using var respuesta = await lector.GetAsync(url);
+            respuesta.EnsureSuccessStatusCode();
+            var completa = await Json(respuesta);
+            Assert.Equal(4, completa.GetProperty("total").GetInt32());
+            var filas = completa.GetProperty("items").EnumerateArray().ToArray();
+            var esperados = new[] { originalId, reversaId, anulacionId }.Order().Append(borradorId).ToArray();
+            Assert.Equal(esperados, filas.Select(Id).ToArray());
+            Assert.Equal(JsonValueKind.Null, filas.Single(f => Id(f) == borradorId).GetProperty("folio").ValueKind);
+            Assert.Equal("Borrador", filas.Single(f => Id(f) == borradorId).GetProperty("estado").GetString());
+            Assert.Equal(anulacionId, filas.Single(f => Id(f) == originalId).GetProperty("anuladaPorPolizaId").GetGuid());
+            Assert.Equal(originalId, filas.Single(f => Id(f) == anulacionId).GetProperty("polizaAnuladaId").GetGuid());
+            var derivada = filas.Single(f => Id(f) == reversaId);
+            Assert.Equal(originalId, derivada.GetProperty("polizaRelacionadaId").GetGuid());
+            Assert.Equal("Reversa", derivada.GetProperty("relacion").GetString());
+            for (var offset = 0; offset < 4; offset++)
+            {
+                using var pagina = await lector.GetAsync($"{url}&offset={offset}&limit=1");
+                pagina.EnsureSuccessStatusCode();
+                var json = await Json(pagina);
+                Assert.Equal(4, json.GetProperty("total").GetInt32());
+                Assert.Equal(offset, json.GetProperty("offset").GetInt32());
+                Assert.Equal(1, json.GetProperty("limit").GetInt32());
+                Assert.Equal(esperados[offset], Id(Assert.Single(json.GetProperty("items").EnumerateArray())));
+            }
+            using var vacia = await lector.GetAsync($"{Polizas}/por-documento?modulo={modulo}&tipo={tipo}&documentoId={Guid.NewGuid()}");
+            vacia.EnsureSuccessStatusCode();
+            Assert.Empty((await Json(vacia)).GetProperty("items").EnumerateArray());
+            using var fueraDePagina = await lector.GetAsync($"{url}&offset=4&limit=1");
+            fueraDePagina.EnsureSuccessStatusCode();
+            Assert.Empty((await Json(fueraDePagina)).GetProperty("items").EnumerateArray());
+            using var finalScope = factory.Services.CreateScope();
+            using var finalBypass = finalScope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var finalDb = finalScope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+            Assert.Equal(8, await finalDb.Polizas.CountAsync(p => p.TipoOperacionId == e.Tipo));
+            Assert.Equal(EstadoPoliza.Anulada, (await finalDb.Polizas.SingleAsync(p => p.Id == originalId)).Estado);
+        }
+        finally
+        {
+            if (lector is not null) await LimpiarClienteAsync(lector);
+            await LimpiarAsync(e);
+        }
+    }
+
+    [Theory]
+    [InlineData("modulo=facturacion&tipo=factura_proveedor")]
+    [InlineData("modulo=cuentas_por_pagar&tipo=comprobante")]
+    [InlineData("modulo=otro&tipo=comprobante")]
+    [InlineData("modulo=facturacion&tipo=comprobante&offset=-1")]
+    [InlineData("modulo=facturacion&tipo=comprobante&limit=0")]
+    [InlineData("modulo=facturacion&tipo=comprobante&limit=201")]
+    public async Task Por_documento_rechaza_contrato_invalido(string parametros)
+    {
+        using var client = await LoginAsync(factory);
+        using var respuesta = await client.GetAsync($"{Polizas}/por-documento?{parametros}&documentoId={Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData("no-es-guid")]
+    public async Task Por_documento_rechaza_identidad_invalida(string documentoId)
+    {
+        using var client = await LoginAsync(factory);
+        using var respuesta = await client.GetAsync($"{Polizas}/por-documento?modulo=facturacion&tipo=comprobante&documentoId={documentoId}");
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Por_documento_requiere_autenticacion_y_permiso_contable()
+    {
+        var url = $"{Polizas}/por-documento?modulo=facturacion&tipo=comprobante&documentoId={Guid.NewGuid()}";
+        using var anonimo = factory.CreateClient();
+        using var sinSesion = await anonimo.GetAsync(url);
+        Assert.Equal(HttpStatusCode.Unauthorized, sinSesion.StatusCode);
+        using var sinPermiso = await ClienteConPermisosAsync(factory, PermisosCanonicos.ContabilidadPolizasCapturar);
+        try
+        {
+            using var prohibido = await sinPermiso.GetAsync(url);
+            Assert.Equal(HttpStatusCode.Forbidden, prohibido.StatusCode);
+        }
+        finally { await LimpiarClienteAsync(sinPermiso); }
     }
 
     // ── Motor (puerto público) ──────────────────────────────────────────────

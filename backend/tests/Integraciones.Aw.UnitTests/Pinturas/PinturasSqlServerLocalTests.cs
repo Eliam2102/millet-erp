@@ -29,8 +29,8 @@ public sealed class PinturasSqlServerFactAttribute : FactAttribute
 }
 
 /// <summary>
-/// I13.9 (prueba local): <see cref="PinturasPedidosAdapter"/> contra <c>MILLET_INTEGRACION(_DEV)</c> con el script 16 v2 sin
-/// editar. El portal (<c>millet_pinturas_portal</c>: SELECT e INSERT) inserta la orden; el ERP (<c>millet_erp_integracion</c>:
+/// I13.9 (prueba local): <see cref="PinturasPedidosAdapter"/> contra <c>MILLET_INTEGRACION(_DEV)</c> con el script 16 v3 sin
+/// editar. El portal (<c>millet_pinturas_portal</c>: SELECT e INSERT) inserta cabecera y líneas en una transacción; el ERP (<c>millet_erp_integracion</c>:
 /// SELECT y UPDATE solo de las 4 columnas del acuse) la lee, la ingesta con el handler real sobre Facturación en memoria y
 /// escribe el acuse. Cada caso usa sus propios folios <c>I139-*</c>; quedan en la tabla (el portal no puede borrar).
 /// </summary>
@@ -57,6 +57,7 @@ public sealed class PinturasSqlServerLocalTests
         private sealed class Nada : IDisposable { public void Dispose() { } }
     }
     private sealed class Reloj : IClock { public DateTimeOffset UtcNow => Ahora; }
+    private sealed class RelojReal(TimeSpan adelanto) : IClock { public DateTimeOffset UtcNow => DateTimeOffset.UtcNow + adelanto; }
 
     // Maestros del ERP: existe el cliente 900123 y el servicio de recubrimiento de la prueba; lo demás no existe.
     private sealed class Clientes : IClientesReadPort
@@ -82,9 +83,15 @@ public sealed class PinturasSqlServerLocalTests
             throw new NotSupportedException();
     }
 
+    // Catálogo de empleados del ERP: solo EMP-001 (el capturista que manda el portal en estas pruebas).
+    private sealed class Empleados : IEmpleadosReadPort
+    {
+        public Task<bool> ExisteClaveAsync(string clave, CancellationToken ct) => Task.FromResult(clave == "EMP-001");
+    }
+
     private sealed record Caso(PinturasPedidosAdapter Lector, FacturacionDbContext Db, ImportarPedidoPlantaPinturaHandler Handler, string Servicio);
 
-    private static async Task<Caso> CrearAsync()
+    private static async Task<Caso> CrearAsync(TimeSpan? adelanto = null)
     {
         // Catálogo de servicios: lo publica el ERP (SELECT/INSERT/UPDATE).
         var servicio = $"I139-S-{Guid.NewGuid():N}"[..20];
@@ -93,17 +100,42 @@ public sealed class PinturasSqlServerLocalTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new Empresas(null));
         var lector = new PinturasPedidosAdapter(new Fabrica(Erp), postgres: false, new SucursalFija(),
             Options.Create(new PinturasPedidosOptions { SucursalClave = "PIN", SqlQueryTimeoutSeconds = 15 }),
-            NullLogger<PinturasPedidosAdapter>.Instance);
-        return new Caso(lector, db, new ImportarPedidoPlantaPinturaHandler(db, new Clientes(), new Productos(servicio), new Reloj()), servicio);
+            new RelojReal(adelanto ?? TimeSpan.Zero), NullLogger<PinturasPedidosAdapter>.Instance);
+        return new Caso(lector, db, new ImportarPedidoPlantaPinturaHandler(db, new Clientes(), new Productos(servicio), new Empleados(), new Reloj()), servicio);
     }
 
-    private static async Task<string> InsertarOrdenAsync(Caso c, int cliente = 900123, decimal iva = 16m)
+    private static readonly DateOnly FechaOrden = new(2026, 11, 5);
+
+    // Como el portal: cabecera y líneas en una sola transacción. Por omisión una línea de 125.5 m2 a 85.25.
+    private static async Task<string> InsertarOrdenAsync(
+        Caso c, int cliente = 900123, decimal iva = 16m, params (int? Piezas, decimal M2, decimal Precio)[] lineas)
     {
+        if (lineas.Length == 0) lineas = [(12, 125.5m, 85.25m)];
         var folio = $"I139-{Guid.NewGuid():N}"[..20];
-        await EjecutarAsync(Portal,
-            "INSERT INTO dbo.pinturas_pedido (folio_orden, cliente_clave, cliente_nombre, obra_clave, obra_nombre, comentarios, servicio_clave, m2, precio_m2, iva_porcentaje) " +
-            "VALUES (@f, @cli, N'Aluminios SA', NULL, NULL, N'Prueba I13.9', @s, 125.5, 85.25, @iva)",
-            ("@f", folio), ("@cli", cliente), ("@s", c.Servicio), ("@iva", iva));
+        await using var cn = new SqlConnection(Portal);
+        await cn.OpenAsync();
+        await using var tx = (SqlTransaction)await cn.BeginTransactionAsync();
+        await using var cab = new SqlCommand(
+            "INSERT INTO dbo.pinturas_pedido (folio_orden, fecha_pedido, cliente_clave, cliente_nombre, obra_clave, obra_nombre, comentarios, iva_porcentaje, empleado_captura_clave) " +
+            "OUTPUT INSERTED.id VALUES (@f, @fecha, @cli, N'Aluminios SA', NULL, NULL, N'Prueba I13.9', @iva, N'EMP-001')", cn, tx);
+        cab.Parameters.AddWithValue("@f", folio);
+        cab.Parameters.AddWithValue("@fecha", FechaOrden.ToDateTime(TimeOnly.MinValue));
+        cab.Parameters.AddWithValue("@cli", cliente);
+        cab.Parameters.AddWithValue("@iva", iva);
+        var id = (long)(await cab.ExecuteScalarAsync())!;
+        for (var i = 0; i < lineas.Length; i++)
+        {
+            await using var lin = new SqlCommand(
+                "INSERT INTO dbo.pinturas_pedido_linea (pedido_id, linea, servicio_clave, piezas, m2, precio_m2) VALUES (@id, @n, @s, @pz, @m2, @p)", cn, tx);
+            lin.Parameters.AddWithValue("@id", id);
+            lin.Parameters.AddWithValue("@n", i + 1);
+            lin.Parameters.AddWithValue("@s", c.Servicio);
+            lin.Parameters.AddWithValue("@pz", (object?)lineas[i].Piezas ?? DBNull.Value);
+            lin.Parameters.AddWithValue("@m2", lineas[i].M2);
+            lin.Parameters.AddWithValue("@p", lineas[i].Precio);
+            await lin.ExecuteNonQueryAsync();
+        }
+        await tx.CommitAsync();
         return folio;
     }
 
@@ -141,6 +173,7 @@ public sealed class PinturasSqlServerLocalTests
         var pedido = await LeerAsync(c, folio);
         pedido.Should().NotBeNull();
         pedido!.ClienteRef.Should().Be("900123");
+        pedido.FechaPedido.Should().Be(FechaOrden);
         pedido.SucursalId.Should().Be(Sucursal);
         pedido.Lineas.Should().ContainSingle().Which.Should().Match<LineaPedidoPlantaPintura>(l =>
             l.ProductoRef == c.Servicio && l.Descripcion == "I13.9 · Pintura blanco mate" && l.Cantidad == 125.5m
@@ -152,6 +185,9 @@ public sealed class PinturasSqlServerLocalTests
         creado.Origen.Should().Be(OrigenPedido.PlantaPintura);
         creado.CanalVentaId.Should().Be(CanalesVentaConocidos.PlantaPintura);
         creado.ClienteId.Should().Be(Clientes.Id);
+        creado.EmpleadoCapturaClave.Should().Be("EMP-001", "script 16 v4: trazabilidad del capturista");
+        creado.VendedorClave.Should().BeNull();
+        creado.FechaPedido.Should().Be(FechaOrden);
 
         await c.Lector.MarcarResultadoAsync(folio, ResultadoAcusePlantaPintura.Creado, creado.Id, null, Ahora, default);
         var acuse = await AcuseAsync(folio);
@@ -164,6 +200,46 @@ public sealed class PinturasSqlServerLocalTests
         // Un segundo acuse (otra instancia del worker) no pisa el primero.
         await c.Lector.MarcarResultadoAsync(folio, ResultadoAcusePlantaPintura.Error, null, "tarde", Ahora.AddMinutes(1), default);
         (await AcuseAsync(folio)).Should().Be(acuse);
+    }
+
+    // Cabecera sin líneas (el portal falló a medias): con menos de 10 min sigue pendiente; después se acusa 2 con el motivo.
+    private static async Task<string> InsertarCabeceraSinLineasAsync()
+    {
+        var folio = $"I139-{Guid.NewGuid():N}"[..20];
+        await EjecutarAsync(Portal,
+            "INSERT INTO dbo.pinturas_pedido (folio_orden, fecha_pedido, cliente_clave, cliente_nombre, iva_porcentaje, empleado_captura_clave) " +
+            "VALUES (@f, @fecha, 900123, N'Aluminios SA', 16, N'EMP-001')", ("@f", folio), ("@fecha", FechaOrden.ToDateTime(TimeOnly.MinValue)));
+        return folio;
+    }
+
+    [PinturasSqlServerFact]
+    public async Task Jorge_10nov_cabecera_sin_lineas_reciente_sigue_pendiente_y_vencida_se_acusa_con_error()
+    {
+        var folio = await InsertarCabeceraSinLineasAsync();
+
+        (await LeerAsync(await CrearAsync(), folio)).Should().BeNull("sin líneas no se toma");
+        (await AcuseAsync(folio)).Resultado.Should().BeNull("todavía no pasan 10 minutos");
+
+        (await LeerAsync(await CrearAsync(TimeSpan.FromMinutes(11)), folio)).Should().BeNull();
+        var acuse = await AcuseAsync(folio);
+        acuse.Resultado.Should().Be(2);
+        acuse.Pedido.Should().BeNull();
+        acuse.Error.Should().StartWith("Orden sin renglones: ");
+        acuse.Fecha.Should().NotBeNull();
+    }
+
+    [PinturasSqlServerFact]
+    public async Task V3_orden_con_varias_lineas_da_una_linea_de_venta_por_linea()
+    {
+        var c = await CrearAsync();
+        var folio = await InsertarOrdenAsync(c, lineas: [(12, 80.5m, 85.25m), (null, 45m, 92m)]);
+
+        var pedido = await LeerAsync(c, folio);
+        pedido!.Lineas.Select(l => (l.Cantidad, l.Precio)).Should().Equal((80.5m, 85.25m), (45m, 92m));
+        var resp = await c.Handler.Handle(new ImportarPedidoPlantaPinturaCommand(Empresa, pedido), default);
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        (await c.Db.PedidosFacturables.Include(p => p.Lineas).SingleAsync()).Lineas.Should().HaveCount(2);
+        await c.Lector.MarcarResultadoAsync(folio, ResultadoAcusePlantaPintura.Creado, resp.PedidoFacturableId, null, Ahora, default);
     }
 
     [PinturasSqlServerFact]
@@ -211,6 +287,11 @@ public sealed class PinturasSqlServerLocalTests
         (await update.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(229);
         var delete = () => EjecutarAsync(Portal, "DELETE FROM dbo.pinturas_pedido WHERE folio_orden = @f", ("@f", folio));
         (await delete.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(229);
+        const string linea = "(SELECT id FROM dbo.pinturas_pedido WHERE folio_orden = @f)";
+        var updateLinea = () => EjecutarAsync(Portal, $"UPDATE dbo.pinturas_pedido_linea SET m2 = 1 WHERE pedido_id = {linea}", ("@f", folio));
+        (await updateLinea.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(229);
+        var deleteLinea = () => EjecutarAsync(Portal, $"DELETE FROM dbo.pinturas_pedido_linea WHERE pedido_id = {linea}", ("@f", folio));
+        (await deleteLinea.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(229);
         await c.Lector.MarcarResultadoAsync(folio, ResultadoAcusePlantaPintura.Error, null, "limpieza de la prueba", Ahora, default);
     }
 }

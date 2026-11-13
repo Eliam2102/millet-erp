@@ -4,7 +4,7 @@ namespace Millet.Integraciones.Aw.Application.Pinturas;
 
 /// <summary>
 /// Opciones del lector de pedidos de Planta Pintura (I13.9) sobre <c>dbo.pinturas_pedido</c> de
-/// <c>MILLET_INTEGRACION</c> (script 16 v2, doc integration/11). Sección <c>IntegracionesAw:Pinturas</c>.
+/// <c>MILLET_INTEGRACION</c> (script 16 v3, doc integration/11). Sección <c>IntegracionesAw:Pinturas</c>.
 /// La conexión es la misma del flujo 2 (<c>ConnectionStrings:AwIntegracionDb</c>, login <c>millet_erp_integracion</c>):
 /// sin ella queda el stub de Facturación (0 pedidos) y el worker no lee nada.
 /// </summary>
@@ -20,6 +20,13 @@ public sealed class PinturasPedidosOptions
 
     /// <summary>Comportamiento fiscal del pedido (la tabla no lo trae). Supuesto a validar: venta de mostrador.</summary>
     public ComportamientoFiscal ComportamientoFiscal { get; set; } = ComportamientoFiscal.MostradorInmediato;
+
+    /// <summary>
+    /// Minutos que una cabecera pendiente puede estar sin líneas antes de acusarla con error (<c>erp_resultado = 2</c>,
+    /// «Orden sin renglones: …»). El folio es único y el portal no edita ni borra: sin acuse quedaría invisible (Jorge
+    /// Toache, 10-nov). 0 o menos = no se acusa.
+    /// </summary>
+    public int MinutosCabeceraSinLineas { get; set; } = 10;
 
     /// <summary>Timeout por consulta (segundos).</summary>
     public int SqlQueryTimeoutSeconds { get; set; } = 5;

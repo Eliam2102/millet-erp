@@ -1,4 +1,5 @@
 using Millet.SharedKernel.Application.Exceptions;
+using UglyToad.PdfPig;
 
 namespace Millet.SharedKernel.Application.Adjuntos;
 
@@ -24,6 +25,7 @@ public sealed class AdjuntosPoliticaOptions
     /// <summary>
     /// Tamaño máximo en bytes (por defecto 20 MB = 20 * 1024 * 1024).
     /// </summary>
+    public bool PermitirValidacionAduanal { get; set; }
     public long MaxBytes { get; set; } = 20 * 1024 * 1024;
 
     /// <summary>
@@ -41,7 +43,9 @@ public sealed class AdjuntosPoliticaOptions
         ".xls",
         ".docx",
         ".doc",
-        ".txt"
+        ".txt",
+        // K10.11 (QA H1): la póliza de nómina externa adjunta su archivo origen, que suele ser CSV.
+        ".csv"
     ];
 
     /// <summary>
@@ -58,7 +62,9 @@ public sealed class AdjuntosPoliticaOptions
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
-        "text/plain"
+        "text/plain",
+        "text/csv",
+        "application/csv"
     ];
 
     /// <summary>
@@ -72,6 +78,17 @@ public sealed class AdjuntosPoliticaOptions
     /// </summary>
     public AdjuntosPoliticaOptions ParaEntidad(string tipoEntidad)
     {
+        if (tipoEntidad == "expediente_ce")
+        {
+            var especifica = PorTipoEntidad.GetValueOrDefault(tipoEntidad);
+            return new AdjuntosPoliticaOptions
+            {
+                MaxBytes = especifica?.MaxBytes ?? MaxBytes,
+                Extensiones = (especifica?.Extensiones is { Count: > 0 } ? especifica.Extensiones : Extensiones).Concat([".xml"]).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                ContentTypes = (especifica?.ContentTypes is { Count: > 0 } ? especifica.ContentTypes : ContentTypes).Concat(["application/xml", "text/xml", "application/octet-stream"]).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                PermitirValidacionAduanal = true
+            };
+        }
         if (!PorTipoEntidad.TryGetValue(tipoEntidad, out var o))
             return this;
 
@@ -83,7 +100,100 @@ public sealed class AdjuntosPoliticaOptions
         };
     }
 
+    /// <summary>Valida el contenido antes de persistirlo y deja el stream listo para guardar.</summary>
+    public async Task ValidarContenidoAsync(string nombre, string mime, Stream contenido, CancellationToken ct)
+    {
+        if (contenido.Length == 0)
+            throw new BusinessRuleException("ADJUNTO_ARCHIVO_VACIO", "El archivo está vacío.");
+
+        contenido.Position = 0;
+        try
+        {
+            var cabecera = new byte[16];
+            var leidos = await contenido.ReadAtLeastAsync(cabecera, cabecera.Length, throwOnEndOfStream: false, ct);
+            if (PermitirValidacionAduanal && EsNombreValidacionAduanal(nombre))
+            {
+                if (contenido.Length > MaxBytes || mime is not ("text/plain" or "application/octet-stream"))
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo M debe ser texto y respetar el tamaño permitido.");
+                contenido.Position = 0;
+                var datos = new byte[checked((int)contenido.Length)];
+                await contenido.ReadExactlyAsync(datos, ct);
+                if (!EsValidacionAduanal(datos))
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo no contiene registros de validación aduanal válidos.");
+                return;
+            }
+            ValidarInstancia(nombre, mime, contenido.Length, cabecera.AsSpan(0, leidos));
+            if (Path.GetExtension(nombre).Equals(".xml", StringComparison.OrdinalIgnoreCase))
+            {
+                contenido.Position = 0;
+                try
+                {
+                    var settings = new System.Xml.XmlReaderSettings { Async = true, DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaxBytes };
+                    using var reader = System.Xml.XmlReader.Create(contenido, settings);
+                    while (await reader.ReadAsync()) { }
+                }
+                catch (System.Xml.XmlException)
+                {
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo XML no es válido o contiene declaraciones no permitidas.");
+                }
+                return;
+            }
+            if (!Path.GetExtension(nombre).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            contenido.Position = 0;
+            var bytes = new byte[checked((int)contenido.Length)];
+            await contenido.ReadExactlyAsync(bytes, ct);
+            if (!EsPdfValido(bytes))
+                throw PdfInvalido();
+        }
+        finally
+        {
+            contenido.Position = 0;
+        }
+    }
+
+    private static bool EsNombreValidacionAduanal(string nombre) =>
+        System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(nombre), @"^M[0-9]{7}\.[0-9]{3}$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    private static bool EsValidacionAduanal(byte[] datos)
+    {
+        if (!datos.AsSpan().StartsWith("500|"u8) || datos.Any(b => b < 9 || b > 13 && b < 32 || b == 127)) return false;
+        var lineas = System.Text.Encoding.Latin1.GetString(datos).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return lineas.Length > 1 && lineas.All(l => l.Length >= 4 && l[3] == '|' && l.AsSpan(0, 3).IndexOfAnyExceptInRange('0', '9') < 0) && lineas.Any(l => l.StartsWith("800|", StringComparison.Ordinal));
+    }
+
+    public static bool EsPdfValido(byte[] bytes)
+    {
+        var fin = bytes.Length;
+        while (fin > 0 && bytes[fin - 1] is (byte)' ' or (byte)'\r' or (byte)'\n' or (byte)'\t' or (byte)'\f')
+            fin--;
+        if (!bytes.AsSpan().StartsWith("%PDF-"u8) || !bytes.AsSpan(0, fin).EndsWith("%%EOF"u8))
+            return false;
+
+        try
+        {
+            using var pdf = PdfDocument.Open(bytes, new ParsingOptions { UseLenientParsing = false });
+            return !pdf.IsEncrypted && pdf.NumberOfPages > 0;
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            return false;
+        }
+    }
+
+    private static BusinessRuleException PdfInvalido() =>
+        new("ADJUNTO_PDF_INVALIDO", "Cargue un PDF completo, sin contraseña y con al menos una página.");
+
     private static readonly AdjuntosPoliticaOptions DefaultOptions = new();
+
+    /// <summary>Valida PDF en cargas que conservan su propia lista de otros formatos.</summary>
+    public static Task ValidarSiEsPdfAsync(string nombre, string mime, Stream contenido, CancellationToken ct) =>
+        Path.GetExtension(nombre).Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+        || mime.Trim().Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
+            ? DefaultOptions.ValidarContenidoAsync(nombre, mime, contenido, ct)
+            : Task.CompletedTask;
+
 
     /// <summary>
     /// Valida un archivo contra la política de adjuntos por defecto.
@@ -150,6 +260,8 @@ public sealed class AdjuntosPoliticaOptions
                 "El tipo de contenido (Content-Type) es requerido.");
         }
 
+        if (PermitirValidacionAduanal && contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El contenido binario sólo se admite para archivos M de validación aduanal.");
         var contentTypePermitido = ContentTypes.Any(ct =>
             string.Equals(ct.Trim(), contentType.Trim(), StringComparison.OrdinalIgnoreCase));
 
@@ -167,12 +279,9 @@ public sealed class AdjuntosPoliticaOptions
 
         if (esPdf)
         {
-            // Firma PDF: %PDF (0x25, 0x50, 0x44, 0x46)
-            if (cabecera.Length < 4
-                || cabecera[0] != 0x25
-                || cabecera[1] != 0x50
-                || cabecera[2] != 0x44
-                || cabecera[3] != 0x46)
+            if (!extensionNormalizada.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+                || !contentType.Trim().Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
+                || !cabecera.StartsWith("%PDF-"u8))
             {
                 throw new BusinessRuleException(
                     "ADJUNTO_FORMATO_NO_PERMITIDO",

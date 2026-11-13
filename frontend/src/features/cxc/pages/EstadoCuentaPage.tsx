@@ -17,6 +17,7 @@ import {
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { EnviarEstadoCuentaDialog } from '@/features/cxc/components/EnviarEstadoCuentaDialog';
 import { EnviosEstadoCuentaTabla } from '@/features/cxc/components/EnviosEstadoCuentaTabla';
+import { PanelCorreccionesCartera } from '@/features/cxc/components/PanelCorreccionesCartera';
 import { PanelBloqueoEstadoCuenta } from '@/features/cxc/components/PanelBloqueoEstadoCuenta';
 import { adaptarReporteCxc } from '@/features/cxc/lib/reporte-cxc-adapter';
 import type { EstadoCuentaSearch } from '@/features/cxc/lib/cartera-search-schema';
@@ -169,6 +170,9 @@ export function EstadoCuentaPage() {
               filtrosUi={filtrosUi}
               nombreArchivo="estado-cuenta-cxc"
             />
+          )}
+          {!bloqueado && query.data && (
+            <PanelCorreccionesCartera clienteId={clienteId} filas={query.data.filas} />
           )}
           <EnviosEstadoCuentaTabla envios={envios.data} isLoading={envios.isLoading} />
         </>

@@ -40,7 +40,9 @@ public sealed class FacturaProveedorRegistradaMapper
             SucursalId: notification.SucursalId,
             CentroCostoId: notification.CentroCostoId,
             RecepcionId: notification.RecepcionId,
-            ConceptoRetencion: notification.ConceptoRetencion);
+            ConceptoRetencion: notification.ConceptoRetencion,
+            Impuestos: notification.Impuestos?.Select(i => new ImpuestoTrasladoPayload(i.Tratamiento, i.Base, i.Iva)).ToList(),
+            EsServicioComercioExterior: notification.EsServicioComercioExterior);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

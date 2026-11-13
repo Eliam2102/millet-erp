@@ -16,9 +16,22 @@ import { useAdjuntos } from '@/components/erp/adjuntos/api/hooks';
 import { CE_BASE, useAccionExpediente } from '../api/hooks';
 import { EstadoExpediente, type ExpedienteDetalle, type Hito } from '../api/types';
 
+/** Hitos obligatorios: no se omiten ni al registrar ni al corregir (mismo criterio que el servidor). */
+const NO_OMITIBLES = [
+  'solicitado',
+  'documentacion-completa',
+  'despacho-aduanal',
+  'liberado',
+  'embarcado',
+  'entregado',
+  'cerrado',
+];
+
 export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
   const puedeRegistrar = useHasPermission(P.ComercioExteriorExpedientesHitosRegistrar);
+  const puedeCorregir = useHasPermission(P.ComercioExteriorExpedientesHitosCorregir);
   const [seleccion, setSeleccion] = useState<Hito | null>(null);
+  const [correccion, setCorreccion] = useState<Hito | null>(null);
   return (
     <section className="space-y-4">
       <h2 className="text-md font-semibold">Hitos de la operación</h2>
@@ -110,6 +123,14 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
                   Actualizar {h.nombre}
                 </Button>
               ))}
+            {puedeCorregir &&
+              data.expediente.estado === EstadoExpediente.Abierto &&
+              (h.fechaReal || h.omitido) &&
+              h.clave !== 'cerrado' && (
+                <Button variant="outline" size="sm" onClick={() => setCorreccion(h)}>
+                  Corregir {h.nombre}
+                </Button>
+              )}
             {seleccion?.id === h.id && (
               <HitoForm
                 key={`${h.id}-${data.expediente.version}`}
@@ -118,6 +139,30 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
                 onClose={() => setSeleccion(null)}
               />
             )}
+            {correccion?.id === h.id && (
+              <CorregirHitoForm
+                key={`${h.id}-${data.expediente.version}`}
+                hito={h}
+                expedienteId={data.expediente.id}
+                onClose={() => setCorreccion(null)}
+              />
+            )}
+            {(h.correcciones?.length ?? 0) > 0 && (
+              <section aria-label={`Correcciones de ${h.nombre}`} className="space-y-1">
+                <h4 className="text-xs font-medium text-ink-strong">Correcciones</h4>
+                <ul className="divide-y divide-line-row text-xs text-ink-secondary">
+                  {h.correcciones!.map((c) => (
+                    <li key={c.id} className="py-1.5">
+                      <span className="font-medium text-ink-strong">
+                        <ValorHito fecha={c.fechaRealAnterior} omitido={c.omitidoAnterior} /> →{' '}
+                        <ValorHito fecha={c.fechaRealNueva} omitido={c.omitidoNuevo} />
+                      </span>{' '}
+                      · {c.usuarioNombre} · <DateTimeDisplay value={c.fecha} /> · Motivo: {c.motivo}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </li>
         ))}
       </ol>
@@ -125,7 +170,7 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
         <h3 className="font-semibold">Avisos de hitos vencidos</h3>
         <p className="text-xs text-ink-muted">
           Un aviso por hito y fecha compromiso. Los avisos anteriores se conservan al registrar la
-          fecha real o reprogramar.
+          fecha real o reprogramar. Si una corrección elimina el atraso, el aviso se cierra solo.
         </p>
         {data.avisos.length === 0 ? (
           <p className="text-ink-muted">Sin avisos registrados.</p>
@@ -135,6 +180,14 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
               <li key={a.id} className="py-2 text-ink-strong">
                 {a.hitoNombre} · Compromiso: <DateTimeDisplay value={a.fechaCompromiso} /> · Aviso:{' '}
                 <DateTimeDisplay value={a.fechaAviso} />
+                {a.cerradoEn && (
+                  <>
+                    {' '}
+                    · <Badge variant="neutral">Cerrado</Badge>{' '}
+                    <DateTimeDisplay value={a.cerradoEn} />
+                    {a.motivoCierre && <> · {a.motivoCierre}</>}
+                  </>
+                )}
               </li>
             ))}
           </ul>
@@ -206,13 +259,9 @@ function HitoForm({
           >
             <option value="compromiso">Fecha compromiso</option>
             <option value="real">Registrar fecha real</option>
-            {![
-              'solicitado',
-              'documentacion-completa',
-              'despacho-aduanal',
-              'entregado',
-              'cerrado',
-            ].includes(hito.clave) && <option value="omitir">Omitir con motivo</option>}
+            {!NO_OMITIBLES.includes(hito.clave) && (
+              <option value="omitir">Omitir con motivo</option>
+            )}
           </select>
         </FormCampo>
         {operacion !== 'omitir' && (
@@ -334,6 +383,138 @@ function HitoForm({
               }
             >
               Guardar hito
+            </Button>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Descartar
+            </Button>
+          </div>
+        </FormCampo>
+      </FormSeccion>
+    </form>
+  );
+}
+
+function ValorHito({ fecha, omitido }: { fecha: string | null; omitido: boolean }) {
+  if (omitido) return <>Omitido</>;
+  return fecha ? <DateTimeDisplay value={fecha} /> : <>Sin fecha real</>;
+}
+
+/**
+ * M-373: corrige la fecha real o la omisión de un hito ya resuelto. El motivo es obligatorio y la corrección
+ * queda en el historial del hito; si elimina el atraso, el aviso se cierra solo.
+ */
+function CorregirHitoForm({
+  hito,
+  expedienteId,
+  onClose,
+}: {
+  hito: Hito;
+  expedienteId: string;
+  onClose: () => void;
+}) {
+  const omitible = !NO_OMITIBLES.includes(hito.clave);
+  const [destino, setDestino] = useState<'real' | 'omitir'>('real');
+  const [fecha, setFecha] = useState(hito.fechaReal ?? '');
+  const [motivo, setMotivo] = useState('');
+  const accion = useAccionExpediente(expedienteId);
+  const sinCambio = destino === 'real' ? !hito.omitido && fecha === hito.fechaReal : hito.omitido;
+  const motivoValido = motivo.trim().length >= 5;
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    try {
+      await accion.mutateAsync({
+        accion: `hitos/${hito.clave}/corregir`,
+        body: {
+          clave: hito.clave,
+          fechaReal: destino === 'real' ? fecha : null,
+          omitir: destino === 'omitir',
+          motivo: motivo.trim(),
+        },
+      });
+      onClose();
+    } catch {
+      /* El error se muestra en el formulario. */
+    }
+  }
+  return (
+    <form
+      onSubmit={submit}
+      className="space-y-3 rounded-lg border border-dashed border-line-control p-4"
+    >
+      <FormSeccion titulo="Corregir hito">
+        <FormCampo span={12}>
+          <p className="text-xs text-ink-muted">
+            Valor vigente: <ValorHito fecha={hito.fechaReal} omitido={hito.omitido} />. El valor
+            anterior, quien corrige y el motivo quedan en el historial.
+          </p>
+        </FormCampo>
+        {omitible && (
+          <FormCampo span={6} className="space-y-1.5">
+            <Label htmlFor={`ce-hc-destino-${hito.id}`}>Corregir a</Label>
+            <select
+              id={`ce-hc-destino-${hito.id}`}
+              className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+              value={destino}
+              onChange={(e) => setDestino(e.target.value as 'real' | 'omitir')}
+            >
+              <option value="real">Fecha real</option>
+              <option value="omitir">Omitido</option>
+            </select>
+          </FormCampo>
+        )}
+        {destino === 'real' && (
+          <FormCampo span={6} className="space-y-1.5">
+            <Label htmlFor={`ce-hc-fecha-${hito.id}`}>
+              Fecha real corregida <span aria-hidden="true">*</span>
+            </Label>
+            <Input
+              id={`ce-hc-fecha-${hito.id}`}
+              type="date"
+              required
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+            />
+          </FormCampo>
+        )}
+        <FormCampo span={12} className="space-y-1.5">
+          <Label htmlFor={`ce-hc-motivo-${hito.id}`}>
+            Motivo de la corrección (obligatorio, 5 a 500 caracteres){' '}
+            <span aria-hidden="true">*</span>
+          </Label>
+          <Input
+            id={`ce-hc-motivo-${hito.id}`}
+            required
+            minLength={5}
+            maxLength={500}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+          />
+        </FormCampo>
+        <FormCampo span={12}>
+          {accion.isError && (
+            <p role="alert" className="text-danger-fg">
+              {esApiError(accion.error)
+                ? (accion.error.problem.detail ?? accion.error.problem.title)
+                : 'No se pudo corregir el hito.'}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={12}>
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={accion.isPending || !motivoValido || sinCambio}
+              title={
+                accion.isPending
+                  ? 'Guardando corrección.'
+                  : sinCambio
+                    ? 'Capture un valor distinto al vigente.'
+                    : !motivoValido
+                      ? 'Capture el motivo de la corrección.'
+                      : undefined
+              }
+            >
+              Guardar corrección
             </Button>
             <Button type="button" variant="ghost" onClick={onClose}>
               Descartar

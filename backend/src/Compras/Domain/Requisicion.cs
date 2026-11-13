@@ -97,6 +97,8 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     public EstadoRequisicion Estado { get; private set; }
 
+    public int CicloAutorizacion { get; private set; }
+
     /// <summary>
     /// Origen de la RQ (ADR-0047 PR5): <see cref="OrigenRequisicion.Manual"/> (default,
     /// captura humana) o <see cref="OrigenRequisicion.Sistema"/> (motor de reorden).
@@ -233,14 +235,38 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             proveedorSugeridoId: proveedorSugeridoId, descripcion: descripcion,
             origen: OrigenRequisicion.AlmacenesApp);
         rq.FolioExterno = folioExterno.Trim();
+        // M-283: con posicion, la línea lleva la de la app (todas o ninguna, sin repetir) para que REQUISICION_REDUCIDA la encuentre.
+        var posiciones = lineas.Where(l => l.Posicion is not null).Select(l => l.Posicion!.Value).ToList();
+        if (posiciones.Count > 0 && (posiciones.Count != lineas.Count || posiciones.Distinct().Count() != posiciones.Count))
+            throw new BusinessRuleException("RQ_APP_POSICIONES_INVALIDAS", "Las posiciones de la requisición deben venir en todas las líneas y sin repetirse.");
         foreach (var l in lineas)
         {
             var linea = rq.AgregarLinea(Guid.CreateVersion7(), l.ArticuloId, l.Cantidad, l.UnidadMedida, l.PrecioEstimado,
-                proyecto: l.Obra, fechaRequerida: l.FechaRequerida);
+                centroCostoId: l.CentroCostoId, proyecto: l.Obra, fechaRequerida: l.FechaRequerida);
             linea.AsignarMedidaApp(l.Piezas, l.AnchoMm, l.AltoMm);
+            if (l.Posicion is { } posicion) linea.AsignarPosicionApp(posicion);
         }
         rq.Estado = EstadoRequisicion.Autorizada;
         return rq;
+    }
+
+    /// <summary>
+    /// M-446 (REQUISICION_REDUCIDA de la app de Almacenes): quita de lo que falta comprar las piezas de cada posición de la RQ
+    /// (cancelación de una entrada con otra vigente, o cierre con faltante). Solo en RQ de la app, Autorizada o EnSurtido. Valida
+    /// todas las posiciones antes de cambiar nada.
+    /// </summary>
+    public void QuitarDeCompraApp(IReadOnlyList<(int Posicion, decimal Piezas)> lineas, string motivo)
+    {
+        if (Origen != OrigenRequisicion.AlmacenesApp)
+            throw new BusinessRuleException("RQ_APP_SOLO_ORIGEN_APP", "Solo una RQ de la app de Almacenes se reduce por aviso de la app.");
+        if (Estado != EstadoRequisicion.Autorizada && Estado != EstadoRequisicion.EnSurtido)
+            throw new BusinessRuleException("RQ_APP_REDUCIR_ESTADO", $"Solo se reduce una RQ Autorizada o EnSurtido (actual: {Estado}).");
+        var porLinea = lineas.Select(l => (Linea: _lineas.FirstOrDefault(x => x.Posicion == l.Posicion)
+            ?? throw new BusinessRuleException("RQ_APP_POSICION_INEXISTENTE", $"La RQ '{Folio.Valor}' no tiene la posición {l.Posicion}."),
+            l.Piezas)).ToList();
+        // Las piezas quitadas son hojas: en una línea de vidrio por medida valen piezas × m² de la hoja.
+        foreach (var (linea, piezas) in porLinea)
+            linea.QuitarDeCompra(LineaRequisicion.CantidadDePiezasApp(piezas, linea.AnchoMm, linea.AltoMm, linea.UnidadMedida), motivo);
     }
 
     /// <summary>
@@ -463,6 +489,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         }
 
         Estado = EstadoRequisicion.EnAutorizacion;
+        CicloAutorizacion++;
         ComentarioDevolucion = null;
         DevueltaPorId = null;
         FechaDevolucion = null;

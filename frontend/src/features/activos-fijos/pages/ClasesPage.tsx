@@ -90,7 +90,7 @@ export function ClasesPage() {
       )}
       <div className="rounded-lg bg-surface-card shadow-card-flat">
         <TableContainer maxHeightClassName="">
-          <Table>
+          <Table paginada>
             <TableHeader>
               <TableRow>
                 <TableHead>Clave</TableHead>

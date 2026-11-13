@@ -79,7 +79,10 @@ public sealed record PedidoFacturableDetalleResponse(
     string? MetodoPagoOrigen = null,
     string? CondicionPagoOrigen = null,
     // 86e3tfd6n: anticipos cobrados con el número de este pedido de A+W y del mismo cliente.
-    IReadOnlyList<AnticipoLigadoPedido>? AnticiposLigados = null);
+    IReadOnlyList<AnticipoLigadoPedido>? AnticiposLigados = null,
+    // Script 16 v4: claves de empleado (Empleado.Clave) del capturista y del vendedor de la orden de Planta Pintura.
+    string? EmpleadoCapturaClave = null,
+    string? VendedorClave = null);
 
 /// <summary>Anticipo cobrado antes de que el pedido llegara al ERP y ligado a él por número de pedido de A+W.</summary>
 public sealed record AnticipoLigadoPedido(
@@ -122,7 +125,8 @@ public sealed record PedidoFacturableLineaDetalle(
     decimal? TasaRetencionIva,
     decimal? TasaRetencionIsr, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null,
     // B12: datos de aduana y peso del artículo (master) para precargar la línea de la factura de exportación.
-    string? FraccionArancelaria = null, string? UnidadAduana = null, decimal? PesoUnitarioKg = null);
+    string? FraccionArancelaria = null, string? UnidadAduana = null, decimal? PesoUnitarioKg = null,
+    Guid? UnidadMedidaId = null, string? UnidadMedida = null, int? DecimalesCantidad = null);
 
 public sealed class PedidoFacturableDetalleHandler
     : IRequestHandler<PedidoFacturableDetalleQuery, PedidoFacturableDetalleResponse>
@@ -213,7 +217,8 @@ public sealed class PedidoFacturableDetalleHandler
                     // A+W o resuelta al capturar) manda sobre la del master.
                     l.TasaIva ?? master?.TasaIvaTraslado,
                     master?.TasaRetencionIva, master?.TasaRetencionIsr, l.Referencia, l.PesoKg, l.AreaPie2,
-                    master?.FraccionArancelaria, master?.UnidadAduana, master?.PesoUnitarioKg);
+                    master?.FraccionArancelaria, master?.UnidadAduana, master?.PesoUnitarioKg,
+                    master?.UnidadMedidaId, master?.UnidadMedida, master?.DecimalesCantidad);
             })
             .ToList();
 
@@ -240,7 +245,8 @@ public sealed class PedidoFacturableDetalleHandler
             pedido.ClaseManual?.ToString(), pedido.SubtipoVentaDirecta?.ToString(), pedido.EsEmergencia,
             pedido.MotivoEmergencia, pedido.ReferenciaPedidoAw,
             pedido.EsCredito, pedido.MetodoPagoOrigen, pedido.CondicionPagoOrigen,
-            await AnticiposLigadosAsync(pedido, cancellationToken));
+            await AnticiposLigadosAsync(pedido, cancellationToken),
+            pedido.EmpleadoCapturaClave, pedido.VendedorClave);
     }
 
     private async Task<IReadOnlyList<AnticipoLigadoPedido>> AnticiposLigadosAsync(PedidoFacturable pedido, CancellationToken ct)

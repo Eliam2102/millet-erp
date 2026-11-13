@@ -171,4 +171,90 @@ public sealed class WriteBackTests
         port.Ultimo.Motivo.Should().Be("pedido bloqueado");
         port.Ultimo.EstadoFacturacion.Should().Be("SinFacturar");
     }
+
+    // ===== I13.6 · espera creciente =====
+
+    [Fact]
+    public async Task Tick_respeta_la_espera_creciente_desde_la_ultima_falla()
+    {
+        var (sp, port) = ArmarWorkerServices(Guid.NewGuid().ToString());
+        using (var scope = sp.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            // 3 fallas: la siguiente espera es 2 min × 2² = 8 min.
+            var reciente = Control();
+            reciente.SolicitarReintentoWriteBack(Guid.NewGuid(), ResultadoSolicitudAw.Aplicada, null, "SinFacturar", Ahora);
+            for (var i = 0; i < 3; i++) reciente.RegistrarFalloWriteBack("HC caída", Ahora.AddMinutes(-5));
+            var vencido = IngestaControl.Crear(EmpresaId, OrigenPedido.Aw, "10432219", "hash", 1, EstadoIngesta.Importado, Guid.NewGuid(), Ahora);
+            vencido.SolicitarReintentoWriteBack(Guid.NewGuid(), ResultadoSolicitudAw.Aplicada, null, "SinFacturar", Ahora);
+            for (var i = 0; i < 3; i++) vencido.RegistrarFalloWriteBack("HC caída", Ahora.AddMinutes(-9));
+            db.IngestaControles.AddRange(reciente, vencido);
+            await db.SaveChangesAsync();
+        }
+
+        var entregados = await CrearWorker(sp).TickAsync(CancellationToken.None);
+
+        entregados.Should().Be(1);
+        port.Ultimo!.NumeroPedido.Should().Be("10432219");
+    }
+
+    [Fact]
+    public async Task CA13_6_con_AW_caida_una_hora_el_pendiente_se_entrega_solo_y_una_vez()
+    {
+        var reloj = new RelojMovible(Ahora);
+        var canal = new CanalIntermitente();
+        var services = new ServiceCollection();
+        services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(EmpresaId));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
+        var dbName = Guid.NewGuid().ToString();
+        services.AddDbContext<FacturacionDbContext>(o => o.UseInMemoryDatabase(dbName));
+        services.AddSingleton<IAwWriteBackPort>(canal);
+        services.AddSingleton<IClock>(reloj);
+        services.AddOptions<AwWriteBackOptions>();
+        using var sp = services.BuildServiceProvider();
+        using (var scope = sp.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            var control = Control();
+            control.SolicitarReintentoWriteBack(Guid.NewGuid(), ResultadoSolicitudAw.Aplicada, null, "SinFacturar", Ahora);
+            db.IngestaControles.Add(control);
+            await db.SaveChangesAsync();
+        }
+        var worker = CrearWorker(sp);
+
+        // Un tick cada 2 min (IntervalSeconds por omisión) durante 3 horas; A+W vuelve a la hora.
+        for (var minuto = 0; minuto <= 180; minuto += 2)
+        {
+            reloj.UtcNow = Ahora.AddMinutes(minuto);
+            canal.Caido = minuto < 60;
+            await worker.TickAsync(CancellationToken.None);
+        }
+
+        using (var scope = sp.CreateScope())
+        {
+            var control = await scope.ServiceProvider.GetRequiredService<FacturacionDbContext>().IngestaControles.SingleAsync();
+            control.WriteBackPendiente.Should().BeFalse("se entregó solo al volver A+W, sin reintento manual");
+            control.WriteBackIntentos.Should().BeLessThan(10);
+        }
+        canal.Entregas.Should().Be(1, "sin duplicados");
+        canal.Fallas.Should().BeLessThan(10, "la espera creciente no martilla el canal caído");
+    }
+
+    private sealed class RelojMovible(DateTimeOffset inicio) : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = inicio;
+    }
+
+    private sealed class CanalIntermitente : IAwWriteBackPort
+    {
+        public bool Caido { get; set; }
+        public int Fallas { get; private set; }
+        public int Entregas { get; private set; }
+        public Task EscribirResultadoAsync(AwWriteBack writeBack, CancellationToken ct)
+        {
+            if (Caido) { Fallas++; throw new InvalidOperationException("HC caída"); }
+            Entregas++;
+            return Task.CompletedTask;
+        }
+    }
 }

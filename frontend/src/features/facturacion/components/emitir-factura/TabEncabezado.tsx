@@ -24,7 +24,9 @@ import {
   opcionesComportamientoFiscal,
 } from '@/features/facturacion/lib/glosario';
 import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
+import { useEffect } from 'react';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
+import { useTipoCambioDof } from '@/features/facturacion/api/useFacturas';
 import { Campo, Seccion } from './campos';
 import { numeroONull } from './valores';
 
@@ -94,6 +96,12 @@ export function TabEncabezado({
   const [ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones] = useWatch({ control: form.control, name: ['ordenCompraCliente', 'referenciaCliente', 'condicionesPago', 'proforma', 'observaciones'] });
   const datosCliente = { ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones };
   const moneda = useWatch({ control: form.control, name: 'moneda' });
+  // CCE121: el TipoCambioUSD sale del catálogo (DOF del día hábil anterior a la emisión), no se captura.
+  const tcDof = useTipoCambioDof(esCce);
+  const tcDofValor = tcDof.data?.valor ?? null;
+  useEffect(() => {
+    if (esCce && form.getValues('cceTcDof') !== tcDofValor) form.setValue('cceTcDof', tcDofValor);
+  }, [esCce, tcDofValor, form]);
   const metodoPago = useWatch({ control: form.control, name: 'metodoPago' });
   const comportamientoFiscal = useWatch({ control: form.control, name: 'comportamientoFiscal' });
   const [receptorRfc, receptorNombre, receptorRegimen, receptorCp] = useWatch({
@@ -353,13 +361,14 @@ export function TabEncabezado({
               />
             )}
           </Campo>
-          <Campo label="Tipo de cambio DOF">
-            <Input
-              type="number"
-              step="0.0001"
-              min="0"
-              {...form.register('cceTcDof', { setValueAs: numeroONull })}
-            />
+          <Campo
+            label="Tipo de cambio DOF"
+            hint={tcDof.isPending ? 'Consultando el catálogo de tipos de cambio…' : textoTcDof(tcDof.data?.fecha, tcDofValor, tcDof.isError)}
+            error={!tcDof.isPending && !tcDof.isError && tcDofValor == null
+              ? `Falta el tipo de cambio USD del ${fechaDmy(tcDof.data?.fecha)} en el catálogo; regístralo en Catálogos antes de emitir.`
+              : undefined}
+          >
+            <Input readOnly aria-readonly="true" value={tcDofValor ?? ''} placeholder="Del catálogo" />
           </Campo>
           <Campo label="Núm. reg. id. trib. receptor" hint="Número de identificación fiscal en el extranjero.">
             <Input maxLength={40} {...form.register('cceReceptorNumRegIdTrib')} />
@@ -443,4 +452,18 @@ export function TabEncabezado({
       )}
     </div>
   );
+}
+
+/** «2026-11-10» → «10/11/2026». */
+function fechaDmy(fecha: string | undefined): string {
+  if (!fecha) return 'día de hoy';
+  const [a, m, d] = fecha.split('-');
+  return `${d}/${m}/${a}`;
+}
+
+/** Ayuda del TC DOF: de dónde sale el valor (escalera FIX → DOF, art. 20 CFF). */
+function textoTcDof(fecha: string | undefined, valor: number | null, error: boolean): string | undefined {
+  if (error) return 'No se pudo consultar el catálogo; al emitir se toma el del catálogo de todos modos.';
+  if (valor == null) return undefined;
+  return `Del catálogo para la emisión del ${fechaDmy(fecha)}: el publicado en el DOF el día hábil anterior (art. 20 CFF). No se edita.`;
 }

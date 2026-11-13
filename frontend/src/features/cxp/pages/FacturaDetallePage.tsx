@@ -1,3 +1,6 @@
+import { Table } from '@/components/ui/table';
+import { RevisionReppContexto } from '../components/RevisionReppContexto';
+import { PolizasDocumento } from '@/features/contabilidad/components/polizas/PolizasDocumento';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { IncidenciasDocumento } from '@/features/incidencias/components/IncidenciasDocumento';
 import { errorUsuario } from '@/lib/error-usuario';
@@ -192,6 +195,10 @@ export function FacturaDetallePage() {
             </AvisoEnLinea>
           )}
 
+
+
+          <RevisionReppContexto contexto={query.data.revisionRepp} />
+
           {/* Sub-topbar con acciones contextuales; sin acciones (Pagada, Cancelada sin motivo) no se pinta. */}
           <div
             className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2 empty:hidden"
@@ -223,6 +230,7 @@ export function FacturaDetallePage() {
                     onClick={() => setAutorizarAbierto(true)}
                     disabled={
                       autorizar.isPending ||
+                      (query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma) ||
                       retencionesPendientes ||
                       query.data.estado === EstadoPasivo.EnRevision
                     }
@@ -234,7 +242,9 @@ export function FacturaDetallePage() {
                           : undefined
                     }
                     title={
-                      query.data.estado === EstadoPasivo.EnRevision
+                      query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma
+                        ? 'Falta la segunda firma de Dirección Comercial en la orden de servicio.'
+                        : query.data.estado === EstadoPasivo.EnRevision
                         ? MOTIVO_AUTORIZAR_EN_REVISION
                         : retencionesPendientes
                           ? 'Fiscal debe revisar las retenciones antes de autorizar.'
@@ -242,8 +252,11 @@ export function FacturaDetallePage() {
                     }
                   >
                     <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
-                    Autorizar
+                    {query.data.esServicioComercioExterior ? 'Enviar a Tesorería' : 'Autorizar'}
                   </Button>
+                  {query.data.esServicioComercioExterior && !query.data.servicioCeSegundaFirma && (
+                    <span className="self-center text-xs text-ink-muted">Falta la segunda firma de Dirección Comercial en la orden de servicio.</span>
+                  )}
                   {query.data.estado === EstadoPasivo.EnRevision && (
                     <span
                       id="motivo-autorizar-revision"
@@ -307,7 +320,7 @@ export function FacturaDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre?.trim() || 'Sin proveedor'}
+              valor={<><span className="font-mono">{query.data.proveedorClave?.trim() || 'Sin código'}</span>{' · '}<span>{query.data.proveedorNombre?.trim() || 'Sin proveedor'}</span></>}
               mono={query.data.proveedorNombre == null}
             />
             <Campo
@@ -351,6 +364,8 @@ export function FacturaDetallePage() {
               valor={query.data.tipoCambio != null ? formatCantidad(query.data.tipoCambio, 4) : '—'}
             />
           </dl>
+
+          <PolizasDocumento modulo="cuentas_por_pagar" tipo="factura_proveedor" documentoId={query.data.id} />
 
           {query.data.estado === EstadoPasivo.Capturada && puedeEditar && (
             <EditarDatosP8 key={`${query.data.id}-${query.data.version}`} factura={query.data} />
@@ -441,7 +456,7 @@ export function FacturaDetallePage() {
                 { etiqueta: 'Anticipo aplicado', monto: query.data.anticipoAplicadoTotal },
                 { etiqueta: 'NC aplicadas', monto: query.data.ncAplicadasTotal },
                 { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
-                { etiqueta: 'Retenido por recepción pendiente', monto: query.data.retenido },
+                { etiqueta: query.data.esServicioComercioExterior ? 'Retenido por autorización de servicio' : 'Retenido por recepción pendiente', monto: query.data.retenido },
                 { etiqueta: 'Pagado', monto: query.data.importePagado },
                 // Una factura cancelada ya no es un pasivo: no queda saldo por pagar (P8.7).
                 { etiqueta: 'Saldo pendiente', monto: query.data.estado === EstadoPasivo.Cancelada ? 0 : query.data.saldoPendiente, destacado: true },
@@ -463,7 +478,7 @@ export function FacturaDetallePage() {
               Partidas ({query.data.lineas.length})
             </h2>
             <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
+              <Table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="px-3 py-2 text-left">#</th>
@@ -496,7 +511,7 @@ export function FacturaDetallePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
           </section>
 
@@ -518,10 +533,10 @@ export function FacturaDetallePage() {
           <ConfirmarAccionDialog
             open={autorizarAbierto}
             onOpenChange={setAutorizarAbierto}
-            titulo="Autorizar factura para pago"
+            titulo={query.data.esServicioComercioExterior ? "Enviar servicio a Tesorería" : "Autorizar factura para pago"}
             resumen={
               <>
-                Autorizas la factura{' '}
+                {query.data.esServicioComercioExterior ? 'Envías a Tesorería la factura' : 'Autorizas la factura'}{' '}
                 {query.data.serieProveedor ? `${query.data.serieProveedor}-` : ''}
                 {query.data.folioProveedor ?? 'sin folio'}
                 {query.data.proveedorNombre?.trim()
@@ -531,7 +546,7 @@ export function FacturaDetallePage() {
                 Pasa a Tesorería como pasivo listo para pago.
               </>
             }
-            verbo="Autorizar para pago"
+            verbo={query.data.esServicioComercioExterior ? "Enviar a Tesorería" : "Autorizar para pago"}
             tono="primario"
             pendiente={autorizar.isPending}
             onConfirmar={handleAutorizar}
@@ -569,7 +584,7 @@ export function FacturaDetallePage() {
 
 interface CampoProps {
   label: string;
-  valor: string;
+  valor: React.ReactNode;
   mono?: boolean;
 }
 
@@ -599,4 +614,3 @@ function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps
     </Badge>
   );
 }
-

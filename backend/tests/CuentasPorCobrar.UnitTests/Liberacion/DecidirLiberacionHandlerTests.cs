@@ -102,6 +102,73 @@ public sealed class DecidirLiberacionHandlerTests
         response.CreditoDisponibleSnapshot.Should().Be(0m);
     }
 
+    // --------------------------------------------------- R2: serie que siempre libera con cliente bloqueado por vencimiento
+
+    private static async Task BloquearPorVencimiento(CuentasPorCobrarDbContext db)
+    {
+        var linea = await AgregarLinea(db, limite: 1_000_000m);
+        linea.BloquearPorVencimiento("Factura FV-1 con 70 días vencida");
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task R2_serie_que_siempre_libera_retiene_si_el_cliente_esta_bloqueado_por_vencimiento()
+    {
+        using var db = CrearDbContext();
+        await BloquearPorVencimiento(db);
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Credito);
+        response.Motivo.Should().Be(DecidirLiberacionHandler.MotivoBloqueoVencimiento);
+    }
+
+    [Fact]
+    public async Task R2_solo_una_excepcion_autorizada_de_Credito_y_Cobranza_la_libera()
+    {
+        using var db = CrearDbContext();
+        await BloquearPorVencimiento(db);
+        var autorizacion = AutorizacionCredito.Crear(EmpresaId, Guid.NewGuid(), UsuarioId, "Pago comprometido", "5000123", Ahora, TimeSpan.FromHours(24));
+        db.AutorizacionesCredito.Add(autorizacion);
+        await db.SaveChangesAsync();
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m, overrideId: autorizacion.Id));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.LiberadoConOverride);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Override);
+        (await db.AutorizacionesCredito.SingleAsync()).Estado.Should().Be(EstadoAutorizacionCredito.Usada);
+    }
+
+    [Fact]
+    public async Task R2_un_bloqueo_manual_no_cambia_la_serie_que_siempre_libera()
+    {
+        // Supuesto a validar: la respuesta de Crédito y Cobranza habla del bloqueo por vencimiento (C7.5).
+        using var db = CrearDbContext();
+        var linea = await AgregarLinea(db, limite: 1_000_000m);
+        linea.Bloquear("Revisión de crédito");
+        await db.SaveChangesAsync();
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
+        response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
+    }
+
+    [Fact]
+    public async Task R2_el_bloqueo_por_vencimiento_en_otra_moneda_no_retiene()
+    {
+        using var db = CrearDbContext();
+        var usd = LineaCreditoAggregate.Crear(EmpresaId, ClienteId, "USD", 50_000m, OrigenLineaCredito.Solunion, plazoDias: 45);
+        usd.BloquearPorVencimiento("Factura en USD vencida");
+        db.LineasCredito.Add(usd);
+        await db.SaveChangesAsync();
+
+        var (response, _) = await Handle(db, Comando(pedidoRef: "5000123", monto: 10m));
+
+        response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
+    }
+
     // --------------------------------------------------- Cascada 3: override
 
     [Fact]
@@ -169,35 +236,36 @@ public sealed class DecidirLiberacionHandlerTests
     // --------------------------------------------------- C7.2: series reales de Millet
 
     [Theory]
-    [InlineData("5000")]
-    [InlineData("5500")]
-    [InlineData("5600")]
-    [InlineData("7000")]
-    [InlineData("7200")]
-    [InlineData("7500")]
+    // R1: la serie son los 2 primeros dígitos del pedido (folios de A+W de 8 dígitos).
+    [InlineData("50")]
+    [InlineData("55")]
+    [InlineData("56")]
+    [InlineData("70")]
+    [InlineData("72")]
+    [InlineData("75")]
     public async Task CA7_4_serie_que_siempre_libera_libera_sin_credito(string serie)
     {
         using var db = CrearDbContext();
         // Cliente sin línea de crédito: por crédito quedaría retenido.
 
-        var (response, _) = await Handle(db, Comando(pedidoRef: serie + "001", monto: 250_000m));
+        var (response, _) = await Handle(db, Comando(pedidoRef: serie + "047568", monto: 250_000m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Liberado);
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
     }
 
     [Theory]
-    [InlineData("5800")]
-    [InlineData("5900")]
-    [InlineData("7800")]
-    [InlineData("7900")]
-    [InlineData("9000")]
+    [InlineData("58")]
+    [InlineData("59")]
+    [InlineData("78")]
+    [InlineData("79")]
+    [InlineData("90")]
     public async Task CA7_5_serie_que_nunca_libera_retiene_aunque_alcance_el_credito(string serie)
     {
         using var db = CrearDbContext();
         await AgregarLinea(db, limite: 1_000_000m);
 
-        var (response, _) = await Handle(db, Comando(pedidoRef: serie + "001", monto: 10m));
+        var (response, _) = await Handle(db, Comando(pedidoRef: serie + "047568", monto: 10m));
 
         response.Resultado.Should().Be(ResultadoLiberacion.Retenido);
         response.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
@@ -238,7 +306,7 @@ public sealed class DecidirLiberacionHandlerTests
         var (antes, _) = await Handle(db, Comando(pedidoRef: "5500001", monto: 10m));
         antes.ReglaAplicada.Should().Be(ReglaAplicadaLiberacion.Serie);
 
-        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "5500");
+        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "55");
         await new CambiarComportamientoSerieHandler(db).Handle(
             new CambiarComportamientoSerieCommand(regla.Id, regla.Version, ComportamientoSerie.EvaluaCredito),
             CancellationToken.None);
@@ -253,7 +321,7 @@ public sealed class DecidirLiberacionHandlerTests
     {
         using var db = CrearDbContext();
         await AgregarLinea(db, limite: 100_000m);
-        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "9000");
+        var regla = await db.ReglasLiberacionSerie.SingleAsync(r => r.Prefijo == "90");
         await new CambiarEstadoReglaSerieHandler(db).Handle(
             new CambiarEstadoReglaSerieCommand(regla.Id, regla.Version, Activo: false), CancellationToken.None);
 
@@ -393,7 +461,8 @@ public sealed class DecidirLiberacionHandlerTests
         await using var db = CrearDbContext();
         var handler = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoHandler(
             db, new FakeEmpresaContext(EmpresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(), new Beneficiarios(permitido));
-        var command = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoCommand(Guid.NewGuid(), "Pago en tránsito", "FIX-PRUB", 24);
+        var command = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoCommand(
+            Guid.NewGuid(), "Pago en tránsito", "FIX-PRUB", CondicionExcepcionCredito.CoberturaParcial, 1_000m, "MXN", 24);
         if (permitido)
         {
             var res = await handler.Handle(command, default);

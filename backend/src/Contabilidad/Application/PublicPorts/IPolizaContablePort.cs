@@ -26,9 +26,11 @@ public interface IPolizaContablePort
 /// <summary>
 /// <c>TipoClave</c> = tipo de operación de dos letras que define la plantilla (K10.9: TT para la factura de proveedor).
 /// <c>OrigenCuentas</c> = con qué origen se validan las cuentas (las de control solo admiten su auxiliar).
+/// <c>ReversaDePolizaId</c> (M-240) = póliza que esta revierte en parte: quedan ligadas (relación Reversa) para el rastro.
 /// </summary>
 public sealed record SolicitudPolizaAutomatica(
     string TipoClave, DateOnly Fecha, string Concepto, DocumentoOrigenPoliza Documento, string LlaveIdempotencia,
-    IReadOnlyList<PartidaRequest> Partidas, OrigenMovimiento OrigenCuentas = OrigenMovimiento.Manual, Guid? EmpresaId = null);
+    IReadOnlyList<PartidaRequest> Partidas, OrigenMovimiento OrigenCuentas = OrigenMovimiento.Manual, Guid? EmpresaId = null,
+    Guid? ReversaDePolizaId = null);
 
 public sealed record PolizaRegistrada(Guid Id, string Folio, EstadoPoliza Estado, bool Idempotente);

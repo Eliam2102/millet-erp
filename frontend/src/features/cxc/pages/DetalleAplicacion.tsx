@@ -19,7 +19,9 @@ import {
   usePropuestaAplicacion,
   useAutorizarAjuste,
   useRechazarAjuste,
+  useRevertirAjuste,
 } from '@/features/cxc/api/useAplicaciones';
+import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { RechazarAjusteDialog } from '@/features/cxc/components/RechazarAjusteDialog';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -38,6 +40,7 @@ import { esApiError } from '@/lib/api';
 const ETIQUETA_TIPO_AJUSTE: Record<TipoAjusteCobro, string> = {
   [TipoAjusteCobro.ComisionBancaria]: 'Comisión bancaria',
   [TipoAjusteCobro.DiferenciaMenor]: 'Diferencia menor en cobro',
+  [TipoAjusteCobro.Redondeo]: 'Redondeo (hasta $0.99)',
 };
 
 export function DetalleAplicacion() {
@@ -45,7 +48,7 @@ export function DetalleAplicacion() {
   const query = usePropuestaAplicacion(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la propuesta"
@@ -71,7 +74,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
   const sumaAplicada = p.facturas.reduce((a, f) => a + f.importeAplicado, 0);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* ── Sub-topbar §6.5 ─────────────────────────────────────── */}
       <div data-print="hidden">
         <PageHeader
@@ -91,7 +94,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         />
       </div>
 
-      {p.ajusteNoFiscal < 0 && <PanelAjuste p={p} />}
+      {(p.ajusteNoFiscal < 0 || (p.ajusteNoFiscal > 0 && p.tipoAjuste === TipoAjusteCobro.Redondeo)) && <PanelAjuste p={p} />}
 
       {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && !esAjusteRechazado(p) && (
         <div className="rounded-md border border-line bg-danger-bg px-4 py-3 text-sm text-danger-fg">
@@ -100,14 +103,14 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className="@container min-w-0 space-y-5">
         {/* ── Depósito ─────────────────────────────────────────── */}
         <section className="rounded-md border bg-surface-card p-4" aria-label="Depósito">
           <h3 className="text-sm font-medium">Depósito</h3>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
+          <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 @sm:grid-cols-2 @3xl:grid-cols-4 text-sm">
             <div>
               <dt className="text-xs text-ink-muted">Cliente</dt>
-              <dd className="truncate">{cliente?.razonSocial || <span className="text-ink-muted">—</span>}</dd>
+              <dd className="[overflow-wrap:anywhere]">{cliente?.razonSocial || <span className="text-ink-muted">—</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Monto</dt>
@@ -117,7 +120,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Aviso de pago</dt>
-              <dd className="truncate text-xs">{p.remittanceRef || <span className="text-ink-muted">Sin referencia</span>}</dd>
+              <dd className="text-xs [overflow-wrap:anywhere]">{p.remittanceRef || <span className="text-ink-muted">Sin referencia</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Ajuste no fiscal</dt>
@@ -204,18 +207,35 @@ function esAjusteRechazado(p: PropuestaAplicacionResponse) {
 function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
   const usuarioId = useAuthStore((s) => s.user?.id ?? null);
   // CXC-06: autoriza o rechaza con el permiso existente aplicacion-pago.confirmar (supuesto «a validar»).
-  const tienePermiso = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar);
+  const tieneConfirmar = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar);
+  // M-326: el redondeo (faltante o excedente de hasta $0.99) además exige el permiso del Gerente de Área.
+  const tieneAutorizarRedondeo = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoAutorizarRedondeo);
+  const esRedondeo = p.tipoAjuste === TipoAjusteCobro.Redondeo;
+  const tienePermiso = tieneConfirmar && (!esRedondeo || tieneAutorizarRedondeo);
+  const esExcedente = p.ajusteNoFiscal > 0;
   const autorizar = useAutorizarAjuste();
   const rechazar = useRechazarAjuste();
+  const revertir = useRevertirAjuste();
   const [rechazando, setRechazando] = useState(false);
+  const [revirtiendo, setRevirtiendo] = useState(false);
 
   const porAutorizar = p.ajustePorAutorizar === true;
   const rechazado = esAjusteRechazado(p);
   const esQuienPropuso = usuarioId != null && p.propuestoPor === usuarioId;
   const puedeAutorizar = porAutorizar && !esQuienPropuso && tienePermiso;
+  const esComision = p.tipoAjuste === TipoAjusteCobro.ComisionBancaria;
+  // M-240: se revierte un ajuste autorizado de un cobro ya confirmado y con REP timbrado (aplicado en cartera y contabilizado).
+  const revertido = p.ajusteRevertidoEn != null;
+  const puedeRevertir =
+    !revertido && p.ajusteAutorizadoEn != null && p.estado === EstadoPropuestaAplicacion.Confirmada &&
+    p.reppTimbrado === true && !esQuienPropuso && tienePermiso;
 
   function onError(error: unknown) {
-    if (esApiError(error)) toast.error('No se pudo resolver el ajuste. Revisa los datos y tu conexión antes de volver a intentarlo.');
+    // M-240: la regla de negocio (p. ej. comisión sin soporte, periodo cerrado) se muestra tal cual la explica el backend.
+    if (esApiError(error))
+      toast.error('No se pudo resolver el ajuste.', {
+        description: error.problem.detail ?? 'Revisa los datos y tu conexión antes de volver a intentarlo.',
+      });
     else toast.error('Error inesperado.');
   }
 
@@ -231,13 +251,26 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-medium">
-            {porAutorizar ? 'Ajuste por autorizar' : rechazado ? 'Ajuste rechazado' : 'Ajuste documentado'}
+            {porAutorizar ? 'Ajuste por autorizar' : rechazado ? 'Ajuste rechazado' : revertido ? 'Ajuste revertido' : 'Ajuste documentado'}
           </h3>
           <p className="text-xs text-ink-muted">
-            El depósito es {formatoMonto(-p.ajusteNoFiscal, p.moneda)} menor que lo aplicado. No genera
-            CFDI; la póliza del cobro carga la diferencia a la cuenta de su tipo.
+            El depósito es {formatoMonto(Math.abs(p.ajusteNoFiscal), p.moneda)} {esExcedente ? 'mayor' : 'menor'} que lo aplicado. No genera
+            CFDI; la póliza del cobro {esExcedente ? 'abona' : 'carga'} la diferencia a la cuenta de su tipo
+            {esRedondeo ? ' (REDONDEO)' : ''}.
           </p>
+          {esRedondeo && porAutorizar && !tienePermiso && (
+            <p className="mt-1 text-xs text-warning-fg" role="note">
+              El redondeo lo debe autorizar quien tenga el permiso «autorizar redondeo» (Gerente de Área), distinto de quien propone.
+            </p>
+          )}
         </div>
+        {puedeRevertir && (
+          <div className="flex gap-2" data-print="hidden">
+            <Button type="button" variant="ghost" onClick={() => setRevirtiendo(true)} disabled={revertir.isPending}>
+              Revertir ajuste
+            </Button>
+          </div>
+        )}
         {puedeAutorizar && (
           <div className="flex gap-2" data-print="hidden">
             <Button
@@ -266,7 +299,7 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
           </div>
         )}
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4">
+      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 @sm:grid-cols-2 @3xl:grid-cols-4">
         <div>
           <dt className="text-xs text-ink-muted">Importe aplicado</dt>
           <dd className="font-mono tabular-nums">
@@ -275,7 +308,7 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Ajuste</dt>
-          <dd className="font-mono tabular-nums">{formatoMonto(-p.ajusteNoFiscal, p.moneda)}</dd>
+          <dd className="font-mono tabular-nums">{formatoMonto(Math.abs(p.ajusteNoFiscal), p.moneda)}</dd>
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Tipo (cuenta)</dt>
@@ -295,6 +328,21 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
           <dt className="text-xs text-ink-muted">Motivo</dt>
           <dd className="whitespace-pre-wrap">{p.motivoAjuste || <span className="text-ink-muted">—</span>}</dd>
         </div>
+        {revertido && (
+          <>
+            <div className="col-span-2">
+              <dt className="text-xs text-ink-muted">Reversa</dt>
+              <dd>
+                Revertido el <DateTimeDisplay value={p.ajusteRevertidoEn!} variant="datetime" />; el faltante regresó a la factura
+                y se registró la póliza contraria.
+              </dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-xs text-ink-muted">Motivo de la reversa</dt>
+              <dd className="whitespace-pre-wrap">{p.motivoReversaAjuste || <span className="text-ink-muted">—</span>}</dd>
+            </div>
+          </>
+        )}
         {rechazado && p.motivoRechazo && (
           <div className="col-span-2 lg:col-span-4">
             <dt className="text-xs text-ink-muted">Motivo del rechazo</dt>
@@ -302,6 +350,26 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
           </div>
         )}
       </dl>
+      {p.tipoAjuste != null && (
+        <div className="mt-4 space-y-2">
+          {esComision && porAutorizar && (
+            <p className="text-xs text-ink-muted">
+              La comisión bancaria se autoriza solo con su soporte: adjunta el estado de cuenta o el aviso del banco.
+            </p>
+          )}
+          <DocumentoAdjuntosSection
+            base={`/api/v1/cuentas-por-cobrar/propuestas-aplicacion/${p.id}`}
+            tipo="propuesta_aplicacion_cxc"
+            titulo="Soporte del ajuste"
+            permisos={{
+              ver: `${PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer}|${PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar}`,
+              subir: PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer,
+              baja: PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer,
+            }}
+            soloLectura={!porAutorizar}
+          />
+        </div>
+      )}
       {porAutorizar && esQuienPropuso && (
         <p className="mt-3 text-xs text-ink-muted">
           Tú propusiste este cobro: otra persona con permiso debe autorizar el ajuste.
@@ -318,6 +386,24 @@ function PanelAjuste({ p }: { p: PropuestaAplicacionResponse }) {
               onSuccess: () => {
                 setRechazando(false);
                 toast.success('Ajuste rechazado. La propuesta quedó rechazada.');
+              },
+              onError,
+            },
+          )
+        }
+      />
+      <RechazarAjusteDialog
+        modo="revertir"
+        open={revirtiendo}
+        onOpenChange={setRevirtiendo}
+        isPending={revertir.isPending}
+        onConfirm={(motivo) =>
+          revertir.mutate(
+            { id: p.id, versionEsperada: p.version, motivo, idempotencyKey: crypto.randomUUID() },
+            {
+              onSuccess: () => {
+                setRevirtiendo(false);
+                toast.success('Ajuste revertido. El faltante regresó a la factura y se registró la póliza contraria.');
               },
               onError,
             },

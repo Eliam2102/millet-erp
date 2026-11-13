@@ -75,7 +75,14 @@ export type CausaRechazo =
   | 'PeriodoCerrado'
   | 'CuentaNoValida'
   | 'DatoFaltante'
-  | 'NoCuadra';
+  | 'NoCuadra'
+  /** M-207: el TC del CFDI difiere del catálogo más que la tolerancia (detalle «tcDocumento|tcCatalogo»). */
+  | 'TipoCambioFueraDeTolerancia'
+  /** M-207: el CFDI no trae TC y el catálogo no tiene el de su fecha. */
+  | 'TipoCambioFaltante';
+
+/** M-207: qué se autoriza para un rechazo de tipo de cambio. */
+export type AccionTipoCambio = 'Sustituto' | 'AceptarDocumento';
 
 export const ESTADOS_RECHAZO: readonly EstadoRechazo[] = ['Pendiente', 'Reprocesado', 'Descartado'];
 
@@ -97,6 +104,15 @@ export interface RechazoContable {
   /** JSON del evento original, tal como llegó. */
   payload: string;
   version: number;
+  // M-207: tipo de cambio sustituto (captura y autorización de otra persona).
+  tcAccion?: AccionTipoCambio | null;
+  tcValor?: number | null;
+  tcMotivo?: string | null;
+  tcCapturadoPor?: string | null;
+  tcCapturadoEn?: string | null;
+  tcAutorizadoPor?: string | null;
+  tcAutorizadoEn?: string | null;
+  tcPorAutorizar?: boolean;
 }
 
 export interface PolizaGenerada {

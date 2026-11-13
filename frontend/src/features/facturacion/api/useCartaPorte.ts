@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import type {
+  BandejaPaginada,
   CartaPorteBandejaItem,
   CartaPorteDetalleResponse,
   EmitirCartaPorteCommand,
@@ -12,14 +13,21 @@ import type {
 const BASE = '/api/v1/facturacion/carta-porte';
 
 /** <c>useListarCartaPorte(estado)</c> — bandeja de Carta Portes (B11). */
-export function useListarCartaPorte(estado: number | undefined) {
-  return useQuery<CartaPorteBandejaItem[]>({
-    queryKey: facturacionKeys.cartaPorteList({ estado: estado ?? null }),
+export function useListarCartaPorte(
+  estado: number | undefined,
+  pagina: { q?: string; offset?: number; limit?: number } = {},
+) {
+  return useQuery<BandejaPaginada<CartaPorteBandejaItem>>({
+    queryKey: facturacionKeys.cartaPorteList({ estado: estado ?? null, ...pagina }),
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (estado != null) params.set('estado', String(estado));
+      if (pagina.q) params.set('q', pagina.q);
+      if (pagina.offset != null) params.set('offset', String(pagina.offset));
+      if (pagina.limit != null) params.set('limit', String(pagina.limit));
       const qs = params.toString();
-      const { data } = await apiRequest<CartaPorteBandejaItem[]>(
+      const { data } = await apiRequest<BandejaPaginada<CartaPorteBandejaItem>>(
         qs ? `${BASE}?${qs}` : `${BASE}/`,
         { signal },
       );

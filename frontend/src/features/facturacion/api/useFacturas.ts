@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import {
   facturacionKeys,
@@ -9,11 +9,14 @@ import type {
   AplicarPedimentoResponse,
   BandejaScoped,
   CancelacionBandejaItem,
+  ReglaFirmaCancelacion,
   ComprobanteDetalleResponse,
+  AceptacionCancelacionResponse,
   DatosSustitucionResponse,
   ConsultarCancelacionResponse,
   DescartarComprobanteResponse,
   EmisorDefaultsResponse,
+  TipoCambioDofResponse,
   EmitirFacturaVentaCommand,
   EmitirFacturaVentaResponse,
   EnvioCorreoItem,
@@ -24,10 +27,32 @@ import type {
   NotaCreditoBonificacionResponse,
   ReenviarCorreoResponse,
   ReintentarTimbradoResponse,
+  AdoptarCfdiTimbradoResponse,
+  ComprobanteConEfectosPendientesItem,
+  EfectoComprobanteItem,
   SolicitarCancelacionResponse,
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/facturas';
+
+/**
+ * TipoCambioUSD del Complemento de Comercio Exterior para una factura emitida hoy:
+ * el del catálogo (DOF del día hábil anterior, art. 20 CFF). El SAT rechaza otro valor (CCE121).
+ */
+export function useTipoCambioDof(enabled: boolean) {
+  return useQuery<TipoCambioDofResponse>({
+    queryKey: facturacionKeys.tipoCambioDof(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<TipoCambioDofResponse>(
+        '/api/v1/facturacion/catalogos/tipo-cambio-dof',
+        { signal },
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
 
 /**
  * <c>useEmisorDefaults()</c> — RFC/razón social/régimen del emisor +
@@ -58,6 +83,7 @@ export function useEmisorDefaults() {
 export function useListarFacturas(filtros: ListarFacturasFiltros) {
   return useQuery<BandejaScoped<FacturaBandejaItem>>({
     queryKey: facturacionKeys.facturasList(filtros),
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (filtros.estado != null) params.set('estado', String(filtros.estado));
@@ -66,6 +92,7 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
       if (filtros.clase != null) params.set('clase', filtros.clase);
       if (filtros.ncPendiente) params.set('ncPendiente', 'true');
+      if (filtros.q) params.set('q', filtros.q);
       const qs = params.toString();
       const { data } = await apiRequest<BandejaScoped<FacturaBandejaItem>>(
         qs ? `${BASE}?${qs}` : `${BASE}/`,
@@ -81,12 +108,29 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
  * <c>useDatosSustitucion()</c> — FAC-08b: datos de la factura original para el
  * borrador de su sustituta. Falla con 422 si la original ya no se puede sustituir.
  */
-export function useDatosSustitucion(id: string | null) {
+/** Si la cancelación del comprobante necesita aceptación del receptor (informativo). */
+export function useAceptacionCancelacion(id: string | null) {
+  return useQuery<AceptacionCancelacionResponse>({
+    queryKey: ['facturacion', 'aceptacion-cancelacion', id],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<AceptacionCancelacionResponse>(
+        `/api/v1/facturacion/comprobantes/${id}/cancelar/aceptacion`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: id != null,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useDatosSustitucion(id: string | null, motivo = '01') {
   return useQuery<DatosSustitucionResponse>({
-    queryKey: id != null ? [...facturacionKeys.facturaById(id), 'sustitucion'] : ['facturacion', 'noop'],
+    queryKey: id != null ? [...facturacionKeys.facturaById(id), 'sustitucion', motivo] : ['facturacion', 'noop'],
     queryFn: async ({ signal }) => {
       if (id == null) throw new Error('useDatosSustitucion invocado sin id');
-      const { data } = await apiRequest<DatosSustitucionResponse>(`${BASE}/${id}/sustitucion`, { signal });
+      const { data } = await apiRequest<DatosSustitucionResponse>(`${BASE}/${id}/sustitucion?motivo=${motivo}`, { signal });
       return data;
     },
     enabled: id != null,
@@ -266,6 +310,67 @@ export function useBandejaCancelaciones(estado: EstadoSolicitudCancelacion | und
 }
 
 /**
+ * <c>useModificarCancelacion()</c> — M-235: quien solicitó corrige motivo o
+ * sustituto mientras sigue pendiente; cualquier firma previa se anula.
+ */
+export function useModificarCancelacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      motivoSat: string;
+      uuidSustituto: string | null;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<SolicitarCancelacionResponse>(
+        `/api/v1/facturacion/comprobantes/${args.id}/cancelar`,
+        {
+          method: 'PUT',
+          body: { motivoSat: args.motivoSat, uuidSustituto: args.uuidSustituto },
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.cancelaciones() });
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.facturaCancelacion(args.id) });
+    },
+  });
+}
+
+/** M-235: reglas de firmas de la cancelación por tipo de operación y monto. */
+export function useReglasFirmaCancelacion(enabled = true) {
+  return useQuery<ReglaFirmaCancelacion[]>({
+    enabled,
+    queryKey: [...facturacionKeys.cancelaciones(), 'reglas-firma'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ReglaFirmaCancelacion[]>(
+        '/api/v1/facturacion/comprobantes/cancelaciones/reglas-firma',
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useGuardarReglasFirmaCancelacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { reglas: ReglaFirmaCancelacion[]; idempotencyKey: string }) => {
+      const { data } = await apiRequest<ReglaFirmaCancelacion[]>(
+        '/api/v1/facturacion/comprobantes/cancelaciones/reglas-firma',
+        { method: 'PUT', body: { reglas: args.reglas }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.cancelaciones() });
+    },
+  });
+}
+
+/**
  * <c>useDecidirCancelacion()</c> — F6.5: el Contador General autoriza (se envía
  * al PAC) o rechaza con motivo; Ingresos puede retirar una pendiente.
  * Idempotency-Key en las tres.
@@ -277,10 +382,14 @@ export function useDecidirCancelacion() {
       id: string;
       accion: 'autorizar' | 'rechazar' | 'retirar';
       motivo?: string;
+      /** M-235: versión que vio quien autoriza; si cambió, el servidor bloquea. */
+      huella?: string | null;
       idempotencyKey: string;
     }) => {
+      const huella =
+        args.accion === 'autorizar' && args.huella ? `?huella=${encodeURIComponent(args.huella)}` : '';
       const { data } = await apiRequest<SolicitarCancelacionResponse>(
-        `/api/v1/facturacion/comprobantes/${args.id}/cancelar/${args.accion}`,
+        `/api/v1/facturacion/comprobantes/${args.id}/cancelar/${args.accion}${huella}`,
         {
           method: 'POST',
           body: args.accion === 'rechazar' ? { motivo: args.motivo ?? '' } : undefined,
@@ -333,6 +442,36 @@ export function useReintentarTimbrado() {
 }
 
 /**
+ * <c>useAdoptarCfdi()</c> — M-284: adopta el CFDI que el PAC sí timbró (XML descargado del
+ * portal del PAC) en un comprobante cuyo timbrado no se confirmó. Con <c>soloRevisar</c> solo
+ * coteja ERP contra XML; sin él, adopta y aplica los efectos del timbrado una sola vez.
+ */
+export function useAdoptarCfdi() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      xml: string;
+      soloRevisar: boolean;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<AdoptarCfdiTimbradoResponse>(
+        `/api/v1/facturacion/comprobantes/${args.id}/adoptar-cfdi`,
+        {
+          method: 'POST',
+          body: { xml: args.xml, soloRevisar: args.soloRevisar },
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data.adoptado) queryClient.invalidateQueries({ queryKey: facturacionKeys.all });
+    },
+  });
+}
+
+/**
  * <c>useDescartarComprobante()</c> — descarta un comprobante en
  * TimbradoFallido que NO se reintentará ([Decisión 01-G] G3): terminal,
  * quema el folio a conciencia y libera el pedido si esta factura lo tenía
@@ -344,6 +483,56 @@ export function useDescartarComprobante() {
     mutationFn: async (args: { id: string; idempotencyKey: string }) => {
       const { data } = await apiRequest<DescartarComprobanteResponse>(
         `/api/v1/facturacion/comprobantes/${args.id}/descartar`,
+        { method: 'POST', idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.all });
+    },
+  });
+}
+
+/** M-285: efectos posteriores al timbrado del comprobante y su estado. */
+export function useEfectosComprobante(id: string | null | undefined) {
+  return useQuery<EfectoComprobanteItem[]>({
+    queryKey: id != null ? facturacionKeys.comprobanteEfectos(id) : ['facturacion', 'noop-efectos'],
+    queryFn: async ({ signal }) => {
+      if (id == null) throw new Error('useEfectosComprobante invocado sin id');
+      const { data } = await apiRequest<EfectoComprobanteItem[]>(
+        `/api/v1/facturacion/comprobantes/${id}/efectos`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: id != null,
+    staleTime: 0,
+  });
+}
+
+/** M-285: comprobantes timbrados con efectos pendientes (bandeja de contingencias). */
+export function useComprobantesConEfectosPendientes(enabled = true) {
+  return useQuery<ComprobanteConEfectosPendientesItem[]>({
+    queryKey: facturacionKeys.efectosPendientes(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ComprobanteConEfectosPendientesItem[]>(
+        '/api/v1/facturacion/comprobantes/efectos-pendientes',
+        { signal },
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 0,
+  });
+}
+
+/** M-285: aplica solo los efectos pendientes; no vuelve a timbrar. */
+export function useReintentarEfectos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<EfectoComprobanteItem[]>(
+        `/api/v1/facturacion/comprobantes/${args.id}/reintentar-efectos`,
         { method: 'POST', idempotencyKey: args.idempotencyKey },
       );
       return data;

@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -53,7 +54,7 @@ import type { SalidasSearch } from '@/features/almacen/lib/salidas-search-schema
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
@@ -74,6 +75,7 @@ type SortKey = 'folio' | 'fechaMovimiento' | 'subAlmacen' | 'rqId' | 'montoTotal
  */
 export function SalidasPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenSalidasRegistrar);
   const puedeRegistrarVale = useHasPermission(PermisosCanonicos.AlmacenSalidasPorVale);
@@ -98,7 +100,7 @@ export function SalidasPage() {
     soloVencidos: search.soloVencidos,
     soloPorVencer: search.soloPorVencer,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(almacenKeys.salidas(), '/api/v1/almacen/salidas', {
@@ -158,7 +160,12 @@ export function SalidasPage() {
             aria-pressed={search.estado === tab.valor}
             onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
           >
-            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (conteos.data[tab.valor] ?? 0) : <span className="text-ink-muted">—</span>} />
+            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (
+                  (conteos.data[tab.valor] ?? 0)
+                ) : (
+                  <span className="text-ink-muted">—</span>
+                )
+              } />
           </Button>
         ))}
       </div>
@@ -185,7 +192,7 @@ export function SalidasPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         }

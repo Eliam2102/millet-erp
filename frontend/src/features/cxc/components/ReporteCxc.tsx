@@ -1,3 +1,4 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -62,11 +63,10 @@ export function ReporteCxc({
       filtros={<BarraFiltros filtros={filtrosUi} />}
       pie={
         <div data-print="hidden">
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={reporte?.filas.length ?? 0}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
         </div>
@@ -127,9 +127,7 @@ export function ReporteCxc({
               >
                 {descargando === 'pdf' ? 'Generando…' : 'PDF'}
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()}>
-                Imprimir
-              </Button>
+              <ImprimirReporteButton variant="secondary" size="sm" reporte={reporte} />
             </div>
           </div>
           <Table>
@@ -160,7 +158,7 @@ export function ReporteCxc({
                 <TableRow
                   key={index}
                   className={
-                    index >= pagina.offset && index < pagina.offset + 10
+                    index >= pagina.offset && index < pagina.offset + pagina.limit
                       ? 'h-12'
                       : 'hidden print:table-row'
                   }

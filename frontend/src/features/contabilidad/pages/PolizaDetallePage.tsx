@@ -1,3 +1,6 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reportePoliza } from '../lib/documentos-impresion';
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DialogBody } from '@/components/ui/dialog';
 import {
@@ -15,7 +18,6 @@ import {
   CheckCheck,
   GitBranch,
   Pencil,
-  Printer,
   Repeat,
   Trash2,
   Undo2,
@@ -31,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/erp';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
@@ -57,6 +60,12 @@ import {
   type PolizasSearch,
 } from '../lib/polizas';
 
+const ETIQUETA_ORIGEN: Record<string, string> = {
+  Manual: 'Manual',
+  Automatica: 'Automática',
+  Apertura: 'Apertura',
+};
+
 const PERMISOS_ADJUNTOS = {
   ver: PermisosCanonicos.ContabilidadPolizasLeer,
   subir: PermisosCanonicos.ContabilidadPolizasCapturar,
@@ -73,12 +82,15 @@ interface Props {
 /** Detalle de póliza (P3 master-detail, F1-CON-04): lista compacta a la izquierda y el detalle con sus acciones. */
 export function PolizaDetallePage({ id, search, onNavegar }: Props) {
   return (
-    <div className="flex min-h-0 flex-1">
-      <ListaCompacta idActivo={id} search={search} />
+    <MaestroDetalle
+      seleccionado
+      etiquetaLista="pólizas"
+      lista={<ListaCompacta idActivo={id} search={search} />}
+    >
       <div className="min-w-0 flex-1">
         <DetallePoliza id={id} search={search} onNavegar={onNavegar} />
       </div>
-    </div>
+    </MaestroDetalle>
   );
 }
 
@@ -242,6 +254,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           relacion={p.relacion}
           esRecurrente={!!p.plantillaRecurrenteId}
         />
+        {p.anulacionPendiente && <Badge variant="warning">Anulación pendiente de aprobación</Badge>}
         <span className="ml-auto flex flex-wrap items-center gap-2">
           {esBorrador && puedeCapturar && (
             <>
@@ -281,6 +294,12 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           {p.estado === 'Autorizada' && !esAnulacion && puedeAnular && (
             <Button
               variant="secondary-danger"
+              disabled={!!p.anulacionPendiente}
+              title={
+                p.anulacionPendiente
+                  ? 'Ya hay una anulación pendiente: la aprueba o rechaza otra persona con facultad.'
+                  : undefined
+              }
               onClick={() => {
                 setMensaje('');
                 setAviso('');
@@ -288,17 +307,14 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
               }}
             >
               <Ban className="mr-1 size-3.5" aria-hidden="true" />
-              Anular
+              Solicitar anulación
             </Button>
           )}
-          <Button
+          <ImprimirReporteButton
             variant="ghost"
-            size="icon"
+            size="sm"
             aria-label="Imprimir póliza"
-            onClick={() => window.print()}
-          >
-            <Printer className="size-4" strokeWidth={1.6} aria-hidden="true" />
-          </Button>
+           reporte={reportePoliza(p)}>Imprimir</ImprimirReporteButton>
           {cerrar}
         </span>
       </div>
@@ -343,6 +359,22 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           </p>
         )}
 
+        {p.anulacionPendiente && (
+          <section
+            aria-label="Anulación pendiente"
+            className="rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg"
+          >
+            <p className="font-medium">
+              Anulación pendiente de aprobación: la póliza sigue vigente hasta que otra persona con
+              facultad la apruebe.
+            </p>
+            <p className="mt-1">Motivo: {p.anulacionPendiente.motivo}</p>
+            <p className="mt-1 text-xs">
+              Solicitada por {p.anulacionPendiente.solicitadaPor} ·{' '}
+              {formatDateTime(p.anulacionPendiente.solicitadaEn)}
+            </p>
+          </section>
+        )}
         {p.anuladaPorPolizaId && (
           <section
             aria-label="Anulación"
@@ -449,7 +481,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           <Dato k="Tipo SAT">{p.tipoSat}</Dato>
           <Dato k="Fecha">{fechaCorta(p.fecha)}</Dato>
           <Dato k="Periodo">{etiquetaPeriodo(p.periodoAnio, p.periodoNumero)}</Dato>
-          <Dato k="Origen">{p.origen === 'Automatica' ? 'Automática' : 'Manual'}</Dato>
+          <Dato k="Origen">{ETIQUETA_ORIGEN[p.origen] ?? p.origen}</Dato>
           <Dato k="Capturó">{p.capturadaPor}</Dato>
           <Dato k="Autorizó">{p.autorizadaPor ?? '—'}</Dato>
           <div className="col-span-2 md:col-span-4">
@@ -543,9 +575,11 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
       <AnularPolizaDialog
         poliza={anulando ? p : null}
         onClose={() => setAnulando(false)}
-        onAnulada={(nueva) => {
+        onSolicitada={() => {
           setAnulando(false);
-          onNavegar(nueva.id);
+          setAviso(
+            'Anulación solicitada: queda pendiente de que otra persona con facultad la apruebe.',
+          );
         }}
       />
     </div>
@@ -675,7 +709,9 @@ function TablaPartidas({ poliza }: { poliza: Poliza }) {
                   <span className="block text-xs text-ink-muted">{x.cuentaNombre ?? ''}</span>
                 </TableCell>
                 <TableCell className="px-3 py-2">{x.concepto ?? '—'}</TableCell>
-                <TableCell className="px-3 py-2">{x.sucursalNombre ?? <span className="text-ink-muted">Sin sucursal</span>}</TableCell>
+                <TableCell className="px-3 py-2">
+                  {x.sucursalNombre ?? <span className="text-ink-muted">Sin sucursal</span>}
+                </TableCell>
                 <TableCell className="px-3 py-2 font-mono text-xs">
                   {centros(x)}
                   {otras(x) && <span className="block font-sans text-ink-muted">{otras(x)}</span>}

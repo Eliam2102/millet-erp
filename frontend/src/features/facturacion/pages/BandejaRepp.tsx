@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -31,7 +32,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { enmascararCuenta } from '../lib/cuentas-pago-sat';
 import { estadoUi } from '../lib/estados-ui';
-import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/repp/' as const;
 
@@ -41,28 +42,25 @@ const FROM = '/_app/facturacion/repp/' as const;
  * "Nuevo REPP" abre el Sheet de emisión.
  */
 export function BandejaRepp() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nuevoRepp = useNuevoRepp();
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionReppEmitir);
 
-  const query = useListarRepp(search.estado, search.alcance);
+  const q = (search.q ?? '').trim();
+  const paginacion = usePaginacionServidor(JSON.stringify(search));
+  const query = useListarRepp(search.estado, search.alcance, {
+    q: q || undefined,
+    offset: paginacion.offset,
+    limit: limiteTabla,
+  });
 
   function actualizarSearch(parcial: Partial<ReppSearch>) {
     navigate({ to: '/facturacion/repp', search: { ...search, ...parcial } });
   }
 
-  const q = (search.q ?? '').trim().toLowerCase();
-  const items = (query.data?.items ?? []).filter((r) => {
-    if (q.length === 0) return true;
-    return (
-      r.folio.toLowerCase().includes(q) ||
-      (r.uuid ?? '').toLowerCase().includes(q) ||
-      r.receptorNombre.toLowerCase().includes(q)
-    );
-  });
-
-  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
+  const items = query.data?.items ?? [];
   return (
     <div className="space-y-5">
       <PageHeader
@@ -134,10 +132,9 @@ export function BandejaRepp() {
         }
         pie={
           <PaginacionTabla
-            total={items.length}
+            total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }
@@ -183,7 +180,7 @@ export function BandejaRepp() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginacion.visibles.map((r) => (
+                {items.map((r) => (
                   <TableRow key={r.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">{r.folio}</TableCell>
                     <TableCell className="px-3 py-2">{r.receptorNombre}</TableCell>

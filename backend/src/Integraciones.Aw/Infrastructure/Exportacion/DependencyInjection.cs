@@ -19,17 +19,19 @@ public static class OtrDependencyInjection
         services.AddOptions<OtrOptions>().Bind(config.GetSection(OtrOptions.SectionName))
             .Validate(o => o.IntervalSeconds > 0 && o.BatchSize is > 0 and <= 1000 && o.MaxIntentos > 0 && OtrOptions.ListaValida(o.EstatusRutaExcluidos) && OtrOptions.ListaValida(o.EstatusRutaCancelada) && !string.IsNullOrWhiteSpace(o.UnidadLinea), "Revise intervalo, lote, MaxIntentos, estatus de ruta y unidad de OTR.").ValidateOnStart();
         var options = config.GetSection(OtrOptions.SectionName).Get<OtrOptions>() ?? new();
+        var historico = config.GetSection(Millet.Facturacion.Domain.Ports.HistoricoSapOptions.SectionName).Get<Millet.Facturacion.Domain.Ports.HistoricoSapOptions>() ?? new();
         void Registrar(string key, bool pg)
         {
             services.AddKeyedScoped<OtrTablasAdapter>(key, (sp, _) => new(() => pg
                 ? new AwOrigenPg.Fabrica(config).CreateConnection()
                 : new SqlConnection(AwSqlTls.Validar(config.GetConnectionString(Cadena)!, Cadena)), pg,
-                pg ? null : ct => YaLeidoAsync(sp.GetRequiredService<ComercioExteriorDbContext>(), options.EmpresaId, ct), options));
+                pg ? null : ct => YaLeidoAsync(sp.GetRequiredService<ComercioExteriorDbContext>(), options.EmpresaId, ct), options, historico));
             if (key == "Demo" || options.EntradaHabilitada)
                 services.AddKeyedScoped<IOtrEntradaReader>(key, (sp, _) => sp.GetRequiredKeyedService<OtrTablasAdapter>(key));
         }
         Registrar("Demo", true);
         if (options.ContratoI134Firmado && !string.IsNullOrWhiteSpace(config.GetConnectionString(Cadena)) && options.EntradaHabilitada) Registrar("Real", false);
+        services.AddScoped<ISucursalOtrReadPort, Millet.Integraciones.Aw.Infrastructure.Pedidos.SucursalPorClaveAwResolver>();
         services.AddScoped<OtrOrigenSelector>();
         services.AddScoped<IOtrEntradaReader>(sp => sp.GetRequiredService<OtrOrigenSelector>());
         services.AddHostedService<OtrEntradaWorker>();

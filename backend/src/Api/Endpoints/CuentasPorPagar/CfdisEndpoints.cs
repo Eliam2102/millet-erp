@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Adjuntos;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -163,27 +164,22 @@ public static class CfdisEndpoints
             }
 
             await using var xmlStream = xml.OpenReadStream();
-            Stream? pdfStream = null;
-            if (pdf is { Length: > 0 })
+            await using var pdfStream = pdf is { Length: > 0 } ? pdf.OpenReadStream() : null;
+            if (pdfStream is not null)
             {
-                pdfStream = pdf.OpenReadStream();
+                if (!Path.GetExtension(pdf!.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                    throw new BusinessRuleException("ADJUNTO_FORMATO_NO_PERMITIDO", "El archivo adjunto debe tener extensión .pdf.");
+                await AdjuntosPoliticaOptions.ValidarSiEsPdfAsync(pdf.FileName, pdf.ContentType, pdfStream, cancellationToken);
             }
 
-            try
-            {
-                var response = await mediator.Send(
-                    new IngresarCfdiCommand(
-                        Xml: xmlStream,
-                        Pdf: pdfStream,
-                        Canal: CanalOrigenCfdi.CargaManual),
-                    cancellationToken);
+            var response = await mediator.Send(
+                new IngresarCfdiCommand(
+                    Xml: xmlStream,
+                    Pdf: pdfStream,
+                    Canal: CanalOrigenCfdi.CargaManual),
+                cancellationToken);
 
-                return Results.Created($"/api/v1/cuentas-por-pagar/cfdis/{response.Id}", response);
-            }
-            finally
-            {
-                if (pdfStream is not null) await pdfStream.DisposeAsync();
-            }
+            return Results.Created($"/api/v1/cuentas-por-pagar/cfdis/{response.Id}", response);
         })
         .DisableAntiforgery()
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -274,6 +270,7 @@ public static class CfdisEndpoints
             Guid id, Guid solicitudId,
             [FromForm] bool aceptar,
             [FromForm] string comentario,
+            [FromForm] Guid? sustitutoCfdiId,
             IFormFile? archivo,
             IMediator mediator,
             IEvidenciaBlobStorage blob,
@@ -291,7 +288,7 @@ public static class CfdisEndpoints
             }
 
             return Results.Ok(await mediator.Send(
-                new DecidirSolicitudCancelacionCommand(id, solicitudId, aceptar, comentario, blobRef, archivo?.FileName),
+                new DecidirSolicitudCancelacionCommand(id, solicitudId, aceptar, comentario, blobRef, archivo?.FileName, sustitutoCfdiId),
                 cancellationToken));
         })
         .DisableAntiforgery()
@@ -301,6 +298,8 @@ public static class CfdisEndpoints
         .WithSummary("Acepta o rechaza una solicitud de cancelación (multipart: aceptar, comentario, archivo opcional)")
         .WithDescription(
             "Aceptar o rechazar solo guarda la decisión y su evidencia; no cambia el CFDI ni el pasivo. " +
+            "Si la factura ya tiene pagos (también parciales), aceptar exige `sustitutoCfdiId` (CFDI ya ingresado, relacionado tipo 04 " +
+            "con el cancelado) y el permiso cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada (Contador General). " +
             "Si se acepta y el SAT luego reporta el CFDI cancelado, la sincronización cancela la factura " +
             "(o la manda a revisión). `comentario` es obligatorio; `archivo` opcional.")
         .Accepts<IFormFile>("multipart/form-data")

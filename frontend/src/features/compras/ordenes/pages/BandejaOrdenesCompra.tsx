@@ -299,7 +299,7 @@ function RenderTabla({
                 </TableCell>
                 <TableCell className="px-3 py-2">
                   <div className="flex flex-col items-start gap-1">
-                    <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+                    <EstadoBadge tipo="orden-compra" estado={oc.estado} servicioCe={oc.esServicioComercioExterior} />
                     {oc.estadoComercialProveedor != null &&
                       (oc.estadoComercialProveedor !== EstadoComercialProveedorOc.SinRespuesta ||
                         oc.estado === EstadoOrdenCompra.Autorizada) && (

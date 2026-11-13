@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
@@ -16,8 +17,7 @@ import {
   EmptyState,
   ErrorState,
   TableSkeleton,
-  UsuarioSelector,
-} from '@/components/erp';
+  UsuarioSelector } from '@/components/erp';
 import {
   useBloquearTarjeta,
   useCancelarTarjeta,
@@ -26,8 +26,7 @@ import {
 } from '@/features/cxp/api/useTarjetasCredito';
 import {
   EstadoTarjeta,
-  type Tarjeta,
-} from '@/features/cxp/api/types';
+  type Tarjeta } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -53,8 +52,7 @@ export function TarjetasPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const puedeAdmin = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarTcAdministrar,
-  );
+    PermisosCanonicos.CuentasPorPagarTcAdministrar);
   const [nuevaAbierta, setNuevaAbierta] = useState(false);
 
   const query = useTarjetas({
@@ -180,11 +178,9 @@ function Filtros({
 
 function Tabla({
   items,
-  puedeAdmin,
-}: {
+  puedeAdmin }: {
   items: readonly Tarjeta[];
-  puedeAdmin: boolean;
-}) {
+  puedeAdmin: boolean }) {
   const bloquear = useBloquearTarjeta();
   const reactivar = useReactivarTarjeta();
   const cancelar = useCancelarTarjeta();
@@ -229,7 +225,7 @@ function Tabla({
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
+      <Table paginada className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="px-3 py-2 text-left">Alias</th>
@@ -315,7 +311,7 @@ function Tabla({
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       {dialogo?.tipo === 'bloquear' && (
         <MotivoDialog
           titulo="Bloquear tarjeta"
@@ -376,4 +372,3 @@ function Tabla({
     </div>
   );
 }
-

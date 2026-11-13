@@ -1,6 +1,8 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ESTADOS_REGLA } from '../../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { BarraFiltros, PaginacionTabla, EmptyState, ErrorState, TableSkeleton,
+} from '@/components/erp';
 import { esApiError } from '@/lib/api';
 import { DialogBody } from '@/components/ui/dialog';
 import {
@@ -47,10 +49,9 @@ import { CuentaSelector, type CuentaOpcion } from './CuentaSelector';
 import { MatrizEfectiva } from './MatrizEfectiva';
 import { ReglaSheet } from './ReglaSheet';
 
-const LIMITE = 10;
-
 /** Reglas cuenta × tipo de documento × dimensión con su vigencia. Configurar exige `contabilidad.dimensiones.administrar`. */
 export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [cuenta, setCuenta] = useState<CuentaOpcion | null>(null);
   const [tipoId, setTipoId] = useState('');
   const [fecha, setFecha] = useState('');
@@ -69,7 +70,7 @@ export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
     vigentesA: fecha || undefined,
     esPrueba: soloPrueba || undefined,
     offset,
-    limit: LIMITE,
+    limit: limiteTabla,
   });
 
   function filtro<T>(set: (v: T) => void) {
@@ -155,8 +156,7 @@ export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
           <PaginacionTabla
             total={reglas.data?.total ?? 0}
             offset={offset}
-            limit={LIMITE}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={setOffset}
           />
         }
@@ -216,7 +216,9 @@ export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
                       </TableCell>
                       <TableCell className="px-3 py-2">
                         <span className="flex flex-wrap gap-1">
-                          <Badge variant={ESTADOS_REGLA[r.estado].tono}>{ESTADOS_REGLA[r.estado].texto}</Badge>
+                          <Badge variant={ESTADOS_REGLA[r.estado].tono}>
+                            {ESTADOS_REGLA[r.estado].texto}
+                          </Badge>
                           {r.esPrueba && (
                             <Badge
                               variant="warning"

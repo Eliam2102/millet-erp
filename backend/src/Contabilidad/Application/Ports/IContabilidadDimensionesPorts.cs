@@ -63,6 +63,19 @@ public interface ITerceroContabilidadPort
 {
     Task<IReadOnlyDictionary<Guid, AuxiliarContable>> ObtenerAsync(TipoAuxiliar tipo, IReadOnlyCollection<Guid> ids, CancellationToken ct);
     Task<IReadOnlyList<AuxiliarContable>> BuscarAsync(TipoAuxiliar tipo, string? q, int limite, CancellationToken ct);
+
+    /// <summary>
+    /// M-166 (apertura): clientes o proveedores por clave exacta (sin distinguir mayúsculas), con la clave en mayúsculas como llave. Las
+    /// claves que no existen no aparecen. Por omisión busca una por una; el adaptador lo resuelve en una consulta.
+    /// </summary>
+    async Task<IReadOnlyDictionary<string, AuxiliarContable>> ObtenerPorClavesAsync(TipoAuxiliar tipo, IReadOnlyCollection<string> claves, CancellationToken ct)
+    {
+        var res = new Dictionary<string, AuxiliarContable>(StringComparer.OrdinalIgnoreCase);
+        foreach (var clave in claves.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
+            if ((await BuscarAsync(tipo, clave, 20, ct)).FirstOrDefault(a => string.Equals(a.Clave.Trim(), clave, StringComparison.OrdinalIgnoreCase)) is { } a)
+                res[clave.ToUpperInvariant()] = a;
+        return res;
+    }
 }
 
 /// <summary>Puerto de CONSUMIDOR para cuentas bancarias de Millet (dimensión banco). Lo implementa Tesorería.</summary>
@@ -70,6 +83,19 @@ public interface ICuentaBancariaContabilidadPort
 {
     Task<IReadOnlyDictionary<Guid, AuxiliarContable>> ObtenerAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
     Task<IReadOnlyList<AuxiliarContable>> BuscarAsync(string? q, int limite, CancellationToken ct);
+
+    /// <summary>
+    /// M-166 (apertura): cuentas bancarias por número exacto, con el número en mayúsculas como llave. Los que no existen no aparecen. Por
+    /// omisión busca uno por uno; el adaptador lo resuelve en una consulta.
+    /// </summary>
+    async Task<IReadOnlyDictionary<string, AuxiliarContable>> ObtenerPorNumerosAsync(IReadOnlyCollection<string> numeros, CancellationToken ct)
+    {
+        var res = new Dictionary<string, AuxiliarContable>(StringComparer.OrdinalIgnoreCase);
+        foreach (var numero in numeros.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
+            if ((await BuscarAsync(numero, 20, ct)).FirstOrDefault(a => string.Equals(a.Clave.Trim(), numero, StringComparison.OrdinalIgnoreCase)) is { } a)
+                res[numero.ToUpperInvariant()] = a;
+        return res;
+    }
 }
 
 /// <summary>

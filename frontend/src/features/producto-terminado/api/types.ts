@@ -12,7 +12,19 @@ export interface PiezaDto {
   escaneadaAt: string;
   /** Solo en tránsito: sucursal a la que va. */
   sucursalDestinoId?: string | null;
+  /** M-251: ubicación en almacén; `porUbicar` mientras nadie la asigna. */
+  almacen?: AlmacenPt | null;
+  lugar?: string | null;
+  porUbicar?: boolean;
+  /** Estación y hora A+W en que se terminó la pieza. */
+  estacionOrigen?: number | null;
+  areaOrigen?: string | null;
+  terminadaAwAt?: string | null;
+  /** Entró a PT sin costo asignado todavía. */
+  costoPendiente?: boolean;
 }
+
+export type AlmacenPt = 'Nacional' | 'Exportacion';
 
 export interface AvancePosicionDto {
   posicion: number;
@@ -94,18 +106,27 @@ export interface SalidasPendientesPagina {
   con48h: number;
 }
 
-export type EstadoTraspaso = 'EnTransito' | 'ConDiferencia' | 'Recibido';
+/** Preparado (documentado, sin mover piezas) → EnTransito (autorizado por otra persona) → ConDiferencia → Recibido o Cerrado (diferencias aclaradas). */
+export type EstadoTraspaso = 'Preparado' | 'EnTransito' | 'ConDiferencia' | 'Recibido' | 'Cerrado';
+
+export type ClasificacionDiferencia = 'Faltante' | 'DanadaEnTransito' | 'EnCuarentena';
+export type ResolucionDiferencia = 'RecibidaTarde' | 'RegresadaAlOrigen' | 'DadaPorPerdida';
 
 export interface TraspasoPiezaDto {
   piezaId: string;
   etiqueta: string;
   numeroPedido: string;
   recibida: boolean;
+  clasificacion: ClasificacionDiferencia | null;
+  motivo: string | null;
+  evidencia: string | null;
+  resolucion: ResolucionDiferencia | null;
 }
 
-/** `piezas` solo viene en el detalle; `pendientes` = piezas aún en tránsito. */
+/** `piezas` solo viene en el detalle; `pendientes` = piezas aún en tránsito (sin llegar ni aclarar). */
 export interface TraspasoDto {
   id: string;
+  folio: string;
   sucursalOrigenId: string;
   sucursalDestinoId: string;
   estado: EstadoTraspaso;
@@ -114,6 +135,40 @@ export interface TraspasoDto {
   total: number;
   pendientes: number;
   piezas: TraspasoPiezaDto[];
+  preparadoPorId: string;
+  autorizadoPorId: string | null;
+  autorizadoAt: string | null;
+  foranea: boolean;
+  destino: string | null;
+  cartaPorteFolio: string | null;
+}
+
+/** Datos de transporte del traspaso foráneo (los mismos de la hoja de salida, para la Carta Porte). */
+export interface TransporteTraspasoBody {
+  destino: string;
+  vehiculoId: string | null;
+  operadorId: string | null;
+  distanciaKm: number;
+  pesoKg: number;
+  origenCodigoPostal: string;
+  origenEstado: string;
+  destinoCodigoPostal: string;
+  destinoEstado: string;
+}
+
+export interface CrearTraspasoBody {
+  sucursalOrigenId: string;
+  sucursalDestinoId: string;
+  etiquetas: string[];
+  foranea?: boolean;
+  transporte?: TransporteTraspasoBody;
+}
+
+export interface DiferenciaTraspasoBody {
+  piezaId: string;
+  clasificacion: ClasificacionDiferencia;
+  motivo: string;
+  evidencia?: string | null;
 }
 
 export interface TraspasosPagina {
@@ -148,6 +203,20 @@ export interface AlbaranDto {
   /** PT5.6: confirmación de la entrega (null mientras falta) y estado del pedido (`71` en ruta, `Entregado` sin factura, `115` facturado y entregado). */
   entrega?: EntregaDto | null;
   estadoPedido?: '71' | 'Entregado' | '115' | null;
+  cancelado?: boolean;
+  /** M-247: cancelación pedida de un albarán emitido (null si nunca se pidió). */
+  cancelacion?: CancelacionAlbaranDto | null;
+}
+
+export interface CancelacionAlbaranDto {
+  pendiente: boolean;
+  solicitadaAt: string | null;
+  solicitadaPorId: string | null;
+  motivoSolicitud: string | null;
+  rechazadaAt: string | null;
+  rechazadaPorId: string | null;
+  motivoRechazo: string | null;
+  autorizadaPorId: string | null;
 }
 
 export type ResultadoEntrega = 'Entregada' | 'Parcial' | 'Rechazada';
@@ -173,6 +242,31 @@ export interface EntregaDto {
   tieneFoto: boolean;
   etiquetasRechazadas: string[];
   cobro: CobroEntregaDto | null;
+  /** M-248: historial de la entrega (la última es la vigente). */
+  versiones?: VersionEntregaDto[];
+}
+
+export interface VersionEntregaDto {
+  numero: number;
+  resultado: ResultadoEntrega;
+  receptor: string;
+  entregadas: number;
+  rechazadas: number;
+  motivoRechazo: string | null;
+  entregadaAt: string;
+  motivoCorreccion: string | null;
+  corregidaAt: string | null;
+  corregidaPor: string | null;
+}
+
+/** M-248: misma evidencia que al confirmar (firma o foto) más el motivo de la corrección. */
+export interface CorregirEntregaBody {
+  receptor: string;
+  rechazadas: string[];
+  motivoRechazo: string | null;
+  firma: string | null;
+  foto: string | null;
+  motivoCorreccion: string;
 }
 
 /** Firma y foto como data URL (PNG la firma; JPEG o PNG la foto). Se necesita al menos una. */
@@ -209,6 +303,37 @@ export interface HojaSalidaDto {
   yaEmitida: boolean;
   /** PT5.6: albaranes con piezas cuya entrega aún no se confirma (solo hojas emitidas). */
   entregasPendientes?: number;
+  /** Reglas de salida (Millet, 9-nov): solo en el detalle de una hoja en carga. */
+  reglas?: ReglasHojaDto | null;
+}
+
+/** Niveles de autorización de la hoja de salida, en orden de suplencia. */
+export type NivelAutorizacionSalida = 'administracion' | 'planeacion' | 'contraloria' | 'credito' | 'ventas';
+
+export interface AutorizacionSalidaDto {
+  actor: string;
+  fecha: string;
+  nivel: NivelAutorizacionSalida;
+  motivo: string;
+  suplencia: string | null;
+  /** «pedido:piezas cargadas» que cubre; si la carga cambia deja de cubrirlo. */
+  alcance: string[];
+}
+
+/** Pedidos sin factura válida y pedidos que salen incompletos («pedido:piezas cargadas»), con su última autorización. */
+export interface ReglasHojaDto {
+  sinFactura: string[];
+  parciales: string[];
+  excepcionFactura: AutorizacionSalidaDto | null;
+  parcial: AutorizacionSalidaDto | null;
+  excepcionFacturaVigente: boolean;
+  parcialVigente: boolean;
+}
+
+export interface AutorizarHojaBody {
+  nivel: NivelAutorizacionSalida;
+  motivo: string;
+  suplencia: string | null;
 }
 
 export interface HojasSalidaPagina {
@@ -230,4 +355,93 @@ export interface CrearHojaSalidaBody {
   destinoEstado?: string | null;
   /** Sin etiquetas arma solo la ruta; las piezas se cargan después, una por una. */
   pedidos: { numeroPedido: string; etiquetas: string[] }[];
+}
+
+export interface UbicarPiezasBody {
+  etiquetas: string[];
+  almacen: AlmacenPt;
+  lugar?: string;
+}
+
+/** M-245: salida parcial de un pedido que aún no está completo en PT. */
+export type EstadoSolicitudParcial = 'Pendiente' | 'Autorizada' | 'Rechazada';
+
+export interface SolicitudParcialDto {
+  id: string;
+  numeroPedido: string;
+  sucursalId: string;
+  etiquetas: string[];
+  esperadas: number;
+  enPt: number;
+  motivo: string;
+  estado: EstadoSolicitudParcial;
+  solicitadaPorId: string;
+  solicitadaAt: string;
+  nivel: 'credito' | 'ventas' | null;
+  suplencia: string | null;
+  motivoResolucion: string | null;
+  resueltaPorId: string | null;
+  resueltaAt: string | null;
+}
+
+export interface SolicitudesParcialesPagina {
+  items: SolicitudParcialDto[];
+  total: number;
+}
+
+export interface SolicitarParcialBody {
+  numeroPedido: string;
+  etiquetas: string[];
+  motivo: string;
+}
+
+export interface ResolverParcialBody {
+  autorizar: boolean;
+  nivel?: 'credito' | 'ventas';
+  suplencia?: string;
+  motivo: string;
+}
+
+/** F1-PT-06 / M-351 / M-352: caso de daño, rechazo o devolución de piezas. */
+export type EtapaCaso = 'AntesDeCarga' | 'RechazoEnSitio' | 'DevolucionCliente';
+export type EstadoCaso = 'Abierto' | 'Dictaminado' | 'Cerrado';
+export type DictamenCaso = 'RegresarDisponible' | 'Reproceso' | 'Refabricacion' | 'Desecho';
+
+export interface CasoDanoDto {
+  id: string;
+  folio: string;
+  numeroPedido: string;
+  sucursalId: string;
+  etapa: EtapaCaso;
+  motivo: string;
+  tieneEvidencia: boolean;
+  estado: EstadoCaso;
+  piezas: { etiqueta: string; posicion: number; estado: string }[];
+  registradoPorId: string;
+  registradoAt: string;
+  dictamen: DictamenCaso | null;
+  observacionDictamen: string | null;
+  pedidoRefabricacionAw: string | null;
+  dictaminadoPorId: string | null;
+  dictaminadoAt: string | null;
+  facturaFolio: string | null;
+  correctivo: 'NotaCredito' | 'CancelacionFactura' | null;
+  documento: { id: string; folio: string | null; estado: string; pendiente: boolean } | null;
+  cerradoAt: string | null;
+}
+
+export interface CasosPagina {
+  items: CasoDanoDto[];
+  total: number;
+}
+
+export interface DictaminarCasoBody {
+  dictamen: DictamenCaso;
+  observacion: string;
+  pedidoRefabricacionAw?: string;
+}
+
+export interface CancelarFacturaCasoBody {
+  motivoSat: '01' | '02' | '03' | '04';
+  uuidSustituto?: string;
 }

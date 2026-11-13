@@ -68,6 +68,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
     [
         ("INVENTARIO", "1.1", "Deudora", "Ninguna"),
         ("IVA_ACREDITABLE_PENDIENTE", "1.2", "Deudora", "Ninguna"),
+        ("IVA_ACREDITABLE_PAGADO", "1.11", "Deudora", "Ninguna"),
         ("BANCOS", "1.3", "Deudora", "Ninguna"),
         ("BANCOS_MN", "1.4", "Deudora", "Ninguna"),
         ("CLIENTES", "1.5", "Deudora", "Clientes"),
@@ -79,6 +80,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
         ("PROVEEDORES", "2.2", "Acreedora", "Proveedores"),
         ("RETENCIONES_POR_PAGAR", "2.3", "Acreedora", "Ninguna"),
         ("IVA_TRASLADADO_NO_COBRADO", "2.4", "Acreedora", "Ninguna"),
+        ("IVA_TRASLADADO_COBRADO", "2.6", "Acreedora", "Ninguna"),
         ("ANTICIPOS_DE_CLIENTES", "2.5", "Acreedora", "Ninguna"),
         ("VENTAS", "4.1", "Acreedora", "Ninguna"),
         ("DESCUENTOS_SOBRE_VENTAS", "4.2", "Deudora", "Ninguna"),
@@ -230,10 +232,10 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
 
             fallidos.Should().BeEmpty("ningún evento revienta al consumirse: o genera póliza o entra a la bandeja");
             procesados.Should().Be(EventosMes, "cada evento entregado quedó registrado como procesado (ninguno se perdió)");
-            polizas.Should().Be(esperado.Polizas, "cada evento contabilizable generó su póliza (o entró a la de su sesión de caja)");
+            polizas.Should().Be(esperado.Polizas, "cada evento contabilizable generó su póliza (cada cobro en efectivo la suya)");
             bandeja.Should().BeEquivalentTo(esperado.Bandeja, "la bandeja tiene exactamente los eventos enviados a propósito, con su causa");
             reprocesados.Should().Be(esperado.Reprocesados, "los pagos que llegaron antes que su factura salieron solos de la bandeja");
-            efectivoPendiente.Should().Be(0, "todo cobro en efectivo quedó en la póliza de liquidación de su sesión");
+            efectivoPendiente.Should().Be(0, "todo cobro en efectivo quedó con su póliza");
             descuadradas.Should().Be(0);
             cargos.Should().Be(abonos, "la balanza del mes cuadra");
             netoReal.Where(kv => kv.Value != 0m).ToDictionary(kv => kv.Key, kv => kv.Value)
@@ -322,7 +324,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                     "Transferencia", "REF-VOL"));
                 pasos.AddRange(clave == "C" ? [recepcion, pp, tt] : [recepcion, tt, pp]);
                 x.Mover("INVENTARIO", s);
-                x.Mover("IVA_ACREDITABLE_PENDIENTE", iva);
+                x.Mover(clave == "O" ? "IVA_ACREDITABLE_PENDIENTE" : "IVA_ACREDITABLE_PAGADO", iva);
                 if (clave == "O")
                 {
                     pasos.Add(new Paso('T', new PagoFacturaProveedorRevertidoIntegrationEvent(EmpresaBootstrapId, ocurrido, factura, pago, t, "MXN",
@@ -398,7 +400,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                 var factura = Guid.NewGuid();
                 pasos.Add(new Paso('F', FacturaVenta(ocurrido, dia, suc, factura, cliente, s, iva)));
                 x.Mover("VENTAS", -s);
-                x.Mover("IVA_TRASLADADO_NO_COBRADO", -iva);
+                x.Mover(clave is "E" or "G" or "H" ? "IVA_TRASLADADO_COBRADO" : "IVA_TRASLADADO_NO_COBRADO", -iva);
                 x.Polizas += 2;
                 switch (clave)
                 {
@@ -438,7 +440,8 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
             {
                 var sesion = Guid.NewGuid();
                 var efectivo = 0m;
-                for (var k = 0; k < 2 + rng.Next(3); k++)
+                var cobrosSesion = 2 + rng.Next(3);
+                for (var k = 0; k < cobrosSesion; k++)
                 {
                     var importe = Importe(rng, maximo: 3_000);
                     efectivo += importe;
@@ -448,7 +451,7 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                     Guid.NewGuid(), dia, 500m, efectivo + 500m, efectivo + 500m, 0m, false, [new CajaSesionCorteTotal("01", efectivo + 500m, efectivo + 500m)])));
                 x.Mover("EFECTIVO_CAJA_COBRANZA", efectivo);
                 x.Mover("CLIENTES", -efectivo);
-                x.Polizas += 1;
+                x.Polizas += cobrosSesion;   // M-174: una póliza por cobro en efectivo; el cierre no genera asiento
                 break;
             }
             case "I":
@@ -501,9 +504,17 @@ public sealed class PolizasAutomaticasVolumenTests(WebApplicationFactory<Program
                 x.Rechazo(CausaRechazoContable.DatoFaltante, "CentroCostoId");
                 break;
             case "X3":
-                pasos.Add(new Paso('F', Cobro(ocurrido, suc, Guid.NewGuid(), Guid.NewGuid(), cliente, ("05", t))));
+            {
+                var factura = Guid.NewGuid();
+                pasos.Add(new Paso('F', FacturaVenta(ocurrido, dia, suc, factura, cliente, s, iva)));
+                pasos.Add(new Paso('F', Cobro(ocurrido, suc, Guid.NewGuid(), factura, cliente, ("05", t))));
+                x.Mover("CLIENTES", t);
+                x.Mover("VENTAS", -s);
+                x.Mover("IVA_TRASLADADO_NO_COBRADO", -iva);
+                x.Polizas += 1;
                 x.Rechazo(CausaRechazoContable.RolSinCuenta, RolSinCuenta);
                 break;
+            }
             case "X4":
                 pasos.Add(new Paso('F', FacturaVenta(ocurrido, new DateOnly(2097, dia.Month, dia.Day), suc, Guid.NewGuid(), cliente, s, iva)));
                 x.Rechazo(CausaRechazoContable.PeriodoCerrado, "CONTAB_PERIODO_INEXISTENTE");

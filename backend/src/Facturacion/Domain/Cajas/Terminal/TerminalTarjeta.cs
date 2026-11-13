@@ -77,6 +77,9 @@ public sealed class TransaccionTerminal : BaseEntity, IPerteneceAEmpresa, IAudit
     public Guid? CobroMostradorId { get; private set; }
     public Guid? CobroFormaPagoId { get; private set; }
     public Guid? SucursalId { get; private set; }
+    /// <summary>Afiliación del comercio y código de terminal que reporta el banco (statement); base del modelo terminal-afiliación-sucursal.</summary>
+    public string? Afiliacion { get; private set; }
+    public string? CodTerminal { get; private set; }
     public Guid? LiquidacionId { get; private set; }
 
     /// <summary>Trae lo que necesita la liquidación (comisión, IVA, neto y folio).</summary>
@@ -106,6 +109,8 @@ public sealed class TransaccionTerminal : BaseEntity, IPerteneceAEmpresa, IAudit
             Neto = r.Neto,
             FolioLiquidacion = Limpio(r.FolioLiquidacion),
             FechaLiquidacion = r.FechaLiquidacion,
+            Afiliacion = Limpio(r.Afiliacion),
+            CodTerminal = Limpio(r.CodTerminal),
             Estado = r.Aprobada ? EstadoTransaccionTerminal.SinEmparejar : EstadoTransaccionTerminal.Rechazada,
         };
     }
@@ -312,4 +317,4 @@ public sealed record CuadreFacturaBanco(
 public sealed record RenglonTerminal(
     string NoOperacion, DateTime FechaHora, decimal Importe, string? Moneda, string? Ultimos4, string? Autorizacion,
     string? Estatus, bool Aprobada, decimal? Comision, decimal? IvaComision, decimal? Neto, string? FolioLiquidacion,
-    DateOnly? FechaLiquidacion = null);
+    DateOnly? FechaLiquidacion = null, string? Afiliacion = null, string? CodTerminal = null);

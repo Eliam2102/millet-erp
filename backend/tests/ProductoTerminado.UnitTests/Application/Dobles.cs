@@ -2,10 +2,61 @@ using Microsoft.EntityFrameworkCore;
 using Millet.ProductoTerminado.Application;
 using Millet.ProductoTerminado.Application.Escaneos;
 using Millet.ProductoTerminado.Application.Ports;
+using Millet.Administracion.Application.Abstractions;
+using Millet.ProductoTerminado.Application.Salidas;
 using Millet.ProductoTerminado.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ProductoTerminado.UnitTests.Application;
+
+/// <summary>
+/// Reglas de salida del 9-nov en las pruebas que no tratan de ellas: antes de emitir, otra persona autoriza la excepción sin factura
+/// (Administración) y la parcialidad (Crédito); lo que no hace falta autorizar se ignora. Las reglas mismas están en ReglasSalidaTests.
+/// </summary>
+internal sealed class EmisorAutorizado(ProductoTerminadoDbContext db, IPedidosPtReadPort pedidos, IFacturacionSalidaPort facturacion, EmitirHojaSalidaHandler emitir, IClock reloj)
+{
+    public static readonly Guid AprobadorId = Guid.Parse("00000000-0000-0000-0000-0000000000dd");
+
+    public async Task<HojaSalidaDto> Handle(EmitirHojaSalidaCommand c, CancellationToken ct)
+    {
+        var aprobar = new AutorizarHojaSalidaHandler(db, new PtAcceso(new UsuarioFijo(AprobadorId), new PermisosTodos(), new SucursalesTodas()), pedidos, facturacion,
+            new EmpresaFija(EntornoPt.Empresa), reloj);
+        foreach (var nivel in new[] { "administracion", "credito" })
+        {
+            try { await aprobar.Handle(new AutorizarHojaSalidaCommand(c.Id, nivel, "Autorizada en la prueba", null), ct); }
+            catch (BusinessRuleException) { }
+            catch (EntityNotFoundException) { }
+        }
+        return await emitir.Handle(c, ct);
+    }
+}
+
+internal sealed class UsuarioFijo(Guid id) : ICurrentUserContext
+{
+    public Guid? UserId => id;
+    public string? UserName => null;
+}
+
+internal sealed class PermisosTodos : ICurrentUserPermissions
+{
+    public ValueTask<bool> TieneAsync(string permiso, CancellationToken ct = default) => ValueTask.FromResult(true);
+}
+
+internal sealed class SucursalesTodas : IUsuarioSucursalReadPort
+{
+    public Task<IReadOnlyList<Guid>> ListarIdsAsync(Guid usuarioId, CancellationToken ct) => Task.FromResult<IReadOnlyList<Guid>>([EntornoPt.Sucursal]);
+    public Task<bool> EstaAsociadoAsync(Guid usuarioId, Guid sucursalId, CancellationToken ct) => Task.FromResult(true);
+}
+
+/// <summary>Sin festivos; la sucursal de prueba en Mérida salvo que se indique otra zona.</summary>
+internal sealed class CalendarioFalso : IPtCalendarioSucursalesPort
+{
+    public Dictionary<Guid, SucursalCalendarioPt> Sucursales { get; } = new() { [EntornoPt.Sucursal] = new("CIR", "America/Merida", "Circuito Colonias") };
+    public Task<IReadOnlyDictionary<Guid, SucursalCalendarioPt>> SucursalesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, SucursalCalendarioPt>>(Sucursales.Where(s => ids.Contains(s.Key)).ToDictionary());
+    public Task<IReadOnlySet<DateOnly>> FestivosAsync(CancellationToken ct) => Task.FromResult<IReadOnlySet<DateOnly>>(new HashSet<DateOnly>());
+}
 
 internal sealed class FakePedidosPort : IPedidosPtReadPort
 {
@@ -64,8 +115,7 @@ internal sealed class EntornoPt : IDisposable
 
     public EntornoPt()
     {
-        Db = new ProductoTerminadoDbContext(
-            new DbContextOptionsBuilder<ProductoTerminadoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new EmpresaFija(Empresa));
+        Db = OtroContexto();
         Sucursales.Claves["01"] = Sucursal;
         var reloj = new RelojFijo(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
         Liberacion = new LiberacionPedido(Db, Saldos, Eventos, reloj);
@@ -80,6 +130,12 @@ internal sealed class EntornoPt : IDisposable
         Handler.Handle(new RegistrarEscaneoPiezaCommand(Empresa, "Demo", etiqueta, pedido, pos, null, pieza, 2821, null,
             at ?? new DateTime(2026, 10, 28, 8, 0, 0, DateTimeKind.Unspecified), clave), CancellationToken.None);
 
+    private readonly string _bd = Guid.NewGuid().ToString();
+
+    /// <summary>Otro DbContext sobre la misma BD en memoria (simula una transacción concurrente).</summary>
+    public ProductoTerminadoDbContext OtroContexto() => new(
+        new DbContextOptionsBuilder<ProductoTerminadoDbContext>().UseInMemoryDatabase(_bd).Options, new EmpresaFija(Empresa));
+
     public void Dispose() => Db.Dispose();
 }
 
@@ -89,4 +145,21 @@ internal sealed class FakeSaldoPort : ISaldoPedidoReadPort
     public Dictionary<string, decimal> Saldos { get; } = new();
     public Task<decimal?> ObtenerAsync(Guid empresaId, string numeroPedido, CancellationToken ct) =>
         Task.FromResult(Saldos.TryGetValue(numeroPedido, out var s) ? (decimal?)s : null);
+}
+
+/// <summary>
+/// M-247 en las pruebas de cancelación que no tratan de la facultad: en carga cancela quien opera la hoja; emitido, lo pide quien opera y
+/// lo autoriza otra persona (<see cref="EmisorAutorizado.AprobadorId"/>).
+/// </summary>
+internal sealed class CancelacionPorEtapa(ProductoTerminadoDbContext db, PtAcceso solicita, IPedidosPtReadPort pedidos, IFacturacionSalidaPort facturacion, IClock reloj)
+{
+    public async Task<HojaSalidaDto> Handle(CancelarAlbaranSalidaCommand c, CancellationToken ct)
+    {
+        var empresa = new EmpresaFija(EntornoPt.Empresa);
+        if (!await db.Salidas.AnyAsync(s => s.Id == c.HojaId && s.Estado == Millet.ProductoTerminado.Domain.EstadoSalida.Emitida, ct))
+            return await new CancelarAlbaranSalidaHandler(db, solicita, pedidos, facturacion, empresa, reloj).Handle(c, ct);
+        await new SolicitarCancelacionAlbaranHandler(db, solicita, pedidos, empresa, reloj).Handle(new(c.HojaId, c.AlbaranId, c.Motivo), ct);
+        var autoriza = new PtAcceso(new UsuarioFijo(EmisorAutorizado.AprobadorId), new PermisosTodos(), new SucursalesTodas());
+        return await new ResolverCancelacionAlbaranHandler(db, autoriza, pedidos, facturacion, empresa, reloj).Handle(new(c.HojaId, c.AlbaranId, true, c.Motivo), ct);
+    }
 }

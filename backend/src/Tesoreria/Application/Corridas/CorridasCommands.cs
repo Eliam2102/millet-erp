@@ -145,6 +145,40 @@ public sealed class QuitarPasivoCorridaHandler(TesoreriaDbContext db, IProveedor
     }
 }
 
+// --------------------------------------------------- Importe parcial (M-264)
+
+public sealed record AjustarImporteCorridaCommand(Guid Id, Guid FacturaProveedorId, decimal Importe, int VersionEsperada) : IRequest<CorridaResponse>;
+
+public sealed class AjustarImporteCorridaHandler(TesoreriaDbContext db, IProveedorBancoReadPort proveedores)
+    : IRequestHandler<AjustarImporteCorridaCommand, CorridaResponse>
+{
+    public async Task<CorridaResponse> Handle(AjustarImporteCorridaCommand command, CancellationToken cancellationToken)
+    {
+        var ct = cancellationToken;
+        var c = await CorridaArmado.CargarAsync(db, command.Id, command.VersionEsperada, ct);
+        var pasivo = await db.PasivosPendientesPago.AsNoTracking().FirstOrDefaultAsync(p => p.FacturaProveedorId == command.FacturaProveedorId, ct)
+            ?? throw new EntityNotFoundException("CORRIDA_PASIVO_NO_ENCONTRADO", "No se encontró el pasivo.");
+        c.AjustarImporte(pasivo, command.Importe);
+        await db.SaveChangesAsync(ct);
+        return await CorridaLectura.ToResponseAsync(db, proveedores, c, ct);
+    }
+}
+
+/// <summary>Javier Canché, 9-nov: «La corrida se debería bloquear si no se cuenta con el saldo suficiente para hacer el pago».</summary>
+internal static class SaldoCorrida
+{
+    public static async Task ExigirAlcanzaAsync(TesoreriaDbContext db, CorridaPago c, CancellationToken ct)
+    {
+        var cuenta = await db.CuentasBancarias.AsNoTracking().FirstAsync(x => x.Id == c.CuentaBancariaId, ct);
+        var neto = await db.MovimientosBancarios.AsNoTracking().Where(m => m.CuentaBancariaId == cuenta.Id)
+            .SumAsync(m => m.Sentido == Domain.Movimientos.SentidoMovimiento.Ingreso ? m.Monto : -m.Monto, ct);
+        var saldo = (cuenta.SaldoInicial ?? 0m) + neto;
+        if (c.Pendiente > saldo)
+            throw new BusinessRuleException("CORRIDA_SALDO_INSUFICIENTE",
+                $"La cuenta tiene un saldo en libros de {saldo:N2} {c.Moneda} y la corrida suma {c.Pendiente:N2}; no alcanza para pagarla.");
+    }
+}
+
 // --------------------------------------------------- Enviar a autorización
 
 public sealed record EnviarCorridaAAutorizacionCommand(Guid Id, int VersionEsperada) : IRequest<CorridaResponse>;
@@ -158,6 +192,7 @@ public sealed class EnviarCorridaAAutorizacionHandler(TesoreriaDbContext db, IPr
         var c = await CorridaArmado.CargarAsync(db, command.Id, command.VersionEsperada, ct);
         var escalones = await PoliticaFirmas.CargarAsync(db, c.EmpresaId, c.Moneda, ct);
         var (firmas, rol) = PoliticaFirmaCorrida.Requisito(escalones, c.Total);
+        await SaldoCorrida.ExigirAlcanzaAsync(db, c, ct);
         c.EnviarAAutorizacion(firmas, rol);
         await db.SaveChangesAsync(ct);
         return await CorridaLectura.ToResponseAsync(db, proveedores, c, ct);
@@ -176,6 +211,7 @@ public sealed class AutorizarCorridaHandler(TesoreriaDbContext db, ICurrentEmpre
         var ct = cancellationToken;
         var (empresaId, usuarioId) = DevolucionTransiciones.Contexto(empresa, user, "firma la corrida");
         var c = await CorridaArmado.CargarAsync(db, command.Id, command.VersionEsperada, ct);
+        await SaldoCorrida.ExigirAlcanzaAsync(db, c, ct);
         var firma = c.Firmar(usuarioId, await roles.CodigosRolAsync(usuarioId, empresaId, ct), clock.UtcNow);
         db.Add(firma);
         await db.SaveChangesAsync(ct);

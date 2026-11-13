@@ -1,7 +1,7 @@
 import { problemaUsuario } from '@/lib/error-usuario';
 import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Paperclip, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { EmptyState, ErrorState, TableSkeleton, TabsEstado, TextAreaField } from '@/components/erp';
@@ -30,8 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { RoturasAppPorAutorizar } from '@/features/almacen/components/RoturasAppPorAutorizar';
 import { CapturarRoturaSheet } from '@/features/almacen/components/CapturarRoturaSheet';
-import { useDecidirRotura, useSalidasRotura, type SalidaRotura } from '@/features/almacen/api/useSalidasRotura';
+import { useDecidirRotura, useSalidasRotura, type SalidaRotura,
+} from '@/features/almacen/api/useSalidasRotura';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -42,7 +44,8 @@ const ESTADO_UI: Record<SalidaRotura['estado'], { texto: string; variante: Badge
   RECHAZADA: { texto: 'Rechazada', variante: 'danger' },
 };
 const num = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 4 });
-const mxn = (n: number | null) => (n === null ? '—' : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }));
+const mxn = (n: number | null) =>
+  n === null ? '—' : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
 /**
  * ALM-03 — Salida por rotura: el almacenista captura y un Jefe o Gerente de almacén distinto autoriza o rechaza. Hasta
@@ -76,7 +79,8 @@ export function SalidasRoturaPage() {
       { id: r.id, accion, motivo: motivoRechazo ?? undefined },
       {
         onSuccess: () => {
-          toast.success(accion === 'autorizar' ? 'Rotura autorizada: el saldo ya bajó' : 'Rotura rechazada');
+          toast.success(accion === 'autorizar' ? 'Rotura autorizada: el saldo ya bajó' : 'Rotura rechazada',
+          );
           setAutorizando(null);
           setRechazando(null);
           setMotivoRechazo(null);
@@ -153,7 +157,7 @@ export function SalidasRoturaPage() {
               </AvisoEnLinea>
             )}
             <TableContainer>
-              <Table>
+              <Table paginada>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha</TableHead>
@@ -181,12 +185,32 @@ export function SalidasRoturaPage() {
                       <TableCell className="text-right tabular-nums">
                         {num(r.cantidad)} {r.unidadMedida}
                       </TableCell>
-                      <TableCell>{r.motivo}</TableCell>
-                      <TableCell>{r.capturadoPor}</TableCell>
-                      <TableCell className="text-right">{r.valorMxn === null ? '—' : <MoneyDisplay amount={r.valorMxn} currency="MXN" />}</TableCell>
                       <TableCell>
-                        <Badge variant={ESTADO_UI[r.estado].variante}>{ESTADO_UI[r.estado].texto}</Badge>
-                        {r.folioMovimiento && <div className="font-mono text-xs text-ink-muted">{r.folioMovimiento}</div>}
+                        {r.motivo}
+                        {r.evidenciaBlobRef && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs text-ink-muted">
+                            <Paperclip className="size-3" aria-hidden="true" />
+                            Con evidencia
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>{r.capturadoPor}</TableCell>
+                      <TableCell className="text-right">
+                        {r.valorMxn === null ? (
+                          '—'
+                        ) : (
+                          <MoneyDisplay amount={r.valorMxn} currency="MXN" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={ESTADO_UI[r.estado].variante}>
+                          {ESTADO_UI[r.estado].texto}
+                        </Badge>
+                        {r.folioMovimiento && (
+                          <div className="font-mono text-xs text-ink-muted">
+                            {r.folioMovimiento}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
@@ -204,7 +228,9 @@ export function SalidasRoturaPage() {
                             </>
                           )}
                           {r.estado === 'PENDIENTE' && !puedeAutorizar && (
-                            <span className="self-center text-xs text-ink-muted">Requiere autorización</span>
+                            <span className="self-center text-xs text-ink-muted">
+                              Requiere autorización
+                            </span>
                           )}
                         </div>
                       </TableCell>
@@ -217,6 +243,8 @@ export function SalidasRoturaPage() {
         )}
       </ListadoModulo>
 
+      {puedeAutorizar && <RoturasAppPorAutorizar />}
+
       <CapturarRoturaSheet open={capturando} onOpenChange={setCapturando} />
 
       <Sheet open={detalle !== null} onOpenChange={(abierto) => !abierto && setDetalle(null)}>
@@ -224,7 +252,9 @@ export function SalidasRoturaPage() {
           <SheetHeader>
             <SheetTitle>Detalle de la rotura</SheetTitle>
             <SheetDescription>
-              {detalle ? `${detalle.articuloClave ?? ''} · ${num(detalle.cantidad)} ${detalle.unidadMedida} · ${detalle.motivo}` : ''}
+              {detalle
+                ? `${detalle.articuloClave ?? ''} · ${num(detalle.cantidad)} ${detalle.unidadMedida} · ${detalle.motivo}`
+                : ''}
             </SheetDescription>
           </SheetHeader>
           {detalle && (
@@ -238,6 +268,8 @@ export function SalidasRoturaPage() {
                 <dd>{mxn(detalle.valorMxn)}</dd>
                 <dt className="text-ink-muted">Movimiento</dt>
                 <dd className="font-mono">{detalle.folioMovimiento ?? 'Aún sin movimiento'}</dd>
+                <dt className="text-ink-muted">Evidencia</dt>
+                <dd>{detalle.evidenciaBlobRef ? 'Adjunta' : 'Sin evidencia'}</dd>
                 {detalle.comentario && (
                   <>
                     <dt className="text-ink-muted">Comentario</dt>
@@ -255,14 +287,21 @@ export function SalidasRoturaPage() {
                 </li>
                 {detalle.decididoPor && detalle.decididoAt && (
                   <li>
-                    <span className="font-medium">{detalle.estado === 'RECHAZADA' ? 'Rechazó' : 'Autorizó'}</span> {detalle.decididoPor}
+                    <span className="font-medium">
+                      {detalle.estado === 'RECHAZADA' ? 'Rechazó' : 'Autorizó'}
+                    </span>{' '}
+                    {detalle.decididoPor}
                     <div className="text-xs text-ink-muted">
                       <DateTimeDisplay value={detalle.decididoAt} />
                     </div>
-                    {detalle.motivoRechazo && <div className="text-xs text-ink-muted">{detalle.motivoRechazo}</div>}
+                    {detalle.motivoRechazo && (
+                      <div className="text-xs text-ink-muted">{detalle.motivoRechazo}</div>
+                    )}
                   </li>
                 )}
-                {detalle.estado === 'PENDIENTE' && <li className="text-ink-muted">Pendiente de autorizar por otro usuario</li>}
+                {detalle.estado === 'PENDIENTE' && (
+                  <li className="text-ink-muted">Pendiente de autorizar por otro usuario</li>
+                )}
               </ol>
             </SheetBody>
           )}
@@ -295,7 +334,12 @@ export function SalidasRoturaPage() {
         resumen={
           <div className="space-y-2">
             <p>La rotura queda rechazada y el saldo no cambia. Indica el motivo.</p>
-            <TextAreaField value={motivoRechazo} onChange={setMotivoRechazo} maxLength={500} minRows={2} />
+            <TextAreaField
+              value={motivoRechazo}
+              onChange={setMotivoRechazo}
+              maxLength={500}
+              minRows={2}
+            />
           </div>
         }
         verbo="Rechazar rotura"

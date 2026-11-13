@@ -46,6 +46,8 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         e.HasKey(x => x.Id);
         e.Property(x => x.Id).ValueGeneratedNever();
         e.Property(x => x.Folio).HasMaxLength(24);
+        e.Property(x => x.OrdenesCompraIds).HasColumnType("uuid[]");
+        e.Property(x => x.RequisitosRevisados).HasColumnType("uuid[]");
         e.Property(x => x.Referencia).HasMaxLength(200);
         e.Property(x => x.Moneda).HasMaxLength(3);
         e.Property(x => x.Tc).HasPrecision(18, 6);
@@ -64,6 +66,13 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         e.Navigation(x => x.Hitos).UsePropertyAccessMode(PropertyAccessMode.Field);
         e.HasMany(x => x.Avisos).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
         e.Navigation(x => x.Avisos).UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.HasMany(x => x.CorreccionesHitos).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.CorreccionesHitos).UsePropertyAccessMode(PropertyAccessMode.Field);
+        var ch = modelBuilder.Entity<CorreccionHitoExpediente>();
+        ch.ToTable("correcciones_hitos"); ch.HasKey(x => x.Id); ch.Property(x => x.Id).ValueGeneratedNever(); ch.Ignore(x => x.AggregateRootId);
+        ch.Property(x => x.Motivo).HasMaxLength(500); ch.Property(x => x.MotivoAnterior).HasMaxLength(500);
+        ch.HasIndex(x => new { x.HitoId, x.Fecha });
+        ch.HasOne<HitoExpediente>().WithMany().HasForeignKey(x => x.HitoId).OnDelete(DeleteBehavior.Restrict);
         var h = modelBuilder.Entity<HitoExpediente>();
         h.ToTable("hitos");
         h.HasKey(x => x.Id);
@@ -80,6 +89,8 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         a.HasKey(x => x.Id);
         a.Property(x => x.Id).ValueGeneratedNever();
         a.Ignore(x => x.AggregateRootId);
+        a.Ignore(x => x.Vigente);
+        a.Property(x => x.MotivoCierre).HasMaxLength(200);
         a.HasIndex(x => new { x.HitoId, x.FechaCompromiso }).IsUnique();
         a.HasOne<HitoExpediente>().WithMany().HasForeignKey(x => x.HitoId).OnDelete(DeleteBehavior.Restrict);
         var p = modelBuilder.Entity<ParticipanteExpediente>();
@@ -100,7 +111,7 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         d.Property(x => x.Estado).HasConversion<string>();
         d.Property(x => x.Motivo).HasMaxLength(500);
         d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId, x.NumeroVersion }).IsUnique();
-        d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId }).IsUnique().HasFilter("estado = 'Vigente'");
+        d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId }).IsUnique().HasFilter("estado = 'Vigente' AND tipo_documento_id IN ('0000000e-0003-0000-0000-000000000004', '0000000e-0003-0000-0000-00000000000a')");
         d.HasOne<DocumentoExpediente>().WithMany().HasForeignKey(x => x.ReemplazaA).OnDelete(DeleteBehavior.Restrict);
         e.Property(x => x.NumeroPedimentoExportacion).HasMaxLength(100);
         e.Property(x => x.AduanaPedimentoExportacion).HasMaxLength(10);

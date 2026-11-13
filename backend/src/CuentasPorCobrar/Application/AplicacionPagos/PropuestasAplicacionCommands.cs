@@ -68,7 +68,13 @@ public sealed record PropuestaAplicacionResponse(
     string? MotivoAjuste = null,
     Guid? AjusteAutorizadoPor = null,
     DateTimeOffset? AjusteAutorizadoEn = null,
-    bool AjustePorAutorizar = false);
+    bool AjustePorAutorizar = false,
+    // M-240 (aditivo): reversa del ajuste autorizado.
+    Guid? AjusteRevertidoPor = null,
+    DateTimeOffset? AjusteRevertidoEn = null,
+    string? MotivoReversaAjuste = null,
+    Guid? PolizaReversaAjusteId = null,
+    bool ReppTimbrado = false);
 
 internal static class PropuestaAplicacionMapper
 {
@@ -91,7 +97,8 @@ internal static class PropuestaAplicacionMapper
                 f.ImporteAplicado, f.NumParcialidad,
                 saldosInsolutos != null && saldosInsolutos.TryGetValue(f.FacturaCarteraId, out var saldo) ? saldo : null)).ToList(),
             p.Version, p.PropuestoPor, p.SaldoAFavorPorIdentificar, p.MovimientoBancarioId,
-            p.TipoAjuste, p.MotivoAjuste, p.AjusteAutorizadoPor, p.AjusteAutorizadoEn, p.AjustePorAutorizar);
+            p.TipoAjuste, p.MotivoAjuste, p.AjusteAutorizadoPor, p.AjusteAutorizadoEn, p.AjustePorAutorizar,
+            p.AjusteRevertidoPor, p.AjusteRevertidoEn, p.MotivoReversaAjuste, p.PolizaReversaAjusteId, p.ReppTimbrado);
 
     /// <summary>
     /// Envía la propuesta a Tesorería (<c>propuesta-aplicacion.creada.v1</c>). CXC-06: una propuesta con ajuste solo sale cuando el
@@ -149,13 +156,21 @@ internal static class PropuestaAplicacionMapper
         var abiertas = await db.PropuestasAplicacionPago.AsNoTracking()
             .Where(x => x.Estado == EstadoPropuestaAplicacion.Propuesta
                 || (x.Estado == EstadoPropuestaAplicacion.Confirmada && !x.ReppTimbrado))
-            .SelectMany(x => x.Facturas.Select(f => new { x.Id, x.CreatedAt, f.FacturaCarteraId, f.ImporteAplicado }))
+            .SelectMany(x => x.Facturas.Select(f => new { x.Id, x.CreatedAt, f.FacturaCarteraId, f.ImporteAplicado, f.NumParcialidad }))
             .Where(x => ids.Contains(x.FacturaCarteraId))
             .ToListAsync(ct);
-        return ids.Where(saldos.ContainsKey).ToDictionary(id => id, id => saldos[id] - abiertas
-            .Where(x => x.FacturaCarteraId == id
-                && (x.CreatedAt < p.CreatedAt || (x.CreatedAt == p.CreatedAt && x.Id.CompareTo(p.Id) <= 0)))
-            .Sum(x => x.ImporteAplicado));
+        return ids.Where(saldos.ContainsKey).ToDictionary(id => id, id =>
+        {
+            var numero = p.Facturas.First(f => f.FacturaCarteraId == id).NumParcialidad;
+            // Con fechas iguales, la parcialidad fija la secuencia antes que el identificador.
+            return saldos[id] - abiertas
+                .Where(x => x.FacturaCarteraId == id
+                    && (x.CreatedAt < p.CreatedAt || (x.CreatedAt == p.CreatedAt
+                        && (x.NumParcialidad is int n && numero is int actual && n != actual
+                            ? n < actual
+                            : x.Id.CompareTo(p.Id) <= 0))))
+                .Sum(x => x.ImporteAplicado);
+        });
     }
 
     public static bool EsAbierta(EstadoPropuestaAplicacion estado, bool reppTimbrado) =>
@@ -361,7 +376,7 @@ public sealed class CrearPropuestaAplicacionHandler
             lineas: lineas,
             toleranciaNoFiscal: tolerancia, propuestoPor: usuarioId,
             movimientoBancarioId: deposito?.MovimientoBancarioId,
-            tipoAjuste: command.TipoAjuste, motivoAjuste: command.MotivoAjuste);
+            tipoAjuste: command.TipoAjuste, motivoAjuste: command.MotivoAjuste, ahora: _clock.UtcNow);
 
         _db.PropuestasAplicacionPago.Add(propuesta);
 

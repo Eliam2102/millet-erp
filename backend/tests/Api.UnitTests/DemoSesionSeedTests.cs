@@ -34,6 +34,14 @@ public sealed class DemoSesionSeedTests
     }
 
     [Theory]
+    [InlineData("Facturación", false)]
+    [InlineData("Caja", false)]
+    [InlineData("Administrador", true)]
+    [InlineData("Contabilidad", true)]
+    public void AlcanceTotalDeCajas_soloLoTienenLosPerfilesCorporativos(string rol, bool esperado) =>
+        Assert.Equal(esperado, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.FacturacionCajaLeerTodas));
+
+    [Theory]
     [InlineData("Development", false)]
     [InlineData("Production", false)]
     [InlineData("Production", true)]
@@ -67,7 +75,7 @@ public sealed class DemoSesionSeedTests
     public void M45_Ningun_rol_distinto_del_administrador_recibe_permisos_de_producto_terminado(string rol)
     {
         var pt = PermisosCanonicos.Todos.Where(p => p.Codigo.StartsWith("producto_terminado.", StringComparison.Ordinal)).ToArray();
-        Assert.Equal(4, pt.Length);
+        Assert.Equal(11, pt.Length);
         Assert.All(pt, p => Assert.False(DemoSesionSeedHostedService.PermisoDelRol(rol, p.Codigo), $"{rol} no debe recibir {p.Codigo}"));
     }
 

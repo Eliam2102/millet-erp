@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { Building2 } from 'lucide-react';
@@ -38,22 +39,26 @@ export function EmpresasLayout({ idActivo, detalle }: EmpresasLayoutProps) {
   const items = useMemo(() => empresasQuery.data?.items ?? [], [empresasQuery.data]);
 
   return (
-    <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
-      <aside
-        className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
-          idActivo != null ? 'hidden md:flex' : 'flex',
-        )}
-        aria-label="Lista de empresas"
-        data-print="hidden"
-      >
-        <PageHeader titulo={<>Datos de la empresa</>} descripcion={<></>} acciones={<></>} />
+    <MaestroDetalle
+      seleccionado={idActivo != null}
+      etiquetaLista={'empresas'}
+      lista={
+        <aside
+          className={cn(
+            'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+            idActivo != null ? 'hidden md:flex' : 'flex',
+          )}
+          aria-label="Lista de empresas"
+          data-print="hidden"
+        >
+          <PageHeader titulo={<>Datos de la empresa</>} descripcion={<></>} acciones={<></>} />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
-          <RenderLista query={empresasQuery} items={items} idActivo={idActivo} />
-        </div>
-      </aside>
-
+          <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+            <RenderLista query={empresasQuery} items={items} idActivo={idActivo} />
+          </div>
+        </aside>
+      }
+    >
       <section
         className={cn(
           'min-w-0 flex-1 md:overflow-y-auto',
@@ -63,7 +68,7 @@ export function EmpresasLayout({ idActivo, detalle }: EmpresasLayoutProps) {
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
-    </div>
+    </MaestroDetalle>
   );
 }
 

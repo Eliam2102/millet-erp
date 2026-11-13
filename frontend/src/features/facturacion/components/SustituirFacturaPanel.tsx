@@ -13,9 +13,18 @@ import { toast } from 'sonner';
  * solicita la cancelación de la original (motivo 01, sustituto = la nueva) y navega a la
  * sustituta.
  */
-export function SustituirFacturaPanel({ facturaId, onDone }: { facturaId: string; onDone: () => void }) {
+export function SustituirFacturaPanel({
+  facturaId,
+  onDone,
+  motivo = '01',
+}: {
+  facturaId: string;
+  onDone: () => void;
+  /** 01 sustituye con relación 04; 02 y 04 reemiten sin relación una factura ya cancelada. */
+  motivo?: string;
+}) {
   const navigate = useNavigate();
-  const datos = useDatosSustitucion(facturaId);
+  const datos = useDatosSustitucion(facturaId, motivo);
 
   if (datos.isPending) return <p className="text-sm text-ink-muted">Preparando la factura sustituta…</p>;
   if (datos.isError)
@@ -30,11 +39,24 @@ export function SustituirFacturaPanel({ facturaId, onDone }: { facturaId: string
   return (
     <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Sustituir factura">
       <h2 className="text-sm font-medium">
-        Sustituir <span className="font-mono">{datos.data.sustituyeFolio}</span>
+        {motivo === '01' ? 'Sustituir' : `Reemitir (motivo ${motivo})`}{' '}
+        <span className="font-mono">{datos.data.sustituyeFolio}</span>
       </h2>
+      <p role="note" className="rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
+        {datos.data.pasos?.join(' ')}{' '}
+        {datos.data.requiereAceptacion
+          ? 'La cancelación requiere aceptación del receptor.'
+          : `Sin aceptación del receptor: ${(datos.data.razonesSinAceptacion ?? []).join('; ').toLowerCase()}.`}
+      </p>
       <EmitirFacturaForm
         prefill={prefillSustitucion(datos.data)}
         onSuccess={(res) => {
+          if (!datos.data.llevaRelacion04) {
+            toast.success(`Factura ${res.folio} emitida sin relación (la original ya estaba cancelada).`);
+            onDone();
+            void navigate({ to: '/facturacion/facturas/$id', params: { id: res.id } });
+            return;
+          }
           toast.success(
             res.estado === 'Timbrado'
               ? `Sustituta ${res.folio} timbrada. La cancelación de ${datos.data.sustituyeFolio} queda pendiente de autorización.`

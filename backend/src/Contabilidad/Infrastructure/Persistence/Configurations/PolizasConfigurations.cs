@@ -16,7 +16,7 @@ public sealed class PolizaConfiguration : IEntityTypeConfiguration<Poliza>
         builder.ToTable("polizas", t =>
         {
             t.HasCheckConstraint("ck_polizas_estado", "estado BETWEEN 0 AND 2");
-            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 1");
+            t.HasCheckConstraint("ck_polizas_origen", "origen BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_polizas_tipo_sat", "tipo_sat BETWEEN 1 AND 3");
             t.HasCheckConstraint("ck_polizas_periodo", "periodo_numero BETWEEN 1 AND 13");
             t.HasCheckConstraint("ck_polizas_numero", "(estado = 0 AND numero IS NULL) OR (estado <> 0 AND numero BETWEEN 1 AND 999999)");
@@ -136,5 +136,74 @@ public sealed class ConsecutivoPolizaConfiguration : IEntityTypeConfiguration<Co
         builder.ToTable("consecutivos_poliza", t => t.HasCheckConstraint("ck_consecutivos_poliza_numero", "ultimo_numero BETWEEN 1 AND 999999"));
         builder.HasKey(x => new { x.EmpresaId, x.TipoOperacionId, x.Anio });
         builder.HasOne<TipoDocumentoContable>().WithMany().HasForeignKey(x => x.TipoOperacionId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+/// <summary>M-166: una apertura por empresa; la huella y el lote quedan para responder el reintento del mismo archivo.</summary>
+public sealed class AperturaContableConfiguration : IEntityTypeConfiguration<AperturaContable>
+{
+    public void Configure(EntityTypeBuilder<AperturaContable> builder)
+    {
+        builder.ToTable("aperturas");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Huella).HasMaxLength(AperturaContable.HuellaLargo).IsRequired();
+        builder.Property(x => x.Folio).HasMaxLength(40).IsRequired();
+        builder.Property(x => x.AplicadoPor).HasMaxLength(256).IsRequired();
+        builder.HasIndex(x => x.EmpresaId).IsUnique().HasDatabaseName("ux_aperturas_empresa");
+        builder.HasIndex(x => x.LoteId);
+    }
+}
+
+/// <summary>
+/// <c>contabilidad.solicitudes_anulacion_poliza</c> (M-212): solicitud de anulación con segunda firma. Una sola pendiente por póliza
+/// (índice único parcial), también ante dos solicitudes simultáneas.
+/// </summary>
+public sealed class SolicitudAnulacionPolizaConfiguration : IEntityTypeConfiguration<SolicitudAnulacionPoliza>
+{
+    public void Configure(EntityTypeBuilder<SolicitudAnulacionPoliza> builder)
+    {
+        builder.ToTable("solicitudes_anulacion_poliza", t => t.HasCheckConstraint("ck_solicitudes_anulacion_poliza_estado", "estado BETWEEN 0 AND 2"));
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Motivo).HasMaxLength(Poliza.MotivoMaximo).IsRequired();
+        builder.Property(x => x.MotivoRechazo).HasMaxLength(Poliza.MotivoMaximo);
+        builder.Property(x => x.Estado).HasConversion<short>();
+        builder.Property(x => x.SolicitadaPor).HasMaxLength(256).IsRequired();
+        builder.Property(x => x.DecididaPor).HasMaxLength(256);
+        builder.Ignore(x => x.Pendiente);
+        builder.HasIndex(x => new { x.EmpresaId, x.PolizaId }).IsUnique()
+            .HasFilter("estado = 0").HasDatabaseName(UxPendiente);
+        builder.HasIndex(x => new { x.EmpresaId, x.Estado, x.SolicitadaEn });
+        builder.HasOne<Poliza>().WithMany().HasForeignKey(x => x.PolizaId).OnDelete(DeleteBehavior.Restrict);
+    }
+
+    public const string UxPendiente = "ux_solicitudes_anulacion_poliza_pendiente";
+}
+
+/// <summary>M-321: incidencias posteriores a la autorización de una póliza o al cierre de un periodo.</summary>
+public sealed class IncidenciaPosteriorConfiguration : IEntityTypeConfiguration<IncidenciaPosterior>
+{
+    public void Configure(EntityTypeBuilder<IncidenciaPosterior> builder)
+    {
+        builder.ToTable("incidencias_posteriores", t =>
+        {
+            t.HasCheckConstraint("ck_incidencias_posteriores_estado", "estado BETWEEN 0 AND 1");
+            t.HasCheckConstraint("ck_incidencias_posteriores_resolucion", "resolucion IS NULL OR resolucion BETWEEN 1 AND 2");
+        });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Hallazgo).HasMaxLength(IncidenciaPosterior.HallazgoMaximo).IsRequired();
+        builder.Property(x => x.Impacto).HasMaxLength(IncidenciaPosterior.ImpactoMaximo).IsRequired();
+        builder.Property(x => x.ImporteImpacto).HasPrecision(18, 2);
+        builder.Property(x => x.Estado).HasConversion<short>();
+        builder.Property(x => x.Resolucion).HasConversion<short?>();
+        builder.Property(x => x.RegistradaPor).HasMaxLength(256).IsRequired();
+        builder.Property(x => x.ResueltaPor).HasMaxLength(256);
+        builder.Property(x => x.NotaResolucion).HasMaxLength(IncidenciaPosterior.NotaMaximo);
+        builder.Ignore(x => x.Abierta);
+        builder.HasIndex(x => new { x.EmpresaId, x.PeriodoAnio, x.PeriodoNumero, x.Estado });
+        builder.HasIndex(x => x.PolizaId).HasFilter("poliza_id IS NOT NULL");
+        builder.HasOne<Poliza>().WithMany().HasForeignKey(x => x.PolizaId).OnDelete(DeleteBehavior.Restrict);
     }
 }

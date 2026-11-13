@@ -270,6 +270,168 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                     b.ToTable("aw_clientes_ejecucion_error", "integraciones_aw");
                 });
 
+            modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwCostoPromedioPublicado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AlmacenTipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("almacen_tipo");
+
+                    b.Property<int>("AltoMm")
+                        .HasColumnType("integer")
+                        .HasColumnName("alto_mm");
+
+                    b.Property<int>("AnchoMm")
+                        .HasColumnType("integer")
+                        .HasColumnName("ancho_mm");
+
+                    b.Property<int>("ArticuloAw")
+                        .HasColumnType("integer")
+                        .HasColumnName("articulo_aw");
+
+                    b.Property<decimal>("Costo")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("costo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Linea")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("linea");
+
+                    b.Property<DateTimeOffset>("PublicadoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("publicado_en_utc");
+
+                    b.Property<string>("Sucursal")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("sucursal");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<int>("VersionCosto")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_costo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_costo_promedio_publicado");
+
+                    b.HasIndex("ArticuloAw", "Sucursal", "AlmacenTipo", "Linea", "AnchoMm", "AltoMm")
+                        .IsUnique()
+                        .HasDatabaseName("ux_costo_promedio_publicado_llave");
+
+                    b.ToTable("costo_promedio_publicado", "integraciones_aw");
+                });
+
+            modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwRetornoPendiente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AplicadoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("aplicado_en_utc");
+
+                    b.Property<DateTimeOffset>("CreadoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creado_en_utc");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<int>("Intentos")
+                        .HasColumnType("integer")
+                        .HasColumnName("intentos");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTimeOffset>("ProximoIntentoUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proximo_intento_utc");
+
+                    b.Property<string>("TipoEvento")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("tipo_evento");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("ultimo_error");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_retorno_pendiente");
+
+                    b.HasIndex("Estado", "ProximoIntentoUtc")
+                        .HasDatabaseName("ix_retorno_pendiente_estado_proximo");
+
+                    b.ToTable("retorno_pendiente", "integraciones_aw");
+                });
+
             modelBuilder.Entity("Millet.Integraciones.Aw.Domain.Correlacion", b =>
                 {
                     b.Property<Guid>("Id")

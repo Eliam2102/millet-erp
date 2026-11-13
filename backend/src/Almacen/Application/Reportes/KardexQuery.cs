@@ -61,6 +61,32 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
 {
     public const string TipoSaldoInicial = "Saldo inicial";
 
+    /// <summary>
+    /// M-331: la devolución que corrige una salida y la salida corregida se ven ligadas en el kardex por su folio («Corrige …» /
+    /// «Corregida por …»), aunque la salida sea de un mes cerrado y la corrección del mes corriente.
+    /// </summary>
+    internal static async Task<(Dictionary<string, string> Corrige, Dictionary<string, string> CorregidaPor)> CorreccionesAsync(
+        AlmacenDbContext db, IReadOnlyList<LineaKardex> lineas, CancellationToken ct)
+    {
+        var folios = lineas.Where(l => l.Folio != null && l.Tipo is TipoMovimiento.DevolucionSalida or TipoMovimiento.SalidaConsumo or TipoMovimiento.SalidaPorVale)
+            .Select(l => l.Folio!).Distinct().ToList();
+        if (folios.Count == 0) return ([], []);
+        var pares = await (from d in db.Movimientos.AsNoTracking()
+                           join o in db.Movimientos.AsNoTracking() on d.SalidaOrigenId equals (Guid?)o.Id
+                           where d.Tipo == TipoMovimiento.DevolucionSalida && d.Estado == EstadoMovimiento.Registrado
+                                 && d.Folio != null && o.Folio != null && (folios.Contains(d.Folio) || folios.Contains(o.Folio))
+                           select new { Devolucion = d.Folio!, Salida = o.Folio! }).ToListAsync(ct);
+        return (pares.GroupBy(p => p.Devolucion).ToDictionary(g => g.Key, g => g.First().Salida),
+            pares.GroupBy(p => p.Salida).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(p => p.Devolucion).Distinct())));
+    }
+
+    internal static string? ConCorreccion(string? referencia, string? folio, Dictionary<string, string> corrige, Dictionary<string, string> corregidaPor)
+    {
+        if (folio is null) return referencia;
+        var liga = corrige.TryGetValue(folio, out var s) ? $"Corrige {s}" : corregidaPor.TryGetValue(folio, out var d) ? $"Corregida por {d}" : null;
+        return liga is null ? referencia : referencia is null ? liga : $"{liga} · {referencia}";
+    }
+
     public async Task<ReporteResponse<KardexFila>> Handle(KardexQuery request, CancellationToken cancellationToken)
     {
         var ct = cancellationToken;
@@ -80,6 +106,7 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
             .OrderBy(l => l.FechaMovimiento).ThenByDescending(l => l.Tipo.EsEntrada()).ThenBy(l => l.Folio, StringComparer.Ordinal)
             .ToList();
         var (ordenes, foliosOc, foliosRq) = await TrazabilidadMpHandler.ResolverReferenciasAsync(db, ocs, requisiciones, lineas, ct);
+        var (corrige, corregidaPor) = await CorreccionesAsync(db, lineas, ct);
         var medidas = await TrazabilidadMpHandler.MedidasAsync(variantes, lineas, ct);
         var conHojas = medidas.Count > 0 && lineas.Any(l => MedidaReporte.Hojas(l.ProductoAwVarianteId, l.Cantidad, medidas) != null);
 
@@ -99,7 +126,7 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
             saldoHojas += signo * hojas;
             if (l.FechaMovimiento < request.Desde) { saldoInicial = saldo; valorInicial = valor; hojasIniciales = saldoHojas; continue; }
             if (signo > 0) entradas += l.Cantidad; else salidas += l.Cantidad;
-            filas.Add(new KardexFila(l.FechaMovimiento, l.Folio, Etiqueta(l.Tipo), TrazabilidadMpHandler.Referencia(l, ordenes, foliosOc, foliosRq), $"{almacenes.GetValueOrDefault(l.SubAlmacenId)} · {l.Ubicacion}",
+            filas.Add(new KardexFila(l.FechaMovimiento, l.Folio, Etiqueta(l.Tipo), ConCorreccion(TrazabilidadMpHandler.Referencia(l, ordenes, foliosOc, foliosRq), l.Folio, corrige, corregidaPor), $"{almacenes.GetValueOrDefault(l.SubAlmacenId)} · {l.Ubicacion}",
                 signo > 0 ? l.Cantidad : 0m, signo < 0 ? l.Cantidad : 0m, saldo, l.CostoUnitarioMxn, CostoPromedio(valor, saldo), valor,
                 conHojas && signo > 0 ? hojas : conHojas ? 0m : null, conHojas && signo < 0 ? hojas : conHojas ? 0m : null, conHojas ? saldoHojas : null));
         }
@@ -163,6 +190,8 @@ public sealed class KardexHandler(AlmacenDbContext db, IArticuloReadPort articul
         TipoMovimiento.SalidaPorLiberacionRevision => "Salida por liberación de revisión",
         TipoMovimiento.CancelacionEntradaCompra => "Cancelación de entrada",
         TipoMovimiento.SalidaNoPlanificada => "Salida no planificada",
+        TipoMovimiento.TrasladoInterno => "Traslado interno (salida)",
+        TipoMovimiento.EntradaTrasladoInterno => "Traslado interno (entrada)",
         _ => tipo.ToString(),
     };
 

@@ -35,6 +35,8 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // F1-CON-03: periodos contables.
     public DbSet<EjercicioContable> Ejercicios => Set<EjercicioContable>();
     public DbSet<PeriodoContable> Periodos => Set<PeriodoContable>();
+    /// <summary>M-213: alcance, evidencia y vencimiento de la reapertura acotada.</summary>
+    public DbSet<ReaperturaPeriodo> Reaperturas => Set<ReaperturaPeriodo>();
     // CON-12: checklist de cierre (pasos configurables, excepciones y confirmaciones, foto de cada cierre).
     public DbSet<PasoCierreContable> PasosCierre => Set<PasoCierreContable>();
     public DbSet<MarcaPasoCierre> MarcasPasoCierre => Set<MarcaPasoCierre>();
@@ -42,8 +44,13 @@ public sealed class ContabilidadDbContext : BaseDbContext
 
     // F1-CON-04: pólizas (C1.3), numeración por tipo (K10.9) y anulación (K10.3).
     public DbSet<Poliza> Polizas => Set<Poliza>();
+    /// <summary>M-166: marca de la apertura contable (una por empresa).</summary>
+    public DbSet<AperturaContable> Aperturas => Set<AperturaContable>();
     public DbSet<PolizaPartida> PolizasPartidas => Set<PolizaPartida>();
     public DbSet<ConsecutivoPoliza> ConsecutivosPoliza => Set<ConsecutivoPoliza>();
+    // M-212: anulación de póliza con segunda firma.
+    public DbSet<SolicitudAnulacionPoliza> SolicitudesAnulacionPoliza => Set<SolicitudAnulacionPoliza>();
+    public DbSet<IncidenciaPosterior> IncidenciasPosteriores => Set<IncidenciaPosterior>();
     // K10.4: pólizas recurrentes.
     public DbSet<PlantillaRecurrente> PlantillasRecurrentes => Set<PlantillaRecurrente>();
     // K10.5: auxiliar por OC de la cuenta puente recepción–factura.
@@ -60,6 +67,9 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // C1.6: saldo de IVA por documento y su reclasificación al pagar o cobrar (base de K10.7).
     public DbSet<SaldoIvaDocumento> SaldosIvaDocumento => Set<SaldoIvaDocumento>();
     public DbSet<ReclasificacionIva> ReclasificacionesIva => Set<ReclasificacionIva>();
+    public DbSet<LiquidacionIvaFoto> LiquidacionesIvaFoto => Set<LiquidacionIvaFoto>();
+    public DbSet<LiquidacionIvaAcuse> LiquidacionesIvaAcuse => Set<LiquidacionIvaAcuse>();
+    public DbSet<DiferenciaFiscalIva> DiferenciasFiscalesIva => Set<DiferenciaFiscalIva>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

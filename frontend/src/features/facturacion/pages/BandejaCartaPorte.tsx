@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -29,7 +30,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { estadoUi } from '../lib/estados-ui';
-import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/carta-porte/' as const;
 
@@ -39,28 +40,25 @@ const FROM = '/_app/facturacion/carta-porte/' as const;
  * Sheet de captura.
  */
 export function BandejaCartaPorte() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nueva = useNuevaCartaPorte();
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
 
-  const query = useListarCartaPorte(search.estado);
+  const q = (search.q ?? '').trim();
+  const paginacion = usePaginacionServidor(JSON.stringify(search));
+  const query = useListarCartaPorte(search.estado, {
+    q: q || undefined,
+    offset: paginacion.offset,
+    limit: limiteTabla,
+  });
 
   function actualizarSearch(parcial: Partial<CartaPorteSearch>) {
     navigate({ to: '/facturacion/carta-porte', search: { ...search, ...parcial } });
   }
 
-  const q = (search.q ?? '').trim().toLowerCase();
-  const items = (query.data ?? []).filter((c) => {
-    if (q.length === 0) return true;
-    return (
-      c.folio.toLowerCase().includes(q) ||
-      (c.uuid ?? '').toLowerCase().includes(q) ||
-      c.tramo.toLowerCase().includes(q)
-    );
-  });
-
-  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
+  const items = query.data?.items ?? [];
   return (
     <div className="space-y-5">
       <PageHeader
@@ -125,10 +123,9 @@ export function BandejaCartaPorte() {
         }
         pie={
           <PaginacionTabla
-            total={items.length}
+            total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }
@@ -173,7 +170,7 @@ export function BandejaCartaPorte() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginacion.visibles.map((c) => (
+                {items.map((c) => (
                   <TableRow key={c.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">{c.folio}</TableCell>
                     <TableCell className="px-3 py-2">{c.tipo}</TableCell>

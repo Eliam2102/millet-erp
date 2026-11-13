@@ -5,6 +5,7 @@ using Millet.Facturacion.Application.Facturas.Queries;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Anticipos.Queries;
@@ -19,12 +20,13 @@ namespace Millet.Facturacion.Application.Anticipos.Queries;
 /// estado y saldo del agregado <c>Anticipo</c> asociado.
 /// </summary>
 public sealed record BandejaFacturasAnticipoQuery(
-    EstadoTimbrado? Estado, int Offset, int Limit, bool SoloSinAsignar = false)
+    EstadoTimbrado? Estado, int Offset, int Limit, bool SoloSinAsignar = false, string? Q = null)
     : IRequest<BandejaFacturasAnticipoResponse>;
 
 public sealed record BandejaFacturasAnticipoResponse(
     IReadOnlyList<FacturaAnticipoBandejaItem> Items,
-    int? SinAsignarCount);
+    int? SinAsignarCount,
+    int Total = 0);
 
 public sealed record FacturaAnticipoBandejaItem(
     Guid Id, string Folio, string Estado, string? Uuid, string ReceptorNombre, string ReceptorRfc,
@@ -46,22 +48,30 @@ public sealed class BandejaFacturasAnticipoHandler
     public async Task<BandejaFacturasAnticipoResponse> Handle(
         BandejaFacturasAnticipoQuery query, CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(query.Limit <= 0 ? 50 : query.Limit, 1, 200);
         var q = _db.FacturasAnticipo.AsNoTracking();
         if (query.Estado is { } estado) q = q.Where(f => f.Estado == estado);
+        if (query.Q?.Trim() is { Length: > 0 } texto)
+        {
+            var patron = PaginacionExtensions.PatronContiene(texto);
+            q = q.Where(f => EF.Functions.ILike(f.Folio, patron)
+                          || (f.Uuid != null && EF.Functions.ILike(f.Uuid, patron))
+                          || EF.Functions.ILike(f.ReceptorNombre, patron)
+                          || EF.Functions.ILike(f.ReceptorRfc, patron));
+        }
 
         (q, var sinAsignarCount) = await AlcanceBandejaHelper.AplicarAsync(
             _alcance, q, query.SoloSinAsignar, cancellationToken);
 
-        var rows = await q
+        var pagina = await q
             .OrderByDescending(f => f.FolioNumero)
-            .Skip(Math.Max(0, query.Offset)).Take(limit)
+            .ThenBy(f => f.Id)
             .Select(f => new
             {
                 f.Id, f.Folio, f.Estado, f.Uuid, f.ReceptorNombre, f.ReceptorRfc,
                 f.TipoAnticipo, f.Total, f.Moneda, f.FechaTimbrado, f.AnticipoId
             })
-            .ToListAsync(cancellationToken);
+            .ToPaginaAsync(query.Offset, query.Limit, cancellationToken);
+        var rows = pagina.Items;
 
         // 13-H: saldo del agregado Anticipo (relación 1:1 por id, misma TX de emisión).
         var anticipoIds = rows.Select(r => r.AnticipoId).Distinct().ToList();
@@ -82,7 +92,7 @@ public sealed class BandejaFacturasAnticipoHandler
                 a?.Estado.ToString(), a?.Saldo);
         }).ToList();
 
-        return new BandejaFacturasAnticipoResponse(items, sinAsignarCount);
+        return new BandejaFacturasAnticipoResponse(items, sinAsignarCount, pagina.Total);
     }
 }
 

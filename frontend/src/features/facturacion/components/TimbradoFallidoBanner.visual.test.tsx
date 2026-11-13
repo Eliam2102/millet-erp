@@ -13,6 +13,7 @@ vi.mock('@/features/facturacion/api/useFacturas', () => ({
       opciones.onSuccess({ estado: 'TimbradoEnProceso' }),
   }),
   useDescartarComprobante: () => ({ isPending: false, mutate: vi.fn() }),
+  useAdoptarCfdi: () => ({ isPending: false, mutate: vi.fn(), reset: vi.fn() }),
 }));
 
 it('muestra el estado recibido con su texto de usuario al reintentar', () => {
@@ -21,4 +22,23 @@ it('muestra el estado recibido con su texto de usuario al reintentar', () => {
   expect(toast.info).toHaveBeenCalledWith(
     'Estado del comprobante: Timbrado en proceso. Consulta el comprobante antes de reintentar.',
   );
+});
+
+it('M19: sin saldo del proveedor de timbrado no pide revisar los datos fiscales', () => {
+  render(<TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_SIN_SALDO" errorMensaje={null} />);
+  expect(screen.getByText(/El proveedor de timbrado no tiene saldo para timbrar/)).toBeInTheDocument();
+  expect(screen.queryByText(/Revisa sus datos fiscales/)).not.toBeInTheDocument();
+});
+
+it('M-284: ofrece adoptar el CFDI solo cuando el PAC no confirmó el timbrado', () => {
+  const { rerender } = render(
+    <TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_TIMEOUT" errorMensaje={null} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Adoptar CFDI timbrado' }));
+  expect(screen.getByRole('dialog', { name: /Adoptar CFDI timbrado/ })).toBeTruthy();
+
+  rerender(
+    <TimbradoFallidoBanner comprobanteId="otro" estado="TimbradoFallido" errorCodigo="CFDI40102" errorMensaje={null} />,
+  );
+  expect(screen.queryByRole('button', { name: 'Adoptar CFDI timbrado' })).toBeNull();
 });

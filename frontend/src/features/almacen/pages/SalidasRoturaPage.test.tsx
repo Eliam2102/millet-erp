@@ -11,6 +11,9 @@ vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: (p: string) =>
 vi.mock('@/features/almacen/components/CapturarRoturaSheet', () => ({
   CapturarRoturaSheet: ({ open }: { open: boolean }) => (open ? <div>Formulario de captura</div> : null),
 }));
+vi.mock('@/features/almacen/components/RoturasAppPorAutorizar', () => ({
+  RoturasAppPorAutorizar: () => <div>Roturas de la app por autorizar</div>,
+}));
 vi.mock('@/features/almacen/api/useSalidasRotura', () => ({
   useSalidasRotura: hook.useSalidasRotura,
   useDecidirRotura: () => ({ mutate: hook.mutate, isPending: false }),
@@ -134,6 +137,17 @@ describe('SalidasRoturaPage', () => {
     expect(importe).toHaveClass('text-3xl', 'font-semibold', 'tabular-nums');
     expect(importe.querySelector('.font-medium')).toBeNull();
   });
+
+it('muestra el indicador de evidencia y la sección de la app solo con facultad Autorizar', () => {
+  datos([{ ...pendiente, evidenciaBlobRef: 'blob/1' }]);
+  const { unmount } = render(<SalidasRoturaPage />, { wrapper: createQueryWrapper() });
+  expect(screen.getByText('Con evidencia')).toBeInTheDocument();
+  expect(screen.queryByText('Roturas de la app por autorizar')).not.toBeInTheDocument();
+  unmount();
+  dar('almacen.salidas.rotura-autorizar');
+  render(<SalidasRoturaPage />, { wrapper: createQueryWrapper() });
+  expect(screen.getByText('Roturas de la app por autorizar')).toBeInTheDocument();
+});
 
 it('la decisión rechazada conserva su nombre y usa el tono de rechazo', () => {
   datos([{ ...pendiente, estado: 'RECHAZADA' }]);

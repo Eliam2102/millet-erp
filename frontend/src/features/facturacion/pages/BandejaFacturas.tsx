@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -32,7 +33,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { estadoUi } from '../lib/estados-ui';
-import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/facturas/' as const;
 
@@ -43,15 +44,20 @@ const FROM = '/_app/facturacion/facturas/' as const;
  * factura" navega al form de emisión con pestañas (FAC-UX-PR2).
  */
 export function BandejaFacturas() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
 
+  const q = (search.q ?? '').trim();
+  const paginacion = usePaginacionServidor(JSON.stringify(search));
   const query = useListarFacturas({
     estado: search.estado,
     clase: search.clase,
     ncPendiente: search.ncPendiente,
-    limit: 200,
+    q: q || undefined,
+    offset: paginacion.offset,
+    limit: limiteTabla,
     alcance: search.alcance,
   });
 
@@ -59,18 +65,7 @@ export function BandejaFacturas() {
     navigate({ to: '/facturacion/facturas', search: { ...search, ...parcial } });
   }
 
-  const q = (search.q ?? '').trim().toLowerCase();
-  const items = (query.data?.items ?? []).filter((f) => {
-    if (q.length === 0) return true;
-    return (
-      f.folio.toLowerCase().includes(q) ||
-      (f.uuid ?? '').toLowerCase().includes(q) ||
-      f.receptorNombre.toLowerCase().includes(q) ||
-      f.receptorRfc.toLowerCase().includes(q)
-    );
-  });
-
-  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
+  const items = query.data?.items ?? [];
   return (
     <div className="space-y-5">
       <PageHeader
@@ -130,7 +125,8 @@ export function BandejaFacturas() {
                   <Button
                     variant="ghost"
                     onClick={() =>
-                      actualizarSearch({ estado: undefined, clase: undefined, ncPendiente: undefined })
+                      actualizarSearch({ estado: undefined, clase: undefined, ncPendiente: undefined,
+                      })
                     }
                   >
                     Limpiar
@@ -151,10 +147,9 @@ export function BandejaFacturas() {
         }
         pie={
           <PaginacionTabla
-            total={items.length}
+            total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }
@@ -200,7 +195,7 @@ export function BandejaFacturas() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginacion.visibles.map((f) => (
+                {items.map((f) => (
                   <TableRow key={f.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2">
                       <div className="font-mono text-xs">{f.folio}</div>

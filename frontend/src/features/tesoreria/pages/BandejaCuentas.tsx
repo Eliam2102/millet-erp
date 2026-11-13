@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Landmark, Pencil, Plus } from 'lucide-react';
+import { History, Landmark, Pencil, Plus } from 'lucide-react';
 import { EstadoTesoreriaBadge } from '../components/Badges';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +33,10 @@ import {
   useCuentasBancarias,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaSaldoResponse } from '@/features/tesoreria/api/types';
+import {
+  HistorialCuentaSheet,
+  SolicitudesCuentaPanel,
+} from '@/features/tesoreria/components/SolicitudesCuenta';
 import { CuentaBancariaSheet } from '@/features/tesoreria/components/CuentaBancariaSheet';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -46,6 +50,9 @@ import { esApiError, codigoSoporte } from '@/lib/api';
  * <c>ver-cuenta-completa</c>; el saldo refleja lo capturado en el sistema
  * (los saldos iniciales llegan con la conciliación, T-G8).
  */
+/** Valor de la pestaña «Solicitudes» (los valores 1 y 2 son activas e inactivas). */
+const VISTA_SOLICITUDES = 3;
+
 export function BandejaCuentas() {
   const puedeAdministrar = useHasPermission(PermisosCanonicos.TesoreriaCuentasAdministrar);
 
@@ -57,8 +64,10 @@ export function BandejaCuentas() {
   const [sheetAbierto, setSheetAbierto] = useState(false);
   const [editando, setEditando] = useState<CuentaSaldoResponse | null>(null);
   const [desactivando, setDesactivando] = useState<CuentaSaldoResponse | null>(null);
+  const [historial, setHistorial] = useState<CuentaSaldoResponse | null>(null);
+  const verSolicitudes = estadoVista === VISTA_SOLICITUDES;
 
-  const cuentas = (query.data ?? []).filter((c) => estadoVista !== 2 || !c.activa);
+  const cuentas = (query.data ?? []).filter((c) => estadoVista !== 2 || c.activa === false);
 
   function ejecutarCambioEstado(cuenta: CuentaSaldoResponse, activa: boolean) {
     cambiarEstado.mutate(
@@ -124,24 +133,32 @@ export function BandejaCuentas() {
             opciones={[
               { valor: 1, label: estadoUi('cuenta', 'activa').texto },
               { valor: 2, label: estadoUi('cuenta', 'inactiva').texto },
+              { valor: VISTA_SOLICITUDES, label: 'Solicitudes' },
             ]}
             valor={estadoVista}
             onChange={setEstadoVista}
             conteos={undefined}
           />
         }
-        filtros={<BarraFiltros total={`${cuentas.length} cuentas en la consulta`} />}
+        filtros={
+          verSolicitudes ? undefined : (
+            <BarraFiltros total={`${cuentas.length} cuentas en la consulta`} />
+          )
+        }
         pie={
-          <PaginacionTabla
-            total={cuentas.length}
-            offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
-            onChange={paginacion.onChange}
-          />
+          verSolicitudes ? undefined : (
+            <PaginacionTabla regionId={paginacion.regionId}
+              total={cuentas.length}
+              offset={paginacion.offset}
+              limit={paginacion.limit}
+              onChange={paginacion.onChange}
+            />
+          )
         }
       >
-        {query.isError ? (
+        {verSolicitudes ? (
+          <SolicitudesCuentaPanel />
+        ) : query.isError ? (
           <ErrorState
             title="No se pudieron cargar las cuentas bancarias"
             problem={esApiError(query.error) ? query.error.problem : undefined}
@@ -182,7 +199,7 @@ export function BandejaCuentas() {
                   <TableHead className="px-3 py-2 font-medium">Cta. contable</TableHead>
                   <TableHead className="px-3 py-2 text-right font-medium">Saldo</TableHead>
                   <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
-                  {puedeAdministrar && <TableHead className="px-3 py-2" />}
+                  <TableHead className="px-3 py-2" />
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y">
@@ -204,43 +221,49 @@ export function BandejaCuentas() {
                         estado={c.activa ? 'activa' : 'inactiva'}
                       />
                     </TableCell>
-                    {puedeAdministrar && (
-                      <TableCell className="px-3 py-2 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditando(c);
-                              setSheetAbierto(true);
-                            }}
-                          >
-                            <Pencil className="mr-1 h-3.5 w-3.5" />
-                            Editar
-                          </Button>
-                          {c.activa ? (
+                    <TableCell className="px-3 py-2 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => setHistorial(c)}>
+                          <History className="mr-1 h-3.5 w-3.5" />
+                          Historial
+                        </Button>
+                        {puedeAdministrar && (
+                          <>
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="text-danger-fg hover:text-danger-fg"
-                              disabled={cambiarEstado.isPending}
-                              onClick={() => setDesactivando(c)}
+                              variant="outline"
+                              onClick={() => {
+                                setEditando(c);
+                                setSheetAbierto(true);
+                              }}
                             >
-                              Desactivar
+                              <Pencil className="mr-1 h-3.5 w-3.5" />
+                              Editar
                             </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={cambiarEstado.isPending}
-                              onClick={() => ejecutarCambioEstado(c, true)}
-                            >
-                              Activar
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
+                            {c.activa ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-danger-fg hover:text-danger-fg"
+                                disabled={cambiarEstado.isPending}
+                                onClick={() => setDesactivando(c)}
+                              >
+                                Desactivar
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={cambiarEstado.isPending}
+                                onClick={() => ejecutarCambioEstado(c, true)}
+                              >
+                                Activar
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -248,6 +271,14 @@ export function BandejaCuentas() {
           </div>
         )}
       </ListadoModulo>
+
+      <HistorialCuentaSheet
+        cuentaId={historial?.id ?? null}
+        titulo={
+          historial ? `${historial.banco} · ${historial.numeroCuenta} (${historial.moneda})` : ''
+        }
+        onClose={() => setHistorial(null)}
+      />
 
       <CuentaBancariaSheet
         open={sheetAbierto}

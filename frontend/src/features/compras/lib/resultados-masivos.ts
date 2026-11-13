@@ -7,6 +7,8 @@ export interface ResultadoAprobacionItem {
   folio: string;
   ok: boolean;
   mensaje: string | null;
+  /** Texto de las filas ok del lote (Aprobada, Rechazada, Devuelta). */
+  okTexto?: string;
 }
 
 /**
@@ -16,11 +18,13 @@ export interface ResultadoAprobacionItem {
 export function resultadosConFolio(
   resultados: readonly { id: string; ok: boolean; mensaje: string | null }[],
   folioPorId: ReadonlyMap<string, string>,
+  okTexto = 'Aprobada',
 ): ResultadoAprobacionItem[] {
   return resultados.map((x) => ({
     id: x.id,
     folio: folioPorId.get(x.id) ?? '—',
     ok: x.ok,
     mensaje: x.mensaje,
+    okTexto,
   }));
 }

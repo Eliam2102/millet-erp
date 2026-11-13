@@ -38,6 +38,37 @@ public sealed class LiquidacionTests
             Task.FromResult(new CancelacionSalidaPt(false, false, false));
 
         public Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct) => Task.FromResult(new CartaPorteSalida(Guid.NewGuid(), "CP-1"));
+
+        // M-177: factura de cada albarán y cobros que la caja registra (o el error con que los rechaza).
+        public Dictionary<string, FacturaAlbaranRuta> Facturas { get; } = [];
+        public List<(Guid SucursalId, CobroRutaAlbaran Cobro)> Cobros { get; } = [];
+        public BusinessRuleException? Rechazo { get; set; }
+
+        public Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(Facturas.Where(f => albaranFolios.Contains(f.Key)).ToDictionary());
+
+        public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct)
+        {
+            if (Rechazo is not null) throw Rechazo;
+            Cobros.AddRange(cobros.Select(c => (sucursalId, c)));
+            return Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([.. cobros.Select(c => new CobroRutaRegistrado(c.AlbaranFolio, Guid.NewGuid()))]);
+        }
+        public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
+
+        public Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct) => Task.FromResult(CartaPorteVigente);
+        public bool CartaPorteVigente { get; set; }
+        public List<(Guid FacturaId, IReadOnlyList<(int Posicion, int Piezas)> Piezas)> NotasDevolucion { get; } = [];
+        public Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct)
+        {
+            NotasDevolucion.Add((facturaId, piezas));
+            return Task.FromResult(new DocumentoFiscalPt(Guid.NewGuid(), "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
+        }
+        public string EstadoNota { get; set; } = "Timbrado";
+        public Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct) =>
+            Task.FromResult(new DocumentoFiscalPt(facturaId, "F-1", "CancelacionPendiente", true));
+        public Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct) =>
+            Task.FromResult<DocumentoFiscalPt?>(new DocumentoFiscalPt(id, "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
     }
 
     private static readonly DateTimeOffset Ahora = new(2026, 11, 5, 18, 0, 0, TimeSpan.Zero); // 12:00 en Ciudad de México
@@ -47,17 +78,19 @@ public sealed class LiquidacionTests
     {
         public EntornoPt T { get; } = t;
         public PtAcceso Acceso { get; } = new(new Usuario(), new Permisos(), new Sucursales());
-        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora));
-        public CerrarDiaContraEntregaHandler CerrarDia() => new(T.Db, T.Pedidos, T.Eventos, new RelojFijo(Ahora));
+        public FacturacionFalsa Facturacion { get; } = new();
+        public LiquidarRutaPtHandler Liquidar() => new(T.Db, Acceso, T.Pedidos, Facturacion, new EmpresaFija(EntornoPt.Empresa), new RelojFijo(Ahora), T.Eventos);
+        public CerrarDiaContraEntregaHandler CerrarDia(DateTimeOffset? ahora = null) => new(T.Db, T.Pedidos, T.Eventos, new RelojFijo(ahora ?? Ahora), new CalendarioFalso(),
+            Microsoft.Extensions.Options.Options.Create(new Millet.ProductoTerminado.Infrastructure.Workers.CierreContraEntregaOptions()));
         public void Dispose() => T.Dispose();
     }
 
     /// <summary>Hoja emitida con un pedido por condición de pago: P1 «Crédito 24 horas» de $8,500 (CA5.6) y, si se pide, P2 de contado.</summary>
-    private static async Task<(Entorno E, HojaSalidaDto Hoja)> HojaEmitida(bool conContado = false)
+    private static async Task<(Entorno E, HojaSalidaDto Hoja)> HojaEmitida(bool conContado = false, bool dosContraEntrega = false)
     {
         var t = new EntornoPt();
         var pedidos = new List<PedidoCargadoDto>();
-        foreach (var (p, cond, total) in new[] { ("P1", "Crédito 24 horas", 8500m), ("P2", "CONTADO", 1200m) }.Take(conContado ? 2 : 1))
+        foreach (var (p, cond, total) in new[] { ("P1", "Crédito 24 horas", 8500m), ("P2", dosContraEntrega ? "Crédito 24 horas" : "CONTADO", 1200m) }.Take(conContado || dosContraEntrega ? 2 : 1))
         {
             t.Saldos.Saldos[p] = 0m;
             t.AgregarPedido(p, 1, 2, condicionPago: cond);
@@ -70,12 +103,17 @@ public sealed class LiquidacionTests
         var emp = new EmpresaFija(EntornoPt.Empresa);
         var hoja = await new CrearHojaSalidaHandler(t.Db, acceso, t.Pedidos, emp, new RelojFijo(Ahora)).Handle(
             new CrearHojaSalidaCommand(EntornoPt.Sucursal, "Obra Mérida norte", false, null, null, null, null, null, null, null, null, pedidos), default);
-        hoja = await new EmitirHojaSalidaHandler(t.Db, acceso, t.Pedidos, new FacturacionFalsa(), t.Eventos, emp, new RelojFijo(Ahora)).Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
+        var facturacion = new FacturacionFalsa();
+        hoja = await new EmisorAutorizado(t.Db, t.Pedidos, facturacion, new EmitirHojaSalidaHandler(t.Db, acceso, t.Pedidos, facturacion, t.Eventos, emp, new RelojFijo(Ahora)), new RelojFijo(Ahora))
+            .Handle(new EmitirHojaSalidaCommand(hoja.Id), default);
         return (e, hoja);
     }
 
-    private static LiquidacionAlbaranInput Linea(HojaSalidaDto h, string pedido, bool firmado = true, decimal efectivo = 0m, decimal voucher = 0m, string? referencia = null) =>
-        new(h.Albaranes.Single(a => a.NumeroPedido == pedido).Id, firmado, efectivo, voucher, referencia);
+    private static LiquidacionAlbaranInput Linea(HojaSalidaDto h, string pedido, bool firmado = true, decimal efectivo = 0m, decimal voucher = 0m, string? referencia = null,
+        string? tipoTarjeta = "Debito", string? ultimos4 = "4821") =>
+        new(h.Albaranes.Single(a => a.NumeroPedido == pedido).Id, firmado, efectivo, voucher, referencia, voucher > 0 ? tipoTarjeta : null, voucher > 0 ? ultimos4 : null);
+
+    private static string Folio(HojaSalidaDto h, string pedido) => h.Albaranes.Single(a => a.NumeroPedido == pedido).Folio;
 
     [Fact]
     public async Task Voucher_que_cuadra_con_el_pedido_y_albaran_firmado_cierra_la_liquidacion()
@@ -155,7 +193,7 @@ public sealed class LiquidacionTests
         e.T.Db.Entregas.Add(EntregaPt.Crear(EntornoPt.Empresa, albaran.SalidaPtId, albaran, 2, 0, null, "Residente de obra", [1, 2, 3], null, 8500m, "TPV", "TPV-004821", Ahora, "chofer"));
         await e.T.Db.SaveChangesAsync();
 
-        var dto = await new ObtenerLiquidacionHandler(e.T.Db, e.Acceso, e.T.Pedidos, new EmpresaFija(EntornoPt.Empresa)).Handle(new ObtenerLiquidacionQuery(hoja.Id), default);
+        var dto = await new ObtenerLiquidacionHandler(e.T.Db, e.Acceso, e.T.Pedidos, e.Facturacion, new EmpresaFija(EntornoPt.Empresa)).Handle(new ObtenerLiquidacionQuery(hoja.Id), default);
         var l = dto.Albaranes.Single();
         (dto.Estado, l.Firmado, l.Voucher, l.VoucherReferencia, l.Diferencia).Should().Be(("Pendiente", true, 8500m, "TPV-004821", 0m));
     }
@@ -192,6 +230,82 @@ public sealed class LiquidacionTests
         using var _ = e;
         await e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id, [Linea(hoja, "P1", voucher: 8000m, referencia: "TPV-004821")], []), default);
         (await e.CerrarDia().Handle(new CerrarDiaContraEntregaCommand(), default)).Should().Be(1);
+    }
+
+    // ---------------------------------------------------------------- M-177: el cobro contra entrega entra a la caja
+
+    [Fact]
+    public async Task M177_al_cerrar_la_liquidacion_cada_albaran_cobrado_entra_a_la_caja_de_la_sucursal_de_la_hoja()
+    {
+        var (e, hoja) = await HojaEmitida(dosContraEntrega: true);
+        using var _ = e;
+        e.Facturacion.Facturas[Folio(hoja, "P1")] = new FacturaAlbaranRuta(Folio(hoja, "P1"), Guid.NewGuid(), "FA-000101", 3_480m, null);
+        e.Facturacion.Facturas[Folio(hoja, "P2")] = new FacturaAlbaranRuta(Folio(hoja, "P2"), Guid.NewGuid(), "FA-000102", 5_220m, null);
+
+        var dto = await e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id,
+            [Linea(hoja, "P1", efectivo: 3_480m), Linea(hoja, "P2", voucher: 5_220m, referencia: "AUT4821", tipoTarjeta: "Debito")], []), default);
+
+        dto.Estado.Should().Be("Cerrada");
+        e.Facturacion.Cobros.Select(c => (c.SucursalId, c.Cobro.AlbaranFolio, c.Cobro.Efectivo, c.Cobro.Voucher, c.Cobro.TipoTarjeta, c.Cobro.TarjetaUltimos4))
+            .Should().BeEquivalentTo([(EntornoPt.Sucursal, Folio(hoja, "P1"), 3_480m, 0m, (string?)null, (string?)null),
+                (EntornoPt.Sucursal, Folio(hoja, "P2"), 0m, 5_220m, "Debito", "4821")]);
+        dto.Albaranes.Should().OnlyContain(a => a.CobradoEnCaja);
+        dto.Albaranes.Select(a => a.FacturaFolio).Should().BeEquivalentTo(["FA-000101", "FA-000102"]);
+        (await e.T.Db.Liquidaciones.Include(l => l.Albaranes).SingleAsync()).Albaranes.Should().OnlyContain(a => a.CobroCajaId != null);
+    }
+
+    [Fact]
+    public async Task M177_lo_esperado_es_lo_que_la_caja_cobra_de_la_factura_del_albaran_no_el_total_del_pedido()
+    {
+        var (e, hoja) = await HojaEmitida();
+        using var _ = e;
+        // Pedido de 8,500 sin IVA; su factura con IVA vale 9,860.
+        e.Facturacion.Facturas[Folio(hoja, "P1")] = new FacturaAlbaranRuta(Folio(hoja, "P1"), Guid.NewGuid(), "FA-000101", 9_860m, null);
+
+        var conPedido = await e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id, [Linea(hoja, "P1", efectivo: 8_500m)], []), default);
+        conPedido.Albaranes.Single().Should().Match<LiquidacionLineaDto>(l => l.Esperado == 9_860m && l.Diferencia == 1_360m);
+        conPedido.Estado.Should().Be("ConDiferencia");
+        e.Facturacion.Cobros.Should().BeEmpty("con diferencia no se cierra ni se cobra en caja");
+
+        (await e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id, [Linea(hoja, "P1", efectivo: 9_860m)], []), default)).Estado.Should().Be("Cerrada");
+        e.Facturacion.Cobros.Should().ContainSingle().Which.Cobro.Efectivo.Should().Be(9_860m);
+    }
+
+    [Fact]
+    public async Task M177_si_la_caja_rechaza_el_cobro_la_liquidacion_no_se_cierra_ni_se_guarda()
+    {
+        var (e, hoja) = await HojaEmitida();
+        using var _ = e;
+        e.Facturacion.Rechazo = new BusinessRuleException("COBRO_SIN_SESION_SUCURSAL", "No tiene sesión de caja abierta en Mérida; abra su sesión en esa sucursal para liquidar la ruta.");
+
+        var act = () => e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id, [Linea(hoja, "P1", efectivo: 8_500m)], []), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("COBRO_SIN_SESION_SUCURSAL");
+        (await e.T.Db.Liquidaciones.CountAsync()).Should().Be(0);
+        (await e.T.Db.Albaranes.AsNoTracking().SingleAsync()).LiquidadoAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task M177_un_voucher_sin_tipo_de_tarjeta_o_sin_ultimos_4_no_cierra_y_no_va_a_la_caja()
+    {
+        var (e, hoja) = await HojaEmitida();
+        using var _ = e;
+
+        var sinTipo = () => e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id, [Linea(hoja, "P1", voucher: 8_500m, referencia: "AUT1", tipoTarjeta: null)], []), default);
+        var sinUltimos = () => e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id, [Linea(hoja, "P1", voucher: 8_500m, referencia: "AUT1", ultimos4: null)], []), default);
+
+        (await sinTipo.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_LIQUIDACION_VOUCHER_TARJETA");
+        (await sinUltimos.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PT_LIQUIDACION_VOUCHER_TARJETA");
+        e.Facturacion.Cobros.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task M177_un_pedido_que_no_cobra_en_ruta_no_genera_cobro_en_caja()
+    {
+        var (e, hoja) = await HojaEmitida(conContado: true);
+        using var _ = e;
+        (await e.Liquidar().Handle(new LiquidarRutaPtCommand(hoja.Id, [Linea(hoja, "P1", efectivo: 8_500m), Linea(hoja, "P2")], []), default)).Estado.Should().Be("Cerrada");
+        e.Facturacion.Cobros.Should().ContainSingle().Which.Cobro.AlbaranFolio.Should().Be(Folio(hoja, "P1"));
     }
 
     [Theory]

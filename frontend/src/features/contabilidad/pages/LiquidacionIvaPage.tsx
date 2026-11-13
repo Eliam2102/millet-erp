@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Table,
+  TableContainer,
   TableBody,
   TableCell,
   TableHead,
@@ -31,6 +32,8 @@ import {
   type ResumenLiquidacionIva,
 } from '../api/liquidacion-iva';
 import { monto } from '../lib/polizas';
+import { RecalcularIvaDocumento } from '../components/iva/RecalcularIvaDocumento';
+import { PapelTrabajoIvaSeccion } from '../components/iva/PapelTrabajoIvaSeccion';
 
 const LADO: Record<LadoIva, string> = {
   Acreditable: 'Acreditable (proveedor)',
@@ -66,6 +69,8 @@ export function LiquidacionIvaPage() {
   const [anio, mes] = aplicado.split('-').map(Number);
   const query = useLiquidacionIva(anio, mes);
   const data = query.data;
+  // M-209 (CA4): corregir el IVA de una factura de proveedor contra su XML.
+  const puedeCorregir = useAuthStore((s) => s.permisos.includes(PermisosCanonicos.ContabilidadIvaCorregirDocumento));
 
   const documentos = data?.documentos ?? [];
   const visibles = soloPendientes ? documentos.filter((d) => !d.completo) : documentos;
@@ -86,7 +91,7 @@ export function LiquidacionIvaPage() {
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="@container min-w-0 flex flex-col gap-5">
       <PageHeader
         titulo={
           <>
@@ -98,11 +103,15 @@ export function LiquidacionIvaPage() {
       />
 
       {data && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid min-w-0 gap-5 @5xl:grid-cols-[minmax(0,1fr)_380px]">
           <TarjetaCuadre cuadre={data.cuadre} cuadra={data.cuadra} />
           <TarjetaResumen resumen={data.resumen} anio={data.anio} mes={data.mes} />
         </div>
       )}
+
+      {data && puedeCorregir && <RecalcularIvaDocumento documentos={data.documentos} />}
+
+      {data && <PapelTrabajoIvaSeccion anio={data.anio} mes={data.mes} />}
 
       <ReporteShell<DocumentoLiquidacionIva>
         reporte={reporte || undefined}
@@ -163,7 +172,7 @@ function TarjetaCuadre({ cuadre, cuadra }: { cuadre: CuadreRolIva[]; cuadra: boo
     <section
       aria-labelledby="iva-cuadre-titulo"
       className={cn(
-        'flex flex-col gap-4 rounded-lg bg-surface-card px-5 py-4 shadow-card',
+        'flex min-w-0 flex-col gap-4 rounded-lg bg-surface-card px-5 py-4 shadow-card',
         !cuadra && 'ring-1 ring-danger-ring',
       )}
     >
@@ -173,32 +182,34 @@ function TarjetaCuadre({ cuadre, cuadra }: { cuadre: CuadreRolIva[]; cuadra: boo
         </h2>
         {cuadra ? <Badge variant="success">Cuadra</Badge> : <Badge variant="danger">No cuadra</Badge>}
       </div>
-      <Table aria-label="Cuadre del IVA por rol">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Rol</TableHead>
-            <TableHead>Cuentas</TableHead>
-            <TableHead className="text-right">Por documentos</TableHead>
-            <TableHead className="text-right">En cuentas</TableHead>
-            <TableHead className="text-right">Diferencia</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {cuadre.map((c) => (
-            <TableRow key={c.rol}>
-              <TableCell>{c.descripcion}</TableCell>
-              <TableCell className="font-mono text-xs">
-                {c.cuentas.length > 0 ? c.cuentas.join(', ') : 'Sin cuenta asignada'}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{monto(c.porDocumentos)}</TableCell>
-              <TableCell className="text-right tabular-nums">{monto(c.enCuentas)}</TableCell>
-              <TableCell className={cn('text-right tabular-nums', !c.cuadra && 'text-danger-fg')}>
-                {monto(c.diferencia)}
-              </TableCell>
+      <TableContainer maxHeightClassName="" className="print:overflow-visible" role="region" aria-label="Cuadre del IVA por rol" tabIndex={0}>
+        <Table aria-label="Cuadre del IVA por rol">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Rol</TableHead>
+              <TableHead>Cuentas</TableHead>
+              <TableHead className="text-right">Por documentos</TableHead>
+              <TableHead className="text-right">En cuentas</TableHead>
+              <TableHead className="text-right">Diferencia</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {cuadre.map((c) => (
+              <TableRow key={c.rol}>
+                <TableCell>{c.descripcion}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {c.cuentas.length > 0 ? c.cuentas.join(', ') : 'Sin cuenta asignada'}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{monto(c.porDocumentos)}</TableCell>
+                <TableCell className="text-right tabular-nums">{monto(c.enCuentas)}</TableCell>
+                <TableCell className={cn('text-right tabular-nums', !c.cuadra && 'text-danger-fg')}>
+                  {monto(c.diferencia)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
       {cuadra ? (
         <p className="flex items-center gap-2 text-xs text-ink-muted">
           <CircleCheck className="size-4 text-success-fg" strokeWidth={1.6} aria-hidden="true" />

@@ -8,11 +8,13 @@ export const estadosOtr = {
   1: { tono: 'warning', texto: 'Por vincular' },
   2: { tono: 'info', texto: 'Vinculado' },
   3: { tono: 'neutral', texto: 'Cancelado' },
+  4: { tono: 'neutral', texto: 'Histórico SAP' },
 } as const;
 export const estadosPartidaOtr = {
   1: { tono: 'warning', texto: 'Pendiente' },
   2: { tono: 'info', texto: 'Propuesta' },
   3: { tono: 'warning', texto: 'Requiere revisión' },
+  4: { tono: 'neutral', texto: 'Omitida' },
 } as const;
 export const estadosContenedor = {
   1: { tono: 'info', texto: 'Activo' },
@@ -39,4 +41,22 @@ export function textoFinanciero(texto: string) {
   return texto === 'Pendiente · se habilita con CE-03'
     ? 'Pendiente de habilitar el seguimiento financiero'
     : texto;
+}
+
+const nombresCierre: Record<string, string> = {
+  fisico: 'cierre físico',
+  documental: 'cierre documental',
+  financiero: 'cierre financiero',
+};
+/** La aprobación de Gerencia exige los tres cierres registrados y sin faltantes (dominio: AprobarCierre). */
+export function cierresPendientesDeAprobar(
+  cierres: ReadonlyArray<{
+    dimension: string;
+    fecha?: string | null;
+    faltantes: readonly string[];
+  }>,
+) {
+  return cierres
+    .filter((c) => !c.fecha || c.faltantes.length > 0)
+    .map((c) => nombresCierre[c.dimension] ?? c.dimension);
 }

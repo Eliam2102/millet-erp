@@ -20,6 +20,11 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
     public DateTimeOffset? LiberacionAt { get; private set; }
     /// <summary>Primera salida emitida: el pedido pasa a 71 (en ruta). No cambia con las salidas siguientes.</summary>
     public DateTimeOffset? EnRutaAt { get; private set; }
+    /// <summary>
+    /// Estatus 72 enviado a A+W. En A+W el 72 no se revierte (TI, 10-nov), así que solo viaja cuando un albarán del pedido ya no se
+    /// puede cancelar: factura timbrada, entrega en ruta o liquidación cerrada. Se fija una sola vez y nunca se borra.
+    /// </summary>
+    public DateTimeOffset? Estado72At { get; private set; }
     /// <summary>PT5.6: todas las piezas esperadas del pedido fueron recibidas por el cliente.</summary>
     public DateTimeOffset? EntregadoAt { get; private set; }
     /// <summary>PT5.6: Facturación ya tiene un CFDI vigente del pedido.</summary>
@@ -70,10 +75,26 @@ public sealed class PedidoPt : BaseEntity, IAuditable, IPerteneceAEmpresa
         return true;
     }
 
+    /// <summary>Marca el 72 la primera vez, solo con una hoja de salida emitida. Devuelve true solo esa vez.</summary>
+    public bool Confirmar72(DateTimeOffset ahora)
+    {
+        if (Estado72At is not null || EnRutaAt is null) return false;
+        Estado72At = ahora;
+        return true;
+    }
+
     public bool MarcarEntregado(DateTimeOffset ahora)
     {
         if (EntregadoAt is not null) return false;
         EntregadoAt = ahora;
+        return true;
+    }
+
+    /// <summary>M-248: una corrección de entrega dejó el pedido incompleto. Solo antes del 115 (en A+W no se revierte).</summary>
+    public bool DesmarcarEntregado()
+    {
+        if (EntregadoAt is null || Estado115At is not null) return false;
+        EntregadoAt = null;
         return true;
     }
 

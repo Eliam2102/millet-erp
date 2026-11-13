@@ -1,36 +1,44 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { FileJson, RotateCw, XCircle } from 'lucide-react';
+import { BadgeCheck, Coins, FileJson, RotateCw, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { BarraFiltros, PaginacionTabla } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { useBodyScopedIdempotencyKey } from '@/lib/api';
 import { formatDateTime } from '@/lib/datetime';
-import { useRechazosContables, useReprocesarRechazo } from '../../api/motor';
+import { useAutorizarTipoCambioRechazo, useRechazosContables, useReprocesarRechazo,
+} from '../../api/motor';
 import { ESTADOS_RECHAZO, type EstadoRechazo, type RechazoContable } from '../../api/motor-types';
-import { ESTADO_RECHAZO_UI, VARIANTE_CAUSA, mensajeMotor, textoCausa, type MotorSearch } from '../../lib/motor';
+import { ESTADO_RECHAZO_UI, VARIANTE_CAUSA, esRechazoTipoCambio, mensajeMotor, textoCausa, type MotorSearch,
+} from '../../lib/motor';
 import { usePaginacionLocal } from '../../lib/use-paginacion-local';
 import { TabsContabilidad } from '../TabsContabilidad';
 import { DescartarRechazoDialog } from './DescartarRechazoDialog';
 import { PayloadRechazoSheet } from './PayloadRechazoSheet';
+import { TipoCambioRechazoDialog } from './TipoCambioRechazoDialog';
 
-const VISTAS = ESTADOS_RECHAZO.map((estado) => ({ estado, label: ESTADO_RECHAZO_UI[estado].texto }));
+const VISTAS = ESTADOS_RECHAZO.map((estado) => ({ estado, label: ESTADO_RECHAZO_UI[estado].texto,
+}));
 
 interface Props {
   estado: MotorSearch['estado'];
   onEstado: (estado: MotorSearch['estado']) => void;
   puedeGestionar: boolean;
+  /** M-207: puede autorizar el tipo de cambio sustituto que capturó otra persona. */
+  puedeAutorizarTc?: boolean;
 }
 
 /**
  * Eventos que el motor no pudo convertir en póliza (C1.4): causa, detalle e intentos. Con permiso se reprocesan (tras
  * corregir el rol, abrir el periodo, etc.) o se descartan con motivo.
  */
-export function RechazosMotor({ estado, onEstado, puedeGestionar }: Props) {
+export function RechazosMotor({ estado, onEstado, puedeGestionar, puedeAutorizarTc = false,
+}: Props) {
   /** Sin filtro en la URL = Pendiente; «Todos» quita el filtro. */
   const filtro: EstadoRechazo | undefined = estado === 'Todos' ? undefined : (estado ?? 'Pendiente');
   const rechazos = useRechazosContables(filtro);
@@ -38,7 +46,10 @@ export function RechazosMotor({ estado, onEstado, puedeGestionar }: Props) {
   const keyFor = useBodyScopedIdempotencyKey();
   const [descartando, setDescartando] = useState<RechazoContable | null>(null);
   const [viendo, setViendo] = useState<RechazoContable | null>(null);
-  const items = [...(rechazos.data ?? [])].sort((a, b) => b.ultimoIntentoEn.localeCompare(a.ultimoIntentoEn));
+  const [capturandoTc, setCapturandoTc] = useState<RechazoContable | null>(null);
+  const autorizarTc = useAutorizarTipoCambioRechazo();
+  const items = [...(rechazos.data ?? [])].sort((a, b) => b.ultimoIntentoEn.localeCompare(a.ultimoIntentoEn),
+  );
   const pagina = usePaginacionLocal(items, filtro ?? '');
 
   function onReprocesar(r: RechazoContable) {
@@ -49,11 +60,33 @@ export function RechazosMotor({ estado, onEstado, puedeGestionar }: Props) {
         onSuccess: (res) => {
           if (res.generada && res.poliza) {
             toast.success(
-              res.poliza.folio ? `Póliza ${res.poliza.folio} generada.` : 'Póliza generada en borrador.',
+              res.poliza.folio ? `Póliza ${res.poliza.folio} generada.`
+                : 'Póliza generada en borrador.',
             );
           } else {
             toast.error(
               `Sigue sin generarse: ${textoCausa(res.causa) || 'rechazo'}.${res.mensaje ? ` ${res.mensaje}` : ''}`,
+            );
+          }
+        },
+        onError: (e) => toast.error(mensajeMotor(e)),
+      },
+    );
+  }
+
+  function onAutorizarTc(r: RechazoContable) {
+    const body = { id: r.id, version: r.version, accion: 'autorizar-tc' };
+    autorizarTc.mutate(
+      { id: r.id, idempotencyKey: keyFor(body) },
+      {
+        onSuccess: (res) => {
+          if (res.generada && res.poliza) {
+            toast.success(res.poliza.folio ? `Tipo de cambio autorizado. Póliza ${res.poliza.folio} generada.`
+                : 'Tipo de cambio autorizado. Póliza generada en borrador.',
+            );
+          } else {
+            toast.error(
+              `Autorizado, pero sigue sin generarse: ${textoCausa(res.causa) || 'rechazo'}.${res.mensaje ? ` ${res.mensaje}` : ''}`,
             );
           }
         },
@@ -74,7 +107,12 @@ export function RechazosMotor({ estado, onEstado, puedeGestionar }: Props) {
         }
         filtros={<BarraFiltros total={`${items.length} rechazos`} />}
         pie={
-          <PaginacionTabla total={items.length} offset={pagina.offset} limit={10} tamanos={[]} onChange={pagina.onChange} />
+          <PaginacionTabla regionId={pagina.regionId}
+            total={items.length}
+            offset={pagina.offset}
+            limit={pagina.limit}
+            onChange={pagina.onChange}
+          />
         }
       >
         {rechazos.isLoading ? (
@@ -121,18 +159,37 @@ export function RechazosMotor({ estado, onEstado, puedeGestionar }: Props) {
                       </TableCell>
                       <TableCell className="px-3 font-mono text-xs">{r.tipoEvento}</TableCell>
                       <TableCell className="px-3">
-                        <Badge variant={VARIANTE_CAUSA[r.causa] ?? 'neutral'}>{textoCausa(r.causa)}</Badge>
+                        <Badge variant={VARIANTE_CAUSA[r.causa] ?? 'neutral'}>
+                          {textoCausa(r.causa)}
+                        </Badge>
                       </TableCell>
                       <TableCell className="max-w-100 px-3">
                         <div className="truncate" title={r.mensaje}>
                           {r.mensaje}
                         </div>
-                        {r.detalle && <div className="truncate font-mono text-xs text-ink-muted">{r.detalle}</div>}
+                        {r.detalle && (
+                          <div className="truncate font-mono text-xs text-ink-muted">
+                            {r.detalle}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="px-3 text-right tabular-nums">{r.intentos}</TableCell>
                       <TableCell className="px-3">
                         <div className="flex flex-col items-start gap-0.5">
-                          <Badge variant={estadoUi?.variante ?? 'neutral'}>{estadoUi?.texto ?? r.estado}</Badge>
+                          <Badge variant={estadoUi?.variante ?? 'neutral'}>
+                            {estadoUi?.texto ?? r.estado}
+                          </Badge>
+                          {r.estado === 'Pendiente' && r.tcPorAutorizar && (
+                            <>
+                              <Badge variant="info">Por autorizar</Badge>
+                              <span className="text-xs text-ink-muted">
+                                {r.tcAccion === 'AceptarDocumento'
+                                  ? 'TC del documento'
+                                  : `TC ${r.tcValor?.toFixed(4)}`}{' '}
+                                · capturó {r.tcCapturadoPor}
+                              </span>
+                            </>
+                          )}
                           {r.estado === 'Reprocesado' && r.polizaId && (
                             <Link
                               to="/contabilidad/polizas/$id"
@@ -147,6 +204,32 @@ export function RechazosMotor({ estado, onEstado, puedeGestionar }: Props) {
                       </TableCell>
                       <TableCell className="px-3">
                         <div className="flex justify-end gap-1" data-print="hidden">
+                          {puedeGestionar &&
+                            r.estado === 'Pendiente' &&
+                            esRechazoTipoCambio(r.causa) && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setCapturandoTc(r)}
+                                aria-label={`Tipo de cambio de ${r.tipoEvento}`}
+                              >
+                                <Coins aria-hidden="true" />
+                                {r.tcPorAutorizar ? 'Cambiar TC' : 'Tipo de cambio'}
+                              </Button>
+                            )}
+                          {puedeAutorizarTc && r.estado === 'Pendiente' && r.tcPorAutorizar && (
+                            <Button
+                              size="sm"
+                              disabled={autorizarTc.isPending}
+                              onClick={() => onAutorizarTc(r)}
+                              aria-label={`Autorizar tipo de cambio de ${r.tipoEvento}`}
+                            >
+                              <BadgeCheck aria-hidden="true" />
+                              {autorizarTc.isPending && autorizarTc.variables?.id === r.id
+                                ? 'Autorizando…'
+                                : 'Autorizar'}
+                            </Button>
+                          )}
                           {puedeGestionar && r.estado === 'Pendiente' && (
                             <>
                               <Button
@@ -192,6 +275,7 @@ export function RechazosMotor({ estado, onEstado, puedeGestionar }: Props) {
 
       <DescartarRechazoDialog rechazo={descartando} onClose={() => setDescartando(null)} />
       <PayloadRechazoSheet rechazo={viendo} onClose={() => setViendo(null)} />
+      <TipoCambioRechazoDialog rechazo={capturandoTc} onClose={() => setCapturandoTc(null)} />
     </>
   );
 }

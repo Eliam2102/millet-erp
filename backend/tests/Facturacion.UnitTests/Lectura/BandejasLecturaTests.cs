@@ -89,9 +89,9 @@ public sealed class BandejasLecturaTests
         await db.SaveChangesAsync();
 
         var bandeja = await new BandejaCartaPorteHandler(db).Handle(new BandejaCartaPorteQuery(null, 0, 50), CancellationToken.None);
-        bandeja.Should().ContainSingle();
-        bandeja[0].Tipo.Should().Be("T");
-        bandeja[0].Tramo.Should().Be("Conkal → Cancún");
+        bandeja.Items.Should().ContainSingle();
+        bandeja.Items[0].Tipo.Should().Be("T");
+        bandeja.Items[0].Tramo.Should().Be("Conkal → Cancún");
 
         var detalle = await new CartaPorteDetalleHandler(db).Handle(new CartaPorteDetalleQuery(cp.Id), CancellationToken.None);
         detalle.Vehiculo!.Placa.Should().Be("ABC-123");

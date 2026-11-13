@@ -390,6 +390,32 @@ public sealed class EmitirFacturaVentaHandlerTests
         Assert.Equal(20m, factura.TotalPie2);
     }
 
+    // M-216: la factura ligada al expediente toma su pedimento y no se retiene; sin expediente sí se retiene.
+    [Fact]
+    public async Task M216_ligada_al_expediente_toma_su_pedimento_y_no_queda_retenida()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "EXP-25-0007",
+            NumeroPedimento: "25  16  3807  5000123", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP",
+            Contenedores: [new(Guid.NewGuid(), "MSKU1234567", "MAEU250001", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo");
+        var resp = await Handler(db, empresa, embarques: new Embarques(lectura)).Handle(command with {
+            PedidoFacturableId = p.Id, Lineas = [command.Lineas[0] with { RequierePedimento = true }] }, CancellationToken.None);
+        var f = await db.FacturasVenta.Include(x => x.Lineas).SingleAsync();
+        Assert.Equal("Timbrado", resp.Estado);
+        Assert.Equal("25  16  3807  5000123", f.Lineas.Single().Pedimento);
+        Assert.Equal(new DateOnly(2026, 5, 29), f.Lineas.Single().FechaDocAduanero);
+    }
+
+    [Fact]
+    public async Task M216_sin_expediente_la_linea_que_requiere_pedimento_sigue_retenida()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var resp = await Handler(db, empresa, embarques: new Embarques(new(false))).Handle(command with {
+            PedidoFacturableId = p.Id, Lineas = [command.Lineas[0] with { RequierePedimento = true }] }, CancellationToken.None);
+        Assert.Equal("PendientePedimento", resp.Estado);
+        Assert.Null((await db.FacturasVenta.Include(x => x.Lineas).SingleAsync()).Lineas.Single().Pedimento);
+    }
+
     [Fact]
     public async Task Pedido_no_ligado_se_factura_igual_y_sin_copia_ce()
     {
@@ -454,8 +480,8 @@ public sealed class EmitirFacturaVentaHandlerTests
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "70071999", "06")]);
-        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "06")]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
         await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000").Handle(command with {
             PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA" }, CancellationToken.None);
         var f = await db.FacturasVenta.Include(f => f.ComplementoCce).SingleAsync();
@@ -693,8 +719,8 @@ public sealed class EmitirFacturaVentaHandlerTests
         // salía con esa serie (FCNK) y no con la de exportación (FEXP).
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "70071999", "06")]);
-        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo", VersionEmbarque: 1, DatosAduanales: [new(1, "7007199900", "06")]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("7007199900", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioCalle: "DEMO 1", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
         var sender = new FakeSender(new ReservarFolioResponse("FEXP-000001", 1, ""));
 
         var resp = await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000", sender: sender).Handle(command with {
@@ -820,4 +846,130 @@ public sealed class EmitirFacturaVentaHandlerTests
         // El pedido no queda tomado: se puede volver a facturar.
         (await db.PedidosFacturables.SingleAsync()).Estado.Should().Be(EstadoPedidoFacturable.Importado);
     }
+
+    [Fact]
+    public async Task M173_caida_del_PAC_durante_la_llamada_deja_la_factura_en_proceso_con_su_folio_y_el_pedido_tomado()
+    {
+        var empresa = Guid.NewGuid();
+        var nombre = Guid.NewGuid().ToString();
+        FacturacionDbContext Db() => new(new DbContextOptionsBuilder<FacturacionDbContext>().UseInMemoryDatabase(nombre).Options,
+            new FakeEmpresaContext(empresa));
+        using var db = Db();
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var pac = new FakeFiscalCaida();
+
+        var act = () => Handler(db, empresa, fiscal: pac, sender: new FakeSender(new ReservarFolioResponse("MER-A15230", 15230, "")))
+            .Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<HttpRequestException>();
+        pac.Llamadas.Should().Be(1);
+        // Otro contexto (como si el proceso hubiera muerto): lo guardado antes del PAC sigue ahí.
+        using var otra = Db();
+        var factura = await otra.FacturasVenta.SingleAsync();
+        (factura.Folio, factura.Estado).Should().Be(("MER-A15230", EstadoTimbrado.TimbradoEnProceso));
+        var guardado = await otra.PedidosFacturables.SingleAsync();
+        (guardado.Estado, guardado.ComprobanteVigenteId).Should().Be((EstadoPedidoFacturable.Facturado, factura.Id));
+    }
+
+    [Fact]
+    public async Task M173_emision_normal_timbra_igual_que_antes_y_guarda_una_sola_factura()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+
+        var resp = await Handler(db, empresa).Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        resp.Estado.Should().Be(nameof(EstadoTimbrado.Timbrado));
+        db.ChangeTracker.Clear();
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Uuid.Should().NotBeNullOrEmpty();
+        (await db.BitacorasIntentoTimbrado.CountAsync(b => b.ComprobanteId == factura.Id)).Should().Be(1);
+        (await db.PedidosFacturables.SingleAsync()).ComprobanteVigenteId.Should().Be(factura.Id);
+    }
+
+    [Fact]
+    public async Task M285_TR01_emision_de_pedido_AW_deja_el_control_de_ingesta_Facturado_con_el_efecto_y_el_reintento_no_lo_repite()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command() with { ComportamientoFiscal = ComportamientoFiscal.MostradorInmediato };
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        db.IngestaControles.Add(Millet.Facturacion.Domain.Ingesta.IngestaControl.Crear(empresa, OrigenPedido.Aw,
+            pedido.NumeroPedido!, "hash", 1, Millet.Facturacion.Domain.Ingesta.EstadoIngesta.Importado, pedido.Id, Ahora));
+        db.SaveChanges();
+
+        var resp = await Handler(db, empresa).Handle(command with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        db.ChangeTracker.Clear();
+        (await db.IngestaControles.SingleAsync()).Estado.Should().Be(Millet.Facturacion.Domain.Ingesta.EstadoIngesta.Facturado);
+        var efecto = await db.EfectosComprobante.SingleAsync(e => e.ComprobanteId == resp.Id && e.Tipo == TipoEfectoComprobante.EstadoPedido);
+        (efecto.Estado, efecto.Intentos).Should().Be((EstadoEfectoComprobante.Aplicado, 1));
+
+        // Reintentar efectos: no hay pendientes; el control no se toca otra vez.
+        var reintento = await new Millet.Facturacion.Application.Timbrado.Efectos.ReintentarEfectosComprobanteHandler(
+                db, new FakeSender(new ReservarFolioResponse("NC-1", 1, "")), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
+                new FakeIntegrationEventPublisher(), ReceptorFiscalTestFactory.Crear(db), new FakeClock(Ahora))
+            .Handle(new Millet.Facturacion.Application.Timbrado.Efectos.ReintentarEfectosComprobanteCommand(resp.Id), CancellationToken.None);
+        reintento.Should().OnlyContain(e => e.Estado == "Aplicado");
+        db.ChangeTracker.Clear();
+        (await db.EfectosComprobante.SingleAsync(e => e.ComprobanteId == resp.Id && e.Tipo == TipoEfectoComprobante.EstadoPedido))
+            .Intentos.Should().Be(1);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FB48_Concepto_manual_H87_fraccionario_se_rechaza_antes_de_folio_y_PAC(bool desdePedido)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var sender = new FakeSender(new ReservarFolioResponse("FB48-1", 1, ""));
+        var fiscal = new FakeFiscalApiClient();
+        var command = Command();
+        if (desdePedido) command = command with { PedidoFacturableId = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal).Id };
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => Handler(db, empresa, sender: sender, fiscal: fiscal)
+            .Handle(command with { Lineas = [command.Lineas[0] with { Cantidad = 4.9999m }] }, CancellationToken.None));
+        Assert.Equal("CANTIDAD_DECIMALES_EXCEDE_UNIDAD", error.Code);
+        Assert.Contains("1", error.Message);
+        Assert.Equal(0, sender.VecesReservoFolio);
+        Assert.Null(fiscal.UltimaEmision);
+        Assert.Empty(db.FacturasVenta);
+    }
+
+    [Theory]
+    [InlineData(0, 4.5, false)]
+    [InlineData(0, 4, true)]
+    [InlineData(3, 1.125, true)]
+    [InlineData(3, 1.1255, false)]
+    [InlineData(4, 1.1255, true)]
+    [InlineData(null, 4.5, true)]
+    public async Task FB48_Producto_usa_precision_del_maestro_y_no_unidad_SAT(int? decimales, double cantidad, bool valida)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var producto = Guid.NewGuid();
+        var maestro = new ProductoFiscalLectura(producto, "FICTICIO", "01010101", "H87", "02", 0.16m,
+            null, null, "Aw", DecimalesCantidad: decimales);
+        var command = Command();
+        command = command with { Lineas = [command.Lineas[0] with { ProductoId = producto, Cantidad = (decimal)cantidad }] };
+        var sender = new FakeSender(new ReservarFolioResponse("FB48-2", 2, ""));
+        var fiscal = new FakeFiscalApiClient();
+        var handler = Handler(db, empresa, productos: new FakeProductosReadPort(maestro), sender: sender, fiscal: fiscal);
+        if (valida)
+        {
+            await handler.Handle(command, CancellationToken.None);
+            Assert.Equal((decimal)cantidad, (await db.FacturasVenta.SingleAsync()).Lineas.Single().Cantidad);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(command, CancellationToken.None));
+            Assert.Equal("CANTIDAD_DECIMALES_EXCEDE_UNIDAD", error.Code);
+            Assert.Equal(0, sender.VecesReservoFolio);
+            Assert.Null(fiscal.UltimaEmision);
+            Assert.Empty(db.FacturasVenta);
+        }
+    }
+
 }

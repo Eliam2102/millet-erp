@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -13,8 +14,7 @@ import { EstadoSolicitudViaticos, TipoDestinoViaticoLabels } from '@/features/cx
 import { EstadoSolicitudViaticosChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
-  formatearFechaHora,
-} from '@/features/cxp/lib/formato';
+  formatearFechaHora } from '@/features/cxp/lib/formato';
 import { NoDeducibleBadge } from '@/features/cxp/components/NoDeducibleBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -34,7 +34,7 @@ export function ViaticoDetallePage() {
   const [comprobarAbierto, setComprobarAbierto] = useState(false);
 
   return (
-    <div className="space-y-4">
+    <div className="@container min-w-0 space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/viaticos" search={search}>
@@ -68,11 +68,20 @@ export function ViaticoDetallePage() {
                     Excede política
                   </Badge>
                 )}
+                {query.data.comprobacionFueraDePolitica && (
+                  <Badge variant={query.data.excesoAutorizadoPor ? 'neutral' : 'warning'}>
+                    <AlertTriangle className="mr-1 size-3.5" />
+                    Comprobación fuera de política por{' '}
+                    <MoneyDisplay amount={query.data.excesoComprobacion ?? 0} currency={query.data.moneda} />
+                    {query.data.excesoAutorizadoPor ? ' · exceso autorizado' : ''}
+                  </Badge>
+                )}
               </>
             }
             descripcion={
               <>
-                <DateTimeDisplay value={query.data.fechaSalida} variant="media" /> → <DateTimeDisplay value={query.data.fechaRegreso} variant="media" /> (
+                <DateTimeDisplay value={query.data.fechaSalida} variant="media" /> →{' '}
+                <DateTimeDisplay value={query.data.fechaRegreso} variant="media" /> (
                 {query.data.diasEstimados} días) · Solicitada:{' '}
                 {formatearFechaHora(query.data.fechaSolicitud)}
               </>
@@ -128,7 +137,7 @@ export function ViaticoDetallePage() {
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Importes
             </h2>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm @sm:grid-cols-2 @3xl:grid-cols-4">
               <Importe
                 label="Monto solicitado"
                 v={query.data.montoSolicitado}
@@ -236,7 +245,7 @@ export function ViaticoDetallePage() {
               </p>
             ) : (
               <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
+                <Table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-3 py-2 text-left">Fecha gasto</th>
@@ -279,7 +288,11 @@ export function ViaticoDetallePage() {
                           <MoneyDisplay amount={l.subtotal} currency={l.moneda} strong />
                         </td>
                         <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                          <MoneyDisplay amount={l.impuestosTrasladados} currency={l.moneda} strong />
+                          <MoneyDisplay
+                            amount={l.impuestosTrasladados}
+                            currency={l.moneda}
+                            strong
+                          />
                         </td>
                         <td className="py-2 pl-3 pr-4 text-right tabular-nums">
                           <MoneyDisplay amount={l.retenciones} currency={l.moneda} strong />
@@ -290,7 +303,7 @@ export function ViaticoDetallePage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Table>
               </div>
             )}
           </section>

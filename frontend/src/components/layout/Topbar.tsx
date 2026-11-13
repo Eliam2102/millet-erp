@@ -1,9 +1,7 @@
-import { NotificacionesCompras } from './NotificacionesCompras';
-import { NotificacionesAlmacen } from './NotificacionesAlmacen';
-import { NotificacionesIncidencias } from './NotificacionesIncidencias';
-import { useEffect, useRef, useState } from 'react';
+import { CampanaAvisos } from '@/features/notificaciones/components/CampanaAvisos';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
-import { HelpCircle, Menu, PanelLeftOpen, Search, Settings } from 'lucide-react';
+import { HelpCircle, Menu, MoreHorizontal, PanelLeftOpen, Search, Settings } from 'lucide-react';
 import { AccessSearch } from '@/components/layout/AccessSearch';
 import { contextoNavegacion } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -11,6 +9,7 @@ import { EmpresaSelector } from '@/components/auth/EmpresaSelector';
 import { SucursalSelector } from '@/components/auth/SucursalSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { QuickCreateMenu } from '@/components/layout/QuickCreateMenu';
 import { useAdminAccess } from '@/lib/admin/use-admin-registry';
@@ -35,6 +34,7 @@ export interface TopbarProps {
   /** Callback al click del botón hamburger (visible solo sub-md). */
   onMenuClick?: () => void;
   onExpandPanel?: () => void;
+  desktopNavigation?: ReactNode;
 }
 
 interface SearchableRouteConfig {
@@ -78,7 +78,7 @@ const SEARCHABLE_ROUTES: Record<string, SearchableRouteConfig> = {
   '/cxc/alertas': { placeholder: 'Buscar en alertas de cartera' },
 };
 
-export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
+export function Topbar({ onMenuClick, onExpandPanel, desktopNavigation }: TopbarProps = {}) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const permisos = useAuthStore((s) => s.permisos);
@@ -149,18 +149,19 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-topbar items-center gap-3 border-b border-line bg-surface-card px-3 md:gap-4 md:px-5">
+    <header className="sticky top-0 z-20 flex min-h-topbar flex-wrap items-center gap-x-2 gap-y-0 border-b border-line bg-surface-card px-3 py-1 md:h-topbar md:flex-nowrap md:gap-2 xl:gap-4 md:px-5 md:py-0">
       {/* Hamburger — mobile only. Abre el <MobileSidebar/>. */}
       <Button
         variant="ghost"
         size="icon"
         onClick={onMenuClick}
         aria-label="Abrir navegación"
-        className="md:hidden"
+        className="size-11 shrink-0 md:hidden"
       >
         <Menu className="h-5 w-5" />
       </Button>
 
+      {desktopNavigation}
       {onExpandPanel && (
         <Button
           variant="ghost"
@@ -179,8 +180,8 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
             <span aria-hidden="true" className="text-ink-subtle">
               /
             </span>
-            <span className="hidden text-ink-muted xl:inline">{contexto.seccion.label}</span>
-            <span aria-hidden="true" className="hidden text-ink-subtle xl:inline">
+            <span className="hidden text-ink-muted 2xl:inline">{contexto.seccion.label}</span>
+            <span aria-hidden="true" className="hidden text-ink-subtle 2xl:inline">
               /
             </span>
             <Link
@@ -193,11 +194,7 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
           </>
         ) : (
           <span className="font-medium text-ink">
-            {pathname === '/'
-              ? 'Inicio'
-              : pathname.startsWith('/admin')
-                ? 'Administración'
-                : 'Millet ERP'}
+            {pathname === '/' ? 'Inicio' : pathname.startsWith('/admin') ? 'Administración' : ''}
           </span>
         )}
       </nav>
@@ -232,33 +229,83 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
         )}
       </AccessSearch>
 
-      {/* En teléfono el grupo se encoge y se desplaza por dentro: sin esto la
-          página entera desbordaba y los diálogos centrados quedaban fuera. */}
-      <div className="ml-auto flex min-w-0 items-center gap-2 overflow-x-auto">
-        <EmpresaSelector />
-        <SucursalSelector />
+      <div className="contents md:ml-auto md:flex md:shrink-0 md:items-center md:gap-1 xl:gap-2">
+        <div className="order-last flex w-full min-w-0 items-start gap-3 border-t border-line-divider py-2 md:order-none md:w-auto md:items-center md:gap-2 md:border-0 md:py-0">
+          <EmpresaSelector />
+          <SucursalSelector />
+        </div>
 
-        <QuickCreateMenu />
+        <div className="hidden xl:block">
+          <QuickCreateMenu />
+        </div>
 
         {ayudaHref != null && (
-          <Button variant="ghost" size="icon" asChild aria-label="Ayuda">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden xl:inline-flex"
+            asChild
+            aria-label="Ayuda"
+          >
             <Link to={ayudaHref}>
               <HelpCircle className="h-4 w-4" />
             </Link>
           </Button>
         )}
 
-        <NotificacionesCompras />
-        <NotificacionesAlmacen />
-        <NotificacionesIncidencias />
+        <CampanaAvisos />
         {usuarioPuedeVerAdmin && (
-          <Button variant="ghost" size="icon" asChild aria-label="Configuración">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden xl:inline-flex"
+            asChild
+            aria-label="Configuración"
+          >
             <Link to="/admin">
               <Settings className="h-4 w-4" />
             </Link>
           </Button>
         )}
 
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Más opciones"
+              className="size-11 shrink-0 xl:hidden"
+            >
+              <MoreHorizontal aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            aria-label="Herramientas"
+            className="w-64 max-w-[calc(100vw-2rem)] space-y-2 bg-surface-card p-3"
+          >
+            <h2 className="px-2 text-xs font-semibold text-ink-muted">Herramientas</h2>
+            <div className="[&>button]:min-h-11 [&>button]:w-full [&>button]:justify-start">
+              <QuickCreateMenu />
+            </div>
+            {ayudaHref != null && (
+              <Button variant="ghost" asChild className="min-h-11 w-full justify-start">
+                <Link to={ayudaHref}>
+                  <HelpCircle aria-hidden="true" />
+                  Ayuda
+                </Link>
+              </Button>
+            )}
+            {usuarioPuedeVerAdmin && (
+              <Button variant="ghost" asChild className="min-h-11 w-full justify-start">
+                <Link to="/admin">
+                  <Settings aria-hidden="true" />
+                  Configuración
+                </Link>
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
         <UserMenu />
       </div>
     </header>

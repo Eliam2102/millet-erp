@@ -11,9 +11,13 @@ namespace Millet.Contabilidad.Domain;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TipoPolizaSat : short { Ingreso = 1, Egreso = 2, Diario = 3 }
 
-/// <summary>Origen de la póliza (C1.3): la manual la captura un usuario; la automática la genera el motor (C1.4) y nace autorizada.</summary>
+/// <summary>
+/// Origen de la póliza (C1.3): la manual la captura un usuario; la automática la genera el motor (C1.4) y nace autorizada. La de
+/// apertura (M-166) sale de la balanza del sistema anterior: una por empresa, autorizada al crearse porque el lote ya lo autorizó
+/// otra persona. Fijo por ABI: agregar al final.
+/// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum OrigenPoliza : short { Manual = 0, Automatica = 1 }
+public enum OrigenPoliza : short { Manual = 0, Automatica = 1, Apertura = 2 }
 
 /// <summary>
 /// Estado de la póliza (C1.3): <c>Borrador → Autorizada → Anulada</c>. La autorizada es inmutable; un error se corrige anulándola
@@ -172,6 +176,29 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
     }
 
     /// <summary>
+    /// Póliza de apertura (M-166): saldos de la balanza de cierre del sistema anterior. Debe cuadrar y nace autorizada con su número:
+    /// la segunda firma ya la dio quien autorizó el lote (distinto de quien lo subió). La llave de idempotencia es la del lote.
+    /// </summary>
+    public static Poliza CrearApertura(Guid id, TipoDocumentoContable tipo, DateOnly fecha, int periodoAnio, int periodoNumero, string concepto,
+        DocumentoOrigenPoliza documento, string llaveIdempotencia, IEnumerable<DatosPartida> partidas, int numero,
+        Guid? subidoPorId, string subidoPor, Guid? autorizadoPorId, string autorizadoPor, DateTimeOffset ahora)
+    {
+        if (string.IsNullOrWhiteSpace(llaveIdempotencia) || llaveIdempotencia.Length > 200)
+            throw new BusinessRuleException("CONTAB_POLIZA_LLAVE_INVALIDA", "La póliza de apertura requiere una llave de idempotencia de hasta 200 caracteres.");
+        ExigirTipoActivo(tipo);
+        var p = new Poliza(id, tipo, fecha, periodoAnio, periodoNumero, concepto, OrigenPoliza.Apertura, documento, subidoPorId, subidoPor);
+        p.LlaveIdempotencia = llaveIdempotencia;
+        p.ReemplazarPartidas(partidas, admiteNegativos: false);
+        p.ValidarCuadre();
+        p.Estado = EstadoPoliza.Autorizada;
+        p.AsignarNumero(numero);
+        p.AutorizadaPorId = autorizadoPorId;
+        p.AutorizadaPor = autorizadoPor;
+        p.AutorizadaEn = ahora;
+        return p;
+    }
+
+    /// <summary>
     /// Solo el borrador se edita (C1.3-b: la autorizada solo se anula), y solo lo edita quien lo capturó: si otro usuario
     /// pudiera reescribirlo, después podría autorizarlo él mismo y se rompería «prepara el Analista, aprueba el Supervisor».
     /// </summary>
@@ -271,6 +298,20 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
         ExigirBorrador("marcar como recurrente");
         PlantillaRecurrenteId = plantillaId;
         LlaveIdempotencia = llave;
+    }
+
+    /// <summary>
+    /// M-240: póliza automática que revierte una parte de otra (la contraria del ajuste de un cobro). Queda ligada como reversa: la
+    /// original no cambia de estado y no se anula mientras la reversa siga vigente (la negaría dos veces).
+    /// </summary>
+    public void LigarReversaParcial(Poliza original)
+    {
+        if (original.Estado != EstadoPoliza.Autorizada)
+            throw new BusinessRuleException("CONTAB_POLIZA_REVERSA_NO_AUTORIZADA", "Solo se revierte una póliza autorizada.");
+        if (original.EsAnulacion || original.Relacion == RelacionPoliza.Reversa)
+            throw new BusinessRuleException("CONTAB_POLIZA_REVERSA_INVALIDA", "Una anulación o una reversa no se revierten.");
+        PolizaRelacionadaId = original.Id;
+        Relacion = RelacionPoliza.Reversa;
     }
 
     /// <summary>K10.4: la póliza reclasifica a otra (autorizada); queda ligada para verse en ambos sentidos.</summary>

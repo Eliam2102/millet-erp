@@ -107,7 +107,7 @@ export function RetencionesPage() {
         </div>
       )}
       <div className="rounded-lg bg-surface-card shadow-card overflow-auto">
-        <Table>
+        <Table paginada>
           <TableHeader>
             <TableRow>
               <TableHead>Concepto</TableHead>

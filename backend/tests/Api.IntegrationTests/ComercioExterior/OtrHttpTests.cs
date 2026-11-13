@@ -1,7 +1,11 @@
 using System.Net;
+using System.Collections.Concurrent;
+using System.Data.Common;
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Api.Seed;
 using Millet.ComercioExterior.Domain;
@@ -17,11 +21,12 @@ using Millet.Integraciones.Aw.Application.Origen;
 using Millet.Integraciones.Aw.Infrastructure.Exportacion;
 using Millet.SharedKernel.Application;
 using Npgsql;
+using Xunit.Abstractions;
 
 namespace Millet.Api.IntegrationTests.ComercioExterior;
 /// <summary>Host EntraId, JWT real del API y filtro CE; origen Demo efímero creado por la prueba.</summary>
 [Trait("Category", "ComercioExteriorOtr")]
-public sealed class OtrHttpTests
+public sealed class OtrHttpTests(ITestOutputHelper output)
 {
     private const string Base = "/api/v1/comercio-exterior/otr";
     private const string Expedientes = "/api/v1/comercio-exterior/expedientes";
@@ -84,6 +89,153 @@ public sealed class OtrHttpTests
         req.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); req.Headers.TryAddWithoutValidation("If-Match", etag); return c.SendAsync(req);
     }
     [Fact]
+    public async Task Revalidar_sucursal_reconoce_alias_sin_reingestar_y_exige_permiso_alcance_version_e_idempotencia()
+    {
+        await using var e = await Escenario(lectorReal: true); await Preparar(e);
+        await Sql(e, "UPDATE compartido.sucursales SET clave_aw=NULL WHERE id=@id", new NpgsqlParameter("id", e.SucursalId));
+        Assert.Equal(2, await Entrada(e));
+        using var corporativo = await e.ClienteAsync(true, leerTodas: true, gestionarTodas: true);
+        var antes = (await Json(await corporativo.GetAsync(Base))).EnumerateArray().Single(x => x.GetProperty("idOrigen").GetString() == "DEMO-OTR-1");
+        var id = antes.GetProperty("id").GetGuid(); var etag = $"\"{antes.GetProperty("version").GetInt32()}\"";
+        var ruta = $"{Base}/{id}/revalidar-sucursal";
+        string hash, contenido;
+        using (var scope = e.Scope())
+        using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var row = await scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>().OtrEnvios.SingleAsync(x => x.Id == id);
+            hash = row.Hash; contenido = row.ContenidoJson;
+        }
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Post(corporativo, ruta, null, etag)).StatusCode);
+        await Sql(e, "UPDATE compartido.sucursales SET clave_aw='CONKAL,DEMO-OTR-MID' WHERE id=@id", new NpgsqlParameter("id", e.SucursalId));
+        Assert.Equal(0, await Entrada(e)); // Actualizar catálogo no relee la versión OTR.
+        using var local = await e.ClienteAsync(true);
+        using var lectura = await e.ClienteAsync(true, soloLeer: true, leerTodas: true, gestionarTodas: true);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Post(local, ruta, null, etag)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Post(lectura, ruta, null, etag)).StatusCode);
+        Assert.Equal((HttpStatusCode)428, (await Post(corporativo, ruta, null, "")).StatusCode);
+        var clave = Guid.NewGuid().ToString();
+        async Task<HttpResponseMessage> Repetir()
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, ruta);
+            req.Headers.Add("Idempotency-Key", clave); req.Headers.TryAddWithoutValidation("If-Match", etag);
+            return await corporativo.SendAsync(req);
+        }
+        using var respuesta = await Repetir(); respuesta.EnsureSuccessStatusCode();
+        var despues = await Json(respuesta);
+        Assert.Equal(e.SucursalId, despues.GetProperty("sucursalId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, despues.GetProperty("motivoVinculacion").ValueKind);
+        Assert.Equal(antes.GetProperty("versionAplicada").GetInt64(), despues.GetProperty("versionAplicada").GetInt64());
+        Assert.Equal(antes.GetProperty("lineas")[0].GetProperty("id").GetGuid(), despues.GetProperty("lineas")[0].GetProperty("id").GetGuid());
+        Assert.Contains("CE_OTR_POR_VINCULAR", despues.GetProperty("lineas")[0].GetProperty("motivo").GetString());
+        using var repetida = await Repetir(); repetida.EnsureSuccessStatusCode();
+        Assert.Equal(respuesta.Headers.ETag, repetida.Headers.ETag);
+        Assert.Equal(HttpStatusCode.Conflict, (await Post(corporativo, ruta, null, etag)).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Post(corporativo, ruta, null, respuesta.Headers.ETag!.Tag)).StatusCode);
+        using (var scope = e.Scope())
+        using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var row = await db.OtrEnvios.Include(x => x.Lineas).Include(x => x.Conflictos).SingleAsync(x => x.Id == id);
+            Assert.Equal(hash, row.Hash); Assert.Equal(contenido, row.ContenidoJson);
+            Assert.Single(row.Lineas); Assert.Empty(row.Conflictos); Assert.Null(row.ExpedienteId); Assert.Null(row.ContenedorId);
+            Assert.NotNull(row.UpdatedBy); Assert.True(row.Version > antes.GetProperty("version").GetInt32());
+        }
+        Assert.Equal(0, await Entrada(e));
+        using var abierto = await Post(corporativo, $"{Base}/{id}/abrir-expediente", new { responsableUsuarioId = e.Responsable, moneda = "USD" }, respuesta.Headers.ETag!.Tag);
+        abierto.EnsureSuccessStatusCode(); // La recuperación permite continuar con el flujo de vinculación real del servidor de pruebas.
+    }
+    [Theory]
+    [InlineData("")]
+    [InlineData("/bandeja")]
+    public async Task Bandeja_incluye_vinculados_y_cancelados_respetando_sucursal_y_expediente(string consulta)
+    {
+        await using var e = await Escenario(); await Preparar(e);
+        await Insertar(e, "DEMO-OTR-CANCELADO", 1, 60, "DEMO-OTR-PED-CE02", "Cancelacion");
+        await Entrada(e);
+        using var admin = await e.ClienteAsync(true);
+        var inicial = await Json(await admin.GetAsync(Base));
+        var envio = inicial.EnumerateArray().Single(x => x.GetProperty("idOrigen").GetString() == "DEMO-OTR-1");
+        using var vincular = await Post(admin, $"{Base}/{envio.GetProperty("id").GetGuid()}/abrir-expediente", new { responsableUsuarioId = e.Responsable, moneda = "USD" }, $"\"{envio.GetProperty("version").GetInt32()}\"");
+        vincular.EnsureSuccessStatusCode(); var expediente = (await Json(vincular)).GetProperty("expedienteId").GetGuid();
+        var todos = await Json(await admin.GetAsync(Base + consulta));
+        Assert.Equal(Enumerable.Range(1, 3), todos.EnumerateArray().Select(x => x.GetProperty("estado").GetInt32()).Order().ToArray());
+        var detalle = await Json(await admin.GetAsync($"{Base}?expedienteId={expediente}"));
+        Assert.Single(detalle.EnumerateArray()); Assert.Equal(2, detalle[0].GetProperty("estado").GetInt32());
+        using var ajeno = await e.ClienteAsync(true, asociar: false);
+        Assert.Empty((await Json(await ajeno.GetAsync(Base + consulta))).EnumerateArray());
+        Assert.Equal(HttpStatusCode.Forbidden, (await ajeno.GetAsync($"{Base}?expedienteId={expediente}")).StatusCode);
+    }
+    [Fact]
+    public async Task Bandeja_lee_solo_cabeceras_con_44000_versiones_y_conserva_detalle_y_aislamiento()
+    {
+        var sql = new SqlOtr();
+        await using var e = await Escenario(s => s.ConfigureDbContext<ComercioExteriorDbContext>((_, b) => b.AddInterceptors(sql)));
+        await Preparar(e); await Entrada(e);
+        await Insertar(e, "DEMO-OTR-1", 44001, 100, "DEMO-OTR-PED-CE02", "Modificacion"); await Entrada(e);
+        // Histórico sintético local: las versiones anteriores no deben encarecer la bandeja.
+        await Sql(e, """
+            INSERT INTO comercio_exterior.otr_lineas
+            SELECT (jsonb_populate_record(NULL::comercio_exterior.otr_lineas,
+                to_jsonb(l) || jsonb_build_object('id', gen_random_uuid(), 'version_origen', n))).*
+            FROM comercio_exterior.otr_lineas l
+            JOIN comercio_exterior.otr_envios e ON e.id=l.otr_envio_id
+            CROSS JOIN generate_series(2,44000) n
+            WHERE e.id_origen='DEMO-OTR-1' AND l.version_origen=1;
+            """);
+        using (var scope = e.Scope())
+        using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            for (var i = 0; i < 387; i++)
+            {
+                var fila = new OtrEnvio(DemoSesionSeedHostedService.EmpresaId, $"DEMO-OTR-VOLUMEN-{i}");
+                fila.Aplicar(1, new(Cliente, e.SucursalId, "DEMO cliente", "DEMO entrega", null,
+                    new DatosContenedor(null, null, null, null, null, null, null, null), [new("DEMO-PED", 1, 1, "H87")]));
+                db.OtrEnvios.Add(fila);
+            }
+            var ajeno = new OtrEnvio(Guid.NewGuid(), "DEMO-OTR-OTRA-EMPRESA");
+            ajeno.Aplicar(1, new(Cliente, e.SucursalId, "DEMO otra empresa", "DEMO entrega", null,
+                new DatosContenedor(null, null, null, null, null, null, null, null), [new("DEMO-PED", 1, 1, "H87")]));
+            db.OtrEnvios.Add(ajeno); await db.SaveChangesAsync();
+        }
+        using var admin = await e.ClienteAsync(true); admin.Timeout = TimeSpan.FromMinutes(3);
+        var reloj = Stopwatch.StartNew();
+        using var completa = await admin.GetAsync(Base); completa.EnsureSuccessStatusCode();
+        var detalleJson = await completa.Content.ReadAsStringAsync(); var detalleMs = reloj.Elapsed.TotalMilliseconds;
+        using var documentoDetalle = JsonDocument.Parse(detalleJson);
+        var detalles = documentoDetalle.RootElement;
+        var detalle = detalles.EnumerateArray().Single(x => x.GetProperty("idOrigen").GetString() == "DEMO-OTR-1");
+        Assert.Equal(44001, detalle.GetProperty("lineas").GetArrayLength());
+        sql.Comandos.Clear(); reloj.Restart();
+        using var respuesta = await admin.GetAsync(Base + "/bandeja"); respuesta.EnsureSuccessStatusCode();
+        var resumenJson = await respuesta.Content.ReadAsStringAsync(); var resumenMs = reloj.Elapsed.TotalMilliseconds;
+        var comandos = sql.Comandos.ToArray();
+        Assert.Single(comandos, c => c.Contains("FROM comercio_exterior.otr_envios", StringComparison.Ordinal));
+        Assert.DoesNotContain(comandos, c => c.Contains("otr_lineas", StringComparison.Ordinal) || c.Contains("otr_conflictos", StringComparison.Ordinal));
+        using var resumen = JsonDocument.Parse(resumenJson);
+        Assert.Equal(389, resumen.RootElement.GetArrayLength());
+        foreach (var fila in resumen.RootElement.EnumerateArray())
+        {
+            var original = detalles.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == fila.GetProperty("id").GetGuid());
+            foreach (var campo in new[] { "idOrigen", "version", "versionAplicada", "sucursalId", "estado", "motivoVinculacion" })
+                Assert.Equal(original.GetProperty(campo).ToString(), fila.GetProperty(campo).ToString());
+            foreach (var campo in new[] { "cliente", "direccionEntrega", "producto", "contenedor" })
+                Assert.Equal(original.GetProperty("contenido").GetProperty(campo).ToString(), fila.GetProperty("contenido").GetProperty(campo).ToString());
+            Assert.False(fila.TryGetProperty("lineas", out _)); Assert.False(fila.TryGetProperty("conflictos", out _));
+            Assert.False(fila.GetProperty("contenido").TryGetProperty("lineas", out _));
+        }
+        Assert.True(resumenJson.Length < detalleJson.Length / 20);
+        using var sinPermisos = await e.ClienteAsync(false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermisos.GetAsync(Base + "/bandeja")).StatusCode);
+        output.WriteLine($"OTR_BENCH envios=389 historico=44000 detalle_ms={detalleMs:F1} bandeja_ms={resumenMs:F1} detalle_chars={detalleJson.Length} bandeja_chars={resumenJson.Length}");
+    }
+    private sealed class SqlOtr : DbCommandInterceptor
+    {
+        public ConcurrentQueue<string> Comandos { get; } = new();
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        { Comandos.Enqueue(command.CommandText); return ValueTask.FromResult(result); }
+    }
+    [Fact]
     public async Task Lector_real_solo_lee_no_duplica_registra_nueva_version_y_no_crea_clientes()
     {
         await using var e = await Escenario(lectorReal: true); await Preparar(e);
@@ -103,7 +255,7 @@ public sealed class OtrHttpTests
         Assert.Equal(0L, await cmd.ExecuteScalarAsync()); // A+W no recibe ninguna escritura del ERP.
     }
     [Fact]
-    public async Task Entrada_versiones_propuestas_y_embarque_se_quedan_en_el_erp_sin_salida_hacia_aw()
+    public async Task Entrada_y_booking_se_quedan_en_erp_y_el_hito_no_permite_omitir_el_despacho()
     {
         await using var e = await Escenario(); await Preparar(e); using var admin = await e.ClienteAsync(true);
         Assert.Equal(2, await Entrada(e));
@@ -144,7 +296,9 @@ public sealed class OtrHttpTests
         var detalle = await admin.GetAsync($"{Expedientes}/{expediente}"); detalle.EnsureSuccessStatusCode();
         using var autorizador = await e.ClienteAsync(true);
         var autorizada = await Post(autorizador, $"{Expedientes}/{expediente}/autorizar-salida", new { }, detalle.Headers.ETag!.Tag); autorizada.EnsureSuccessStatusCode();
-        var embarcado = await Post(admin, $"{Expedientes}/{expediente}/hitos/embarcado/real", new { fechaReal = hoy, responsableUsuarioId = e.Responsable }, autorizada.Headers.ETag!.Tag); embarcado.EnsureSuccessStatusCode();
+        var embarcado = await Post(admin, $"{Expedientes}/{expediente}/hitos/embarcado/real", new { fechaReal = hoy, responsableUsuarioId = e.Responsable }, autorizada.Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, embarcado.StatusCode);
+        Assert.Equal("CE_EMBARQUE_PENDIENTE", (await Json(embarcado)).GetProperty("code").GetString());
         var contenedores = await admin.GetAsync($"{Expedientes}/{expediente}/contenedores");
         using var patch = new HttpRequestMessage(HttpMethod.Patch, $"{Expedientes}/{expediente}/contenedores/{contenedor}") { Content = JsonContent.Create(new { numero = "DEMO-C", booking = "DEMO-BOOK", ruta = "DEMO-R", pesoKg = 125, bultos = 2 }) };
         patch.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString()); patch.Headers.TryAddWithoutValidation("If-Match", contenedores.Headers.ETag!.Tag); (await admin.SendAsync(patch)).EnsureSuccessStatusCode();
@@ -187,6 +341,15 @@ public sealed class OtrHttpTests
         var rechazo = await dbFinal.OtrEntradasControl.SingleAsync(x => x.IdOrigen == "DEMO-OTR-1"); Assert.Equal(2, rechazo.Intentos); Assert.True(rechazo.Rechazada);
         await using var conn = new NpgsqlConnection(dbFinal.Database.GetConnectionString()); await conn.OpenAsync();
         await using var comprobar = new NpgsqlCommand("SELECT erp_resultado FROM dbo.aw_otr_envio WHERE otr_envio_id='DEMO-OTR-1'", conn); Assert.Equal("Rechazada", await comprobar.ExecuteScalarAsync());
+        // Diagnóstico 10446260: el rechazo se ve en la bandeja (pestaña Rechazados) con su motivo, sólo para la gestión de todas las sucursales.
+        using var corporativo = await e.ClienteAsync(true, leerTodas: true, gestionarTodas: true);
+        var rechazos = await Json(await corporativo.GetAsync(Base + "/rechazos"));
+        var fila = rechazos.EnumerateArray().Single(x => x.GetProperty("idOrigen").GetString() == "DEMO-OTR-1");
+        Assert.StartsWith("CE_OTR_ERROR_TECNICO", fila.GetProperty("motivo").GetString()); Assert.Equal(2, fila.GetProperty("intentos").GetInt32());
+        using var local = await e.ClienteAsync(true);
+        Assert.Empty((await Json(await local.GetAsync(Base + "/rechazos"))).EnumerateArray());
+        using var sinPermisos = await e.ClienteAsync(false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermisos.GetAsync(Base + "/rechazos")).StatusCode);
     }
     [Fact]
     public async Task Pedido_ambiguo_permanece_pendiente_antes_y_despues_de_vincular()

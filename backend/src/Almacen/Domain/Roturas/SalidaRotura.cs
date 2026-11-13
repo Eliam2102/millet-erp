@@ -50,11 +50,13 @@ public sealed class SalidaRotura : BaseEntity, IPerteneceAEmpresa, IAuditable
     public string? EquipoClave { get; private set; }
     /// <summary>86e3zf04y: centro que viaja a la póliza de merma (el equipo si se capturó; si no, el área).</summary>
     public Guid? CentroCostoId { get; private set; }
+    /// <summary>M-223: foto o documento que respalda la rotura (referencia del blob de Almacén, mismo que la recepción).</summary>
+    public string EvidenciaBlobRef { get; private set; } = string.Empty;
 
     private SalidaRotura() { }
 
     public SalidaRotura(Guid empresaId, Guid sucursalId, Guid subAlmacenId, Guid ubicacionId, Guid articuloId, decimal cantidad,
-        string unidadMedida, DateOnly fecha, string motivoCodigo, string? comentario, Guid capturadoPor) : base(Guid.CreateVersion7())
+        string unidadMedida, DateOnly fecha, string motivoCodigo, string? comentario, Guid capturadoPor, string? evidenciaBlobRef) : base(Guid.CreateVersion7())
     {
         if (cantidad <= 0)
             throw new BusinessRuleException("ROTURA_CANTIDAD_INVALIDA", "La cantidad rota debe ser mayor que cero.");
@@ -68,6 +70,11 @@ public sealed class SalidaRotura : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("ROTURA_COMENTARIO_LARGO", "El comentario no puede exceder 500 caracteres.");
         if (capturadoPor == Guid.Empty)
             throw new BusinessRuleException("ROTURA_SIN_USUARIO", "La captura requiere usuario.");
+        if (string.IsNullOrWhiteSpace(evidenciaBlobRef))
+            throw new BusinessRuleException("ROTURA_SIN_EVIDENCIA", "Adjunta una foto o documento de la rotura.");
+        if (evidenciaBlobRef.Length > 500)
+            throw new BusinessRuleException("ROTURA_EVIDENCIA_INVALIDA", "La referencia de la evidencia no es válida.");
+        EvidenciaBlobRef = evidenciaBlobRef.Trim();
         EmpresaId = empresaId; SucursalId = sucursalId; SubAlmacenId = subAlmacenId; UbicacionId = ubicacionId; ArticuloId = articuloId;
         Cantidad = cantidad; UnidadMedida = unidadMedida; Fecha = fecha; MotivoCodigo = motivoCodigo; Comentario = comentario;
         CapturadoPor = capturadoPor; Estado = Pendiente;

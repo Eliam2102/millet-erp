@@ -160,7 +160,7 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     lineas: [
       {
         ...lineaValida,
-        fraccionArancelaria: '70071100',
+        fraccionArancelaria: '7007110000',
         unidadAduana: '06',
         cantidadAduana: 10,
         valorUnitarioAduana: 5,
@@ -217,7 +217,7 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     ).toBe(false);
   });
 
-  it('exige fracción de 8 a 10 dígitos numéricos', () => {
+  it('exige fracción de 10 dígitos numéricos (M-158)', () => {
     // 7 dígitos, con letras, o 11 dígitos → inválida.
     expect(
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '7007110' }))
@@ -227,11 +227,12 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '7007AB00' }))
         .success,
     ).toBe(false);
+    // M-158: con 8 dígitos (sin NICO) el PAC rechaza el CCE 2.0.
     expect(
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '70071100' }))
         .success,
-    ).toBe(true);
-    // 10 dígitos también válida (fracción + NICO).
+    ).toBe(false);
+    // 10 dígitos: fracción + NICO.
     expect(
       EmitirFacturaSchema.safeParse(conLinea({ fraccionArancelaria: '7007110099' }))
         .success,
@@ -266,7 +267,7 @@ describe('EmitirFacturaSchema — CCE (exportación)', () => {
     // Unidad 99 CON fracción → inválida.
     expect(
       EmitirFacturaSchema.safeParse(
-        conLinea({ unidadAduana: '99', fraccionArancelaria: '70071100' }),
+        conLinea({ unidadAduana: '99', fraccionArancelaria: '7007110000' }),
       ).success,
     ).toBe(false);
     // Clave de unidad SAT E48 (servicio) también exime la fracción.
@@ -338,5 +339,28 @@ describe('EmitirFacturaSchema — observaciones', () => {
     const r = EmitirFacturaSchema.safeParse({ ...facturaValida, observaciones: 'x'.repeat(1001) });
     expect(r.success).toBe(false);
     expect(r.error?.issues.some((i) => i.path[0] === 'observaciones')).toBe(true);
+  });
+});
+
+
+describe('FB48 precisión de cantidad', () => {
+  it.each([4.5, 4.9999, 1e-7])('rechaza fracción %s en concepto manual H87', (cantidad) => {
+    expect(EmitirFacturaLineaSchema.safeParse({ ...lineaValida, cantidad }).success).toBe(false);
+  });
+  it.each([['KGM', 1.125, 3], ['MTK', 1.1255, 4], ['KGM', 1e-3, 3]])(
+    'conserva fracciones válidas de %s', (claveUnidadSat, cantidad, decimalesCantidad) => {
+      const r = EmitirFacturaLineaSchema.safeParse({ ...lineaValida, productoId: '11111111-1111-4111-8111-111111111111', claveUnidadSat, cantidad, decimalesCantidad });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.cantidad).toBe(cantidad);
+    },
+  );
+  it('revalida producto con cero decimales sin deducir piezas de la clave SAT', () => {
+    const producto = { ...lineaValida, productoId: '11111111-1111-4111-8111-111111111111', claveUnidadSat: 'MTK', cantidad: 4.5, decimalesCantidad: 0 };
+    expect(EmitirFacturaLineaSchema.safeParse(producto).success).toBe(false);
+    expect(EmitirFacturaLineaSchema.safeParse({ ...producto, decimalesCantidad: 3 }).success).toBe(true);
+  });
+  it('mantiene legacy no resuelto aunque su clave SAT sea H87', () => {
+    expect(EmitirFacturaLineaSchema.safeParse({ ...lineaValida, productoId: '11111111-1111-4111-8111-111111111111', cantidad: 4.5, decimalesCantidad: null }).success).toBe(true);
+    expect(EmitirFacturaLineaSchema.safeParse({ ...lineaValida, claveUnidadSat: 'KGM', cantidad: 0.0000001 }).success).toBe(true);
   });
 });

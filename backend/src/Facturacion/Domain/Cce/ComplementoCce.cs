@@ -96,6 +96,17 @@ public sealed class ComplementoCce
     }
 
     /// <summary>
+    /// Reintento de timbrado: el <c>TipoCambioUSD</c> se vuelve a tomar del DOF que rige la
+    /// fecha del nuevo intento (el SAT lo valida contra la fecha del CFDI, CCE121).
+    /// </summary>
+    public void ActualizarTcDof(decimal tcDof)
+    {
+        if (tcDof <= 0)
+            throw new BusinessRuleException("CCE_TC_DOF_INVALIDO", "El tipo de cambio DOF debe ser mayor que cero.");
+        TcDof = tcDof;
+    }
+
+    /// <summary>
     /// Agrega una mercancía validando los datos aduaneros que el SAT exige por
     /// mercancía (CCE 2.0), para NO quemar folio contra el rechazo del PAC (#8).
     /// Espejo de la validación del frontend (superRefine de <c>emitir-factura.ts</c>):
@@ -107,8 +118,8 @@ public sealed class ComplementoCce
     /// <item>Servicio / sin unidad aduanera (unidad <c>99</c>): la fracción NO debe
     /// registrarse (SAT CCE159).</item>
     /// </list>
-    /// La pertenencia a catálogos (<c>c_FraccionArancelaria</c>, <c>c_UnidadAduana</c>)
-    /// la valida el PAC.
+    /// La unidad debe ser la UMT de la fracción (H-U22, catálogo SAT embebido); el resto
+    /// de la pertenencia a catálogos (<c>c_FraccionArancelaria</c>, <c>c_UnidadAduana</c>) la valida el PAC.
     /// </summary>
     public ComplementoCceLinea AgregarLinea(
         string fraccionArancelaria, string unidadAduana, decimal cantidadAduana,
@@ -128,12 +139,15 @@ public sealed class ComplementoCce
             // Bien tangible: fracción + trío aduanero completos.
             if (string.IsNullOrWhiteSpace(fraccionArancelaria))
                 throw new BusinessRuleException("CCE_FRACCION_INVALIDA", "La fracción arancelaria es obligatoria.");
-            if (!EsFraccionArancelariaValida(fraccionArancelaria))
+            if (!Millet.SharedKernel.Domain.FraccionArancelariaExportacion.EsValida(fraccionArancelaria))
                 throw new BusinessRuleException(
-                    "CCE_FRACCION_FORMATO",
-                    "La fracción arancelaria debe tener de 8 a 10 dígitos numéricos (c_FraccionArancelaria).");
+                    Millet.SharedKernel.Domain.FraccionArancelariaExportacion.Codigo,
+                    Millet.SharedKernel.Domain.FraccionArancelariaExportacion.Mensaje);
             if (string.IsNullOrWhiteSpace(unidadAduana))
                 throw new BusinessRuleException("CCE_UNIDAD_ADUANA_INVALIDA", "La unidad aduanera es obligatoria (c_UnidadAduana).");
+            if (Millet.SharedKernel.Domain.UmtFraccionArancelaria.UmtEsperadaSiNoCoincide(fraccionArancelaria, unidadAduana) is { } umt)
+                throw new BusinessRuleException(Millet.SharedKernel.Domain.UmtFraccionArancelaria.Codigo,
+                    Millet.SharedKernel.Domain.UmtFraccionArancelaria.Mensaje(fraccionArancelaria, unidadAduana, umt));
             if (cantidadAduana <= 0)
                 throw new BusinessRuleException("CCE_CANTIDAD_INVALIDA", "La cantidad aduanera debe ser mayor que cero.");
             if (valorUnitarioAduana <= 0)
@@ -150,10 +164,4 @@ public sealed class ComplementoCce
         return linea;
     }
 
-    /// <summary>Fracción arancelaria válida = 8 a 10 dígitos numéricos (<c>c_FraccionArancelaria</c>).</summary>
-    private static bool EsFraccionArancelariaValida(string fraccion) =>
-        FraccionArancelariaRegex.IsMatch(fraccion.Trim());
-
-    private static readonly Regex FraccionArancelariaRegex =
-        new(@"^\d{8,10}$", RegexOptions.Compiled);
 }

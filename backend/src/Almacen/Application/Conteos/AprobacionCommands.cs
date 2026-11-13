@@ -263,7 +263,10 @@ public sealed class AprobarLineaIndividualmenteHandler
 
 // ─── Aplicar conteo (genera ajustes en batch) ────────────────────────────────
 
-public sealed record AplicarConteoCommand(Guid ConteoId) : IRequest<AplicarConteoResponse>;
+/// <param name="AreaClave">M-450 (86e3zr7ft): clave del área (Dim2) a la que va el ajuste; obligatoria si la cuenta del ajuste la exige
+/// (regla C-03). Con el equipo, el área se toma de él.</param>
+/// <param name="EquipoClave">Clave del equipo (Dim3); obligatoria si la cuenta lo exige.</param>
+public sealed record AplicarConteoCommand(Guid ConteoId, string? AreaClave = null, string? EquipoClave = null) : IRequest<AplicarConteoResponse>;
 
 public sealed record AplicarConteoResponse(
     int MovimientosGenerados,
@@ -279,6 +282,8 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
     // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
     private readonly Millet.Almacen.Domain.Ports.IArticuloReadPort? _articulos;
     private readonly Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? _variantes;
+    // M-450: área y equipo del ajuste (regla C-03 de la cuenta del ajuste); opcional solo para pruebas, la API lo inyecta siempre.
+    private readonly Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? _dimensiones;
 
     public AplicarConteoHandler(
         AlmacenDbContext db,
@@ -287,9 +292,10 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
         ICurrentEmpresaContext currentEmpresa,
         Millet.Almacen.Domain.Ports.IPeriodoContableReadPort periodoContable,
         Millet.Almacen.Domain.Ports.IArticuloReadPort? articulos = null,
-        Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? variantes = null)
+        Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? variantes = null,
+        Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort? dimensiones = null)
     {
-        _articulos = articulos; _variantes = variantes;
+        _articulos = articulos; _variantes = variantes; _dimensiones = dimensiones;
         _db = db; _events = events;
         _currentUser = currentUser; _currentEmpresa = currentEmpresa;
         _periodoContable = periodoContable;
@@ -333,6 +339,20 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
         var medidas = _variantes is null ? new Dictionary<Guid, Millet.Almacen.Domain.Ports.VarianteVidrioLectura>()
             : await _variantes.ObtenerPorIdsAsync(
                 conteo.Lineas.Where(l => l.ProductoAwVarianteId != null).Select(l => l.ProductoAwVarianteId!.Value).Distinct().ToArray(), cancellationToken);
+
+        // M-224: el ajuste se calcula contra el teórico congelado. Si el saldo de una fila contada se movió desde el snapshot (entre la
+        // aprobación y la aplicación hubo una entrada o salida), el ajuste dejaría un saldo distinto de lo contado: se detecta y se
+        // reporta antes de mover nada. Las filas se bloquean hasta el commit para que no se muevan durante la aplicación.
+        var contadas = conteo.Lineas.Where(l => l.CantidadVigente(recuentos) is not null).ToList();
+        var saldoAntes = await SaldosAsync(contadas, bloquear: true, cancellationToken);
+        var movidas = contadas.Where(l => saldoAntes.GetValueOrDefault(Llave(l)) != l.CantidadTeorica).ToList();
+        if (movidas.Count > 0)
+            throw new BusinessRuleException("CONTEO_SALDO_MOVIDO",
+                $"El saldo cambió desde que se tomó el conteo en {movidas.Count} partida(s): " + string.Join("; ", movidas.Take(10).Select(l =>
+                    $"{(arts.GetValueOrDefault(l.ArticuloId)?.Clave ?? l.ArticuloId.ToString())}{(l.Lote is null ? "" : $" lote {l.Lote}")}: " +
+                    $"teórico {l.CantidadTeorica:0.####}, saldo hoy {saldoAntes.GetValueOrDefault(Llave(l)):0.####}")) +
+                ". Recuenta esas partidas o rechaza el conteo y vuelve a iniciarlo.");
+        var folios = new Dictionary<Guid, string>();
 
         foreach (var linea in conteo.Lineas)
         {
@@ -379,6 +399,7 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             var folio = FolioMovimiento.Construir(tipo, anio, siguiente);
             movimiento.Registrar(folio, registradoPor);
             _db.Movimientos.Add(movimiento);
+            folios[linea.Id] = folio.Valor;
 
             payload.Add(new AjusteInventarioPayload(
                 MovimientoId: movId,
@@ -403,12 +424,17 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
         foreach (var b in bloqueosActivos) b.Liberar();
 
         // G1.6: almacén/sucursal solo si todos los ajustes caen en un único
-        // sub-almacén; si no, null (no se inventa). CeCo/motivo: el conteo no los tiene.
+        // sub-almacén; si no, null (no se inventa). Motivo: el conteo no lo tiene.
         Guid? almacenId = null, sucursalId = null;
         var subs = payload.Select(p => p.SubAlmacenId).Distinct().ToList();
         if (subs.Count == 1)
             (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
                 .ResolverAsync(_db, subs[0], cancellationToken);
+
+        // M-450 (86e3zr7ft): el ajuste carga o abona a la cuenta de ajuste de inventario con centro de costo; si esa cuenta exige área o
+        // equipo (regla C-03), quien aplica el conteo los captura. Sin ellos, o con una clave inválida, el conteo no se aplica (nada se
+        // guarda: la transacción no se confirma).
+        var centroCostoId = await CentroCostoAsync(request, empresaId, sucursalId, fecha, payload.Count, cancellationToken);
 
         await _events.PublishAsync(new AjusteInventarioAplicadoIntegrationEvent(
             EmpresaId: empresaId,
@@ -418,12 +444,65 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             AprobadorId: conteo.AprobadorId ?? Guid.Empty,
             MovimientosGenerados: payload,
             AlmacenId: almacenId,
-            SucursalId: sucursalId), cancellationToken);
+            SucursalId: sucursalId,
+            CentroCostoId: centroCostoId), cancellationToken);
 
+        await _db.SaveChangesAsync(cancellationToken);
+
+        // M-224: conciliación final. En Postgres el trigger ya aplicó los ajustes al saldo: se relee y cada fila contada debe quedar en lo
+        // contado; si no, CONTEO_NO_CUADRA y la transacción no se confirma (el conteo sigue Aprobado). Sin trigger (pruebas en memoria)
+        // el resultante es el saldo previo más el ajuste.
+        var despues = _db.Database.IsNpgsql() ? await SaldosAsync(contadas, bloquear: false, cancellationToken) : null;
+        foreach (var l in contadas)
+        {
+            var real = l.CantidadVigente(recuentos)!.Value;
+            var resultante = despues?.GetValueOrDefault(Llave(l)) ?? saldoAntes.GetValueOrDefault(Llave(l)) + (real - l.CantidadTeorica);
+            l.AsentarConciliacion(real, resultante, folios.GetValueOrDefault(l.Id));
+        }
         await _db.SaveChangesAsync(cancellationToken);
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
         return new AplicarConteoResponse(movimientosGenerados, Math.Round(montoNeto, 2));
+    }
+
+    private static (Guid, Guid, Guid?, string?) Llave(LineaConteo l) => (l.UbicacionId, l.ArticuloId, l.ProductoAwVarianteId, l.Lote);
+
+    /// <summary>M-224: <c>Cantidad</c> vigente de las filas de saldo de las líneas (0 si la fila ya no existe), opcionalmente bloqueadas.</summary>
+    private async Task<Dictionary<(Guid, Guid, Guid?, string?), decimal>> SaldosAsync(IReadOnlyList<LineaConteo> lineas, bool bloquear,
+        CancellationToken ct)
+    {
+        var ubicaciones = lineas.Select(l => l.UbicacionId).Distinct().ToArray();
+        var articulos = lineas.Select(l => l.ArticuloId).Distinct().ToArray();
+        if (bloquear && _db.Database.IsNpgsql() && ubicaciones.Length > 0)
+            await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM almacen.saldos_inventario WHERE articulo_id = ANY({articulos}) AND ubicacion_id = ANY({ubicaciones}) ORDER BY articulo_id, ubicacion_id, producto_aw_variante_id, lote FOR UPDATE", ct);
+        var filas = await _db.SaldosInventario.AsNoTracking()
+            .Where(s => ubicaciones.Contains(s.UbicacionId) && articulos.Contains(s.ArticuloId))
+            .Select(s => new { s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote, s.Cantidad }).ToListAsync(ct);
+        return filas.GroupBy(s => (s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Cantidad));
+    }
+
+    /// <summary>Evento del ajuste por conteo y campo de su línea de cargo con centro (el sobrante usa el mismo rol).</summary>
+    public const string EventoAjuste = "almacen.ajuste_inventario.aplicado.v1";
+    public const string CampoAjuste = "Faltante";
+
+    private async Task<Guid?> CentroCostoAsync(AplicarConteoCommand request, Guid empresaId, Guid? sucursalId, DateOnly fecha, int ajustes,
+        CancellationToken ct)
+    {
+        var capturado = !string.IsNullOrWhiteSpace(request.AreaClave) || !string.IsNullOrWhiteSpace(request.EquipoClave);
+        if (ajustes == 0 || _dimensiones is null) return null;
+        if (sucursalId is not { } sucursal)
+        {
+            if (!capturado) return null;
+            throw new BusinessRuleException("CONTEO_AREA_EQUIPO_SIN_SUCURSAL",
+                "Los ajustes del conteo caen en sub-almacenes de distintas sucursales: no se puede validar el área ni el equipo.");
+        }
+        var d = await _dimensiones.ResolverAsync(new Millet.Contabilidad.Application.PublicPorts.SolicitudDimensionesSalida(
+            empresaId, sucursal, "ajuste_conteo", fecha, request.AreaClave, request.EquipoClave, EventoAjuste, CampoAjuste), ct);
+        if (d.Error is not null) throw new BusinessRuleException("CONTEO_AREA_EQUIPO_INVALIDO", d.Error);
+        if (d.Faltante is not null) throw new BusinessRuleException("CONTEO_AREA_EQUIPO_FALTANTE", d.Faltante);
+        return d.CentroCostoId;
     }
 
     private async Task<FolioSecuenciaMovimiento> ObtenerOSecuenciaAsync(
@@ -474,5 +553,31 @@ public sealed class RechazarConteoHandler : IRequestHandler<RechazarConteoComman
         foreach (var b in bloqueos) b.Liberar();
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>M-450 (86e3zr7ft): qué exige la cuenta del ajuste (regla C-03) en la sucursal del conteo. Sin sucursal única, nada.</summary>
+public sealed record DimensionesConteoResponse(Guid? SucursalId, bool ExigeArea, bool ExigeEquipo, string? CuentaCodigo);
+
+public sealed record DimensionesConteoQuery(Guid ConteoId) : IRequest<DimensionesConteoResponse>;
+
+public sealed class DimensionesConteoHandler(AlmacenDbContext db, ICurrentEmpresaContext empresa,
+    Millet.Contabilidad.Application.PublicPorts.IDimensionesSalidaInventarioPort dimensiones)
+    : IRequestHandler<DimensionesConteoQuery, DimensionesConteoResponse>
+{
+    public async Task<DimensionesConteoResponse> Handle(DimensionesConteoQuery request, CancellationToken cancellationToken)
+    {
+        var empresaId = empresa.Current ?? throw new BusinessRuleException("CONTEO_SIN_EMPRESA", "Contexto de empresa requerido.");
+        if (!await db.Set<ConteoInventario>().AnyAsync(c => c.Id == request.ConteoId, cancellationToken))
+            throw new EntityNotFoundException("CONTEO_NO_ENCONTRADO", $"No existe conteo con id '{request.ConteoId}'.");
+        var subs = await db.Set<ConteoInventario>().Where(c => c.Id == request.ConteoId)
+            .SelectMany(c => c.Lineas.Select(l => l.SubAlmacenId)).Distinct().ToListAsync(cancellationToken);
+        if (subs.Count != 1) return new(null, false, false, null);
+        var (_, sucursalId) = await Catalogo.AlmacenSucursalResolver.ResolverAsync(db, subs[0], cancellationToken);
+        if (sucursalId is not { } sucursal) return new(null, false, false, null);
+        var d = await dimensiones.ResolverAsync(new Millet.Contabilidad.Application.PublicPorts.SolicitudDimensionesSalida(empresaId, sucursal,
+            "ajuste_conteo", Cierre.FechaNegocio.Hoy(DateTimeOffset.UtcNow), null, null, AplicarConteoHandler.EventoAjuste,
+            AplicarConteoHandler.CampoAjuste), cancellationToken);
+        return new(sucursal, d.ExigeArea, d.ExigeEquipo, d.CuentaCodigo);
     }
 }

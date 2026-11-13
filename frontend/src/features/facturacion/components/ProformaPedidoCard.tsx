@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/button';
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { formatDateTime } from '@/lib/datetime';
 import { formatMoney } from '@/lib/money';
-import { Download, Eye } from 'lucide-react';
+import { textoConformidadProforma, textoVigenciaProforma } from '@/features/facturacion/lib/proforma-vigencia';
+import { CheckCircle2, Download, Eye } from 'lucide-react';
 
 /**
  * Tarjeta «Proforma» del detalle del pedido (U1.8a): última versión
@@ -15,12 +16,20 @@ export function ProformaPedidoCard({
   descargando,
   onVer,
   onDescargar,
+  onConformidad,
+  onFacturar,
+  facturando = false,
 }: {
   proforma: ProformaPedidoResponse | null | undefined;
   cargando: boolean;
   descargando: boolean;
   onVer: (proforma: ProformaPedidoResponse) => void;
   onDescargar: (proforma: ProformaPedidoResponse) => void;
+  /** M-234: abre «Registrar conformidad»; sin handler no se ofrece la acción. */
+  onConformidad?: (proforma: ProformaPedidoResponse) => void;
+  /** M-340: factura desde la versión aprobada, sin recaptura; sin handler no se ofrece la acción. */
+  onFacturar?: (proforma: ProformaPedidoResponse) => void;
+  facturando?: boolean;
 }) {
   return (
     <section
@@ -42,7 +51,10 @@ export function ProformaPedidoCard({
             Última proforma{' '}
             <span className="font-mono text-sm font-medium text-ink">{proforma.folio}</span> ·{' '}
             {formatDateTime(proforma.generadaEn)}
-            {proforma.generadaPor ? <> · {proforma.generadaPor}</> : null} ·{' '}
+            {proforma.generadaPor ? <> · {proforma.generadaPor}</> : null}
+            {textoVigenciaProforma(proforma) ? (
+              <span className={proforma.vencida ? ' font-medium text-warning-fg' : undefined}> · {textoVigenciaProforma(proforma)}</span>
+            ) : null}{' '}·{' '}
             <span className="tabular-nums">
               {formatMoney({
                 amount: proforma.contenido.totales.total,
@@ -50,11 +62,43 @@ export function ProformaPedidoCard({
               })}
             </span>{' '}
             · Sin valor fiscal
+            {proforma.conformidad && !proforma.conformidad.invalidada ? (
+              <span className="block font-medium text-success-fg">{textoConformidadProforma(proforma)}</span>
+            ) : null}
+            {proforma.conformidad?.invalidada ? (
+              <span role="status" className="block font-medium text-warning-fg">
+                Conformidad invalidada: {proforma.conformidad.invalidadaMotivo ?? 'el pedido cambió.'} Genera una proforma
+                nueva y registra su conformidad para facturar.
+              </span>
+            ) : null}
           </p>
         )}
       </div>
       {proforma != null && (
         <div className="flex items-center gap-2">
+          {onConformidad && !proforma.conformidad && !proforma.vencida ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={`Registrar conformidad de la proforma ${proforma.folio}`}
+              onClick={() => onConformidad(proforma)}
+            >
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.8} />
+              Registrar conformidad
+            </Button>
+          ) : null}
+          {onFacturar && proforma.conformidad && !proforma.conformidad.invalidada ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={facturando}
+              aria-label={`Facturar desde la proforma ${proforma.folio}`}
+              onClick={() => onFacturar(proforma)}
+            >
+              {facturando ? 'Facturando…' : 'Facturar desde esta proforma'}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"

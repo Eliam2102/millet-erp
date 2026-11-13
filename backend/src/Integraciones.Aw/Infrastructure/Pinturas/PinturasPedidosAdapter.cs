@@ -10,15 +10,19 @@ using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Integraciones.Aw.Application.Pinturas;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pinturas;
 
 /// <summary>
-/// Lector real de pedidos de Planta Pintura (I13.9): lee las filas pendientes (<c>erp_resultado IS NULL</c>) de
-/// <c>dbo.pinturas_pedido</c> y escribe el acuse en las 4 columnas <c>erp_*</c> de la misma fila (script 16 v2: el
-/// ERP tiene SELECT en la tabla y UPDATE solo de esas columnas). Sustituye a <c>StubPlantaPinturaPedidosReader</c>.
+/// Lector real de pedidos de Planta Pintura (I13.9): lee las órdenes pendientes (<c>erp_resultado IS NULL</c>) de
+/// <c>dbo.pinturas_pedido</c> (cabecera) con su detalle de <c>dbo.pinturas_pedido_linea</c> y escribe el acuse en las 4
+/// columnas <c>erp_*</c> de la cabecera (script 16 v3: el ERP tiene SELECT en ambas tablas y UPDATE solo de esas columnas).
+/// Sustituye a <c>StubPlantaPinturaPedidosReader</c>.
 /// Un dialecto por bandera: SQL Server (MILLET_INTEGRACION) o PostgreSQL (copia de demo de <c>tools/aw-origen-demo</c>).
 /// No hay reenvío: una orden lleva siempre versión 1 y, si se rechaza, Pinturas captura un folio nuevo (doc integration/11).
+/// Una cabecera pendiente sin líneas con más de <see cref="PinturasPedidosOptions.MinutosCabeceraSinLineas"/> minutos se acusa
+/// con error (Jorge Toache, 10-nov): el folio es único y el portal no edita ni borra, así que quedaría invisible para siempre.
 /// </summary>
 public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
 {
@@ -29,26 +33,40 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
     private readonly bool _postgres;
     private readonly IPinturasSucursalResolver _sucursales;
     private readonly PinturasPedidosOptions _opciones;
+    private readonly IClock _reloj;
     private readonly ILogger<PinturasPedidosAdapter> _logger;
 
     public PinturasPedidosAdapter(
         IIntegracionSqlConnectionFactory fabrica, bool postgres, IPinturasSucursalResolver sucursales,
-        IOptions<PinturasPedidosOptions> opciones, ILogger<PinturasPedidosAdapter> logger)
+        IOptions<PinturasPedidosOptions> opciones, IClock reloj, ILogger<PinturasPedidosAdapter> logger)
     {
         _fabrica = fabrica;
         _postgres = postgres;
         _sucursales = sucursales;
         _opciones = opciones.Value;
+        _reloj = reloj;
         _logger = logger;
     }
 
+    // Las N cabeceras pendientes más antiguas que ya tienen líneas (el portal inserta cabecera y líneas en una transacción;
+    // una cabecera sin líneas no se toma), con todas sus líneas, el nombre del servicio y los datos de la obra.
     internal static string SqlPendientes(bool postgres) =>
-        $"SELECT {(postgres ? "" : "TOP (@max) ")}p.folio_orden, p.cliente_clave, p.cliente_nombre, p.obra_clave, p.obra_nombre, " +
-        "p.comentarios, p.servicio_clave, s.nombre, p.m2, p.precio_m2, p.iva_porcentaje, p.moneda, o.origen, o.referencia_aw " +
-        "FROM dbo.pinturas_pedido p " +
-        "LEFT JOIN dbo.pinturas_servicio s ON s.clave = p.servicio_clave " +
+        "SELECT p.id, p.folio_orden, p.fecha_pedido, p.cliente_clave, p.cliente_nombre, p.obra_clave, p.obra_nombre, " +
+        "p.comentarios, p.iva_porcentaje, p.moneda, o.origen, o.referencia_aw, " +
+        "l.linea, l.servicio_clave, s.nombre, l.piezas, l.m2, l.precio_m2, p.empleado_captura_clave, p.vendedor_clave " +
+        $"FROM (SELECT {(postgres ? "" : "TOP (@max) ")}c.* FROM dbo.pinturas_pedido c " +
+        "WHERE c.erp_resultado IS NULL AND EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id) " +
+        $"ORDER BY c.creado_at, c.id{(postgres ? " LIMIT @max" : "")}) p " +
+        "JOIN dbo.pinturas_pedido_linea l ON l.pedido_id = p.id " +
+        "LEFT JOIN dbo.pinturas_servicio s ON s.clave = l.servicio_clave " +
         "LEFT JOIN dbo.pinturas_obra o ON o.clave = p.obra_clave " +
-        $"WHERE p.erp_resultado IS NULL ORDER BY p.creado_at, p.id{(postgres ? " LIMIT @max" : "")}";
+        "ORDER BY p.creado_at, p.id, l.linea";
+
+    // Las N cabeceras pendientes más antiguas sin ninguna línea: solo folio y hora de inserción (creado_at, UTC).
+    internal static string SqlSinLineas(bool postgres) =>
+        $"SELECT {(postgres ? "" : "TOP (@max) ")}c.folio_orden, c.creado_at FROM dbo.pinturas_pedido c " +
+        "WHERE c.erp_resultado IS NULL AND NOT EXISTS (SELECT 1 FROM dbo.pinturas_pedido_linea x WHERE x.pedido_id = c.id) " +
+        $"ORDER BY c.creado_at, c.id{(postgres ? " LIMIT @max" : "")}";
 
     // Solo filas aún pendientes: un acuse nunca pisa otro (relectura tras un acuse fallido o dos instancias del worker).
     internal const string SqlAcuse =
@@ -71,30 +89,50 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
             return [];
         }
 
+        await AcusarCabecerasSinLineasAsync(max, cancellationToken);
+
         var filas = new List<FilaPinturasPedido>();
         await using (var conexion = _fabrica.CreateConnection())
         {
             await conexion.OpenAsync(cancellationToken);
             await using var cmd = Comando(conexion, SqlPendientes(_postgres), ("@max", max));
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            long? idActual = null;
+            List<FilaPinturasLinea>? lineas = null;
             while (await reader.ReadAsync(cancellationToken))
             {
                 string? Texto(int i) => reader.IsDBNull(i) ? null : Convert.ToString(reader.GetValue(i), CultureInfo.InvariantCulture);
-                filas.Add(new FilaPinturasPedido(
-                    FolioOrden: Texto(0)!,
-                    ClienteClave: Convert.ToInt64(reader.GetValue(1), CultureInfo.InvariantCulture),
-                    ClienteNombre: Texto(2)!,
-                    ObraClave: Texto(3),
-                    ObraNombre: Texto(4),
-                    Comentarios: Texto(5),
-                    ServicioClave: Texto(6)!,
-                    ServicioNombre: Texto(7),
-                    M2: Convert.ToDecimal(reader.GetValue(8), CultureInfo.InvariantCulture),
-                    PrecioM2: Convert.ToDecimal(reader.GetValue(9), CultureInfo.InvariantCulture),
-                    IvaPorcentaje: Convert.ToDecimal(reader.GetValue(10), CultureInfo.InvariantCulture),
-                    Moneda: Texto(11)!,
-                    ObraOrigen: Texto(12),
-                    ObraReferenciaAw: Texto(13)));
+                decimal Decimal(int i) => Convert.ToDecimal(reader.GetValue(i), CultureInfo.InvariantCulture);
+                var id = Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture);
+                if (id != idActual)
+                {
+                    idActual = id;
+                    lineas = [];
+                    filas.Add(new FilaPinturasPedido(
+                        FolioOrden: Texto(1)!,
+                        FechaPedido: reader.GetValue(2) is DateOnly fecha
+                            ? fecha
+                            : DateOnly.FromDateTime(Convert.ToDateTime(reader.GetValue(2), CultureInfo.InvariantCulture)),
+                        ClienteClave: Convert.ToInt64(reader.GetValue(3), CultureInfo.InvariantCulture),
+                        ClienteNombre: Texto(4)!,
+                        ObraClave: Texto(5),
+                        ObraNombre: Texto(6),
+                        Comentarios: Texto(7),
+                        IvaPorcentaje: Decimal(8),
+                        Moneda: Texto(9)!,
+                        ObraOrigen: Texto(10),
+                        ObraReferenciaAw: Texto(11),
+                        Lineas: lineas,
+                        EmpleadoCapturaClave: Texto(18),
+                        VendedorClave: Texto(19)));
+                }
+                lineas!.Add(new FilaPinturasLinea(
+                    Linea: Convert.ToInt32(reader.GetValue(12), CultureInfo.InvariantCulture),
+                    ServicioClave: Texto(13)!,
+                    ServicioNombre: Texto(14),
+                    Piezas: reader.IsDBNull(15) ? null : Convert.ToInt32(reader.GetValue(15), CultureInfo.InvariantCulture),
+                    M2: Decimal(16),
+                    PrecioM2: Decimal(17)));
             }
         }
 
@@ -119,15 +157,62 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
     }
 
     /// <summary>
-    /// Fila → puerto de Facturación. <c>cliente_clave</c> (int) viaja como texto para resolverse contra
+    /// Acusa con error (2) las cabeceras pendientes sin líneas que ya pasaron el umbral; las más recientes siguen pendientes
+    /// (el portal pudo no haber terminado). Solo escribe las 4 columnas del acuse (<see cref="SqlAcuse"/>). Una falla aquí se
+    /// registra y no detiene la lectura de las órdenes completas.
+    /// </summary>
+    private async Task AcusarCabecerasSinLineasAsync(int max, CancellationToken cancellationToken)
+    {
+        if (_opciones.MinutosCabeceraSinLineas <= 0) return;
+        try
+        {
+            var cabeceras = new List<(string Folio, DateTimeOffset CreadoAt)>();
+            await using (var conexion = _fabrica.CreateConnection())
+            {
+                await conexion.OpenAsync(cancellationToken);
+                await using var cmd = Comando(conexion, SqlSinLineas(_postgres), ("@max", max));
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                    cabeceras.Add((Convert.ToString(reader.GetValue(0), CultureInfo.InvariantCulture)!,
+                        new DateTimeOffset(DateTime.SpecifyKind(Convert.ToDateTime(reader.GetValue(1), CultureInfo.InvariantCulture), DateTimeKind.Utc))));
+            }
+
+            var ahora = _reloj.UtcNow;
+            foreach (var folio in CabecerasVencidas(cabeceras, ahora, _opciones.MinutosCabeceraSinLineas))
+            {
+                await MarcarResultadoAsync(folio, ResultadoAcusePlantaPintura.Error, null,
+                    MensajeSinLineas(_opciones.MinutosCabeceraSinLineas), ahora, cancellationToken);
+                _logger.LogWarning("[Pinturas] Orden {Folio} sin renglones tras {Minutos} min: acusada con error.",
+                    folio, _opciones.MinutosCabeceraSinLineas);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "[Pinturas] No se pudieron acusar las cabeceras sin renglones; se reintenta en el siguiente ciclo.");
+        }
+    }
+
+    /// <summary>Folios de las cabeceras sin líneas con al menos <paramref name="minutos"/> desde su inserción.</summary>
+    internal static IReadOnlyList<string> CabecerasVencidas(
+        IEnumerable<(string Folio, DateTimeOffset CreadoAt)> cabeceras, DateTimeOffset ahora, int minutos) =>
+        cabeceras.Where(c => ahora - c.CreadoAt >= TimeSpan.FromMinutes(minutos)).Select(c => c.Folio).ToList();
+
+    internal static string MensajeSinLineas(int minutos) =>
+        $"Orden sin renglones: la cabecera lleva más de {minutos} minutos sin líneas en pinturas_pedido_linea y el ERP no puede " +
+        "facturarla. Capture la orden de nuevo con un folio nuevo.";
+
+    /// <summary>
+    /// Orden → puerto de Facturación: una línea de venta por línea de la orden (servicio, m2, precio por m2; las piezas
+    /// quedan en el payload crudo). <c>cliente_clave</c> (int) viaja como texto para resolverse contra
     /// <c>Cliente.ReferenciaExterna</c>; el IVA llega en porcentaje (16) y el puerto lo espera como fracción (0.16).
     /// La obra solo lleva <c>ObraId</c> cuando viene de A+W (<c>pinturas_obra.referencia_aw</c> = id de <c>KA_OBJEKT</c>).
+    /// <c>fecha_pedido</c> es la fecha del documento de venta.
     /// </summary>
     internal static PedidoPlantaPintura Mapear(FilaPinturasPedido f, Guid sucursalId, ComportamientoFiscal comportamiento)
     {
         long? obraId = string.Equals(f.ObraOrigen?.Trim(), "AW", StringComparison.OrdinalIgnoreCase)
             && long.TryParse(f.ObraReferenciaAw?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null;
-        var servicio = f.ServicioClave.Trim();
+        var tasaIva = f.IvaPorcentaje / 100m;
         return new PedidoPlantaPintura(
             NumeroPedido: f.FolioOrden.Trim(),
             SucursalId: sucursalId,
@@ -141,20 +226,24 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
             Comentarios: Vacio(f.Comentarios),
             VersionOrigen: 1,
             EstadoOrigen: null,
-            Lineas:
-            [
-                new LineaPedidoPlantaPintura(
+            Lineas: f.Lineas.OrderBy(l => l.Linea).Select(l =>
+            {
+                var servicio = l.ServicioClave.Trim();
+                return new LineaPedidoPlantaPintura(
                     ProductoRef: servicio,
-                    Descripcion: Vacio(f.ServicioNombre) ?? servicio,
+                    Descripcion: Vacio(l.ServicioNombre) ?? servicio,
                     ClaveProdServSat: null,
                     ClaveUnidadSat: null,
-                    Cantidad: f.M2,
-                    Precio: f.PrecioM2,
+                    Cantidad: l.M2,
+                    Precio: l.PrecioM2,
                     Descuento: 0m,
                     RequierePedimento: false,
-                    TasaIva: f.IvaPorcentaje / 100m),
-            ],
-            PayloadCrudo: JsonSerializer.Serialize(f));
+                    TasaIva: tasaIva);
+            }).ToList(),
+            PayloadCrudo: JsonSerializer.Serialize(f),
+            FechaPedido: f.FechaPedido,
+            EmpleadoCapturaClave: Vacio(f.EmpleadoCapturaClave),
+            VendedorClave: Vacio(f.VendedorClave));
     }
 
     internal static string? Recortar(string? error) =>
@@ -178,22 +267,34 @@ public sealed class PinturasPedidosAdapter : IPlantaPinturaPedidosReader
     }
 }
 
-/// <summary>Fila de <c>dbo.pinturas_pedido</c> con el nombre del servicio y los datos de la obra. Es también el payload crudo.</summary>
+/// <summary>
+/// Cabecera de <c>dbo.pinturas_pedido</c> con los datos de la obra y sus líneas. Es también el payload crudo.
+/// <c>EmpleadoCapturaClave</c>/<c>VendedorClave</c>: claves de empleado de la v4 del script 16 (trazabilidad).
+/// </summary>
 internal sealed record FilaPinturasPedido(
     string FolioOrden,
+    DateOnly FechaPedido,
     long ClienteClave,
     string ClienteNombre,
     string? ObraClave,
     string? ObraNombre,
     string? Comentarios,
-    string ServicioClave,
-    string? ServicioNombre,
-    decimal M2,
-    decimal PrecioM2,
     decimal IvaPorcentaje,
     string Moneda,
     string? ObraOrigen,
-    string? ObraReferenciaAw);
+    string? ObraReferenciaAw,
+    IReadOnlyList<FilaPinturasLinea> Lineas,
+    string? EmpleadoCapturaClave = null,
+    string? VendedorClave = null);
+
+/// <summary>Línea de <c>dbo.pinturas_pedido_linea</c> con el nombre del servicio.</summary>
+internal sealed record FilaPinturasLinea(
+    int Linea,
+    string ServicioClave,
+    string? ServicioNombre,
+    int? Piezas,
+    decimal M2,
+    decimal PrecioM2);
 
 /// <summary>Sucursal por <c>compartido.sucursales.clave</c>, solo activas.</summary>
 public sealed class PinturasSucursalResolver(CompartidoDbContext db) : IPinturasSucursalResolver

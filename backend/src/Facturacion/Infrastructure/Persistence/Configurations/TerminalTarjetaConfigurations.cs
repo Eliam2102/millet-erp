@@ -36,6 +36,8 @@ public sealed class TransaccionTerminalConfiguration : IEntityTypeConfiguration<
         builder.Property(e => e.Neto).HasPrecision(18, 2);
         builder.Property(e => e.FolioLiquidacion).HasMaxLength(40);
         builder.Property(e => e.FechaLiquidacion);
+        builder.Property(e => e.Afiliacion).HasMaxLength(20);
+        builder.Property(e => e.CodTerminal).HasMaxLength(20);
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Ignore(e => e.TraeLiquidacion);
 
@@ -90,5 +92,21 @@ public sealed class FacturaBancoTerminalConfiguration : IEntityTypeConfiguration
         // Un CFDI del banco ampara un solo mes.
         builder.HasIndex(e => new { e.EmpresaId, e.UuidCfdi }).IsUnique().HasDatabaseName("ux_terminal_factura_banco_empresa_uuid");
         builder.HasIndex(e => new { e.EmpresaId, e.CfdiRecibidoId }).IsUnique().HasDatabaseName("ux_terminal_factura_banco_empresa_cfdi");
+    }
+}
+
+public sealed class TerminalAfiliacionConfiguration : IEntityTypeConfiguration<TerminalAfiliacion>
+{
+    public void Configure(EntityTypeBuilder<TerminalAfiliacion> builder)
+    {
+        builder.ToTable("terminal_afiliacion");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.Afiliacion).HasMaxLength(20).IsRequired();
+        builder.Property(e => e.CodTerminal).HasMaxLength(20).IsRequired();
+        builder.Property(e => e.Descripcion).HasMaxLength(200);
+        // Una terminal de una afiliación pertenece a una sola sucursal.
+        builder.HasIndex(e => new { e.EmpresaId, e.Afiliacion, e.CodTerminal }).IsUnique()
+            .HasDatabaseName("ux_terminal_afiliacion_empresa_afiliacion_terminal");
     }
 }

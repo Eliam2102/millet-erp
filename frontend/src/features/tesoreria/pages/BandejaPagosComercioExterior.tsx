@@ -14,7 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AvisoEnLinea, ConfirmarAccionDialog, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { AvisoEnLinea, ConfirmarAccionDialog, EmptyState, ErrorState, TableSkeleton,
+} from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -119,7 +120,14 @@ export function BandejaPagosComercioExterior() {
       ) : query.isLoading ? (
         <TableSkeleton
           rows={5}
-          columns={[{ width: 'w-24' }, { width: 'w-48' }, { width: 'w-24' }, { width: 'w-28' }, { width: 'w-32' }, { width: 'w-32' }]}
+          columns={[
+            { width: 'w-24' },
+            { width: 'w-48' },
+            { width: 'w-24' },
+            { width: 'w-28' },
+            { width: 'w-32' },
+            { width: 'w-32' },
+          ]}
         />
       ) : items.length === 0 ? (
         <EmptyState
@@ -130,7 +138,7 @@ export function BandejaPagosComercioExterior() {
       ) : (
         <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Tipo</TableHead>
@@ -149,9 +157,15 @@ export function BandejaPagosComercioExterior() {
                   const e = ESTADO[p.estado];
                   return (
                     <TableRow key={p.facturaProveedorId} className="hover:bg-surface-subtle">
-                      <TableCell>{p.tipo === 'Importacion' ? 'Importación' : 'Exportación'}</TableCell>
+                      <TableCell>
+                        {p.tipo === 'Importacion' ? 'Importación' : 'Exportación'}
+                      </TableCell>
                       <TableCell>{p.proveedorRazonSocial ?? '—'}</TableCell>
-                      <TableCell className="font-mono text-xs">{p.esAnticipoAgente ? `Anticipo al agente · ${p.folioProveedor ?? ''}` : (p.folioProveedor ?? '—')}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {p.esAnticipoAgente
+                          ? `Anticipo al agente · ${p.folioProveedor ?? ''}`
+                          : (p.folioProveedor ?? '—')}
+                      </TableCell>
                       <TableCell className="text-right">
                         <MoneyDisplay amount={p.saldoPendiente} currency={p.moneda} strong />
                       </TableCell>
@@ -160,22 +174,33 @@ export function BandejaPagosComercioExterior() {
                         {p.nivel1UsuarioId ? (
                           <>
                             {p.nivel1Nombre ?? 'Firmado'}
-                            <span className="block text-ink-muted"><DateTimeDisplay value={p.nivel1En} variant="corta" /></span>
+                            <span className="block text-ink-muted">
+                              <DateTimeDisplay value={p.nivel1En} variant="corta" />
+                            </span>
                           </>
-                        ) : '—'}
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                       <TableCell className="text-xs">
                         {p.nivel2UsuarioId ? (
                           <>
                             {p.nivel2Nombre ?? 'Firmado'}
-                            <span className="block text-ink-muted"><DateTimeDisplay value={p.nivel2En} variant="corta" /></span>
+                            <span className="block text-ink-muted">
+                              <DateTimeDisplay value={p.nivel2En} variant="corta" />
+                            </span>
                           </>
-                        ) : '—'}
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={e.tono}>{e.texto}</Badge>
                         {p.motivoRechazo && (
-                          <span className="block max-w-48 truncate text-xs text-ink-muted" title={p.motivoRechazo}>
+                          <span
+                            className="block max-w-48 truncate text-xs text-ink-muted"
+                            title={p.motivoRechazo}
+                          >
                             {p.motivoRechazo}
                           </span>
                         )}
@@ -194,7 +219,9 @@ export function BandejaPagosComercioExterior() {
                                 }
                                 onClick={() => setAFirmar(p)}
                               >
-                                {p.estado === 'Rechazado' ? 'Volver a autorizar nivel 1' : `Autorizar nivel ${p.nivelPendiente}`}
+                                {p.estado === 'Rechazado'
+                                  ? 'Volver a autorizar nivel 1'
+                                  : `Autorizar nivel ${p.nivelPendiente}`}
                               </Button>
                             )}
                             {p.puedoRechazar && (
@@ -223,7 +250,8 @@ export function BandejaPagosComercioExterior() {
             <>
               Autorizar el nivel {aFirmar.nivelPendiente ?? 1} del pago de{' '}
               <MoneyDisplay amount={aFirmar.saldoPendiente} currency={aFirmar.moneda} strong /> a{' '}
-              {aFirmar.proveedorRazonSocial ?? 'el proveedor'}. Quien firma el nivel 1 no puede firmar el nivel 2.
+              {aFirmar.proveedorRazonSocial ?? 'el proveedor'}. Quien firma el nivel 1 no puede
+              firmar el nivel 2.
             </>
           )
         }

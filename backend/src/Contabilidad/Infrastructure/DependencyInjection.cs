@@ -26,6 +26,8 @@ public static class DependencyInjection
         services.AddSingleton<IValidateOptions<CatalogoOpciones>, CatalogoOpcionesValidator>();
         services.AddSingleton(sp => new FormatoCatalogo(sp.GetRequiredService<IOptions<CatalogoOpciones>>().Value));
         services.AddScoped<Millet.Contabilidad.Application.Catalogo.SolicitudesCatalogo>();
+        // M-166: validación contable de la balanza de apertura (la usan la vista previa del lote y su aplicación).
+        services.AddScoped<Millet.Contabilidad.Application.SaldosIniciales.ValidadorBalanzaApertura>();
         services.AddScoped<ICuentaContableReadPort, CuentaContableReadAdapter>();
         services.AddScoped<ISaldosContablesReadPort, SaldosContablesReadAdapter>();
         // CXC-06: pólizas de cobro para la conciliación de cartera de CxC.
@@ -60,6 +62,11 @@ public static class DependencyInjection
         // F1-CON-03: contrato público de consulta de periodo y candado de movimientos (falla cerrada, D9).
         services.AddScoped<IPeriodoContableConsultaPort, PeriodoContableConsultaAdapter>();
         services.AddScoped<VerificadorPeriodoContable>();
+        // M-213: reapertura acotada (alcance, evidencia y vencimiento) y su proceso de cierre por vencimiento.
+        services.AddOptions<Millet.Contabilidad.Application.Periodos.ReaperturaOpciones>()
+            .Bind(configuration.GetSection(Millet.Contabilidad.Application.Periodos.ReaperturaOpciones.Seccion));
+        services.AddScoped<Millet.Contabilidad.Application.Periodos.ValidadorReapertura>();
+        services.AddHostedService<Workers.ReaperturaVencimientoWorker>();
 
         // CON-12 (86e3jvvme): checklist de cierre. Cada paso automático es un verificador; los que leen otros módulos usan puertos de
         // consumidor que cablea Program.cs (Tesorería, Almacén, Activos Fijos, CxP).
@@ -81,6 +88,7 @@ public static class DependencyInjection
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorIvaLiquidado),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorAuxiliares),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorPolizasBorrador),
+            typeof(Millet.Contabilidad.Application.Cierre.VerificadorIncidenciasPosteriores),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorBalanzaCuadrada),
             typeof(Millet.Contabilidad.Application.Cierre.VerificadorCierreAnual),
         })
@@ -90,6 +98,8 @@ public static class DependencyInjection
         services.AddScoped<RegistroPolizas>();
         services.AddScoped<LecturaPolizas>();
         services.AddScoped<IPolizaContablePort, PolizaContableAdapter>();
+        // M-240: póliza contraria de la reversa de un ajuste de cobro (CxC la pide al revertir).
+        services.AddScoped<IReversaAjusteCobroContablePort, Millet.Contabilidad.Application.Motor.ReversaAjusteCobroContableServicio>();
         services.AddScoped<IPolizaContableReadPort, PolizaContableAdapter>();
         services.AddScoped<IReversaPolizaContablePort, PolizaContableAdapter>();
         // C1.5: entrada única de los listeners (anulaciones, caja, consumo) y datos que el motor completa desde pólizas previas.
@@ -107,6 +117,7 @@ public static class DependencyInjection
         // y la entrega espera en la bandeja como dato faltante; PT5.12 registra su adaptador en Program.cs y reemplaza este.
         services.AddScoped<Millet.Contabilidad.Application.Ports.ICostoProductoTerminadoReadPort, Adapters.CostoProductoTerminadoSinValuacionAdapter>();
         services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorCostoVentasPt>();
+        services.AddScoped<Millet.Contabilidad.Application.Motor.IEnriquecedorEventoContable, Millet.Contabilidad.Application.Motor.EnriquecedorCostoTraspasoPt>();
 
         // K10.4: pólizas recurrentes con reversa automática; el generador corre también como proceso de fondo.
         services.AddScoped<GeneradorRecurrentes>();
@@ -120,6 +131,8 @@ public static class DependencyInjection
         services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.RegistroMovimientosPuente>();
         services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.LecturaCuentaPuente>();
         services.AddScoped<Millet.Contabilidad.Application.Reportes.LecturaReportesContables>();
+        services.AddScoped<Millet.Contabilidad.Application.ContabilidadElectronica.LecturaContabilidadElectronica>();
+        services.AddScoped<Millet.Contabilidad.Application.Nomina.ImportadorNomina>();
         services.AddScoped<Millet.Contabilidad.Application.PublicPorts.IPolizaAutomaticaObservador,
             Millet.Contabilidad.Application.CuentaPuente.ObservadorCuentaPuente>();
         return services;

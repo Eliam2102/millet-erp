@@ -18,7 +18,51 @@ public interface IFacturacionSalidaPort
 
     /// <summary>Emite la Carta Porte de traslado (mercancía propia) del tramo de la hoja de salida.</summary>
     Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct);
+
+    /// <summary>
+    /// M-177: factura timbrada de cada albarán (por folio) y lo que la caja cobra de ella (total neto de NC). Sin factura, el albarán no aparece.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct);
+
+    /// <summary>
+    /// M-177: registra lo cobrado contra entrega en la sesión de caja abierta del usuario en <paramref name="sucursalId"/> (origen «Liquidación de
+    /// ruta»), cada albarán sobre su factura. Todo o nada; una factura que ya tiene cobro de caja devuelve ese cobro sin cobrar otra vez.
+    /// Falla sin sesión en la sucursal o con un albarán sin factura timbrada.
+    /// </summary>
+    Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct);
+
+    /// <summary>
+    /// Reglas de salida 1 y 3: facturas de venta de los pedidos que cuentan para emitir la hoja: timbradas (con su fecha de timbrado) o, en un
+    /// pedido de exportación, retenidas en PendientePedimento. Sin factura así, el pedido no aparece.
+    /// </summary>
+    Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct);
+
+    /// <summary>M-247: la Carta Porte de la hoja sigue vigente (timbrada o en proceso, no cancelada ni descartada). Con ella vigente no se cancela un albarán.</summary>
+    Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct);
+
+    /// <summary>
+    /// M-352: nota de crédito de devolución (relación 03, afecta inventario) por las piezas devueltas de cada posición, sobre la factura
+    /// timbrada. El importe es el de la factura por pieza (neto de descuento, con impuestos). Facturación valida saldo y periodo.
+    /// </summary>
+    Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct);
+
+    /// <summary>M-352: pide la cancelación de la factura (la autoriza el Contador General en Facturación).</summary>
+    Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct);
+
+    /// <summary>M-352: estado vigente del documento ligado al caso. <c>Pendiente</c>: la nota aún no se timbra o la factura aún no se cancela.</summary>
+    Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct);
 }
+
+public sealed record DocumentoFiscalPt(Guid Id, string? Folio, string Estado, bool Pendiente);
+
+public sealed record FacturaPedidoSalida(Guid PedidoFacturableId, bool Exportacion, bool PendientePedimento, DateTimeOffset? FechaTimbrado);
+
+public sealed record FacturaAlbaranRuta(string AlbaranFolio, Guid ComprobanteId, string Folio, decimal PorCobrar, Guid? CobroCajaId);
+
+/// <summary><c>TipoTarjeta</c>: «Credito» o «Debito» (formas SAT 04 y 28).</summary>
+public sealed record CobroRutaAlbaran(string AlbaranFolio, decimal Efectivo, decimal Voucher, string? VoucherReferencia, string? TipoTarjeta, string? TarjetaUltimos4);
+
+public sealed record CobroRutaRegistrado(string AlbaranFolio, Guid CobroCajaId);
 
 public sealed record SolicitudCartaPorte(
     Guid SucursalId, string Origen, string OrigenCodigoPostal, string OrigenEstado, string Destino, string DestinoCodigoPostal, string DestinoEstado, decimal DistanciaKm,

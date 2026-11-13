@@ -21,8 +21,27 @@ public sealed record SolicitarCancelacionResponse(
     Guid ComprobanteId,
     string EstadoComprobante,
     string EstadoSolicitud,
-    string? EstatusSat)
+    string? EstatusSat,
+    string? MensajeError = null,
+    int FirmasRequeridas = 1,
+    int FirmasDadas = 0,
+    string? PrimeraFirmaPor = null,
+    string? Huella = null)
 {
     public static SolicitarCancelacionResponse De(Comprobante comprobante, SolicitudCancelacion solicitud) =>
-        new(solicitud.Id, comprobante.Id, comprobante.Estado.ToString(), solicitud.Estado.ToString(), solicitud.EstatusSat);
+        new(solicitud.Id, comprobante.Id, comprobante.Estado.ToString(), solicitud.Estado.ToString(), solicitud.EstatusSat,
+            MensajeSatParaUsuario(solicitud.MensajeError), solicitud.FirmasRequeridas, solicitud.FirmasDadas,
+            solicitud.PrimeraFirmaPorNombre, solicitud.Huella);
+
+    /// <summary>
+    /// Prueba manual S3-4 (M18): el adaptador del PAC guarda «{mensaje del PAC} — {detalle del SAT}»;
+    /// el mensaje del PAC llega en inglés y no le dice nada al usuario. Se muestra solo el detalle del SAT.
+    /// </summary>
+    internal static string? MensajeSatParaUsuario(string? mensaje)
+    {
+        if (string.IsNullOrWhiteSpace(mensaje)) return null;
+        var corte = mensaje.LastIndexOf(" — ", StringComparison.Ordinal);
+        var detalle = corte >= 0 ? mensaje[(corte + 3)..].Trim() : mensaje.Trim();
+        return detalle.Length > 0 ? detalle : mensaje.Trim();
+    }
 }

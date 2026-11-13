@@ -7,6 +7,7 @@ import type {
   Poliza,
   PolizaManualRequest,
   SaldoCuentaPeriodo,
+  SolicitudAnulacion,
 } from './polizas-types';
 
 /** Pólizas contables (F1-CON-04). Las mutaciones llevan Idempotency-Key y, sobre una póliza existente, If-Match con su versión. */
@@ -17,6 +18,7 @@ export const polizaKeys = {
   lista: (f: FiltrosPolizas) => ['contabilidad', 'polizas', 'lista', f] as const,
   detalle: (id: string) => ['contabilidad', 'polizas', 'detalle', id] as const,
   saldos: (anio: number, numero: number, cuentaId: string) => ['contabilidad', 'polizas', 'saldos', anio, numero, cuentaId] as const,
+  solicitudesAnulacion: () => ['contabilidad', 'polizas', 'solicitudes-anulacion'] as const,
 };
 
 function qs(params: Record<string, unknown>): string {
@@ -105,13 +107,49 @@ export function useAutorizarPoliza() {
   });
 }
 
-/** Anula una autorizada: devuelve la NUEVA póliza de anulación (mismas partidas en negativo). */
-export function useAnularPoliza() {
+/**
+ * M-212: solicita la anulación de una autorizada (la póliza sigue vigente). La aprueba o rechaza otra persona con el permiso de
+ * aprobar anulaciones; al aprobar nace la póliza de anulación (mismas partidas en negativo).
+ */
+export function useSolicitarAnulacion() {
   const invalidar = useInvalidar();
   return useMutation({
     mutationFn: async (a: { poliza: Poliza; body: AnularPolizaRequest; idempotencyKey: string }) =>
-      (await apiRequest<Poliza>(`${BASE}/${a.poliza.id}/anular`, {
+      (await apiRequest<SolicitudAnulacion>(`${BASE}/${a.poliza.id}/solicitar-anulacion`, {
         method: 'POST', body: a.body, idempotencyKey: a.idempotencyKey, ifMatch: String(a.poliza.version),
+      })).data,
+    onSuccess: invalidar,
+  });
+}
+
+/** M-212: solicitudes de anulación pendientes de aprobación, la más antigua primero. */
+export function useSolicitudesAnulacion(enabled = true) {
+  return useQuery({
+    queryKey: polizaKeys.solicitudesAnulacion(),
+    enabled,
+    queryFn: async ({ signal }) => (await apiRequest<SolicitudAnulacion[]>(`${BASE}/solicitudes-anulacion`, { signal })).data,
+  });
+}
+
+/** M-212: aprueba la solicitud de otra persona; devuelve la NUEVA póliza de anulación. */
+export function useAprobarAnulacion() {
+  const invalidar = useInvalidar();
+  return useMutation({
+    mutationFn: async (a: { solicitudId: string; idempotencyKey: string }) =>
+      (await apiRequest<Poliza>(`${BASE}/solicitudes-anulacion/${a.solicitudId}/aprobar`, {
+        method: 'POST', idempotencyKey: a.idempotencyKey,
+      })).data,
+    onSuccess: invalidar,
+  });
+}
+
+/** M-212: rechaza con motivo la solicitud de otra persona; la póliza no cambia. */
+export function useRechazarAnulacion() {
+  const invalidar = useInvalidar();
+  return useMutation({
+    mutationFn: async (a: { solicitudId: string; motivo: string; idempotencyKey: string }) =>
+      (await apiRequest<SolicitudAnulacion>(`${BASE}/solicitudes-anulacion/${a.solicitudId}/rechazar`, {
+        method: 'POST', body: { motivo: a.motivo }, idempotencyKey: a.idempotencyKey,
       })).data,
     onSuccess: invalidar,
   });

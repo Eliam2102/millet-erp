@@ -188,7 +188,7 @@ public sealed class FacturacionContabilidadListenerWorker(ServiceBusClient? clie
     [
         NormalizadorEventos.FacturaVentaTimbrada, NormalizadorEventos.FacturaAnticipoTimbrada, NormalizadorEventos.NotaCreditoTimbrada,
         NormalizadorEventos.ComprobanteCancelado, NormalizadorEventos.CobroMostradorRegistrado, NormalizadorEventos.CobroMostradorCancelado,
-        NormalizadorEventos.CajaSesionCerrada, NormalizadorEventos.FacturaBancoTerminalLigada,
+        NormalizadorEventos.CajaSesionCerrada, NormalizadorEventos.FacturaBancoTerminalLigada, NormalizadorEventos.TerminalLiquidacionRegistrada,
     ], StringComparer.Ordinal);
 }
 
@@ -213,6 +213,8 @@ public sealed class CuentasPorPagarContabilidadListenerWorker(ServiceBusClient? 
         NormalizadorEventos.RevaluacionCierreRegistrada, NormalizadorEventos.RevaluacionCierreRevertida,
         NormalizadorEventos.GastoRegistrado, NormalizadorEventos.PasivoAutorizadoParaPago, NormalizadorEventos.EstadoCuentaTcCerrado,
         NormalizadorEventos.AnticipoProveedorAmortizado,
+        // M-327: reversa de la comprobación de un anticipo al agente aduanal.
+        NormalizadorEventos.ReversaComprobacionAnticipoAgente,
     ], StringComparer.Ordinal);
 }
 
@@ -254,12 +256,12 @@ public sealed class AlmacenContabilidadListenerWorker(ServiceBusClient? client, 
     private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
     [
         NormalizadorEventos.CostoImportacionAplicado, NormalizadorEventos.RecepcionOcRegistrada, NormalizadorEventos.RecepcionOcCancelada, NormalizadorEventos.AjusteInventarioAplicado,
-        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.SalidaRoturaRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
+        NormalizadorEventos.SalidaRequisicionRegistrada, NormalizadorEventos.SalidaInventarioRegistrada, NormalizadorEventos.EntradaInventarioRegistrada, NormalizadorEventos.SalidaRoturaRegistrada, NormalizadorEventos.DevolucionInternaAplicada, NormalizadorEventos.DevolucionProveedorRegistrada,
     ], StringComparer.Ordinal);
 }
 
 /// <summary>
-/// PCV (86e3ke10b) · <c>producto-terminado-events</c>: entrega confirmada de PT (costo de ventas).
+/// PCV (86e3ke10b) · <c>producto-terminado-events</c>: entrega confirmada de PT (costo de ventas) y traspasos entre sucursales (M-249: salida y entrada contra la cuenta puente).
 /// Registrado como HostedService en <c>Program.cs</c> sobre <c>contabilidad-producto-terminado-sub</c> (M-046).
 /// </summary>
 public sealed class ProductoTerminadoContabilidadListenerWorker(ServiceBusClient? client, IServiceScopeFactory scopeFactory,
@@ -272,5 +274,6 @@ public sealed class ProductoTerminadoContabilidadListenerWorker(ServiceBusClient
     protected override string PrefijoModulo => "producto_terminado.";
     public override IReadOnlySet<string> TiposContables => Tipos;
 
-    private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet([NormalizadorEventos.EntregaPtConfirmada], StringComparer.Ordinal);
+    private static readonly FrozenSet<string> Tipos = FrozenSet.ToFrozenSet(
+        [NormalizadorEventos.EntregaPtConfirmada, NormalizadorEventos.TraspasoPtSalidaAutorizada, NormalizadorEventos.TraspasoPtEntradaRegistrada], StringComparer.Ordinal);
 }

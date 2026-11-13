@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Facturacion.Application.Ingesta.ProcesarSolicitudAw;
+using Millet.ComercioExterior.Application.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.Infrastructure.Workers;
 using Millet.SharedKernel.Application;
@@ -87,8 +88,10 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
             Task.FromResult<short?>(claveAw == conClave ? (short)2 : null);
     }
 
-    [Fact]
-    public async Task Ingiere_pedido_en_ERP_y_hace_write_back_en_la_copia_postgresql()
+    [Theory]
+    [InlineData("H87")]
+    [InlineData("MTK")]
+    public async Task Ingiere_pedido_en_ERP_y_hace_write_back_en_la_copia_postgresql(string unidadFiscal)
     {
         await new AwOrigenPgTests(factory).SincronizarMastersParaPedidoAsync(_cs);
         using var scope = factory.Services.CreateScope();
@@ -96,6 +99,14 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
         using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var empresa = await sp.GetRequiredService<CompartidoDbContext>().Empresas.Select(x => x.Id).FirstAsync();
         var db = sp.GetRequiredService<FacturacionDbContext>();
+        var referenciaProducto = await EscalarAsync<string>("SELECT producto_ref FROM dbo.vw_erp_pedido_linea WHERE numero_pedido='900101' AND numero_posicion=1");
+        var catalogos = sp.GetRequiredService<CompartidoDbContext>();
+        await catalogos.ProductosAw.Where(p => p.ReferenciaExterna == referenciaProducto)
+            .ExecuteUpdateAsync(u => u.SetProperty(p => p.ClaveUnidadSat, unidadFiscal));
+        var productoAntes = await catalogos.ProductosAw.AsNoTracking().SingleAsync(p => p.ReferenciaExterna == referenciaProducto);
+        var lectura = (await Lector().LeerDatosPedidoAsync("900101", default)).Datos!;
+        Assert.Null(lectura.Lineas[0].ClaveUnidadSat);
+        Assert.Equal("M2", await EscalarAsync<string>("SELECT unidad_medida FROM dbo.vw_erp_pedido_linea WHERE numero_pedido='900101' AND numero_posicion=1"));
         var solicitud = (await Lector().LeerPendientesAsync(1, default)).Single();
         var pg = new AwOrigenPg.Fabrica(_cs);
         var provisioning = new AwMasterProvisioningAdapter(
@@ -110,6 +121,14 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
         resultado.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
         var pedido = await db.PedidosFacturables.Include(x => x.Lineas).SingleAsync(x => x.NumeroPedido == "900101");
         pedido.Lineas.Should().HaveCount(2);
+        var linea = pedido.Lineas.Single(l => l.Posicion == 1);
+        Assert.Equal(unidadFiscal, linea.ClaveUnidadSat); Assert.Equal(4, linea.Cantidad); Assert.Equal(1000, linea.Precio);
+        var puerto = sp.GetRequiredService<IPedidosEmbarcablesReadPort>();
+        var embarcable = Assert.Single(await puerto.BuscarPorNumeroAsync(empresa, ["900101"], default));
+        Assert.Equal(unidadFiscal, embarcable.Lineas.Single(l => l.Posicion == 1).Unidad);
+        Assert.Equal(4, embarcable.Lineas.Single(l => l.Posicion == 1).Cantidad);
+        var productoDespues = await catalogos.ProductosAw.AsNoTracking().SingleAsync(p => p.Id == productoAntes.Id);
+        Assert.Equal(productoAntes.Version, productoDespues.Version); Assert.Equal(unidadFiscal, productoDespues.ClaveUnidadSat);
         (await db.PedidosFacturablesSnapshot.AnyAsync(x => x.PedidoFacturableId == pedido.Id)).Should().BeTrue();
         (await EscalarAsync<Guid>("SELECT erp_pedido_id FROM dbo.aw_solicitud_pedido WHERE numero_pedido = '900101'"))
             .Should().Be(pedido.Id);
@@ -125,6 +144,19 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
         todas.Should().OnlyContain(s => s.Operacion == OperacionAw.Alta && s.Version == 1 && s.SolicitudId != Guid.Empty);
 
         (await Lector().LeerPendientesAsync(2, CancellationToken.None)).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Un_pedido_pospuesto_reintentado_hace_poco_no_llena_el_lote()
+    {
+        // QA 10-nov: las 50 pospuestas de número más bajo llenaban cada lote y 1,048 pendientes nunca se leían.
+        await EjecutarAsync("UPDATE dbo.aw_solicitud_pedido SET resultado = 3, procesada_at = now() WHERE numero_pedido = '900101'");
+
+        var lote = await Lector().LeerPendientesAsync(1, CancellationToken.None);
+        lote.Select(s => s.NumeroPedido).Should().Equal("900102");
+
+        await EjecutarAsync("UPDATE dbo.aw_solicitud_pedido SET procesada_at = now() - interval '11 minutes' WHERE numero_pedido = '900101'");
+        (await Lector().LeerPendientesAsync(1, CancellationToken.None)).Select(s => s.NumeroPedido).Should().Equal("900101");
     }
 
     [Fact]

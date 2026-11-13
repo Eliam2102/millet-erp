@@ -24,11 +24,10 @@ export function ListaMonedasCompacta({ items, idActivo }: ListaMonedasCompactaPr
     <ListadoModulo
       filtros={<BarraFiltros total={`${items.length} registros`} />}
       pie={
-        <PaginacionTabla
+        <PaginacionTabla regionId={pagina.regionId}
           total={items.length}
           offset={pagina.offset}
-          limit={10}
-          tamanos={[]}
+          limit={pagina.limit}
           onChange={pagina.onChange}
         />
       }

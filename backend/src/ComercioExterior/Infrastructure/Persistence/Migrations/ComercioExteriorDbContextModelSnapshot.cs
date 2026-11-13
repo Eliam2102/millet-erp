@@ -188,6 +188,15 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("resoluciones");
 
+                    b.Property<string>("ReversaPendiente")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("reversa_pendiente");
+
+                    b.Property<string>("ReversasComprobacion")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("reversas_comprobacion");
+
                     b.Property<int>("RevisionComprobacion")
                         .HasColumnType("integer")
                         .HasColumnName("revision_comprobacion");
@@ -306,6 +315,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateOnly?>("CerradoEn")
+                        .HasColumnType("date")
+                        .HasColumnName("cerrado_en");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -337,6 +350,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("HitoId")
                         .HasColumnType("uuid")
                         .HasColumnName("hito_id");
+
+                    b.Property<string>("MotivoCierre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("motivo_cierre");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -468,6 +486,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<int>("GrupoContable")
+                        .HasColumnType("integer")
+                        .HasColumnName("grupo_contable");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -556,6 +578,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AutorizacionParcialJson")
+                        .HasColumnType("text")
+                        .HasColumnName("autorizacion_parcial_json");
+
                     b.Property<string>("BlGuia")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -591,6 +617,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("estado");
 
+                    b.Property<string>("ExcepcionSinFacturaJson")
+                        .HasColumnType("text")
+                        .HasColumnName("excepcion_sin_factura_json");
+
                     b.Property<Guid>("ExpedienteId")
                         .HasColumnType("uuid")
                         .HasColumnName("expediente_id");
@@ -622,6 +652,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,6)")
                         .HasColumnName("peso_kg");
 
+                    b.Property<DateTimeOffset?>("PreparadoParaFacturarEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("preparado_para_facturar_en");
+
                     b.Property<string>("Ruta")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -652,6 +686,96 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_contenedores_expediente_id");
 
                     b.ToTable("contenedores", "comercio_exterior");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.CorreccionHitoExpediente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<DateTimeOffset>("Fecha")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha");
+
+                    b.Property<DateOnly?>("FechaRealAnterior")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_real_anterior");
+
+                    b.Property<DateOnly?>("FechaRealNueva")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_real_nueva");
+
+                    b.Property<Guid>("HitoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hito_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoAnterior")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_anterior");
+
+                    b.Property<bool>("OmitidoAnterior")
+                        .HasColumnType("boolean")
+                        .HasColumnName("omitido_anterior");
+
+                    b.Property<bool>("OmitidoNuevo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("omitido_nuevo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_correcciones_hitos");
+
+                    b.HasIndex("ExpedienteId")
+                        .HasDatabaseName("ix_correcciones_hitos_expediente_id");
+
+                    b.HasIndex("HitoId", "Fecha")
+                        .HasDatabaseName("ix_correcciones_hitos_hito_id_fecha");
+
+                    b.ToTable("correcciones_hitos", "comercio_exterior");
                 });
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.DistribucionGasto", b =>
@@ -816,7 +940,7 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExpedienteId", "TipoDocumentoId")
                         .IsUnique()
                         .HasDatabaseName("ix_documentos_expediente_id_tipo_documento_id")
-                        .HasFilter("estado = 'Vigente'");
+                        .HasFilter("estado = 'Vigente' AND tipo_documento_id IN ('0000000e-0003-0000-0000-000000000004', '0000000e-0003-0000-0000-00000000000a')");
 
                     b.HasIndex("ExpedienteId", "TipoDocumentoId", "NumeroVersion")
                         .IsUnique()
@@ -1043,6 +1167,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("oc_id");
 
+                    b.PrimitiveCollection<Guid[]>("OrdenesCompraIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("ordenes_compra_ids");
+
                     b.Property<Guid?>("PreparadoPorId")
                         .HasColumnType("uuid")
                         .HasColumnName("preparado_por_id");
@@ -1057,6 +1186,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("referencia");
+
+                    b.PrimitiveCollection<Guid[]>("RequisitosRevisados")
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("requisitos_revisados");
 
                     b.Property<Guid>("ResponsableUsuarioId")
                         .HasColumnType("uuid")
@@ -2904,6 +3037,23 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_contenedores_expedientes_expediente_id");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.CorreccionHitoExpediente", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
+                        .WithMany("CorreccionesHitos")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_correcciones_hitos_expedientes_expediente_id");
+
+                    b.HasOne("Millet.ComercioExterior.Domain.HitoExpediente", null)
+                        .WithMany()
+                        .HasForeignKey("HitoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_correcciones_hitos_hitos_hito_id");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.DistribucionGasto", b =>
                 {
                     b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
@@ -3125,6 +3275,8 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.Navigation("AvisosIncidencias");
 
                     b.Navigation("Contenedores");
+
+                    b.Navigation("CorreccionesHitos");
 
                     b.Navigation("Distribuciones");
 

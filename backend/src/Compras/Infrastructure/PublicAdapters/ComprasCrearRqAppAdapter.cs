@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Almacen.Domain.Ports;
@@ -30,11 +31,82 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
     private readonly IFolioSecuenciaService _folios;
     private readonly IUsuarioServicioReadPort _usuarioServicio;
     private readonly ICurrentEmpresaContext _empresa;
+    private readonly IPublisher _publisher;
+
+    /// <summary>Motivo sembrado «Otro» (texto libre, aplica a cancelación): el texto lleva el motivo que manda la app.</summary>
+    private const string MotivoOtro = "RECH-OTRO";
 
     public ComprasCrearRqAppAdapter(ComprasDbContext db, CompartidoDbContext maestros,
-        IFolioSecuenciaService folios, IUsuarioServicioReadPort usuarioServicio, ICurrentEmpresaContext empresa)
+        IFolioSecuenciaService folios, IUsuarioServicioReadPort usuarioServicio, ICurrentEmpresaContext empresa, IPublisher publisher)
     {
-        _db = db; _maestros = maestros; _folios = folios; _usuarioServicio = usuarioServicio; _empresa = empresa;
+        _db = db; _maestros = maestros; _folios = folios; _usuarioServicio = usuarioServicio; _empresa = empresa; _publisher = publisher;
+    }
+
+    public async Task<AvisoRqAppResultado> CancelarAsync(string folioExterno, string? motivo, CancellationToken ct, string? folioErp = null)
+    {
+        var sp = await _usuarioServicio.ObtenerReordenAsync(ct);
+        if (sp is null || !sp.Activo)
+            return new(null, "El usuario de servicio del ERP no está disponible; no se puede cancelar la requisición.");
+        using var bypass = _empresa.Bypass();
+        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, folioErp, ct);
+        if (rq is null || rq.Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
+            return new(rq?.Folio.Valor, null);
+        var motivoId = await _db.MotivosRechazo.AsNoTracking().Where(m => m.Clave == MotivoOtro && m.Activo)
+            .Select(m => (Guid?)m.Id).FirstOrDefaultAsync(ct);
+        if (motivoId is null) return new(rq.Folio.Valor, $"No existe el motivo {MotivoOtro} para cancelar la requisición.");
+        try
+        {
+            // Mismo agregado y evento que la cancelación de la pantalla; la RQ de la app no tiene apartados ni OC borrador.
+            var evento = rq.Cancelar(motivoId.Value, sp.Id, DateTimeOffset.UtcNow, Texto(motivo));
+            await _publisher.Publish(evento, ct);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return new(rq.Folio.Valor, ex.Message);
+        }
+        await _db.SaveChangesAsync(ct);
+        return new(rq.Folio.Valor, null);
+    }
+
+    public async Task<AvisoRqAppResultado> ReducirAsync(string folioExterno, IReadOnlyList<LineaQuitadaRqApp> lineas, string? motivo, CancellationToken ct,
+        string? folioErp = null)
+    {
+        var sp = await _usuarioServicio.ObtenerReordenAsync(ct);
+        if (sp is null || !sp.Activo)
+            return new(null, "El usuario de servicio del ERP no está disponible; no se puede reducir la requisición.");
+        using var bypass = _empresa.Bypass();
+        var rq = await RqAppAsync(sp.EmpresaId, folioExterno, folioErp, ct);
+        if (rq is null || rq.Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
+            return new(rq?.Folio.Valor, null);
+        try
+        {
+            rq.QuitarDeCompraApp(lineas.Select(l => (l.Posicion, (decimal)l.Piezas)).ToList(), Texto(motivo));
+        }
+        catch (BusinessRuleException ex)
+        {
+            return new(rq.Folio.Valor, ex.Message);
+        }
+        await _db.SaveChangesAsync(ct);
+        return new(rq.Folio.Valor, null);
+    }
+
+    // v9: el aviso trae folioErp (el folio que el ERP acusó); manda sobre el folio de la app. Si no viene, no es un folio válido o no
+    // existe, se busca por el folio de la app como antes.
+    private async Task<Requisicion?> RqAppAsync(Guid empresaId, string folioExterno, string? folioErp, CancellationToken ct)
+    {
+        var app = _db.Requisiciones.Include(r => r.Lineas)
+            .Where(r => r.EmpresaId == empresaId && r.Origen == OrigenRequisicion.AlmacenesApp);
+        Folio? folio = null;
+        try { if (!string.IsNullOrWhiteSpace(folioErp)) folio = Folio.Parse(folioErp.Trim()); }
+        catch (BusinessRuleException) { folio = null; }
+        return (folio is null ? null : await app.FirstOrDefaultAsync(r => r.Folio == folio, ct))
+            ?? await app.FirstOrDefaultAsync(r => r.FolioExterno == folioExterno.Trim(), ct);
+    }
+
+    private static string Texto(string? motivo)
+    {
+        var t = string.IsNullOrWhiteSpace(motivo) ? "App Almacenes" : $"App Almacenes: {motivo.Trim()}";
+        return t.Length > 500 ? t[..500] : t;
     }
 
     public async Task<CrearRqAppResultado> CrearAsync(CrearRqAppSolicitud s, CancellationToken ct)
@@ -53,11 +125,8 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
         if (proveedorId is null)
             return Error($"No existe un proveedor con clave A+W {s.ProveedorClaveAw}.");
 
-        var sucursal = await _maestros.Sucursales.AsNoTracking()
-            .Where(x => x.Clave == s.SucursalCodigo || x.ClaveAw == s.SucursalCodigo)
-            .Select(x => new { x.Id, x.Clave }).FirstOrDefaultAsync(ct);
-        if (sucursal is null)
-            return Error($"No existe la sucursal '{s.SucursalCodigo}'.");
+        var sucursal = await SucursalPorClaveApp.BuscarAsync(_maestros, s.SucursalCodigo, ct);
+        if (!sucursal.Encontrada) return Error(sucursal.Mensaje(s.SucursalCodigo));
 
         var claves = s.Lineas.Select(l => l.ArticuloAw).Distinct().ToList();
         var articulos = await (from a in _maestros.Articulos.AsNoTracking()
@@ -91,12 +160,14 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
                 s.Lineas.Select(l =>
                 {
                     var a = porClave[l.ArticuloAw][0];
-                    return new LineaAppRequisicion(a.Id, l.Piezas, a.UnidadMedidaDefault,
+                    // Las piezas de la app son hojas: en vidrio (M2) la cantidad es piezas × m² de la hoja.
+                    return new LineaAppRequisicion(a.Id,
+                        LineaRequisicion.CantidadDePiezasApp(l.Piezas, l.AnchoMm, l.AltoMm, a.UnidadMedidaDefault), a.UnidadMedidaDefault,
                         Money.Of(a.PrecioReferenciaMonto ?? 0m, a.PrecioReferenciaMoneda ?? "MXN"),
                         l.Piezas, l.AnchoMm, l.AltoMm, s.FechaRequerida,
-                        l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra);
+                        l.Obra is { Length: > 200 } ? l.Obra[..200] : l.Obra, l.Posicion, s.CentroCostoId);
                 }).ToList(),
-                s.Comentario is { Length: > 500 } ? s.Comentario[..500] : s.Comentario);
+                Descripcion(s));
             rq.RegistrarCubrimiento(
                 rq.Lineas.Select(l => new CubrimientoLinea(l.Id, 0, l.Cantidad)).ToList(), DateTimeOffset.UtcNow);
         }
@@ -119,6 +190,18 @@ public sealed class ComprasCrearRqAppAdapter : IComprasCrearRqAppPort
             return new(true, ganador, null);
         }
         return new(false, rq.Folio.Valor, null);
+    }
+
+    /// <summary>
+    /// Comentario de la app más quién autorizó el envío en Almacenes (v11), visible en el detalle de la RQ. La hora es la del envío en
+    /// la zona que manda la app. Máximo 500 caracteres (la columna).
+    /// </summary>
+    public static string? Descripcion(CrearRqAppSolicitud s)
+    {
+        var autorizacion = s.AutorizadaPor is null ? null
+            : $"Autorizó en Almacenes: {s.AutorizadaPor}" + (s.AutorizadaEn is { } en ? $", {en:yyyy-MM-dd HH:mm}" : "");
+        var texto = string.Join(" · ", new[] { s.Comentario, autorizacion }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        return texto.Length == 0 ? null : texto.Length > 500 ? texto[..500] : texto;
     }
 
     private async Task<string?> FolioPrevioAsync(Guid empresaId, string folioExterno, CancellationToken ct)

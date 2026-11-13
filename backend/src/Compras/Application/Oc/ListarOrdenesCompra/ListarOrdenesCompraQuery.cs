@@ -33,7 +33,8 @@ public sealed record ListarOrdenesCompraQuery(
     // sucursal. No busca por nombre de proveedor (usar ProveedorId).
     string? Q = null,
     int Page = 1,
-    int PageSize = 50) : IRequest<ListarOrdenesCompraResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
+    int PageSize = 50,
+    bool? ParaCapturaFactura = null) : IRequest<ListarOrdenesCompraResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {
     public string PermisoTodasSucursales => "compras.ordenes.leer-todas-sucursales";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
@@ -78,6 +79,7 @@ public sealed record OrdenCompraResumen(
     bool? ProveedorConocido = null,
     bool? RequiereNivel2 = null)
 {
+    public bool EsServicioComercioExterior { get; init; }
     // F1-COM-11: solo lo puebla ListarOrdenesCompra; null en las demás proyecciones.
     public EstadoComercialProveedorOc? EstadoComercialProveedor { get; init; }
     public DateOnly? FechaCompromisoProveedor { get; init; }

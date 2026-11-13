@@ -1,3 +1,8 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
+import { useSucursales } from '@/features/catalogos/api';
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
+import { reporteConteo } from '../lib/conteo-impresion';
 import { useState } from 'react';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -22,6 +27,8 @@ import { formatDate, formatDateTime } from '@/lib/datetime';
 import { useConservacion, resultadosConteo, type Conteo, type Pagina } from '../api/conservacion';
 import { useGuardarActivo } from '../api/hooks';
 export function ConteosPage() {
+  const { limit } = useTamanoPagina();
+  const sucursales = useSucursales();
   const [sucursal, setSucursal] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [seleccion, setSeleccion] = useState('');
@@ -37,7 +44,7 @@ export function ConteosPage() {
   const autorizar = useHasPermission(P.ActivosFijosConteosAutorizar);
   const usuario = useAuthStore((s) => s.user);
   const lista = useConservacion<Pagina<Conteo>>(
-    `conteos?offset=${offset}${sucursal ? `&sucursalId=${sucursal}` : ''}`,
+    `conteos?offset=${offset}&limit=${limit}${sucursal ? `&sucursalId=${sucursal}` : ''}`,
   );
   const detalle = useConservacion<Conteo>(`conteos/${seleccion}`, !!seleccion);
   const guardar = useGuardarActivo();
@@ -90,9 +97,15 @@ export function ConteosPage() {
               Volver a conteos
             </Button>
             {c.cerradoEn && (
-              <Button variant="outline" onClick={() => window.print()}>
+              <ImprimirReporteButton
+                variant="outline"
+                reporte={reporteConteo(
+                  c,
+                  sucursales.data?.items.find((s) => s.id === c.sucursalId)?.nombre ?? c.sucursalId,
+                )}
+              >
                 Imprimir reporte
-              </Button>
+              </ImprimirReporteButton>
             )}
           </div>
           <SucursalSelector value={c.sucursalId} onChange={() => {}} disabled />
@@ -228,7 +241,7 @@ export function ConteosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {partidas.slice(pagina * 10, pagina * 10 + 10).map((p) => (
+              {partidas.slice(pagina * limit, pagina * limit + limit).map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
                     <span className="font-mono">{p.numero ?? 'Sin número'}</span>
@@ -313,24 +326,12 @@ export function ConteosPage() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex gap-2" data-print="hidden">
-            <Button
-              variant="outline"
-              disabled={pagina === 0}
-              title="Página anterior"
-              onClick={() => setPagina(pagina - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              disabled={(pagina + 1) * 10 >= partidas.length}
-              title="Página siguiente"
-              onClick={() => setPagina(pagina + 1)}
-            >
-              Siguiente
-            </Button>
-          </div>
+          <PaginacionTabla
+            total={partidas.length}
+            offset={pagina * limit}
+            limit={limit}
+            onChange={(offset) => setPagina(offset / limit)}
+          />
           {diferencia && (
             <form
               className="space-y-3"
@@ -377,27 +378,12 @@ export function ConteosPage() {
             </div>
           }
           pie={
-            <div className="flex items-center justify-between p-3">
-              <span>{lista.data?.total ?? 0} conteos</span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={offset === 0}
-                  title="Página anterior"
-                  onClick={() => setOffset(offset - 10)}
-                >
-                  Anterior
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={offset + 10 >= (lista.data?.total ?? 0)}
-                  title="Página siguiente"
-                  onClick={() => setOffset(offset + 10)}
-                >
-                  Siguiente
-                </Button>
-              </div>
-            </div>
+            <PaginacionTabla
+              total={lista.data?.total ?? 0}
+              offset={offset}
+              limit={limit}
+              onChange={setOffset}
+            />
           }
         >
           {lista.isPending ? (

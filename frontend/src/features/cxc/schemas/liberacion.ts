@@ -31,11 +31,13 @@ export const NuevaAutorizacionSchema = z.object({
     .string()
     .min(1, 'Indica el folio del pedido')
     .max(80, 'Máximo 80 caracteres'),
-  vigenciaHoras: z
-    .number()
-    .int('Horas enteras')
-    .min(1, 'Mínimo 1 hora')
-    .max(24, 'Máximo 24 horas'),
+  /** M-239: condición excepcional (1 cobertura parcial, 2 serie que no libera, 3 bloqueo por vencimiento). */
+  condicion: z.number().int().min(1, 'Elige la condición').max(3, 'Elige la condición'),
+  /** M-239: monto que cubre la excepción; limita lo que se libera. */
+  montoAutorizado: z.number({ message: 'Indica el monto' }).positive('El monto debe ser mayor a cero'),
+  moneda: z.string().length(3, 'Moneda de 3 letras'),
+  /** M-239: el máximo sale de configuración; el servidor lo valida. */
+  vigenciaHoras: z.number().int('Horas enteras').min(1, 'Mínimo 1 hora'),
 });
 
 export type NuevaAutorizacionValues = z.infer<typeof NuevaAutorizacionSchema>;
@@ -59,3 +61,21 @@ export type AutorizarPendienteValues = z.infer<typeof AutorizarPendienteSchema>;
 export const RechazarPendienteSchema = AutorizarPendienteSchema;
 
 export type RechazarPendienteValues = z.infer<typeof RechazarPendienteSchema>;
+
+/** M-238: corregir y reevaluar un pedido retenido. Espejo de <c>ReevaluarLiberacionRetenidaValidator</c>. */
+export const CorregirReevaluarSchema = z
+  .object({
+    tipo: z.number().int().min(1, 'Elige qué se corrigió').max(3, 'Elige qué se corrigió'),
+    detalle: z
+      .string()
+      .trim()
+      .min(5, 'Indica qué se corrigió y por qué (mínimo 5 caracteres)')
+      .max(254, 'Máximo 254 caracteres'),
+    clienteIdCorregido: z.string().optional(),
+  })
+  .refine((v) => v.tipo !== 1 || !!v.clienteIdCorregido, {
+    path: ['clienteIdCorregido'],
+    message: 'Selecciona el cliente correcto',
+  });
+
+export type CorregirReevaluarValues = z.infer<typeof CorregirReevaluarSchema>;

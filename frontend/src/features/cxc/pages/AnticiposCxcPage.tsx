@@ -29,8 +29,7 @@ import { Label } from '@/components/ui/label';
 import { useAplicacionesAnticipo } from '@/features/cxc/api/useCartera';
 import type {
   AnticipoConAplicacionesItem,
-  AplicacionAnticipoItem,
-} from '@/features/cxc/api/types';
+  AplicacionAnticipoItem } from '@/features/cxc/api/types';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AnticiposCxcSearch } from '@/features/cxc/lib/cartera-search-schema';
@@ -140,11 +139,10 @@ export function AnticiposCxcPage() {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={items.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
         }

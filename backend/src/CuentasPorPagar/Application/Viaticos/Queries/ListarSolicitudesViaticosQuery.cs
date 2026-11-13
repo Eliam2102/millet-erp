@@ -138,7 +138,10 @@ public sealed class ListarSolicitudesViaticosHandler
                 s.Id, s.EmpleadoId, s.JefeDirectoId,
                 s.Destino, s.FechaSalida, s.FechaRegreso,
                 s.MontoSolicitado, s.TopePoliticaSnapshot, s.ExcedePolitica,
-                s.Estado, s.MontoComprobado, s.DiferenciaLiquidacion,
+                s.Estado,
+                // O2 (M-449): las capturadas antes de este cambio no tienen el monto guardado; se toma de sus líneas (null sin líneas).
+                s.MontoComprobado ?? s.Lineas.Sum(l => (decimal?)l.Total),
+                s.DiferenciaLiquidacion,
                 s.FechaSolicitud, s.Version, null, null, s.Moneda))
             .ToListAsync(cancellationToken);
 

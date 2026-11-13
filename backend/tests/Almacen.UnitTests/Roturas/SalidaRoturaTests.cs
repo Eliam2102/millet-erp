@@ -42,8 +42,9 @@ public class SalidaRoturaTests
         return db;
     }
 
-    private CapturarRoturaApp Captura(decimal cantidad = 2m, DateOnly? fecha = null, string motivo = "rotura_rack", string? comentario = null) =>
-        new(_ubi, Vidrio, cantidad, fecha ?? Hoy, motivo, comentario);
+    private CapturarRoturaApp Captura(decimal cantidad = 2m, DateOnly? fecha = null, string motivo = "rotura_rack", string? comentario = null,
+        string? evidencia = "almacen/rotura-hoja-6mm.jpg") =>
+        new(_ubi, Vidrio, cantidad, fecha ?? Hoy, motivo, comentario, evidencia);
 
     private static Task<SalidaRotura> Capturar(AlmacenDbContext db, CapturarRoturaApp c, bool periodoAbierto = true) =>
         SalidaRoturaApp.CapturarAsync(db, new PeriodoContableStub(periodoAbierto), new Decimales(), new Articulos(), EmpresaId, Almacenista, c, default);
@@ -202,6 +203,19 @@ public class SalidaRoturaTests
         var act = () => Capturar(db, Captura(motivo: motivo, comentario: comentario));
 
         (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be(codigo);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    public async Task M223_sin_evidencia_la_rotura_no_se_captura(string? evidencia)
+    {
+        var db = Db();
+
+        var act = () => Capturar(db, Captura(evidencia: evidencia));
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ROTURA_SIN_EVIDENCIA");
+        db.ChangeTracker.Entries<SalidaRotura>().Should().BeEmpty();
     }
 
     [Fact]

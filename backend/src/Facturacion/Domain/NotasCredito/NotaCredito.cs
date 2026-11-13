@@ -182,6 +182,48 @@ public sealed class NotaCredito : Comprobante
     public Guid? AutorizadaPorId { get; private set; }
     public DateTimeOffset? AutorizadaEn { get; private set; }
 
+    /// <summary>M-087: firma del gerente (autorizar) en una nota que también requiere a Crédito y Cobranza.</summary>
+    public Guid? FirmaGerentePorId { get; private set; }
+    public DateTimeOffset? FirmaGerenteEn { get; private set; }
+
+    /// <summary>M-087: firma de Crédito y Cobranza, requerida arriba del umbral de la segunda firma.</summary>
+    public Guid? FirmaCreditoPorId { get; private set; }
+    public DateTimeOffset? FirmaCreditoEn { get; private set; }
+
+    /// <summary>
+    /// M-087: firma del gerente en una nota de A+W «Por autorizar» que requiere dos firmas. Quien ya firmó por
+    /// Crédito y Cobranza no puede firmar también como gerente.
+    /// </summary>
+    public void RegistrarFirmaGerente(Guid? usuarioId, DateTimeOffset ahora)
+    {
+        ExigirPorAutorizar();
+        if (usuarioId is not null && usuarioId == FirmaCreditoPorId)
+            throw new BusinessRuleException("NC_FIRMA_MISMA_PERSONA",
+                "Quien firmó por Crédito y Cobranza no puede firmar también como gerente; firma otra persona.");
+        FirmaGerentePorId = usuarioId;
+        FirmaGerenteEn = ahora;
+    }
+
+    /// <summary>M-087: firma de Crédito y Cobranza; distinta de la del gerente.</summary>
+    public void RegistrarFirmaCredito(Guid? usuarioId, DateTimeOffset ahora)
+    {
+        ExigirPorAutorizar();
+        if (FirmaCreditoPorId is not null)
+            throw new BusinessRuleException("NC_FIRMA_CREDITO_YA_REGISTRADA", "Crédito y Cobranza ya firmó esta nota de crédito.");
+        if (usuarioId is not null && usuarioId == FirmaGerentePorId)
+            throw new BusinessRuleException("NC_FIRMA_MISMA_PERSONA",
+                "Quien firmó como gerente no puede firmar también por Crédito y Cobranza; firma otra persona.");
+        FirmaCreditoPorId = usuarioId;
+        FirmaCreditoEn = ahora;
+    }
+
+    private void ExigirPorAutorizar()
+    {
+        if (Estado != EstadoTimbrado.PorAutorizar)
+            throw new BusinessRuleException("NC_NO_POR_AUTORIZAR",
+                $"Solo una nota de crédito Por autorizar puede firmarse (estado actual: {Estado}).");
+    }
+
     /// <summary>
     /// <see cref="EstadoTimbrado.PorAutorizar"/> → <see cref="EstadoTimbrado.Borrador"/>: queda lista para timbrar.
     /// Solo notas de A+W (las del ERP nacen Borrador).
@@ -382,8 +424,12 @@ public sealed class NotaCredito : Comprobante
         Guid facturaRelacionadaId,
         decimal montoTotal,
         decimal? tasaIva,
-        string? descripcion)
+        string? descripcion,
+        MotivoNotaCredito motivo = MotivoNotaCredito.Bonificacion)
     {
+        // M-352: la devolución de producto terminado usa el mismo camino que la bonificación, con su motivo (relación 03, afecta inventario).
+        if (motivo is not (MotivoNotaCredito.Bonificacion or MotivoNotaCredito.Devolucion))
+            throw new BusinessRuleException("NC_MOTIVO_INVALIDO", "Solo bonificación o devolución.");
         if (montoTotal <= 0)
             throw new BusinessRuleException("NC_MONTO_INVALIDO", "El monto de la nota de crédito debe ser mayor que cero.");
 
@@ -403,14 +449,16 @@ public sealed class NotaCredito : Comprobante
             periodoAnio: periodoAnio,
             periodoMes: periodoMes,
             canalVentaId: canalVentaId,
-            motivo: MotivoNotaCredito.Bonificacion,
+            motivo: motivo,
             anticipoOrigenId: null,
             facturaRelacionadaId: facturaRelacionadaId,
             claveProdServSat: "84111506",
             claveUnidadSat: "ACT",
-            descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Bonificación" : descripcion!);
+            descripcion: string.IsNullOrWhiteSpace(descripcion) ? (motivo == MotivoNotaCredito.Devolucion ? "Devolución" : "Bonificación") : descripcion!);
 
         DesglosarTotales(nc, montoTotal, tasaIva);
+        if (motivo == MotivoNotaCredito.Devolucion)
+            nc.ImporteAfectaInventario = nc.Subtotal;
         return nc;
     }
 

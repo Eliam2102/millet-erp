@@ -39,6 +39,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
     /// <summary>Cuentas bancarias propias — master data del módulo; CRUD propio [TES-7 revisada], seed script solo bootstrap.</summary>
     public DbSet<CuentaBancaria> CuentasBancarias => Set<CuentaBancaria>();
+    public DbSet<SolicitudCuentaBancaria> SolicitudesCuentaBancaria => Set<SolicitudCuentaBancaria>();
 
     /// <summary>Catálogo de conceptos con clasificación de flujo — seed provisional (§5.2).</summary>
     public DbSet<ConceptoMovimiento> ConceptosMovimiento => Set<ConceptoMovimiento>();
@@ -51,6 +52,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
     /// <summary>Aplicaciones movimiento↔pasivo; el Id es el PagoId del evento <c>aplicado.v1</c> (PR-4).</summary>
     public DbSet<AplicacionPagoProveedor> AplicacionesPagoProveedor => Set<AplicacionPagoProveedor>();
+    public DbSet<Millet.Tesoreria.Domain.Pasivos.AutorizacionRedondeoPago> AutorizacionesRedondeoPago => Set<Millet.Tesoreria.Domain.Pasivos.AutorizacionRedondeoPago>();
 
     /// <summary>Proyección de pasivos autorizados por CxP — solo mutada por listener y aplicaciones (PR-3).</summary>
     public DbSet<PasivoPendientePago> PasivosPendientesPago => Set<PasivoPendientePago>();
@@ -86,6 +88,9 @@ public sealed class TesoreriaDbContext : BaseDbContext
     public DbSet<ExtractoLineaMatch> ExtractoLineaMatches => Set<ExtractoLineaMatch>();
     public DbSet<BitacoraConciliacion> BitacorasConciliacion => Set<BitacoraConciliacion>();
 
+    /// <summary>M-372: cheques de cliente recibidos (en firme pendiente → disponible / rebotado).</summary>
+    public DbSet<Millet.Tesoreria.Domain.Cheques.ChequeRecibido> ChequesRecibidos => Set<Millet.Tesoreria.Domain.Cheques.ChequeRecibido>();
+
     /// <summary>Marcas de idempotencia para integration events consumidos (PR-3/PR-7).</summary>
     public DbSet<EventoProcesado> EventosProcesados => Set<EventoProcesado>();
 
@@ -105,9 +110,12 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CuentaBancariaConfiguration());
+        modelBuilder.ApplyConfiguration(new SolicitudCuentaBancariaConfiguration());
+        modelBuilder.ApplyConfiguration(new PartidaTransitoLibroConfiguration());
         modelBuilder.ApplyConfiguration(new ConceptoMovimientoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoBancarioConfiguration());
         modelBuilder.ApplyConfiguration(new AplicacionPagoProveedorConfiguration());
+        modelBuilder.ApplyConfiguration(new AutorizacionRedondeoPagoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimientoReclasificacionConfiguration());
         modelBuilder.ApplyConfiguration(new PasivoPendientePagoConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionPagoComercioExteriorConfiguration());
@@ -130,6 +138,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new ExtractoLineaConfiguration());
         modelBuilder.ApplyConfiguration(new ExtractoLineaMatchConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraConciliacionConfiguration());
+        modelBuilder.ApplyConfiguration(new ChequeRecibidoConfiguration());
         modelBuilder.Entity<ReppPagoProveedor>(b =>
         {
             b.ToTable("repp_pagos_proveedor"); b.HasKey(x => x.Id); b.Property(x => x.Id).ValueGeneratedNever();

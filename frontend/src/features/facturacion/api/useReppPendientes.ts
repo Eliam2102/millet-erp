@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 
 export type EstadoPendiente = 'Pendiente' | 'Emitido' | 'Descartado';
@@ -66,12 +66,14 @@ export interface EmisionPendiente {
 const BASE = '/api/v1/facturacion/repp/pendientes';
 const KEY = ['facturacion', 'repp-pendientes'] as const;
 
-export function useReppPendientes(estado: EstadoPendiente | '', indicador: string, offset: number) {
+export function useReppPendientes(estado: EstadoPendiente | '', indicador: string, offset: number, q = '', limit = 10) {
   return useQuery({
-    queryKey: [...KEY, 'lista', estado, indicador, offset],
+    queryKey: [...KEY, 'lista', estado, indicador, offset, q, limit],
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams({ indicador, offset: String(offset), limit: '10' });
+      const params = new URLSearchParams({ indicador, offset: String(offset), limit: String(limit) });
       if (estado) params.set('estado', estado);
+      if (q) params.set('q', q);
       return (await apiRequest<PendientesResponse>(`${BASE}?${params}`, { signal })).data;
     },
   });

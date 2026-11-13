@@ -34,7 +34,7 @@ public sealed partial class ListenersContabilidadTests
 {
     private const int EventosCarga = 25_000;
     private const int EventosPorCiclo = 10;
-    private const int PolizasPorCiclo = 8;
+    private const int PolizasPorCiclo = 9;
 
     [CargaContableFact]
     public async Task CA10_15_un_mes_con_25000_eventos_genera_todas_las_polizas_y_la_balanza_cuadra()
@@ -92,7 +92,7 @@ public sealed partial class ListenersContabilidadTests
         finally { await LimpiarAsync(e); }
     }
 
-    /// <summary>10 eventos, 8 pólizas (EM, TT, PP, RF, PR tarjeta, PR liquidación del efectivo, SM, RF a crédito).</summary>
+    /// <summary>10 eventos, 9 pólizas (EM, TT, PP, RF, PR tarjeta, dos PR de efectivo al cerrar la sesión, SM, RF a crédito).</summary>
     private async Task CicloCargaAsync(Escenario e, Guid cliente)
     {
         var oc = Guid.NewGuid();

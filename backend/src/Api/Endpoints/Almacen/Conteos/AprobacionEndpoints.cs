@@ -103,12 +103,24 @@ public static class AprobacionEndpoints
         .WithName("RechazarConteo")
         .Produces(StatusCodes.Status204NoContent);
 
-        // POST /{id}/aplicar — genera ajustes en batch.
-        app.MapPost("/api/v1/almacen/conteos/{id:guid}/aplicar", async (
+        // M-450 (86e3zr7ft): GET /{id}/dimensiones — si la cuenta del ajuste exige área o equipo (regla C-03) en la sucursal del conteo.
+        app.MapGet("/api/v1/almacen/conteos/{id:guid}/dimensiones", async (
             Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
             await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
-            var response = await mediator.Send(new AplicarConteoCommand(id), ct);
+            return Results.Ok(await mediator.Send(new DimensionesConteoQuery(id), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosAprobarNivel1)
+        .WithTags("Almacen")
+        .WithName("DimensionesConteo")
+        .Produces<DimensionesConteoResponse>(StatusCodes.Status200OK);
+
+        // POST /{id}/aplicar — genera ajustes en batch. M-450: el cuerpo (opcional) lleva el área y el equipo del ajuste.
+        app.MapPost("/api/v1/almacen/conteos/{id:guid}/aplicar", async (
+            Guid id, AplicarConteoRequest? req, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            var response = await mediator.Send(new AplicarConteoCommand(id, req?.AreaClave, req?.EquipoClave), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosAprobarNivel1)
@@ -118,10 +130,28 @@ public static class AprobacionEndpoints
         .WithSummary("Aplica el conteo aprobado: genera movimientos AjustePositivo/AjusteNegativo en batch + publica AjusteInventarioAplicadoEvent")
         .Produces<AplicarConteoResponse>(StatusCodes.Status200OK);
 
+        // M-224: acta del conteo aplicado (PDF dibujado al momento con lo guardado en la conciliación final).
+        app.MapGet("/api/v1/almacen/conteos/{id:guid}/acta", async (
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, HttpResponse response, CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            var pdf = await mediator.Send(new Millet.Almacen.Application.Conteos.Pdf.ActaConteoPdfQuery(id), ct);
+            if (pdf is null) return Results.NotFound();
+            response.Headers.CacheControl = "no-store";
+            return Results.File(pdf.Contenido, "application/pdf", pdf.NombreArchivo);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosAprobarNivel1)
+        .WithTags("Almacen")
+        .WithName("ActaConteo")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .Produces(StatusCodes.Status404NotFound);
+
         return app;
     }
 }
 
 public sealed record AgregarRecuentoRequest(decimal CantidadRecontada);
+/// <summary>M-450 (86e3zr7ft): claves del área y del equipo a los que va el ajuste del conteo.</summary>
+public sealed record AplicarConteoRequest(string? AreaClave, string? EquipoClave);
 public sealed record AprobarLineaRequest(string Justificacion);
 public sealed record RechazarConteoRequest(string Motivo);

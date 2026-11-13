@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -56,6 +57,21 @@ internal sealed class PtDatos(WebApplicationFactory<Program> factory)
         var client = factory.CreateClientWithIdempotency();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
         return client;
+    }
+
+    /// <summary>
+    /// Reglas de salida (Millet, 9-nov): otra persona autoriza la hoja sin factura (Administración) y, si sale incompleta, la parcialidad (Crédito).
+    /// Los pedidos de prueba no tienen factura timbrada; una autorización innecesaria responde 422 y se ignora.
+    /// </summary>
+    public async Task AutorizarSalidaAsync(Guid hojaId, Guid sucursal)
+    {
+        using var aprobador = await ClienteAsync([PermisosCanonicos.ProductoTerminadoPiezasVer, PermisosCanonicos.ProductoTerminadoSalidaAprobarAdministracion,
+            PermisosCanonicos.ProductoTerminadoSalidaAprobarCredito], sucursal);
+        foreach (var nivel in new[] { "administracion", "credito" })
+        {
+            var r = await aprobador.PostAsJsonAsync($"/api/v1/producto-terminado/hojas-salida/{hojaId}/autorizar", new { nivel, motivo = "PT-INT autorización de prueba" });
+            Assert.True(r.IsSuccessStatusCode || r.StatusCode == System.Net.HttpStatusCode.UnprocessableEntity, await r.Content.ReadAsStringAsync());
+        }
     }
 
     /// <summary>Pedido local de PT con una posición de <paramref name="esperadas"/> piezas.</summary>

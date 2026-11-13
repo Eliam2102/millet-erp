@@ -191,6 +191,7 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesGestionar: 'datos_maestros.clientes.gestionar',
   // Sincronización de clientes desde A+W (F1-ADM-06).
   DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
+  IntegracionesAwAdministracionConfiguracion: 'integraciones.aw.administracion.configuracion',
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
   DatosMaestrosClientesUnificar: 'datos_maestros.clientes.unificar',
@@ -257,6 +258,7 @@ export const PermisosCanonicos = {
 
   AlmacenDevolucionesInternasLeer: 'almacen.devoluciones-internas.leer',
   AlmacenDevolucionesInternasCapturar: 'almacen.devoluciones-internas.capturar',
+  AlmacenCorreccionesConsumoAutorizar: 'almacen.correcciones-consumo.autorizar',
   AlmacenDevolucionesProveedorIniciar: 'almacen.devoluciones-proveedor.iniciar',
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
   AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
@@ -281,6 +283,7 @@ export const PermisosCanonicos = {
   AlmacenReportesMpCnk: 'almacen.reportes.mp-cnk',
   AlmacenReportesMovimientos: 'almacen.reportes.movimientos',
   AlmacenCierreMesEjecutar: 'almacen.cierre-mes.ejecutar',
+  AlmacenCierreMesGestionarTodasSucursales: 'almacen.cierre-mes.gestionar-todas-sucursales',
   AlmacenLecturaTotal: 'almacen.lectura.total',
   AlmacenReservasAdministrar: 'almacen.reservas.administrar',
   // Reabasto / reorden N1-N2 (ADR-0047 PR5.A). UI = "Reabasto", código = reorden.
@@ -300,6 +303,7 @@ export const PermisosCanonicos = {
   CuentasPorPagarFacturasCapturar: 'cuentas_por_pagar.facturas.capturar',
   CuentasPorPagarFacturasEditar: 'cuentas_por_pagar.facturas.editar',
   CuentasPorPagarFacturasCancelar: 'cuentas_por_pagar.facturas.cancelar',
+  CuentasPorPagarCfdiAceptarCancelacionPagada: 'cuentas_por_pagar.cfdi.aceptar-cancelacion-pagada',
   CuentasPorPagarFacturasEnviarRevision:
     'cuentas_por_pagar.facturas.enviar-revision',
   CuentasPorPagarFacturasLiberarRevision:
@@ -386,12 +390,16 @@ export const PermisosCanonicos = {
     'cuentas_por_cobrar.lineas-credito.gestionar',
   CuentasPorCobrarLiberacionDecidir: 'cuentas_por_cobrar.liberacion.decidir',
   CuentasPorCobrarLiberacionOverride: 'cuentas_por_cobrar.liberacion.override',
+  CuentasPorCobrarLiberacionOverrideDireccion: 'cuentas_por_cobrar.liberacion.override-direccion',
   CuentasPorCobrarCobranzaRegistrar: 'cuentas_por_cobrar.cobranza.registrar',
   CuentasPorCobrarCarteraLeer: 'cuentas_por_cobrar.cartera.leer',
   CuentasPorCobrarAplicacionPagoProponer:
     'cuentas_por_cobrar.aplicacion-pago.proponer',
   CuentasPorCobrarAplicacionPagoConfirmar:
     'cuentas_por_cobrar.aplicacion-pago.confirmar',
+  // M-326: autorizar o rechazar el redondeo (hasta $0.99) de un cobro; lo tiene el Gerente de Área.
+  CuentasPorCobrarAplicacionPagoAutorizarRedondeo:
+    'cuentas_por_cobrar.aplicacion-pago.autorizar-redondeo',
   // C7.2 (86e3kdxy6): administrar reglas de liberación por serie.
   CuentasPorCobrarReglasSerieGestionar: 'cuentas_por_cobrar.reglas-serie.gestionar',
   // C7.7 (86e3jvv4q): conciliar la cartera a demanda.
@@ -426,6 +434,11 @@ export const PermisosCanonicos = {
   TesoreriaReppRegistrar: 'tesoreria.repp.registrar',
   TesoreriaConciliacionOperar: 'tesoreria.conciliacion.operar',
   TesoreriaConciliacionCerrar: 'tesoreria.conciliacion.cerrar',
+  // M-199 / M-201 / M-202: autorización de cuentas, visto bueno de conciliación, reapertura y partidas en tránsito.
+  TesoreriaCuentasAutorizar: 'tesoreria.cuentas.autorizar',
+  TesoreriaConciliacionRevisar: 'tesoreria.conciliacion.revisar',
+  TesoreriaConciliacionReabrir: 'tesoreria.conciliacion.reabrir',
+  TesoreriaConciliacionAutorizarTransito: 'tesoreria.conciliacion.autorizar-transito',
   TesoreriaPasivosSolicitarCancelacion:
     'tesoreria.pasivos.solicitar-cancelacion',
   TesoreriaPasivosVer: 'tesoreria.pasivos.ver',
@@ -469,6 +482,8 @@ export const PermisosCanonicos = {
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
   FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
   FacturacionNotasCreditoAutorizar: 'facturacion.notas-credito.autorizar',
+  // M-087: segunda firma (Crédito y Cobranza) de las NC de A+W arriba del umbral.
+  FacturacionNotasCreditoAutorizarCredito: 'facturacion.notas-credito.autorizar-credito',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',
@@ -489,6 +504,8 @@ export const PermisosCanonicos = {
   FacturacionComprobantesReintentarTimbrado:
     'facturacion.comprobantes.reintentar-timbrado',
   FacturacionComprobantesDescartar: 'facturacion.comprobantes.descartar',
+  // M-284: adoptar el CFDI que el PAC sí timbró (XML del portal).
+  FacturacionComprobantesAdoptarCfdi: 'facturacion.comprobantes.adoptar-cfdi',
 
   // Centros de Costo (backend CECO-PR1, renombre dim3.leer-todos en
   // CECO-PR4; FE desde CECO-FE-PR1). OJO: namespace snake
@@ -517,11 +534,16 @@ export const PermisosCanonicos = {
   ContabilidadCierreConfigurar: 'contabilidad.cierre.configurar',
   ContabilidadCierreAutorizarExcepcion: 'contabilidad.cierre.autorizar-excepcion',
   ContabilidadCierreAnual: 'contabilidad.cierre.anual',
+  /** M-209 (CA4): recalcular el IVA de una factura de proveedor contra su XML (póliza de ajuste). */
+  ContabilidadIvaCorregirDocumento: 'contabilidad.iva.corregir-documento',
   // Pólizas (F1-CON-04): captura (analista), autorización (supervisor, distinto de quien capturó) y anulación con motivo.
   ContabilidadPolizasLeer: 'contabilidad.polizas.leer',
   ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',
   ContabilidadPolizasAutorizar: 'contabilidad.polizas.autorizar',
+  /** M-212: solicitar la anulación (la aprueba otra persona con el permiso siguiente). */
   ContabilidadPolizasAnular: 'contabilidad.polizas.anular',
+  /** M-212: aprobar o rechazar la anulación solicitada por otra persona (segunda firma). */
+  ContabilidadPolizasAnularAprobar: 'contabilidad.polizas.anular-aprobar',
   // K10.4: pólizas recurrentes (0000000d-0006). `administrar` prepara, suspende, reanuda y genera; `autorizar` activa
   // (no quien la preparó).
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
@@ -531,11 +553,24 @@ export const PermisosCanonicos = {
   ContabilidadMotorLeer: 'contabilidad.motor.leer',
   ContabilidadRolesCuentaAdministrar: 'contabilidad.roles-cuenta.administrar',
   ContabilidadRechazosGestionar: 'contabilidad.rechazos.gestionar',
+  // M-207: autorizar el TC sustituto de un rechazo del motor (otra persona que quien lo capturó).
+  ContabilidadTipoCambioAutorizarSustituto: 'contabilidad.tipo-cambio.autorizar-sustituto',
+  ComercioExteriorEmbarquesCredito: 'comercio_exterior.embarques.aprobar-credito',
+  ComercioExteriorEmbarquesVentas: 'comercio_exterior.embarques.aprobar-ventas',
+  ComercioExteriorEmbarquesAdministracion: 'comercio_exterior.embarques.aprobar-administracion',
+  ComercioExteriorEmbarquesPlaneacion: 'comercio_exterior.embarques.aprobar-planeacion',
+  ComercioExteriorEmbarquesContraloria: 'comercio_exterior.embarques.aprobar-contraloria',
   ComercioExteriorEmbarquesAutorizarSalida: 'comercio_exterior.embarques.autorizar_salida',
   ComercioExteriorExpedientesAprobarCierre: 'comercio_exterior.expedientes.aprobar_cierre',
   ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',
   ComercioExteriorGastosDistribuir: 'comercio_exterior.gastos.distribuir',
   ComercioExteriorAnticiposGestionar: 'comercio_exterior.anticipos.gestionar',
+  ComercioExteriorAnticiposRevertirComprobacionSolicitar:
+    'comercio_exterior.anticipos.revertir-comprobacion-solicitar',
+  ComercioExteriorAnticiposRevertirComprobacionAutorizar:
+    'comercio_exterior.anticipos.revertir-comprobacion-autorizar',
+  ComercioExteriorServiciosAutorizarNivel1: 'comercio_exterior.servicios.autorizar-nivel1',
+  ComercioExteriorServiciosAutorizarNivel2: 'comercio_exterior.servicios.autorizar-nivel2',
   ComercioExteriorOtrGestionar: 'comercio_exterior.otr.gestionar',
   ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
   ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',
@@ -546,6 +581,7 @@ export const PermisosCanonicos = {
   ComercioExteriorIncidenciasGestionar: 'comercio_exterior.incidencias.gestionar',
   ComercioExteriorExpedientesCerrar: 'comercio_exterior.expedientes.cerrar',
   ComercioExteriorExpedientesHitosRegistrar: 'comercio_exterior.expedientes.hitos-registrar',
+  ComercioExteriorExpedientesHitosCorregir: 'comercio_exterior.expedientes.hitos-corregir',
   ComercioExteriorExpedientesDocumentosRevisar: 'comercio_exterior.expedientes.documentos-revisar',
   ComercioExteriorExpedientesAdjuntosVer: 'comercio_exterior.expedientes.adjuntos-ver',
   ComercioExteriorExpedientesAdjuntosSubir: 'comercio_exterior.expedientes.adjuntos-subir',
@@ -556,6 +592,14 @@ export const PermisosCanonicos = {
   ProductoTerminadoPiezasVerTodasSucursales: 'producto_terminado.piezas.ver-todas-sucursales',
   ProductoTerminadoExcepcionesGestionar: 'producto_terminado.excepciones.gestionar',
   ProductoTerminadoExcepcionesGestionarTodasSucursales: 'producto_terminado.excepciones.gestionar-todas-sucursales',
+  ProductoTerminadoSalidaAprobarAdministracion: 'producto_terminado.salida.aprobar-administracion',
+  ProductoTerminadoSalidaAprobarPlaneacion: 'producto_terminado.salida.aprobar-planeacion',
+  ProductoTerminadoSalidaAprobarContraloria: 'producto_terminado.salida.aprobar-contraloria',
+  ProductoTerminadoSalidaAprobarCredito: 'producto_terminado.salida.aprobar-credito',
+  ProductoTerminadoSalidaAprobarVentas: 'producto_terminado.salida.aprobar-ventas',
+  ProductoTerminadoSalidaCancelarEmitida: 'producto_terminado.salida.cancelar-emitida',
+  ProductoTerminadoCalidadDictaminar: 'producto_terminado.calidad.dictaminar',
+  CompartidoTramosGestionar: 'compartido.tramos.gestionar',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

@@ -6,6 +6,7 @@ using Millet.Contabilidad.Application.Polizas;
 using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Contabilidad.Application.Iva;
@@ -28,8 +29,11 @@ public sealed record DocumentoLiquidacionIva(Guid SaldoId, LadoIva Lado, string 
     string? MetodoPago, DateOnly Fecha, string Moneda, decimal Base, decimal Iva, decimal AplicadoMes, decimal IvaMes, decimal IvaRetenidoMes,
     decimal IvaPendiente, decimal Saldo, bool Completo, IReadOnlyList<string> Motivos);
 
+/// <summary>M-209 (CON-07-01): base e IVA pagados o cobrados en el mes por lado y tratamiento (TASA16, TASA8, EXENTO…), en MXN.</summary>
+public sealed record BaseTratamientoIva(LadoIva Lado, string Tratamiento, decimal Base, decimal Iva);
+
 public sealed record LiquidacionIvaResponse(int Anio, int Mes, ResumenLiquidacionIva Resumen, IReadOnlyList<CuadreRolIva> Cuadre, bool Cuadra,
-    IReadOnlyList<DocumentoLiquidacionIva> Documentos, int Pendientes);
+    IReadOnlyList<DocumentoLiquidacionIva> Documentos, int Pendientes, IReadOnlyList<BaseTratamientoIva>? Tratamientos = null);
 
 public sealed record LiquidacionIvaQuery(int Anio, int Mes) : IRequest<LiquidacionIvaResponse>;
 
@@ -55,7 +59,8 @@ public sealed class GenerarPolizaLiquidacionIvaValidator : AbstractValidator<Gen
     }
 }
 
-public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimientoIvaReadPort cumplimiento, IMediator mediator)
+public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimientoIvaReadPort cumplimiento, IMediator mediator,
+    ICurrentUserContext usuario, IClock clock)
     : IRequestHandler<LiquidacionIvaQuery, LiquidacionIvaResponse>,
       IRequestHandler<GenerarPolizaLiquidacionIvaCommand, PolizaResponse>
 {
@@ -72,7 +77,7 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         var ct = cancellationToken;
         var (desde, hasta) = Mes(q.Anio, q.Mes);
         var movimientos = await db.ReclasificacionesIva.AsNoTracking()
-            .Where(r => r.Tipo == TipoMovimientoIva.Pago && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
+            .Where(r => (r.Tipo == TipoMovimientoIva.Pago || r.Tipo == TipoMovimientoIva.Ajuste) && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
             .ToListAsync(ct);
         var ids = movimientos.Select(r => r.SaldoIvaDocumentoId).Distinct().ToList();
         var saldos = await db.SaldosIvaDocumento.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id, ct);
@@ -87,7 +92,8 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         };
 
         var documentos = await DocumentosAsync(movimientos, saldos, ct);
-        return new(q.Anio, q.Mes, resumen, cuadre, cuadre.All(c => c.Cuadra), documentos, documentos.Count(d => !d.Completo));
+        return new(q.Anio, q.Mes, resumen, cuadre, cuadre.All(c => c.Cuadra), documentos, documentos.Count(d => !d.Completo),
+            PorTratamiento(movimientos, saldos));
     }
 
     public async Task<PolizaResponse> Handle(GenerarPolizaLiquidacionIvaCommand c, CancellationToken cancellationToken)
@@ -99,7 +105,8 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
             throw new ConflictException("CONTAB_IVA_LIQUIDACION_EXISTE",
                 $"Ya existe la póliza de liquidación de IVA de {folio[4..]}; anúlela para generar otra.");
 
-        var r = (await Handle(new LiquidacionIvaQuery(c.Anio, c.Mes), ct)).Resumen;
+        var liquidacion = await Handle(new LiquidacionIvaQuery(c.Anio, c.Mes), ct);
+        var r = liquidacion.Resumen;
         var fecha = Mes(c.Anio, c.Mes).Hasta;
         var roles = await db.RolesCuenta.AsNoTracking().Where(x => x.DeletedAt == null).ToListAsync(ct);
         var partidas = new List<PartidaRequest>();
@@ -136,16 +143,30 @@ public sealed class LiquidacionIvaHandlers(ContabilidadDbContext db, ICumplimien
         var tipo = await db.TiposDocumento.AsNoTracking().Where(t => t.Clave == ClaveTipoPoliza).Select(t => t.Id).FirstOrDefaultAsync(ct);
         if (tipo == Guid.Empty)
             throw new BusinessRuleException("CONTAB_IVA_TIPO_POLIZA", $"No existe el tipo de póliza {ClaveTipoPoliza} (asiento contable).");
-        return await mediator.Send(new CrearPolizaCommand(new PolizaManualRequest(tipo, fecha, $"Liquidación de IVA {c.Mes:D2}/{c.Anio}",
+        var poliza = await mediator.Send(new CrearPolizaCommand(new PolizaManualRequest(tipo, fecha, $"Liquidación de IVA {c.Mes:D2}/{c.Anio}",
             partidas, DocumentoOrigen: new DocumentoOrigenRequest(DocLiquidacion.Modulo, DocLiquidacion.Tipo, Guid.CreateVersion7(), folio, null))), ct);
+        // M-311: la foto del mes (resumen, detalle y cuadre) se guarda con la póliza y ya no cambia.
+        db.LiquidacionesIvaFoto.Add(LiquidacionIvaFoto.Crear(Guid.Empty, liquidacion, poliza.Id, folio,
+            usuario.UserId ?? throw new BusinessRuleException("IVA_FOTO_SIN_USUARIO", "No se identificó al usuario que genera la liquidación."), clock.UtcNow));
+        await db.SaveChangesAsync(ct);
+        return poliza;
     }
+
+    /// <summary>M-209: bases e IVA del mes por lado y tratamiento, sumados de lo que movió cada pago o cobro (en MXN).</summary>
+    public static IReadOnlyList<BaseTratamientoIva> PorTratamiento(IEnumerable<ReclasificacionIva> movimientos,
+        IReadOnlyDictionary<Guid, SaldoIvaDocumento> saldos) =>
+        [.. movimientos.Where(r => saldos.ContainsKey(r.SaldoIvaDocumentoId))
+            .SelectMany(r => r.Tratamientos.Select(t => (saldos[r.SaldoIvaDocumentoId].Lado, t)))
+            .GroupBy(x => (x.Lado, x.t.Tratamiento))
+            .Select(g => new BaseTratamientoIva(g.Key.Lado, g.Key.Tratamiento, g.Sum(x => x.t.BaseMxn), g.Sum(x => x.t.IvaMxn)))
+            .OrderBy(x => x.Lado).ThenBy(x => x.Tratamiento, StringComparer.Ordinal)];
 
     /// <summary>86e3zcbjw: IVA retenido por clientes en los cobros del mes, por concepto (en MXN, como quedó en cada cobro).</summary>
     private async Task<List<(string Clasificador, decimal Importe)>> RetencionesClientesPorConceptoAsync(int anio, int mes, CancellationToken ct)
     {
         var (desde, hasta) = Mes(anio, mes);
         var movimientos = await db.ReclasificacionesIva.AsNoTracking()
-            .Where(r => r.Tipo == TipoMovimientoIva.Pago && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
+            .Where(r => (r.Tipo == TipoMovimientoIva.Pago || r.Tipo == TipoMovimientoIva.Ajuste) && r.AnuladaEn == null && r.Fecha >= desde && r.Fecha <= hasta)
             .Join(db.SaldosIvaDocumento.AsNoTracking().Where(s => s.Lado == LadoIva.Trasladado), r => r.SaldoIvaDocumentoId, s => s.Id, (r, s) => r)
             .ToListAsync(ct);
         return [.. movimientos.SelectMany(r => r.Retenciones)

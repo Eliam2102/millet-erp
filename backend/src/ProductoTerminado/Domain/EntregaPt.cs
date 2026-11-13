@@ -54,11 +54,63 @@ public sealed class EntregaPt : BaseEntity, IAuditable, IPerteneceAEmpresa
 
     private EntregaPt(Guid id) : base(id) { }
 
+    /// <summary>Correcciones aplicadas (M-248); la versión vigente es <c>Correcciones + 1</c>.</summary>
+    public int Correcciones { get; private set; }
+
+    /// <summary>
+    /// M-248: corrige lo entregado y rechazado con motivo y evidencia nueva, antes de cerrar la liquidación de la ruta. Devuelve la versión
+    /// anterior completa (con su evidencia) para guardarla: la historia no se pierde.
+    /// </summary>
+    public EntregaPtVersion Corregir(int entregadas, int rechazadas, string? motivoRechazo, string receptor, byte[]? firma, byte[]? foto, string motivoCorreccion,
+        DateTimeOffset ahora, string usuario)
+    {
+        if (firma is null && foto is null)
+            throw new BusinessRuleException("PT_ENTREGA_SIN_EVIDENCIA", "La corrección necesita evidencia nueva: firma o foto del albarán.");
+        if (string.IsNullOrWhiteSpace(receptor)) throw new BusinessRuleException("PT_ENTREGA_SIN_RECEPTOR", "Indica quién recibe.");
+        if (rechazadas > 0 && string.IsNullOrWhiteSpace(motivoRechazo))
+            throw new BusinessRuleException("PT_ENTREGA_SIN_MOTIVO", "El rechazo en sitio lleva el motivo.");
+        var motivo = ReglasSalidaPt.MotivoValido(motivoCorreccion);
+        var anterior = new EntregaPtVersion(EmpresaId, Id, Correcciones + 1, Resultado, Receptor, Entregadas, Rechazadas, MotivoRechazo, Firma, Foto, EntregadaAt, Usuario, motivo, ahora, usuario);
+        Correcciones++;
+        (Entregadas, Rechazadas, MotivoRechazo, Receptor, Firma, Foto) = (entregadas, rechazadas, rechazadas > 0 ? motivoRechazo!.Trim() : null, receptor.Trim(), firma, foto);
+        Resultado = entregadas == 0 ? ResultadoEntrega.Rechazada : rechazadas == 0 ? ResultadoEntrega.Entregada : ResultadoEntrega.Parcial;
+        return anterior;
+    }
+
     /// <summary>Devuelve false si ya estaba conciliado o no hay cobro que conciliar.</summary>
     public bool ConciliarCobro(Guid cobroMostradorId, DateTimeOffset ahora)
     {
         if (CobroMonto is null || CobroConciliadoAt is not null) return false;
         (CobroMostradorId, CobroConciliadoAt) = (cobroMostradorId, ahora);
         return true;
+    }
+}
+
+/// <summary>M-248: versión anterior de una entrega corregida (Numero 1 = la confirmación original). <c>MotivoCorreccion</c> es por qué se reemplazó.</summary>
+public sealed class EntregaPtVersion : BaseEntity, IAuditable, IPerteneceAEmpresa
+{
+    public Guid EmpresaId { get; set; }
+    public Guid EntregaPtId { get; private set; }
+    public int Numero { get; private set; }
+    public ResultadoEntrega Resultado { get; private set; }
+    public string Receptor { get; private set; } = "";
+    public int Entregadas { get; private set; }
+    public int Rechazadas { get; private set; }
+    public string? MotivoRechazo { get; private set; }
+    public byte[]? Firma { get; private set; }
+    public byte[]? Foto { get; private set; }
+    public DateTimeOffset EntregadaAt { get; private set; }
+    public string Usuario { get; private set; } = "";
+    public string MotivoCorreccion { get; private set; } = "";
+    public DateTimeOffset CorregidaAt { get; private set; }
+    public string CorregidaPor { get; private set; } = "";
+
+    private EntregaPtVersion() { }
+
+    internal EntregaPtVersion(Guid empresa, Guid entregaId, int numero, ResultadoEntrega resultado, string receptor, int entregadas, int rechazadas, string? motivoRechazo,
+        byte[]? firma, byte[]? foto, DateTimeOffset entregadaAt, string usuario, string motivoCorreccion, DateTimeOffset corregidaAt, string corregidaPor) : base(Guid.CreateVersion7())
+    {
+        (EmpresaId, EntregaPtId, Numero, Resultado, Receptor, Entregadas, Rechazadas, MotivoRechazo) = (empresa, entregaId, numero, resultado, receptor, entregadas, rechazadas, motivoRechazo);
+        (Firma, Foto, EntregadaAt, Usuario, MotivoCorreccion, CorregidaAt, CorregidaPor) = (firma, foto, entregadaAt, usuario, motivoCorreccion, corregidaAt, corregidaPor);
     }
 }

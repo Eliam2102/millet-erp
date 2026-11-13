@@ -138,6 +138,91 @@ public sealed class ReintentarTimbradoHandlerTests
         cambiar.Should().Throw<BusinessRuleException>();
     }
 
+    /// <summary>Factura de exportación fallida por CCE121: guardada con el TC DOF capturado a mano (18.5).</summary>
+    private static FacturaVenta CrearExportacionFallidaPorTcDof(FacturacionDbContext db, Guid empresaId,
+        decimal tipoCambio = 18.6297m, decimal tcDof = 18.5m)
+    {
+        var receptor = new DatosFiscalesReceptor("XEXX010101000", "Foreign Corp", "616", "76120", "S01", "USA", true);
+        var fv = FacturaVenta.CrearBorrador(empresaId, "FCNK-000004", 4, Guid.NewGuid(), null, null, receptor,
+            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "PUE", "03", "USD", tipoCambio, 2026, 7,
+            (short)8, ComportamientoFiscal.ExportacionConCce, null, null, null, false);
+        fv.AgregarLinea(null, "8471300100", "Export goods", "H87", 1m, 3750m, 0m, "02", 0m, null, null);
+        fv.RecalcularTotales();
+        var cce = Millet.Facturacion.Domain.Cce.ComplementoCce.Crear(fv.Id, "2", "FOB", tcDof, "TAX-USA-1", "USA",
+            claveDePedimento: "A1", receptorDomicilioCalle: "123 Main St", receptorDomicilioEstado: "TX",
+            receptorDomicilioCodigoPostal: "75001");
+        cce.AgregarLinea("8471300100", "01", 1500m, 2.5m, 3750m, true);
+        fv.AdjuntarCce(cce);
+        fv.MarcarTimbradoEnProceso();
+        fv.MarcarTimbradoFallido("CCE121", "rechazo CCE121");
+        db.FacturasVenta.Add(fv);
+        db.SaveChanges();
+        return fv;
+    }
+
+    private static ReintentarTimbradoHandler HandlerConCatalogo(
+        FacturacionDbContext db, ICfdiTimbradoPort fiscal, decimal? tcCatalogo) =>
+        new(db, new FakeSender(new ReservarFolioResponse("SIN-NUEVO-FOLIO", 2, "")),
+            new FakePeriodoContablePort(true), fiscal, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db),
+            catalogos: new FakeCatalogosSatReadPort(tipoCambio: tcCatalogo));
+
+    [Fact]
+    public async Task CCE121_reintento_timbra_con_el_tc_del_catalogo_sin_reemitir()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var fv = CrearExportacionFallidaPorTcDof(db, empresaId);
+        var pac = new FakeFiscalApiClient();
+
+        var r = await HandlerConCatalogo(db, pac, 18.6297m).Handle(new ReintentarTimbradoCommand(fv.Id), CancellationToken.None);
+
+        r.Estado.Should().Be("Timbrado");
+        r.Folio.Should().Be("FCNK-000004");
+        pac.UltimaEmision!.ComplementoCce!.TipoCambioUsd.Should().Be(18.6297m);
+        fv.ComplementoCce!.TcDof.Should().Be(18.6297m);
+    }
+
+    [Fact]
+    public async Task CCE121_reintento_otro_dia_alinea_TipoCambio_y_TipoCambioUSD_al_catalogo_del_dia_del_CFDI()
+    {
+        // Emitida otro día con 18.40 en ambos; el reintento manda el CFDI con la fecha de hoy (11-jul),
+        // así que los dos tipos de cambio deben ser los del catálogo de ese día y coincidir (Moneda USD).
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var fv = CrearExportacionFallidaPorTcDof(db, empresaId, tipoCambio: 18.40m, tcDof: 18.40m);
+        var pac = new FakeFiscalApiClient();
+        var catalogos = new FakeCatalogosSatReadPort(tipoCambio: 18.6297m);
+        var handler = new ReintentarTimbradoHandler(db, new FakeSender(new ReservarFolioResponse("SIN-NUEVO-FOLIO", 2, "")),
+            new FakePeriodoContablePort(true), pac, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db), catalogos: catalogos);
+
+        var r = await handler.Handle(new ReintentarTimbradoCommand(fv.Id), CancellationToken.None);
+
+        r.Estado.Should().Be("Timbrado");
+        var emision = pac.UltimaEmision!;
+        DateOnly.FromDateTime(emision.FechaLocal.DateTime).Should().Be(new DateOnly(2026, 7, 11));
+        catalogos.ConsultaTipoCambio.Should().Be(("USD", new DateOnly(2026, 7, 11)));
+        emision.TipoCambio.Should().Be(18.6297m);
+        emision.ComplementoCce!.TipoCambioUsd.Should().Be(emision.TipoCambio!.Value);
+        fv.TipoCambio.Should().Be(18.6297m);
+        fv.ComplementoCce!.TcDof.Should().Be(18.6297m);
+    }
+
+    [Fact]
+    public async Task CCE121_reintento_sin_tc_en_el_catalogo_se_rechaza_antes_del_PAC()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var fv = CrearExportacionFallidaPorTcDof(db, empresaId);
+        var pac = new FakeFiscalApiClient();
+
+        var act = () => HandlerConCatalogo(db, pac, null).Handle(new ReintentarTimbradoCommand(fv.Id), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("CCE_TC_DOF_NO_REGISTRADO");
+        pac.UltimaEmision.Should().BeNull();
+    }
+
     [Fact]
     public async Task Reintento_exitoso_timbra_mismo_folio_limpia_error_y_publica_efectos()
     {
@@ -423,8 +508,10 @@ public sealed class ReintentarTimbradoHandlerTests
     }
 
     [Fact]
-    public async Task Falla_despues_del_PAC_deja_en_proceso_y_bloquea_reintento_inmediato_sin_PAC()
+    public async Task Falla_del_evento_despues_del_PAC_conserva_el_timbrado_y_deja_el_efecto_pendiente_sin_reintentar_el_PAC()
     {
+        // M-285: antes, una falla posterior al PAC dejaba todo «en proceso»; ahora el timbrado se guarda
+        // y el evento contable queda pendiente para «Reintentar pendientes» (sin volver a timbrar).
         var empresaId = Guid.NewGuid();
         var nombreBase = Guid.NewGuid().ToString();
         Guid id;
@@ -432,19 +519,20 @@ public sealed class ReintentarTimbradoHandlerTests
         {
             var fv = CrearFacturaFallida(db, empresaId, "CFDI40179");
             id = fv.Id;
-            var act = () => HandlerCon(db, new PacEspia(), eventos: new EventosQueFallan())
+            var r = await HandlerCon(db, new PacEspia(), eventos: new EventosQueFallan())
                 .Handle(new ReintentarTimbradoCommand(id), CancellationToken.None);
-            await act.Should().ThrowAsync<InvalidOperationException>();
+            r.Estado.Should().Be(nameof(EstadoTimbrado.Timbrado));
         }
 
-        // Lo persistido NO es un TimbradoFallido con código limpio (el PAC pudo haber timbrado).
         using (var lectura = NewDb(empresaId, nombreBase))
         {
-            var persistido = await lectura.Comprobantes.AsNoTracking().SingleAsync(c => c.Id == id);
-            persistido.Estado.Should().Be(EstadoTimbrado.TimbradoEnProceso);
+            (await lectura.Comprobantes.AsNoTracking().SingleAsync(c => c.Id == id)).Estado.Should().Be(EstadoTimbrado.Timbrado);
+            var efecto = await lectura.EfectosComprobante.AsNoTracking()
+                .SingleAsync(e => e.ComprobanteId == id && e.Tipo == TipoEfectoComprobante.EventoContable);
+            efecto.Estado.Should().Be(EstadoEfectoComprobante.Pendiente);
         }
 
-        // Un reintento inmediato es rechazado sin tocar el PAC.
+        // Un reintento de timbrado ya no aplica (está timbrado) y no toca el PAC.
         using var db2 = NewDb(empresaId, nombreBase);
         var pac2 = new PacEspia();
         var reintento = () => HandlerCon(db2, pac2).Handle(new ReintentarTimbradoCommand(id), CancellationToken.None);

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using Millet.SharedKernel.Domain;
@@ -6,9 +7,14 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Domain;
 
-public enum EstadoOtrEnvio { PorVincular = 1, Vinculado = 2, Cancelado = 3 }
-public enum EstadoOtrLinea { Pendiente = 1, Propuesta = 2, RequiereRevision = 3 }
-public sealed record OtrLineaRecibida(string NumeroPedido, int Posicion, decimal Cantidad, string Unidad);
+/// <summary><see cref="HistoricoSap"/>: todos sus pedidos ya se facturaron en SAP; queda visible, sin vínculo ni factura en el ERP.</summary>
+public enum EstadoOtrEnvio { PorVincular = 1, Vinculado = 2, Cancelado = 3, HistoricoSap = 4 }
+/// <summary><see cref="Omitida"/>: la línea se recibe y se guarda con su aviso, pero no se propone (cantidad cero o pedido histórico).</summary>
+public enum EstadoOtrLinea { Pendiente = 1, Propuesta = 2, RequiereRevision = 3, Omitida = 4 }
+/// <param name="Historico">El pedido A+W ya está facturado en SAP (ver HistoricoSapOptions). Se omite del JSON cuando es falso para no
+/// cambiar el hash de las versiones ya aplicadas.</param>
+public sealed record OtrLineaRecibida(string NumeroPedido, int Posicion, decimal Cantidad, string Unidad,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Historico = false);
 public sealed record OtrContenido(Guid ClienteId, Guid SucursalId, string Cliente, string DireccionEntrega,
     string? Producto, DatosContenedor Contenedor, IReadOnlyList<OtrLineaRecibida> Lineas, bool Cancelado = false, string? ClienteNumeroAw = null, string? SucursalClaveAw = null);
 public sealed record OtrEdicion(string Actor, DateTimeOffset Fecha);
@@ -53,9 +59,9 @@ public sealed class OtrEnvio : BaseEntity, IAuditable, IPerteneceAEmpresa
         if ((contenido.ClienteId == Guid.Empty && string.IsNullOrWhiteSpace(contenido.ClienteNumeroAw)) || (contenido.SucursalId == Guid.Empty && string.IsNullOrWhiteSpace(contenido.SucursalClaveAw)) || string.IsNullOrWhiteSpace(contenido.Cliente)
             || contenido.Cliente.Length > 200 || string.IsNullOrWhiteSpace(contenido.DireccionEntrega) || contenido.DireccionEntrega.Length > 1000
             || contenido.Producto?.Length > 500 || contenido.Lineas.Count > 1000 || (!contenido.Cancelado && contenido.Lineas.Count == 0)
-            || contenido.Lineas.Any(l => string.IsNullOrWhiteSpace(l.NumeroPedido) || l.NumeroPedido.Length > 50 || l.Posicion < 1 || l.Cantidad <= 0 || l.Cantidad >= 1_000_000_000_000m || decimal.Round(l.Cantidad, 6) != l.Cantidad || string.IsNullOrWhiteSpace(l.Unidad) || l.Unidad.Length > 20)
+            || contenido.Lineas.Any(l => string.IsNullOrWhiteSpace(l.NumeroPedido) || l.NumeroPedido.Length > 50 || l.Posicion < 1 || l.Cantidad < 0 || l.Cantidad >= 1_000_000_000_000m || decimal.Round(l.Cantidad, 6) != l.Cantidad || string.IsNullOrWhiteSpace(l.Unidad) || l.Unidad.Length > 20)
             || contenido.Lineas.GroupBy(l => (l.NumeroPedido, l.Posicion)).Any(g => g.Count() > 1))
-            throw new BusinessRuleException("CE_OTR_DATOS_INVALIDOS", "Revise cliente, sucursal, entrega y líneas únicas con cantidad positiva hasta seis decimales.");
+            throw new BusinessRuleException("CE_OTR_DATOS_INVALIDOS", "Revise cliente, sucursal, entrega y líneas únicas con cantidad no negativa hasta seis decimales.");
         // Valida también los límites de CE-02 antes de guardar una entrada aún sin expediente.
         _ = new ContenedorExpediente(Guid.NewGuid(), EmpresaId, Guid.NewGuid(), contenido.Contenedor);
         if (VersionAplicada > 0 && ((ClienteId != Guid.Empty && contenido.ClienteId != ClienteId) || (SucursalId != Guid.Empty && contenido.SucursalId != SucursalId)))
@@ -69,7 +75,30 @@ public sealed class OtrEnvio : BaseEntity, IAuditable, IPerteneceAEmpresa
         foreach (var anterior in _lineas) anterior.Revisar();
         foreach (var linea in contenido.Lineas) _lineas.Add(new(EmpresaId, Id, version, linea));
         if (contenido.Cancelado) Estado = EstadoOtrEnvio.Cancelado;
+        else if (ExpedienteId is null && Estado is EstadoOtrEnvio.PorVincular or EstadoOtrEnvio.HistoricoSap)
+        {
+            // Histórico SAP sólo si todas las líneas con piezas son de pedidos ya facturados en SAP; uno vigente basta para vincular.
+            var conPiezas = contenido.Lineas.Where(l => l.Cantidad > 0).ToArray();
+            Estado = conPiezas.Length > 0 && conPiezas.All(l => l.Historico) ? EstadoOtrEnvio.HistoricoSap : EstadoOtrEnvio.PorVincular;
+        }
         return true;
+    }
+    /// <summary>M-445: el contenedor del envío cancelado se canceló en CE; sus líneas ya no esperan revisión.</summary>
+    public void CerrarPorContenedorCancelado()
+    {
+        foreach (var linea in _lineas.Where(l => l.PartidaId is not null))
+            linea.Pendiente("CE_OTR_CANCELADO: la ruta se canceló en OTR (890); el contenedor se canceló y la cantidad queda libre para el envío que la reemplaza.");
+    }
+    public void RevalidarSucursal(Guid sucursal)
+    {
+        if (Estado != EstadoOtrEnvio.PorVincular || ExpedienteId is not null || ContenedorId is not null
+            || SucursalId != Guid.Empty || ClienteId == Guid.Empty || MotivoVinculacion != "CE_OTR_SUCURSAL_DESCONOCIDA")
+            throw new BusinessRuleException("CE_OTR_REVALIDACION_NO_APLICABLE", "Sólo puede revalidar un envío pendiente, sin sucursal y sin expediente.");
+        if (sucursal == Guid.Empty)
+            throw new BusinessRuleException("CE_OTR_SUCURSAL_DESCONOCIDA", "La clave A+W aún no tiene equivalencia con una sucursal activa.");
+        // La equivalencia local no altera el contenido ni el hash de la versión recibida de A+W.
+        SucursalId = sucursal;
+        MotivoVinculacion = null;
     }
     public void ExigirIdentidad()
     {
@@ -78,6 +107,8 @@ public sealed class OtrEnvio : BaseEntity, IAuditable, IPerteneceAEmpresa
     public void Vincular(Expediente expediente)
     {
         if (Estado == EstadoOtrEnvio.Cancelado) throw new BusinessRuleException("CE_OTR_CANCELADO", "El envío está cancelado.");
+        if (Estado == EstadoOtrEnvio.HistoricoSap)
+            throw new BusinessRuleException("CE_OTR_HISTORICO_SAP", "Los pedidos del envío ya se facturaron en SAP; el envío queda sólo como consulta.");
         if (ExpedienteId is not null && ExpedienteId != expediente.Id)
             throw new BusinessRuleException("CE_OTR_YA_VINCULADO", "El envío ya está vinculado a otro expediente.");
         ExigirIdentidad();
@@ -188,7 +219,11 @@ public sealed class OtrLinea : BaseEntity, IAuditable, IPerteneceAEmpresa, IBelo
     public Guid? PartidaId { get; private set; }
     private OtrLinea() { }
     internal OtrLinea(Guid empresa, Guid envio, long version, OtrLineaRecibida l) : base(Guid.CreateVersion7())
-    { EmpresaId = empresa; OtrEnvioId = envio; VersionOrigen = version; NumeroPedido = l.NumeroPedido; Posicion = l.Posicion; Cantidad = l.Cantidad; Unidad = l.Unidad; }
+    {
+        EmpresaId = empresa; OtrEnvioId = envio; VersionOrigen = version; NumeroPedido = l.NumeroPedido; Posicion = l.Posicion; Cantidad = l.Cantidad; Unidad = l.Unidad;
+        if (l.Cantidad == 0) { Estado = EstadoOtrLinea.Omitida; Motivo = "CE_OTR_CANTIDAD_CERO: OTR envió la posición sin piezas; se omite y no bloquea el resto del envío."; }
+        else if (l.Historico) { Estado = EstadoOtrLinea.Omitida; Motivo = "CE_OTR_HISTORICO_SAP: el pedido ya se facturó en SAP; no se propone ni se factura en el ERP."; }
+    }
     public void Pendiente(string motivo) { Estado = EstadoOtrLinea.Pendiente; Motivo = motivo; }
     public void Proponer(Guid partida) { PartidaId = partida; Estado = EstadoOtrLinea.Propuesta; Motivo = "Confirme la partida en Contenedores después de revisarla."; }
     internal void Revisar() { if (PartidaId is not null) { Estado = EstadoOtrLinea.RequiereRevision; Motivo = "Cambió la versión OTR o se canceló el envío."; } }

@@ -1,3 +1,5 @@
+import { usePaginacionLocal } from '@/components/erp/data/usePaginacionLocal';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +28,7 @@ export function DocumentosActivo({ activo }: { activo: Activo }) {
   const [reemplaza, setReemplaza] = useState('');
   const [adjunto, setAdjunto] = useState('');
   const [error, setError] = useState('');
-  const [pagina, setPagina] = useState(0);
+  const pagina = usePaginacionLocal(query.data ?? [], activo.id);
   const vigencia = [1, 2, 3].includes(tipo);
   return (
     <section className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
@@ -38,7 +40,7 @@ export function DocumentosActivo({ activo }: { activo: Activo }) {
       {query.data?.length === 0 && (
         <p className="text-ink-muted">Aún no hay documentos registrados.</p>
       )}
-      {query.data?.slice(pagina * 10, pagina * 10 + 10).map((d) => (
+      {pagina.visibles.map((d) => (
         <article key={d.id} className="space-y-2 border-b border-line-row py-3">
           <p>
             {tiposDocumento[d.tipo]} · <span className="font-mono">{d.folio}</span> · Versión{' '}
@@ -77,24 +79,12 @@ export function DocumentosActivo({ activo }: { activo: Activo }) {
           )}
         </article>
       ))}
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          disabled={pagina === 0}
-          title="Página anterior"
-          onClick={() => setPagina(pagina - 1)}
-        >
-          Anterior
-        </Button>
-        <Button
-          variant="outline"
-          disabled={(pagina + 1) * 10 >= (query.data?.length ?? 0)}
-          title="Página siguiente"
-          onClick={() => setPagina(pagina + 1)}
-        >
-          Siguiente
-        </Button>
-      </div>
+      <PaginacionTabla regionId={pagina.regionId}
+        total={query.data?.length ?? 0}
+        offset={pagina.offset}
+        limit={pagina.limit}
+        onChange={pagina.onChange}
+      />
       {permiso && (
         <form
           className="space-y-3"

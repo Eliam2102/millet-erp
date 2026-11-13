@@ -61,5 +61,9 @@ public enum MotivoExcepcion : short
     NcImporteExcedeSaldo = 16,
     /// <summary>A+W reenvió la misma versión de un pedido con contenido distinto: se detiene, el pedido no cambia.</summary>
     VersionRepetidaConCambios = 17,
+    /// <summary>El pedido ya se facturó en SAP (estatus A+W desde el corte de HistoricoSapOptions): no se da de alta como facturable.</summary>
+    HistoricoSap = 18,
+    /// <summary>Aviso, nace resuelto: A+W mandó posiciones con cantidad cero (salieron completas por un pedido hijo) y se omitieron.</summary>
+    LineasEnCeroOmitidas = 19,
     Otro = 99,
 }

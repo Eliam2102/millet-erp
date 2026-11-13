@@ -7,6 +7,7 @@ using Millet.Facturacion.Domain.Ingesta;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.Facturacion.Infrastructure.Workers;
 
@@ -82,12 +83,19 @@ public sealed class WriteBackResultadoWorker : BackgroundService
         using var origin = originContext.SetOrigin(nameof(WriteBackResultadoWorker));
         using var bypass = empresaContext.Bypass();
 
-        var pendientes = await db.IngestaControles
+        var candidatos = await db.IngestaControles
             // TR-01: solo reintentos por-solicitud; el write-back por-pedido (B6) quedó apagado.
             .Where(c => c.WriteBackPendiente && c.WriteBackSolicitudId != null && c.WriteBackIntentos < opts.MaxIntentos)
             .OrderBy(c => c.UltimaLecturaAt)
-            .Take(opts.BatchSize)
+            .Take(opts.BatchSize * 20)
             .ToListAsync(cancellationToken);
+        // I13.6 · espera creciente: tras la falla n se espera intervalo × 2^(n−1), hasta el tope.
+        // UltimaLecturaAt guarda la hora de la última falla (RegistrarFalloWriteBack).
+        var ahora = clock.UtcNow;
+        var pendientes = candidatos
+            .Where(c => c.UltimaLecturaAt + EsperaAntesDe(c.WriteBackIntentos, opts) <= ahora)
+            .Take(opts.BatchSize)
+            .ToList();
 
         var entregados = 0;
         foreach (var control in pendientes)
@@ -128,6 +136,10 @@ public sealed class WriteBackResultadoWorker : BackgroundService
 
         return entregados;
     }
+
+    /// <summary>Espera mínima desde la última falla antes de volver a intentar (I13.6).</summary>
+    internal static TimeSpan EsperaAntesDe(int fallas, AwWriteBackOptions opts) =>
+        EsperaReintento.Calcular(fallas, TimeSpan.FromSeconds(opts.IntervalSeconds), TimeSpan.FromSeconds(opts.BackoffMaxSeconds));
 }
 
 public sealed class AwWriteBackOptions
@@ -144,4 +156,12 @@ public sealed class AwWriteBackOptions
     /// subir el valor por config lo re-activa.
     /// </summary>
     public int MaxIntentos { get; init; } = 10;
+
+    /// <summary>
+    /// I13.6 · espera máxima entre dos intentos del mismo pendiente. La espera empieza en
+    /// <see cref="IntervalSeconds"/> y se duplica en cada falla hasta este tope: con los
+    /// valores por omisión (2 min, 30 min, 10 intentos) un pendiente se sigue intentando
+    /// unas 3 horas, así que una caída de A+W de una hora se recupera sola (CA13.6).
+    /// </summary>
+    public int BackoffMaxSeconds { get; init; } = 1800;
 }

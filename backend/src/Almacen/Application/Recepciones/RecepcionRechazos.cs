@@ -62,6 +62,10 @@ internal static class RecepcionRechazos
     {
         if (incidencias is null)
             return;
+        // N-11: la recepción de la orden ya quedó (con motivo si repetía la referencia): se cierra la incidencia de referencia duplicada.
+        await IncidenciasAlmacen.SinRomperAsync(logger, "resolver la incidencia de referencia duplicada", () =>
+            incidencias.ResolverPorDocumentoAsync(PasosIncidencia.AlmRecepcionDiferenciaOc, oc.Id, IncidenciasAlmacen.ClaveDuplicada,
+                $"Se registró la recepción {folio} de la orden.", ct));
         foreach (var linea in aceptadas.Where(l => l.Cantidad > 0 && l.LineaOcId is not null).Select(l => l.LineaOcId!.Value).Distinct())
         {
             var resolucion = $"Se recibió la partida en la recepción {folio}.";

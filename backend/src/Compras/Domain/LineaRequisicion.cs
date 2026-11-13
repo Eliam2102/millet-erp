@@ -74,6 +74,23 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
     public int? AnchoMm { get; private set; }
     public int? AltoMm { get; private set; }
 
+    /// <summary>M-283 (contrato v9): la RQ de la app conserva la <c>posicion</c> de la app; REQUISICION_REDUCIDA la usa.</summary>
+    internal void AsignarPosicionApp(int posicion)
+    {
+        if (posicion is <= 0 or > short.MaxValue)
+            throw new BusinessRuleException("RQ_LINEA_POSICION_INVALIDA", $"La posición {posicion} no es válida.");
+        Posicion = (short)posicion;
+    }
+
+    /// <summary>
+    /// Piezas de la app en la unidad de la línea: con medida y unidad M2 (vidrio, saldo en m²) son hojas enteras, así que valen
+    /// piezas × m² de la hoja (mismo redondeo a 4 decimales que <c>AreaHoja.M2</c>); sin medida, una pieza es una unidad.
+    /// </summary>
+    public static decimal CantidadDePiezasApp(decimal piezas, int? anchoMm, int? altoMm, string unidadMedida) =>
+        anchoMm is > 0 && altoMm is > 0 && string.Equals(unidadMedida, "M2", StringComparison.OrdinalIgnoreCase)
+            ? piezas * Math.Round(anchoMm.Value * (decimal)altoMm.Value / 1_000_000m, 4, MidpointRounding.AwayFromZero)
+            : piezas;
+
     internal void AsignarMedidaApp(int? piezas, int? anchoMm, int? altoMm)
     {
         if (piezas <= 0 || anchoMm <= 0 || altoMm <= 0)
@@ -430,5 +447,22 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
         if (!mandarACompra) CantidadSinCompra += cantidad;
         CantidadLiberadaApartado += cantidad;
         MotivoUltimaLiberacion = motivo.Trim();
+    }
+
+    /// <summary>
+    /// M-446 (REQUISICION_REDUCIDA de la app): Compras ya no compra <paramref name="cantidad"/> de esta línea. Baja
+    /// <see cref="CantidadDeCompra"/> sin quedar debajo de lo ya recibido y lo pasa a <see cref="CantidadSinCompra"/>, así el
+    /// saldo por comprar y lo vigente bajan juntos. Devuelve lo que sí se quitó.
+    /// </summary>
+    internal decimal QuitarDeCompra(decimal cantidad, string motivo)
+    {
+        if (cantidad <= 0)
+            throw new BusinessRuleException("RQ_APP_PIEZAS_QUITADAS_INVALIDAS", "Las piezas quitadas deben ser positivas.");
+        var quita = Math.Min(cantidad, CantidadDeCompra - CantidadRecibida);
+        if (quita <= 0) return 0m;
+        CantidadDeCompra -= quita;
+        CantidadSinCompra += quita;
+        MotivoUltimaLiberacion = motivo.Length > 500 ? motivo[..500] : motivo;
+        return quita;
     }
 }

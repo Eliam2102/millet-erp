@@ -1,3 +1,4 @@
+import { MaestroDetalle } from '@/components/erp/MaestroDetalle';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { HistorialActivo } from '../components/HistorialActivo';
 import { ReversaActivo } from '../components/ReversaActivo';
@@ -21,7 +22,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { esApiError } from '@/lib/api';
+import { errorUsuario } from '@/lib/error-usuario';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useActivo, useActivos, useGuardarActivo, useClasesActivo } from '../api/hooks';
 import { ActivoForm, CustodiaFields } from '../components/ActivoForm';
@@ -40,7 +44,12 @@ export function ActivoDetallePage() {
   const gestionar = useHasPermission(P.ActivosFijosActivosGestionar);
   const capitalizar = useHasPermission(P.ActivosFijosCapitalizar);
   const trasladar = useHasPermission(P.ActivosFijosTrasladosGestionar);
+  const permisos = useAuthStore((s) => s.permisos);
   const a = query.data?.data;
+  const erroresValidacion = esApiError(guardar.error) && guardar.error.status === 400
+    ? guardar.error.problem.errores?.map((e) => e.mensaje).filter(Boolean).join(' ')
+    : undefined;
+  const mensajeError = erroresValidacion || errorUsuario(guardar.error);
   if (!a)
     return (
       <p role={query.error ? 'alert' : undefined}>{query.error?.message ?? 'Cargando activo…'}</p>
@@ -57,27 +66,32 @@ export function ActivoDetallePage() {
       },
     );
   return (
-    <main className="flex h-full min-h-0 gap-5 text-sm">
-      <aside
-        className="hidden w-80 shrink-0 overflow-auto rounded-lg bg-surface-card p-4 shadow-card-flat lg:block"
-        data-print="hidden"
-      >
-        <Link to="/activos-fijos/activos" className="text-brand">
-          Todos los activos
-        </Link>
-        {lista.data?.items.map((x) => (
-          <Link
-            key={x.id}
-            to="/activos-fijos/activos/$id"
-            params={{ id: x.id }}
-            className="block border-b border-line-row py-3"
-          >
-            <span className="font-mono">{x.numero}</span>
-            <p className="text-ink-muted">{x.descripcion}</p>
+    <MaestroDetalle
+      seleccionado
+      etiquetaLista="activos"
+      lista={
+        <aside
+          className="hidden w-80 shrink-0 overflow-auto rounded-lg bg-surface-card p-4 shadow-card-flat lg:block"
+          data-print="hidden"
+        >
+          <Link to="/activos-fijos/activos" className="text-brand">
+            Todos los activos
           </Link>
-        ))}
-      </aside>
-      <section className="min-w-0 flex-1 space-y-5 overflow-auto">
+          {lista.data?.items.map((x) => (
+            <Link
+              key={x.id}
+              to="/activos-fijos/activos/$id"
+              params={{ id: x.id }}
+              className="block border-b border-line-row py-3"
+            >
+              <span className="font-mono">{x.numero}</span>
+              <p className="text-ink-muted">{x.descripcion}</p>
+            </Link>
+          ))}
+        </aside>
+      }
+    >
+      <section className="@container min-w-0 flex-1 space-y-5 overflow-auto">
         <div className="flex flex-wrap items-center gap-3" data-print="hidden">
           <h1 className="font-mono text-xl font-semibold">{a.numero}</h1>
           <ImprimirEtiquetas activoId={a.id} />
@@ -103,7 +117,7 @@ export function ActivoDetallePage() {
         <h2 className="text-lg font-semibold">{a.descripcion}</h2>
         {guardar.error && (
           <p role="alert" className="text-danger-fg">
-            {guardar.error.message}
+            {mensajeError}
           </p>
         )}
         <ReversaActivo activo={a} />
@@ -119,7 +133,7 @@ export function ActivoDetallePage() {
             <TabsTrigger value="mantenimientos">Mantenimientos</TabsTrigger>
           </TabsList>
           <TabsContent value="datos">
-            <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+            <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @sm:grid-cols-2 [&>div]:min-w-0 [&_dd]:[overflow-wrap:anywhere]">
               {Object.entries({
                 Clase: clases.data?.find((c) => c.id === a.claseId)?.nombre,
                 Responsable: a.custodiaDescripcion?.responsable,
@@ -389,7 +403,7 @@ export function ActivoDetallePage() {
                         </fieldset>
                         {guardar.error && (
                           <p role="alert" className="text-danger-fg">
-                            {guardar.error.message}
+                            {mensajeError}
                           </p>
                         )}
                       </SheetBody>
@@ -424,18 +438,24 @@ export function ActivoDetallePage() {
           </TabsContent>
           <TabsContent value="origen">
             <dl className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
-              {Object.entries({
-                'Orden de compra': a.ordenCompraId,
-                Recepción: a.recepcionId,
-                'Factura de proveedor': a.facturaProveedorId,
-                'Documento de soporte': a.documentoSoporte,
-                'Póliza de alta': a.polizaAltaId,
-              }).map(([k, v]) => (
-                <div key={k}>
-                  <dt className="text-xs text-ink-muted">{k}</dt>
-                  <dd className="font-mono">{v ?? 'Sin vincular'}</dd>
+              {[
+                { etiqueta: 'Orden de compra', id: a.ordenCompraId, ruta: '/compras/ordenes/$id' as const, permiso: P.ComprasOrdenesLeer },
+                { etiqueta: 'Recepción', id: a.recepcionId, ruta: '/almacen/recepciones/$id' as const, permiso: P.AlmacenEntradasLeer },
+                { etiqueta: 'Factura de proveedor', id: a.facturaProveedorId, ruta: '/cxp/facturas/$id' as const, permiso: P.CuentasPorPagarFacturasLeer },
+                { etiqueta: 'Póliza de alta', id: a.polizaAltaId, ruta: '/contabilidad/polizas/$id' as const, permiso: P.ContabilidadPolizasLeer },
+              ].map((origen) => (
+                <div key={origen.etiqueta}>
+                  <dt className="text-xs text-ink-muted">{origen.etiqueta}</dt>
+                  <dd>{origen.id ? permisos.includes(origen.permiso)
+                    ? <Link className="text-brand underline" to={origen.ruta} params={{ id: origen.id }}>Ver {origen.etiqueta.toLowerCase()}</Link>
+                    : 'Documento vinculado; sin permiso de consulta'
+                    : 'Sin vincular'}</dd>
                 </div>
               ))}
+              <div>
+                <dt className="text-xs text-ink-muted">Documento de soporte</dt>
+                <dd>{a.documentoSoporte ?? 'Sin registrar'}</dd>
+              </div>
             </dl>
           </TabsContent>
           <TabsContent value="documentos">
@@ -447,6 +467,6 @@ export function ActivoDetallePage() {
         </Tabs>
         {editar && <ActivoForm activo={a} onClose={() => setEditar(false)} />}
       </section>
-    </main>
+    </MaestroDetalle>
   );
 }

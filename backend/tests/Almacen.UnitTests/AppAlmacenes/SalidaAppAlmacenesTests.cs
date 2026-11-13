@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.AppAlmacenes;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Catalogo;
+using Millet.Almacen.Domain.Cierre;
+using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -33,7 +35,10 @@ public class SalidaAppAlmacenesTests
         db.Ubicaciones.Add(new Ubicacion(ubiA, subA, "ÚNICA", "Única", esDefault: true));
         db.Ubicaciones.Add(new Ubicacion(ubiB, subB, "ÚNICA", "Única", esDefault: true));
         db.Ubicaciones.Add(new Ubicacion(ubiRev, subRev, "ÚNICA", "Única", esDefault: true));
-        db.SaldosInventario.Add(new SaldoInventario(ubiA, subA, Articulo, 10, 100m, Variante));
+        var saldoA = new SaldoInventario(ubiA, subA, Articulo, 10, 100m, Variante);
+        db.SaldosInventario.Add(saldoA);
+        // Guid v7 no ordena creaciones dentro del mismo milisegundo; fijamos la antigüedad del escenario.
+        db.Entry(saldoA).Property(s => s.Id).CurrentValue = Guid.Parse("019b76da-a800-7000-8000-000000000001");
         db.SaldosInventario.Add(new SaldoInventario(ubiRev, subRev, Articulo, 50, 100m, Variante)); // MAT-REV no cuenta
         db.SaveChanges();
         return (db, subA, ubiA, subB, ubiB);
@@ -41,6 +46,51 @@ public class SalidaAppAlmacenesTests
 
     private static SalidaApp Salida(decimal cantidad, decimal? costo = null, TipoMovimiento tipo = TipoMovimiento.SalidaConsumo) =>
         new(tipo, Sucursal, Articulo, "PZA", Variante, cantidad, costo, "App Almacenes AJUSTE_SALIDA", 2440m, 3660m);
+
+    [Fact]
+    public async Task M333_el_movimiento_lleva_la_fecha_del_hecho_y_no_la_del_servidor()
+    {
+        var (db, _, _, _, _) = Db();
+        var (estado, _, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, [Salida(1)], default,
+            fecha: new DateOnly(2026, 11, 9));
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.Recibido);
+        (await db.Movimientos.SingleAsync()).FechaMovimiento.Should().Be(new DateOnly(2026, 11, 9));
+    }
+
+    [Fact]
+    public async Task M333_un_consumo_con_fecha_de_un_mes_cerrado_queda_en_revision_con_motivo_y_sin_mover_saldo()
+    {
+        var (db, _, _, _, _) = Db();
+        db.Set<PeriodoCerrado>().Add(new PeriodoCerrado(Guid.NewGuid(), EmpresaId, 2026, 10, Usuario));
+        await db.SaveChangesAsync();
+
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, [Salida(1)], default,
+            fecha: new DateOnly(2026, 10, 31));
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.EnRevision);
+        folio.Should().BeNull();
+        error.Should().Contain("2026/10").And.Contain("mes corriente");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+        (await db.SaldosInventario.SingleAsync(s => s.Lote == null && s.CantidadDisponible > 0 && s.CantidadDisponible < 50))
+            .CantidadDisponible.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task M333_con_el_almacen_en_conteo_anual_la_salida_queda_en_revision()
+    {
+        var (db, subA, _, _, _) = Db();
+        db.Set<BloqueoInventario>().Add(new BloqueoInventario(Guid.NewGuid(), Guid.NewGuid(), subA));
+        await db.SaveChangesAsync();
+
+        var (estado, _, error) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(1), default);
+
+        estado.Should().Be(SalidaAppAlmacenes.EnRevision);
+        error.Should().Contain("conteo anual");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+    }
 
     [Fact]
     public async Task Tres_hojas_generan_una_salida_de_3_a_costo_promedio()
@@ -83,10 +133,37 @@ public class SalidaAppAlmacenesTests
     }
 
     [Fact]
-    public async Task Reparte_entre_sub_almacenes_con_un_movimiento_por_cada_uno()
+    public async Task Sin_lote_en_el_mensaje_sale_primero_lo_heredado_sin_lote_y_luego_el_lote_mas_antiguo()
     {
-        var (db, _, _, subB, ubiB) = Db();
-        db.SaldosInventario.Add(new SaldoInventario(ubiB, subB, Articulo, 4, 120m, Variante));
+        var (db, subA, ubiA, _, _) = Db(); // 10 sin lote, el saldo más viejo
+        await Task.Delay(5); // Id = Guid v7: el orden de creación decide la antigüedad
+        db.SaldosInventario.Add(new SaldoInventario(ubiA, subA, Articulo, 5, 100m, Variante, "L-VIEJO"));
+        await db.SaveChangesAsync();
+        await Task.Delay(5);
+        db.SaldosInventario.Add(new SaldoInventario(ubiA, subA, Articulo, 50, 100m, Variante, "L-NUEVO"));
+        await db.SaveChangesAsync();
+
+        var (estado, _, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(12), default);
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.Recibido);
+        var lineas = await db.LineasMovimiento.ToListAsync();
+        lineas.Should().Contain(l => l.Lote == null && l.Cantidad == 10)
+            .And.Contain(l => l.Lote == "L-VIEJO" && l.Cantidad == 2)
+            .And.NotContain(l => l.Lote == "L-NUEVO");
+    }
+
+    [Theory]
+    [InlineData(false, 10, 2)]
+    [InlineData(true, 8, 4)]
+    public async Task Reparte_entre_sub_almacenes_con_un_movimiento_por_cada_uno(bool bMasAntiguo, int cantidadA, int cantidadB)
+    {
+        var (db, _, ubiA, subB, ubiB) = Db();
+        var saldoB = new SaldoInventario(ubiB, subB, Articulo, 4, 120m, Variante);
+        db.SaldosInventario.Add(saldoB);
+        db.Entry(saldoB).Property(s => s.Id).CurrentValue = Guid.Parse(bMasAntiguo
+            ? "019b76da-a700-7000-8000-000000000001"
+            : "019b76da-a900-7000-8000-000000000001");
         await db.SaveChangesAsync();
 
         var (estado, folio, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, Salida(12), default);
@@ -96,8 +173,8 @@ public class SalidaAppAlmacenesTests
         folio!.Split(", ").Should().HaveCount(2);
         var lineas = await db.LineasMovimiento.ToListAsync();
         lineas.Sum(l => l.Cantidad).Should().Be(12);
-        lineas.Should().Contain(l => l.Cantidad == 10 && l.CostoUnitarioMxn == 100m)
-            .And.Contain(l => l.Cantidad == 2 && l.CostoUnitarioMxn == 120m);
+        lineas.Should().Contain(l => l.UbicacionId == ubiA && l.Cantidad == cantidadA && l.CostoUnitarioMxn == 100m)
+            .And.Contain(l => l.UbicacionId == ubiB && l.Cantidad == cantidadB && l.CostoUnitarioMxn == 120m);
     }
 
     [Fact]

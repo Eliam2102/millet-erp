@@ -82,6 +82,24 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
     /// </summary>
     public decimal? DiferenciaLiquidacion { get; private set; }
 
+    // ---- M-449: comprobación fuera de política ----
+
+    /// <summary>
+    /// Lo comprobado por encima del límite de la política (0 si cabe). El límite es el tope de la política al solicitar
+    /// (<see cref="TopePoliticaSnapshot"/>, monto por día × días); si Dirección de Finanzas ya autorizó al solicitar un monto mayor,
+    /// el límite es ese monto (no se pide dos veces la misma autorización). Supuesto a validar con Contabilidad.
+    /// </summary>
+    public decimal ExcesoComprobacion { get; private set; }
+
+    /// <summary>La comprobación excede la política y pide la autorización de Dirección de Finanzas antes de liberarse.</summary>
+    public bool ComprobacionFueraDePolitica => ExcesoComprobacion > 0m;
+
+    public Guid? ExcesoAutorizadoPor { get; private set; }
+    public DateTimeOffset? ExcesoAutorizadoEn { get; private set; }
+
+    /// <summary>Límite contra el que se compara la comprobación (ver <see cref="ExcesoComprobacion"/>).</summary>
+    public decimal LimiteComprobacion => AutorizadoPorDf is not null ? Math.Max(TopePoliticaSnapshot, MontoSolicitado) : TopePoliticaSnapshot;
+
     private readonly List<LineaComprobacionViaticos> _lineas = [];
     public IReadOnlyCollection<LineaComprobacionViaticos> Lineas => _lineas.AsReadOnly();
 
@@ -337,8 +355,35 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
             throw new BusinessRuleException("VIA_COMPROBACION_VACIA",
                 "La comprobación debe tener al menos una línea.");
 
+        // O2 (M-449): lo comprobado se conoce desde la captura, para que el detalle y la lista lo muestren antes de liberar.
+        // La diferencia de liquidación sigue en null hasta liberar.
+        MontoComprobado = _lineas.Sum(l => l.Total);
+        // M-449: una captura nueva recalcula el exceso y deja sin efecto una autorización previa (el monto pudo cambiar).
+        ExcesoComprobacion = Math.Max(0m, MontoComprobado.Value - LimiteComprobacion);
+        ExcesoAutorizadoPor = null;
+        ExcesoAutorizadoEn = null;
         Estado = EstadoSolicitudViaticos.ComprobacionCapturada;
         FechaComprobacion = ahora;
+    }
+
+    /// <summary>
+    /// M-449: Dirección de Finanzas autoriza el exceso de una comprobación fuera de política. Quien autoriza no puede ser el
+    /// empleado que comprueba (segregación). Una nueva captura de la comprobación la deja sin efecto.
+    /// </summary>
+    public void AutorizarExcesoComprobacion(Guid autorizaId, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoSolicitudViaticos.ComprobacionCapturada)
+            throw new BusinessRuleException("VIA_EXCESO_NO_AUTORIZABLE",
+                $"Solo se autoriza el exceso de una comprobación capturada (actual: {Estado}).");
+        if (!ComprobacionFueraDePolitica)
+            throw new BusinessRuleException("VIA_COMPROBACION_DENTRO_POLITICA",
+                "La comprobación está dentro de la política; no hay exceso que autorizar.");
+        if (autorizaId == EmpleadoId)
+            throw new BusinessRuleException("VIA_EXCESO_AUTOAUTORIZACION",
+                "Quien comprueba los viáticos no puede autorizar su propio exceso.");
+
+        ExcesoAutorizadoPor = autorizaId;
+        ExcesoAutorizadoEn = ahora;
     }
 
     /// <summary>
@@ -353,6 +398,10 @@ public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditab
             throw new BusinessRuleException(
                 "VIA_NO_LIBERABLE",
                 $"Solo se libera desde ComprobacionCapturada (actual: {Estado}).");
+        if (ComprobacionFueraDePolitica && ExcesoAutorizadoPor is null)
+            throw new BusinessRuleException(
+                "VIA_COMPROBACION_FUERA_POLITICA",
+                $"La comprobación excede la política por {ExcesoComprobacion:N2} {Moneda}: Dirección de Finanzas debe autorizar el exceso antes de liberarla.");
 
         MontoComprobado = _lineas.Sum(l => l.Total);
         DiferenciaLiquidacion = MontoComprobado - MontoSolicitado;

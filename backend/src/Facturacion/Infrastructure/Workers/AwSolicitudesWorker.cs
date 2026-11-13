@@ -45,14 +45,17 @@ public sealed class AwSolicitudesWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            try
+            if (!_options.CurrentValue.SoloNotasCredito)
             {
-                await TickAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[AwSolicitudesWorker] Error inesperado.");
+                try
+                {
+                    await TickAsync(stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[AwSolicitudesWorker] Error inesperado.");
+                }
             }
 
             try
@@ -127,6 +130,8 @@ public sealed class AwSolicitudesWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
+        // M-303: con el tramo detenido el worker no lee.
+        if (await Millet.SharedKernel.Application.Tramos.TramosGuard.DetenidoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwIngestaPedidos, cancellationToken)) return 0;
         var reader = sp.GetRequiredService<IAwSolicitudesReader>();
         var sender = sp.GetRequiredService<ISender>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
@@ -165,6 +170,9 @@ public sealed class AwSolicitudesWorker : BackgroundService
             }
         }
 
+        if (procesadas > 0)
+            await Millet.SharedKernel.Application.Tramos.TramosGuard.EventoCorrectoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwIngestaPedidos,
+                $"{procesadas} solicitudes procesadas; última {pendientes[^1].NumeroPedido} v{pendientes[^1].Version}", cancellationToken);
         if (pendientes.Count > 0)
             _logger.LogInformation(
                 "[AwSolicitudesWorker] Tick: {Total} pendientes, {Procesadas} procesadas; latencia cola→ERP promedio {PromedioMs} ms, máxima {MaximaMs} ms.",
@@ -181,6 +189,14 @@ public sealed class AwSolicitudesOptions
     public const string SectionName = "Facturacion:Workers:AwSolicitudes";
 
     public bool Disabled { get; init; }
+
+    /// <summary>
+    /// M-184: el worker solo lee las notas de crédito de A+W y NO drena la cola de pedidos (<c>aw_solicitud_pedido</c>). Sirve
+    /// para encender las notas en un ambiente de pruebas sin ingerir ni marcar como tomados los pedidos de la base de integración.
+    /// Ignorado con <see cref="Disabled"/>.
+    /// </summary>
+    public bool SoloNotasCredito { get; init; }
+
     /// <summary>
     /// Segundos entre barridos de la cola. 15 s (U1.4): con el job de respaldo
     /// también a 15 s, el peor caso de punta a punta queda en ~30 s, dentro

@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -27,7 +28,7 @@ import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
 import { esApiError } from '@/lib/api';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { estadoUi } from '../lib/estados-ui';
-import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/anticipos/facturas/' as const;
 
@@ -38,12 +39,17 @@ const FROM = '/_app/facturacion/anticipos/facturas/' as const;
  * "Ver" abre el master-detail <c>/facturacion/anticipos/facturas/$id</c>.
  */
 export function BandejaFacturasAnticipo() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
 
+  const q = (search.q ?? '').trim();
+  const paginacion = usePaginacionServidor(JSON.stringify(search));
   const query = useBandejaFacturasAnticipo({
     estado: search.estado,
-    limit: 200,
+    q: q || undefined,
+    offset: paginacion.offset,
+    limit: limiteTabla,
     alcance: search.alcance,
   });
 
@@ -54,18 +60,7 @@ export function BandejaFacturasAnticipo() {
     });
   }
 
-  const q = (search.q ?? '').trim().toLowerCase();
-  const items = (query.data?.items ?? []).filter((f) => {
-    if (q.length === 0) return true;
-    return (
-      f.folio.toLowerCase().includes(q) ||
-      (f.uuid ?? '').toLowerCase().includes(q) ||
-      f.receptorNombre.toLowerCase().includes(q) ||
-      f.receptorRfc.toLowerCase().includes(q)
-    );
-  });
-
-  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
+  const items = query.data?.items ?? [];
   return (
     <div className="space-y-5">
       <PageHeader
@@ -128,10 +123,9 @@ export function BandejaFacturasAnticipo() {
         }
         pie={
           <PaginacionTabla
-            total={items.length}
+            total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }
@@ -180,7 +174,7 @@ export function BandejaFacturasAnticipo() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginacion.visibles.map((f) => (
+                {items.map((f) => (
                   <TableRow key={f.id} className="border-t hover:bg-surface-muted/30 border-line">
                     <TableCell className="px-3 py-2 font-mono text-xs">{f.folio}</TableCell>
                     <TableCell className="px-3 py-2">

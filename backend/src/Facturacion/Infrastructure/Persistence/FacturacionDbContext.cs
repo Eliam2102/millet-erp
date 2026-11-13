@@ -85,6 +85,7 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Solicitudes de cancelación SAT 4.0 de comprobantes (F5-PR2).</summary>
     public DbSet<SolicitudCancelacion> SolicitudesCancelacion => Set<SolicitudCancelacion>();
+    public DbSet<ReglaFirmaCancelacion> ReglasFirmaCancelacion => Set<ReglaFirmaCancelacion>();
 
     /// <summary>Recibos electrónicos de pago — REPP, subtipo Pago (F6).</summary>
     public DbSet<ReciboPago> RecibosPago => Set<ReciboPago>();
@@ -93,6 +94,8 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Cartas Porte 3.1 — subtipo Traslado/Ingreso (F8).</summary>
     public DbSet<CartaPorte> CartasPorte => Set<CartaPorte>();
+    public DbSet<TramoTraslado> TramosTraslado => Set<TramoTraslado>();
+    public DbSet<CorreccionTramo> CorreccionesTramo => Set<CorreccionTramo>();
 
     /// <summary>Catálogo de vehículos para Carta Porte (F8).</summary>
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
@@ -111,6 +114,7 @@ public sealed class FacturacionDbContext : BaseDbContext
 
     /// <summary>Proformas versionadas de pedidos facturables, sin valor fiscal (U1.8a).</summary>
     public DbSet<ProformaPedido> ProformasPedido => Set<ProformaPedido>();
+    public DbSet<ProformaConformidad> ProformasConformidad => Set<ProformaConformidad>();
 
     /// <summary>Bitácora de envíos de CFDI al correo del cliente (F2-PR2).</summary>
     public DbSet<BitacoraEnvioCorreo> BitacorasEnvioCorreo => Set<BitacoraEnvioCorreo>();
@@ -118,6 +122,7 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Bitácora de intentos de timbrado — una fila por llamada al PAC ([Decisión 01-G] G4).</summary>
     public DbSet<BitacoraIntentoTimbrado> BitacorasIntentoTimbrado => Set<BitacoraIntentoTimbrado>();
     public DbSet<ContingenciaTimbrado> ContingenciasTimbrado => Set<ContingenciaTimbrado>();
+    public DbSet<EfectoComprobante> EfectosComprobante => Set<EfectoComprobante>();
 
     /// <summary>Control de idempotencia de la ingesta — fuente de verdad (F3-PR1).</summary>
     public DbSet<IngestaControl> IngestaControles => Set<IngestaControl>();
@@ -152,6 +157,7 @@ public sealed class FacturacionDbContext : BaseDbContext
     // 86e3vr1tf: archivo diario de la terminal de tarjetas y su liquidación por folio.
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal> CargasTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.CargaTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal> TransaccionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.TransaccionTerminal>();
+    public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.TerminalAfiliacion> TerminalesAfiliacion => Set<Millet.Facturacion.Domain.Cajas.Terminal.TerminalAfiliacion>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal> LiquidacionesTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.LiquidacionTerminal>();
     public DbSet<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal> FacturasBancoTerminal => Set<Millet.Facturacion.Domain.Cajas.Terminal.FacturaBancoTerminal>();
 
@@ -187,6 +193,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new NotaCreditoConfiguration());
         modelBuilder.ApplyConfiguration(new RelacionCfdiConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionConfiguration());
+        modelBuilder.ApplyConfiguration(new ReglaFirmaCancelacionConfiguration());
         modelBuilder.ApplyConfiguration(new ReciboPagoConfiguration());
         modelBuilder.ApplyConfiguration(new ReppPendienteConfiguration());
         modelBuilder.Entity<ReppPendienteFactura>(b =>
@@ -204,15 +211,19 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new OperadorConfiguration());
         modelBuilder.ApplyConfiguration(new CartaPorteConfiguration());
         modelBuilder.ApplyConfiguration(new CartaPorteMercanciaConfiguration());
+        modelBuilder.ApplyConfiguration(new TramoTrasladoConfiguration());
+        modelBuilder.ApplyConfiguration(new CorreccionTramoConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionVentaActivoConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableLineaConfiguration());
         modelBuilder.ApplyConfiguration(new SalidaFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new SalidaFacturableLineaConfiguration());
         modelBuilder.ApplyConfiguration(new ProformaPedidoConfiguration());
+        modelBuilder.ApplyConfiguration(new ProformaConformidadConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
         modelBuilder.ApplyConfiguration(new ContingenciaTimbradoConfiguration());
+        modelBuilder.ApplyConfiguration(new EfectoComprobanteConfiguration());
         modelBuilder.ApplyConfiguration(new IngestaControlConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableSnapshotConfiguration());
         modelBuilder.ApplyConfiguration(new ExcepcionImportacionConfiguration());

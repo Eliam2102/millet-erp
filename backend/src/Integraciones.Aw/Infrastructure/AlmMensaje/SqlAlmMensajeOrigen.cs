@@ -11,7 +11,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.AlmMensaje;
 /// Origen SQL sobre <c>dbo.alm_mensaje</c> (base de la app de Almacenes, <c>AlmacenRQ_MP</c>; pruebas <c>AlmacenRQ_MP_ENSAYO</c>),
 /// con el DDL del contrato v8 (8-nov): id, mensaje_id, intento, tipo, referencia, fecha, sucursal, tipo_almacen, linea,
 /// contenido, fecha_escrito y acuse_*. Usuario <c>millet_erp_integracion</c>: SELECT y UPDATE solo de acuse_estado/folio/texto/fecha;
-/// DENY DELETE. <b>Sin probar contra la base real.</b> Solo corre con <c>Integraciones:AlmMensaje:Origen=Sql</c> y
+/// DENY DELETE. Columnas y tipos verificados contra ENSAYO en solo lectura (11-nov); los acuses se prueban el 13-nov. Solo corre con <c>Integraciones:AlmMensaje:Origen=Sql</c> y
 /// <c>ConnectionStrings:AlmacenesAppDb</c> (TLS verificado).
 /// Reenvío (v8): renglón NUEVO con el mismo mensaje_id e intento+1; vale el de intento más alto. El orden de una referencia es el
 /// del primer renglón de cada mensaje, así un reenvío conserva su lugar; un ERROR frena a los siguientes de su referencia solo
@@ -20,7 +20,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.AlmMensaje;
 public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMensajeOrigen
 {
     public const string ConnectionStringName = "AlmacenesAppDb";
-    private const int MaxTexto = 1000; // acuse_texto NVARCHAR(1000)
+    private const int MaxTexto = 2000; // acuse_texto NVARCHAR(2000) (verificado en ENSAYO, 11-nov)
 
     // ponytail: agrupa toda la tabla cada 10 s; si crece a millones de renglones, acotar por fecha_escrito o indexar (mensaje_id, intento).
     private const string SqlPendientes = """
@@ -35,10 +35,11 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
                   WHERE e.referencia = m.referencia AND ue.primero < u.primero AND e.acuse_estado = 'ERROR'))
          ORDER BY u.primero
         """;
-    // Solo si sigue sin acuse: dos lectores del mismo renglón no se pisan.
+    // Solo si sigue sin acuse: dos lectores del mismo renglón no se pisan. acuse_fecha en hora local del servidor (Mérida, UTC-6),
+    // sin zona, como fecha y fecha_escrito (Jorge, 12-nov: así se comparan las fechas de un renglón).
     private const string SqlAcuse = """
         UPDATE dbo.alm_mensaje
-           SET acuse_estado = @estado, acuse_folio = @folio, acuse_texto = @texto, acuse_fecha = SYSUTCDATETIME()
+           SET acuse_estado = @estado, acuse_folio = @folio, acuse_texto = @texto, acuse_fecha = SYSDATETIME()
          WHERE id = @id AND acuse_estado IS NULL
         """;
 
@@ -54,6 +55,26 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
             r.Add(new AlmMensajeEntrante(Convert.ToInt64(rd.GetValue(0)), rd.GetString(1), Convert.ToInt32(rd.GetValue(2)), rd.GetString(3),
                 rd.IsDBNull(4) ? null : rd.GetString(4), Fecha(rd.GetValue(5)), rd.GetString(6)));
         return r;
+    }
+
+    // M-283: fecha_escrito es hora local de la base (verificado en ENSAYO, UTC-6), por eso se compara con SYSDATETIME() y no con UTC.
+    private const string SqlSinAcuseAntiguos = """
+        WITH u AS (SELECT mensaje_id, MAX(intento) AS ultimo FROM dbo.alm_mensaje GROUP BY mensaje_id)
+        SELECT COUNT(*), ISNULL(MAX(DATEDIFF(SECOND, m.fecha_escrito, SYSDATETIME())), 0)
+          FROM dbo.alm_mensaje m
+          JOIN u ON u.mensaje_id = m.mensaje_id AND u.ultimo = m.intento
+         WHERE m.acuse_estado IS NULL AND DATEDIFF(SECOND, m.fecha_escrito, SYSDATETIME()) > @segundos
+        """;
+
+    public async Task<AlmMensajeSinAcuse> ContarSinAcuseAntiguosAsync(int segundos, CancellationToken ct)
+    {
+        await using var cn = await AbrirAsync(ct);
+        await using var cmd = cn.CreateCommand();
+        cmd.CommandText = SqlSinAcuseAntiguos;
+        P(cmd, "@segundos", DbType.Int32, segundos);
+        await using var rd = await cmd.ExecuteReaderAsync(ct);
+        await rd.ReadAsync(ct);
+        return new AlmMensajeSinAcuse(Convert.ToInt32(rd.GetValue(0)), Convert.ToInt32(rd.GetValue(1)));
     }
 
     public async Task EscribirAcuseAsync(long secuencia, AcuseApp acuse, CancellationToken ct)

@@ -9,6 +9,7 @@ using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
+using Millet.Tesoreria.Domain.Pasivos;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.Application.Pagos;
@@ -22,7 +23,8 @@ namespace Millet.Tesoreria.Application.Pagos;
 // contrato congelado). La reversa genera contramovimiento (RN-10).
 // ============================================================================
 
-public sealed record AplicacionPagoItem(Guid FacturaProveedorId, decimal Importe);
+// M-326 (b): Importe = efectivo pagado; Redondeo = diferencia autorizada (±≤0.99) que cierra el saldo (0 = sin redondeo).
+public sealed record AplicacionPagoItem(Guid FacturaProveedorId, decimal Importe, decimal Redondeo = 0m);
 
 public sealed record AplicacionPagoResponse(
     Guid PagoId,
@@ -53,7 +55,8 @@ public sealed record RegistrarPagoProveedorCommand(
     // T9.1-B: corrida de pagos que origina el pago (liga la aplicación con la corrida).
     Guid? CorridaId = null,
     // TES-09: TC que aplicó el banco (solo moneda distinta de MXN); null = el del catálogo K10.6 a la fecha valor.
-    decimal? TipoCambioPago = null) : IRequest<PagoProveedorResponse>;
+    decimal? TipoCambioPago = null,
+    string? MotivoTipoCambio = null) : IRequest<PagoProveedorResponse>;
 
 public sealed class RegistrarPagoProveedorValidator : AbstractValidator<RegistrarPagoProveedorCommand>
 {
@@ -70,12 +73,17 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
         {
             a.RuleFor(x => x.FacturaProveedorId).NotEmpty();
             a.RuleFor(x => x.Importe).GreaterThan(0);
+            a.RuleFor(x => x.Redondeo).Must(r => r == 0 || (Math.Abs(r) <= AutorizacionRedondeoPago.Tolerancia && decimal.Round(r, 2) == r))
+                .WithMessage("El redondeo es de máximo $0.99 (±) y de dos decimales.");
         });
         RuleFor(c => c.Aplicaciones)
             .Must(apls => apls is null || apls.Select(a => a.FacturaProveedorId).Distinct().Count() == apls.Count)
             .WithMessage("No se puede aplicar dos veces a la misma factura en el mismo pago.");
         RuleFor(c => c.TipoCambioPago).Must(TipoCambioDelPago.EsValido)
             .WithMessage("El TC del pago debe ser mayor a cero y con 6 decimales como máximo.");
+        // M-265b (Laura Cerón, 10-nov): el TC es editable, pero capturarlo a mano pide el motivo y queda en el movimiento.
+        RuleFor(c => c.MotivoTipoCambio).NotEmpty().When(c => c.TipoCambioPago is not null)
+            .WithMessage("Indica por qué capturas el tipo de cambio a mano.").MaximumLength(300);
     }
 }
 
@@ -146,7 +154,7 @@ public sealed class RegistrarPagoProveedorHandler
                 .Where(a => a.MovimientoId == previo.Id && !a.Revertida).ToListAsync(cancellationToken);
             var mismo = previas.Count > 0 && previas.Count == command.Aplicaciones.Count
                 && previo.Monto == command.Aplicaciones.Sum(a => a.Importe)
-                && command.Aplicaciones.All(c => previas.Any(a => a.FacturaProveedorId == c.FacturaProveedorId && a.ImporteAplicado == c.Importe))
+                && command.Aplicaciones.All(c => previas.Any(a => a.FacturaProveedorId == c.FacturaProveedorId && a.ImporteAplicado == c.Importe + c.Redondeo))
                 && !await ReferenciaPagoUnica.RevertidoAsync(_db, previo.Id, cancellationToken);
             if (!mismo) throw ReferenciaPagoUnica.Duplicada(previo);
             return new PagoProveedorResponse(
@@ -232,19 +240,38 @@ public sealed class RegistrarPagoProveedorHandler
             if (pasivos[grupo.Key].PagoBloqueado)
                 throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
             // El saldo va antes que el elegible: si el importe excede la factura, el aviso de «retenido» no aplica.
-            pasivos[grupo.Key].ExigirSaldo(grupo.Sum(a => a.Importe));
+            pasivos[grupo.Key].ExigirSaldo(grupo.Sum(a => a.Importe + a.Redondeo));
             var limite = await _elegible.ObtenerLimiteAcumuladoAsync(grupo.Key, cancellationToken);
             if (limite <= 0)
                 throw new BusinessRuleException("PASIVO_NO_PAGABLE_CXP", "CxP no autoriza un importe pagable para esta factura. Revisa su estado y saldo en CxP.");
             var pagado = await _db.AplicacionesPagoProveedor.Where(a => a.FacturaProveedorId == grupo.Key && !a.Revertida)
                 .SumAsync(a => a.ImporteAplicado, cancellationToken);
             var disponible = Math.Max(0, limite - pagado);
-            if (grupo.Sum(a => a.Importe) > disponible)
+            if (grupo.Sum(a => a.Importe + a.Redondeo) > disponible)
                 throw new BusinessRuleException("PAGO_EXCEDE_ELEGIBLE",
                     $"Solo {disponible:N2} es elegible para pago de la factura {grupo.Key}. El resto está retenido hasta recibir la mercancía; registra como máximo ese importe.");
         }
         var ahora = _clock.UtcNow;
         var monto = command.Aplicaciones.Sum(a => a.Importe);
+
+        // M-326 (b): un redondeo solo se paga con la autorización vigente del Gerente de Área, por el mismo monto, y debe cerrar el saldo.
+        var autorizaciones = new Dictionary<Guid, AutorizacionRedondeoPago>();
+        foreach (var item in command.Aplicaciones.Where(a => a.Redondeo != 0))
+        {
+            if (pasivos[item.FacturaProveedorId].EsInterno)
+                throw new BusinessRuleException("RPP_PASIVO_INTERNO", "El redondeo aplica solo a facturas de proveedor.");
+            if (pasivos[item.FacturaProveedorId].Moneda != "MXN")
+                throw new BusinessRuleException("RPP_SOLO_MXN", "El redondeo de hasta $0.99 aplica a pasivos en MXN; en otra moneda se paga el saldo exacto.");
+            if (item.Importe + item.Redondeo != pasivos[item.FacturaProveedorId].SaldoPendiente)
+                throw new BusinessRuleException("RPP_NO_CIERRA_SALDO",
+                    "El redondeo solo aplica cuando el pago más el redondeo liquidan exactamente el saldo de la factura.");
+            var autorizacion = await _db.AutorizacionesRedondeoPago.FirstOrDefaultAsync(a => a.EmpresaId == empresaId
+                && a.FacturaProveedorId == item.FacturaProveedorId && a.Estado == EstadoAutorizacionRedondeoPago.Autorizada, cancellationToken);
+            if (autorizacion is null || autorizacion.Redondeo != item.Redondeo)
+                throw new BusinessRuleException("RPP_NO_AUTORIZADO",
+                    $"El redondeo de {item.Redondeo:0.00} de la factura {item.FacturaProveedorId} no está autorizado por el Gerente de Área.");
+            autorizaciones[item.FacturaProveedorId] = autorizacion;
+        }
 
         var movimiento = MovimientoBancario.RegistrarPagoProveedor(
             empresaId: empresaId,
@@ -257,7 +284,7 @@ public sealed class RegistrarPagoProveedorHandler
             creadoPor: usuarioId,
             ahora: ahora,
             destino: destino);
-        var tipoCambioPago = await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken);
+        var tipoCambioPago = await TipoCambioDelPago.FijarAsync(movimiento, _tiposCambio, command.TipoCambioPago, cancellationToken, command.MotivoTipoCambio);
         _db.MovimientosBancarios.Add(movimiento);
 
         var aplicaciones = new List<AplicacionPagoProveedor>(command.Aplicaciones.Count);
@@ -265,15 +292,17 @@ public sealed class RegistrarPagoProveedorHandler
         {
             var pasivo = pasivos[item.FacturaProveedorId];
             // Validación local; la autoridad final es CxP (PAGO_EXCEDE_SALDO).
-            pasivo.AplicarPago(item.Importe);
+            pasivo.AplicarPago(item.Importe + item.Redondeo);
 
             var aplicacion = new AplicacionPagoProveedor(
                 movimientoId: movimiento.Id,
                 facturaProveedorId: item.FacturaProveedorId,
                 proveedorId: proveedorId,
-                importeAplicado: item.Importe,
+                importeAplicado: item.Importe + item.Redondeo,
                 creadoEn: ahora,
-                corridaId: command.CorridaId);
+                corridaId: command.CorridaId,
+                redondeo: item.Redondeo);
+            if (autorizaciones.TryGetValue(item.FacturaProveedorId, out var consumida)) consumida.Consumir(aplicacion.Id);
             aplicaciones.Add(aplicacion);
             _db.AplicacionesPagoProveedor.Add(aplicacion);
 
@@ -289,7 +318,7 @@ public sealed class RegistrarPagoProveedorHandler
                         OcurridoEn: ahora,
                         SolicitudViaticosId: pasivo.OrigenId,
                         PagoId: aplicacion.Id,
-                        MontoPagado: item.Importe,
+                        MontoPagado: item.Importe + item.Redondeo,
                         Moneda: movimiento.Moneda,
                         FechaPago: command.FechaValor,
                         ReferenciaBancaria: movimiento.ReferenciaBancaria), cancellationToken);
@@ -304,7 +333,7 @@ public sealed class RegistrarPagoProveedorHandler
                     OcurridoEn: ahora,
                     FacturaProveedorId: item.FacturaProveedorId,
                     PagoId: aplicacion.Id,
-                    Monto: item.Importe,
+                    Monto: item.Importe + item.Redondeo,
                     Moneda: movimiento.Moneda,
                     FechaPago: command.FechaValor,
                     MetodoPago: pasivo.MetodoPago,
@@ -312,7 +341,7 @@ public sealed class RegistrarPagoProveedorHandler
                     CuentaBancariaId: movimiento.CuentaBancariaId,
                     TipoCambio: pasivo.TipoCambio) { EsAnticipoAgente = pasivo.OrigenTipo == "AnticipoAgente",
                         SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId,
-                        TipoCambioPago = tipoCambioPago }, cancellationToken);
+                        TipoCambioPago = tipoCambioPago, Redondeo = item.Redondeo }, cancellationToken);
             }
         }
 
@@ -413,7 +442,7 @@ public sealed class RevertirPagoProveedorHandler
         // RN-10: marca + contramovimiento; nada se borra.
         aplicacion.Revertir(command.Motivo);
         var contramovimiento = movimiento.CrearContramovimiento(
-            importe: aplicacion.ImporteAplicado,
+            importe: aplicacion.ImporteAplicado - aplicacion.Redondeo,
             fechaValor: fechaReversa,
             creadoPor: usuarioId,
             ahora: ahora, motivo: command.Motivo);

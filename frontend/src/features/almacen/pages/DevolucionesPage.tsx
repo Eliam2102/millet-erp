@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -46,12 +47,13 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { NuevaDevolucionProveedorSheet } from '@/features/almacen/components/NuevaDevolucionProveedorSheet';
+import { CorreccionesPendientesCostos } from '@/features/almacen/components/CorreccionesPendientesCostos';
 import { AplicarDevolucionInternaSheet } from '@/features/almacen/components/AplicarDevolucionInternaSheet';
 import { MatRevSheet, type MatRevModo } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
@@ -70,6 +72,7 @@ type SortKey = 'proveedorId' | 'estado' | 'montoTotalMxn' | 'solicitadaAt';
  */
 export function DevolucionesPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
 
   const puedeIniciarProveedor = useHasPermission(
@@ -88,7 +91,7 @@ export function DevolucionesPage() {
     proveedorId: search.proveedorId,
     soloPendientesNcFiscal: search.soloPendientesNcFiscal,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(
@@ -153,6 +156,8 @@ export function DevolucionesPage() {
         }
       />
 
+      <CorreccionesPendientesCostos />
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {TABS_ESTADO.filter((tab) =>
           [
@@ -169,7 +174,12 @@ export function DevolucionesPage() {
             aria-pressed={search.estado === tab.valor}
             onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
           >
-            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (conteos.data[tab.valor] ?? 0) : <span className="text-ink-muted">—</span>} />
+            <KpiCard etiqueta={tab.label} valor={conteos.data && !conteos.isError ? (
+                  (conteos.data[tab.valor] ?? 0)
+                ) : (
+                  <span className="text-ink-muted">—</span>
+                )
+              } />
           </Button>
         ))}
       </div>
@@ -191,7 +201,7 @@ export function DevolucionesPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         }

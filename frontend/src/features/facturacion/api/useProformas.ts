@@ -4,7 +4,9 @@ import { facturacionKeys } from '@/features/facturacion/api/keys';
 import type {
   ComparacionProformaResponse,
   EmitirFacturaVentaCommand,
+  ProformaConformidadResponse,
   ProformaPedidoResponse,
+  RegistrarConformidadProformaBody,
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/pedidos-facturables';
@@ -49,6 +51,55 @@ export function useGenerarProforma() {
     },
     onSuccess: (data, args) => {
       queryClient.setQueryData(facturacionKeys.pedidoUltimaProforma(args.pedidoId), data);
+    },
+  });
+}
+
+/**
+ * <c>useRegistrarConformidadProforma()</c> — M-234: registra la conformidad del cliente con UNA versión
+ * de la proforma (quién, cuándo, medio). Una proforma vencida responde 422 FAC_PROFORMA_VENCIDA.
+ */
+export function useRegistrarConformidadProforma() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      pedidoId: string;
+      proformaId: string;
+      body: RegistrarConformidadProformaBody;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<ProformaConformidadResponse>(
+        `${BASE}/${args.pedidoId}/proformas/${args.proformaId}/conformidad`,
+        { method: 'POST', body: args.body, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: (_data, args) => {
+      void queryClient.invalidateQueries({
+        queryKey: facturacionKeys.pedidoUltimaProforma(args.pedidoId),
+      });
+    },
+  });
+}
+
+/**
+ * <c>useFacturarDesdeProforma()</c> — M-340: emite la factura desde la versión aprobada de la proforma, sin recaptura.
+ * Un pedido cambiado después de aprobar responde 422 FAC_PROFORMA_PEDIDO_CAMBIO y deja la conformidad invalidada: por eso
+ * se refresca la proforma también al fallar.
+ */
+export function useFacturarDesdeProforma() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { pedidoId: string; proformaId: string; idempotencyKey: string }) => {
+      const { data } = await apiRequest<{ id: string; folio: string; estado: string; uuid: string | null; total: number }>(
+        `${BASE}/${args.pedidoId}/proformas/${args.proformaId}/facturar`,
+        { method: 'POST', idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSettled: (_d, _e, args) => {
+      void queryClient.invalidateQueries({ queryKey: facturacionKeys.pedidoUltimaProforma(args.pedidoId) });
+      void queryClient.invalidateQueries({ queryKey: facturacionKeys.pedidos() });
     },
   });
 }

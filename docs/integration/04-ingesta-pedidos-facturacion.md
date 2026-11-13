@@ -207,6 +207,36 @@ Del catálogo de productos A+W: `producto_ref`, `descripcion`,
 `unidad_medida` normalizada. Claves SAT **no existen en A+W** — las asigna el
 master del ERP (`compartido.producto_aw`) vía mapeo de unidad + UI.
 
+### 3.6 `vw_erp_albaran_pos` (descuento de PT por albarán de A+W) · v2 11-nov
+
+El albarán se queda en A+W; el ERP solo emite la hoja de salida (Geovany, 10-nov). En A+W el albarán es un dato de la
+cabecera (`BW_AUFTR_KOPF.NR_LIEFERSCHEIN` y `DATUM_LIEFERSCHEIN`, Jorge Toache 10-nov). DDL en
+[`20_create_vista_albaran.sql`](../operacion/aw-integracion-scripts/20_create_vista_albaran.sql). TI dio el visto bueno el 11-nov con
+tres ajustes ya aplicados en la v2: piezas por `KO_TEILFAK` (factura parcial) y no por entregado parcial a secas; el
+departamento `RECLAMACIONES` no se remapea al pedido de origen; `DOK_TYP` contra el catálogo `KA_DOK_TYP.BEZ`. Pendiente de
+TI: crearla en MILLET_INTEGRACION_DEV. Mientras tanto el lector sigue apagado (`AlbaranAwHabilitado=false`).
+
+- Una fila por albarán y posición: `numero_pedido`, `numero_posicion` (donde se produjeron las piezas: lote de PT
+  pedido-posición), `pedido_albaran`, `posicion_albaran`, `piezas`, `albaran_folio`, `albaran_fecha`, `estatus_pedido`.
+- La cabecera guarda un solo folio. Cada entrega parcial es un pedido hijo (`DOK_TYP = 'Expedición parcial'`) con su folio;
+  sus posiciones apuntan al origen por `REF_AUSLIEF_AUFTR_ID/POS`. Las reclamaciones se quedan con su propio pedido.
+- Lector: `AlbaranesAwOrigenAdapter` (Demo/Real), worker `AlbaranesAwWorker`, bandera `IntegracionesAw:PiezasPt:AlbaranAwHabilitado`
+  (apagada), ventana `AlbaranAwVentanaDias` (7). PT: `AplicarAlbaranesAwCommand`, idempotente por pedido + posición + albarán
+  (movimiento `aw-albaran:{pedido_albaran}:{folio}`: lleva el pedido de A+W que trae el albarán para no depender de que
+  `NR_LIEFERSCHEIN` sea único en todo A+W); no descuenta otra vez lo que ya salió o está cargado por la hoja de salida del ERP.
+- Robustez: una fila con pedido, posición, folio, fecha o `pedido_albaran` nulos se omite con aviso en el log (piezas nulas
+  cuentan 0); una falla al leer la vista se registra y se reintenta en el siguiente intervalo. Piezas no enteras se truncan
+  con aviso. Si una hoja de salida del ERP carga una pieza a la vez, el token `Version` de la pieza (ADR-0012) rechaza el
+  guardado de esa posición y se reintenta en el siguiente ciclo con el estado nuevo.
+- Ventana de 7 días: el worker solo ve pedidos con algún albarán con `albaran_fecha` dentro de la ventana (de ese pedido trae
+  todos sus albaranes). Un albarán más viejo que la ventana que no se leyó a tiempo (worker apagado, origen caído, piezas
+  que llegaron a PT después) ya no se descuenta. **Backfill:** subir temporalmente
+  `IntegracionesAw:PiezasPt:AlbaranAwVentanaDias` a los días que cubran el hueco, reiniciar la app, esperar uno o dos ciclos
+  (la idempotencia evita duplicar lo ya aplicado) y regresarla a 7.
+- Límite: si TI borra o cambia un folio ya leído, el ERP no revierte la salida.
+- Límite: la cancelación del albarán del ERP (PT5.8, #512) no revierte las salidas aplicadas por un albarán de A+W (movimiento
+  `aw-albaran:…`). Si el albarán de A+W estaba mal, se corrige en A+W; el ERP no tiene reversa automática para ese movimiento.
+
 ## 4. Mapeos A+W → tipos del ERP
 
 Rediseño 2026-07-07 (sustituye a los diccionarios de configuración por
@@ -315,6 +345,19 @@ Reglas confirmadas:
   - **Límites**: sin cursor persistente (una nota aplicada se recuerda en memoria, `AwNotasCreditoVistas`; tras reiniciar se relee la ventana y la idempotencia evita duplicar). Una nota que A+W cambie de 95 a otro estatus después de leída no se retira del ERP.
   - **Probado**: SELECT real contra A+W (conteos, columnas, filtros, vendedor); simulador y pruebas unitarias (caso feliz, duplicado, falla, lento, sin escritura). Pendiente contra el sistema real: encender la bandera en un ambiente con facturas del ERP ligadas a pedidos de A+W y ver el flujo completo.
 - **Clientes y obras**: A+W no crea clientes ni obras de forma automática (proceso manual, sin SQL); el ERP **no** tiene ni debe tener salida de altas hacia A+W y no necesita rango de numeración. La clave de A+W del cliente se guarda en `ReferenciaExterna` (`Origen = Aw`, ver `LigarAw` en doc 05) y el id de la obra (`KA_OBJEKT.ID`) viaja como `ObraId` en pedido, factura y anticipo.
+
+### 8.1 A+W caído: avisos pendientes y reintento (M-160)
+
+Si `aw_retorno` no responde **por conexión** (SQL Server inalcanzable, login o base no disponible, tiempo agotado, socket; en el origen Demo, cualquier falla transitoria de Npgsql), el aviso no se pierde ni cae a dead-letter:
+
+- El listener (`FacturacionRetornoListenerWorker`, `integraciones-aw-subscription`) y el consumidor de PT (`ProductoTerminadoRetornoLocalConsumer`, `integraciones-aw-pt-sub`) guardan el evento tal cual (tipo + JSON) en `integraciones_aw.retorno_pendiente` con estado `Pendiente`, intento 1 y su error, y **completan** el mensaje. Si guardar el pendiente falla (base del ERP caída), el mensaje se abandona como antes.
+- La clasificación vive en `AwRetornoAplicador.EsDeConexion`. Payload corrupto (`JsonException`) sigue yendo a dead-letter con motivo `InvalidPayload`; una regla (`AW_RETORNO_MAPEO_PAGO`) o un error SQL del aviso (constraint, tabla inexistente) sigue el camino de siempre (abandono → dead-letter tras 5 entregas).
+- `AwRetornoAcuseWorker` corre cada minuto: reintenta los pendientes vencidos en orden de llegada con espera **1, 5, 15 y 60 min, y luego cada hora, sin tope**. Si A+W sigue caído, el resto de la pasada cuenta el intento con el mismo error sin esperar el timeout de cada uno. Al aplicarse queda `Aplicado` (con `aplicado_en_utc`); si la falla ya no es de conexión queda `Detenido` para revisión. La conciliación del acuse sigue cada 5 minutos.
+- **Una sola vez**: el reintento corre el mismo código que el evento y `aw_retorno` es idempotente en todos los tipos (documento por UUID + tipo, estatus por estatus, pago por último importe del grupo, saldo solo si cambió).
+- **Alerta**: si el pendiente más antiguo pasa de 4 h, el worker deja un warning en el log y el tablero lo marca.
+- **Tablero**: «Sincronización con A+W» muestra la sección «Avisos a A+W» (pendientes, detenidos, el más antiguo, intentos, siguiente intento y último error) a quien tiene `integraciones.aw.administracion.configuracion`. API: `GET /api/v1/integraciones/aw/retorno/pendientes/resumen`.
+- **Dead-letter**: `POST /api/v1/integraciones/aw/retorno/dead-letter/reprocesar` (mismo permiso, `Idempotency-Key`) lee la dead-letter de `integraciones-aw-subscription` (hasta 500 por llamada), aplica cada mensaje con el mismo servicio (o lo deja pendiente si A+W sigue caído) y lo completa. El payload inválido y las demás fallas se quedan en la dead-letter. Sin Service Bus responde 422 `SERVICE_BUS_NO_CONFIGURADO`.
+- Límite conocido: mientras hay pendientes, un aviso nuevo con A+W ya de vuelta se escribe de inmediato y puede quedar antes que uno viejo del mismo pedido; el pago que llega antes que su factura no se escribe (lo recalcula la factura al aplicarse).
 
 ## Anexo A — Procedencia: diseño JSON de mayo 2026 (no construido)
 

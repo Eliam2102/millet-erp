@@ -32,6 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
 import {
   Sheet,
   SheetClose,
@@ -90,13 +91,35 @@ function etiquetaPeriodo(p: Pick<PeriodoContable, 'numero' | 'nombre'>): string 
   return `${p.numero} · ${p.nombre}`;
 }
 
+/** M-213: resumen del alcance de la reapertura acotada vigente. */
+function descripcionAlcance(r: NonNullable<PeriodoContable['reapertura']>): string {
+  const partes = [
+    r.tiposPoliza.length ? `tipos ${r.tiposPoliza.join(', ')}` : '',
+    r.prefijosCuenta.length ? `cuentas ${r.prefijosCuenta.join(', ')}` : '',
+    r.modulos.length ? `módulos ${r.modulos.join(', ')}` : '',
+    r.usuariosIds.length ? `${r.usuariosIds.length} usuario(s)` : '',
+  ].filter(Boolean);
+  return partes.length ? ` · solo ${partes.join(' · ')}` : '';
+}
+
 /**
  * Quién y cuándo dejó el periodo en su estado actual (86e3t97vh): cerrado → último cierre; abierto → la reapertura si
  * la hubo, si no la apertura. La historia completa está en la bitácora.
  */
 function responsable(p: PeriodoContable): string[] {
-  if (p.estado === 'Cerrado' && p.cerradoPor) return [`Cerró ${p.cerradoPor} · ${formatDateTime(p.cerradoEn!)}`];
-  if (p.estado === 'Abierto' && p.reabiertoPor) return [`Reabrió ${p.reabiertoPor} · ${formatDateTime(p.reabiertoEn!)}`];
+  if (p.estado === 'Cerrado' && p.cerradoPor)
+    return [`Cerró ${p.cerradoPor} · ${formatDateTime(p.cerradoEn!)}`];
+  if (p.estado === 'Abierto' && p.reabiertoPor) {
+    const r = p.reapertura;
+    return [
+      `Reabrió ${p.reabiertoPor} · ${formatDateTime(p.reabiertoEn!)}`,
+      ...(r
+        ? [
+            `${r.vencida ? 'Reapertura vencida' : 'Reabierto hasta'} ${formatDateTime(r.venceEn)}${descripcionAlcance(r)}`,
+          ]
+        : []),
+    ];
+  }
   if (p.abiertoPor) return [`Abrió ${p.abiertoPor} · ${formatDateTime(p.abiertoEn!)}`];
   return [];
 }
@@ -203,10 +226,10 @@ export function PeriodosPage() {
         <TableSkeleton rows={6} />
       ) : ejercicios.isError ? (
         <ErrorState
-  title="No se pudieron cargar los ejercicios"
-  problem={esApiError(ejercicios.error) ? ejercicios.error.problem : undefined}
-  onRetry={() => void ejercicios.refetch()}
-/>
+          title="No se pudieron cargar los ejercicios"
+          problem={esApiError(ejercicios.error) ? ejercicios.error.problem : undefined}
+          onRetry={() => void ejercicios.refetch()}
+        />
       ) : !ejercicio ? (
         <p className="rounded-lg bg-surface-card p-6 text-sm text-ink-muted shadow-card-flat">
           No hay ejercicios contables.{' '}
@@ -266,11 +289,10 @@ export function PeriodosPage() {
               />
             }
             pie={
-              <PaginacionTabla
+              <PaginacionTabla regionId={pagina.regionId}
                 total={filtrados.length}
                 offset={pagina.offset}
-                limit={10}
-                tamanos={[]}
+                limit={pagina.limit}
                 onChange={pagina.onChange}
               />
             }
@@ -355,17 +377,18 @@ export function PeriodosPage() {
                                 Cerrar
                               </Button>
                             )}
-                            {(!puedeCerrar || p.estado === 'Cerrado') && p.estado !== 'NoAbierto' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-haspopup="dialog"
-                                aria-label={`Checklist de cierre de ${etiquetaPeriodo(p)}`}
-                                onClick={() => setChecklistDe(p.id)}
-                              >
-                                Checklist
-                              </Button>
-                            )}
+                            {(!puedeCerrar || p.estado === 'Cerrado') &&
+                              p.estado !== 'NoAbierto' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-haspopup="dialog"
+                                  aria-label={`Checklist de cierre de ${etiquetaPeriodo(p)}`}
+                                  onClick={() => setChecklistDe(p.id)}
+                                >
+                                  Checklist
+                                </Button>
+                              )}
                             {puedeReabrir && p.estado === 'Cerrado' && (
                               <Button
                                 variant="secondary-danger"
@@ -652,22 +675,43 @@ function MotivoDialog({
   const mutacion = useTransicionPeriodo();
   const keyFor = useBodyScopedIdempotencyKey();
   const [motivo, setMotivo] = useState('');
+  // M-213: alcance de la reapertura (listas separadas por coma; vacío = sin restricción en esa dimensión).
+  const [tipos, setTipos] = useState('');
+  const [prefijos, setPrefijos] = useState('');
+  const [modulos, setModulos] = useState('');
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
+  const [evidencia, setEvidencia] = useState('');
+  const [venceEn, setVenceEn] = useState('');
+  const [venceFuturo, setVenceFuturo] = useState(false);
   const [error, setError] = useState<{ mensaje: string; recargar: boolean } | null>(null);
   const largo = motivo.trim().length;
   const motivoValido = largo >= MOTIVO_MINIMO && largo <= MOTIVO_MAXIMO;
   const reabrir = transicion?.accion === 'reabrir';
+  // `venceFuturo` se decide en el manejador de la fecha (no en el render): Date.now() no es puro.
+  const alcanceValido = !reabrir || (evidencia.trim().length >= 5 && venceEn !== '' && venceFuturo);
   const nombre = transicion
     ? `${etiquetaPeriodo(transicion.periodo)} ${transicion.periodo.anio}`
     : '';
 
   function cerrar() {
+    setTipos('');
+    setPrefijos('');
+    setModulos('');
+    setUsuarioId(null);
+    setEvidencia('');
+    setVenceEn('');
+    setVenceFuturo(false);
     setMotivo('');
     setError(null);
     onClose();
   }
 
   function confirmar() {
-    if (!transicion || !motivoValido) return;
+    if (!transicion || !motivoValido || !alcanceValido) return;
+    if (reabrir && new Date(venceEn).getTime() <= Date.now()) {
+      setVenceFuturo(false);
+      return;
+    }
     setError(null);
     const command = {
       periodoId: transicion.periodo.id,
@@ -675,8 +719,23 @@ function MotivoDialog({
       accion: transicion.accion,
       motivo: motivo.trim(),
     };
+    const lista = (t: string) =>
+      t
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+    const alcance = reabrir
+      ? {
+          tiposPoliza: lista(tipos),
+          prefijosCuenta: lista(prefijos),
+          modulos: lista(modulos),
+          usuariosIds: usuarioId ? [usuarioId] : [],
+          evidencia: evidencia.trim(),
+          venceEn: new Date(venceEn).toISOString(),
+        }
+      : undefined;
     mutacion.mutate(
-      { ...transicion, motivo, idempotencyKey: keyFor(command) },
+      { ...transicion, motivo, alcance, idempotencyKey: keyFor({ ...command, alcance }) },
       { onSuccess: cerrar, onError: (e) => setError(mensajeErrorPeriodo(e)) },
     );
   }
@@ -727,6 +786,80 @@ function MotivoDialog({
               bitácora del periodo.
             </p>
           </div>
+          {reabrir && (
+            <fieldset className="space-y-3 rounded-md border border-line px-3 py-3">
+              <legend className="px-1 text-sm font-medium">Alcance de la reapertura</legend>
+              <p className="text-xs text-ink-muted">
+                Solo entra lo que cumpla todo lo que captures; lo que dejes vacío no restringe. Lo
+                demás se rechaza con un mensaje claro.
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="reapertura-tipos">Tipos de póliza</Label>
+                <Input
+                  id="reapertura-tipos"
+                  value={tipos}
+                  placeholder="Ej. AI, TT"
+                  onChange={(e) => setTipos(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="reapertura-prefijos">Cuentas (prefijos)</Label>
+                <Input
+                  id="reapertura-prefijos"
+                  value={prefijos}
+                  placeholder="Ej. 1150, 5101"
+                  onChange={(e) => setPrefijos(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="reapertura-modulos">Módulos de origen</Label>
+                <Input
+                  id="reapertura-modulos"
+                  value={modulos}
+                  placeholder="Ej. Almacen"
+                  onChange={(e) => setModulos(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Quién puede registrar</Label>
+                <UsuarioSelector
+                  value={usuarioId}
+                  onChange={setUsuarioId}
+                  placeholder="Cualquier usuario con permiso"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="reapertura-evidencia">Evidencia (referencia)</Label>
+                <Input
+                  id="reapertura-evidencia"
+                  value={evidencia}
+                  maxLength={300}
+                  placeholder="Oficio o solicitud que respalda la reapertura"
+                  onChange={(e) => setEvidencia(e.target.value)}
+                />
+                <p className="text-xs text-ink-muted">
+                  Los archivos se adjuntan después, en el expediente de la reapertura.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="reapertura-vence">Vence</Label>
+                <Input
+                  id="reapertura-vence"
+                  type="datetime-local"
+                  value={venceEn}
+                  onChange={(e) => {
+                    setVenceEn(e.target.value);
+                    setVenceFuturo(
+                      e.target.value !== '' && new Date(e.target.value).getTime() > Date.now(),
+                    );
+                  }}
+                />
+                <p className="text-xs text-ink-muted">
+                  Al vencer, el periodo vuelve a cerrarse (hora del servidor).
+                </p>
+              </div>
+            </fieldset>
+          )}
           <ErrorAccion error={error} onRecargar={cerrar} />
         </DialogBody>
         <DialogFooter>
@@ -736,7 +869,7 @@ function MotivoDialog({
           <Button
             variant={reabrir ? 'secondary-danger' : 'default'}
             onClick={confirmar}
-            disabled={!motivoValido || mutacion.isPending}
+            disabled={!motivoValido || !alcanceValido || mutacion.isPending}
             title={
               motivoValido ? undefined : `Escribe un motivo de al menos ${MOTIVO_MINIMO} caracteres`
             }
@@ -813,10 +946,10 @@ function BitacoraPanel({
               </div>
             ) : bitacora.isError ? (
               <ErrorState
-  title="No se pudo cargar la bitácora"
-  problem={esApiError(bitacora.error) ? bitacora.error.problem : undefined}
-  onRetry={() => void bitacora.refetch()}
-/>
+                title="No se pudo cargar la bitácora"
+                problem={esApiError(bitacora.error) ? bitacora.error.problem : undefined}
+                onRetry={() => void bitacora.refetch()}
+              />
             ) : cambios.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <History className="size-5 text-ink-muted" strokeWidth={1.6} aria-hidden="true" />

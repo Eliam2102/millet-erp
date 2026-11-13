@@ -66,7 +66,8 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Estatus == EstatusCatalogo.Activo,
                 p.ConceptoRetencion,
                 p.Bloqueado,
-                p.MotivoBloqueo))
+                p.MotivoBloqueo,
+                p.Clave))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -96,7 +97,8 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Estatus == EstatusCatalogo.Activo,
                 p.ConceptoRetencion,
                 p.Bloqueado,
-                p.MotivoBloqueo))
+                p.MotivoBloqueo,
+                p.Clave))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -110,6 +112,21 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
 
         return (await ExpedienteAdjuntos.SinOpinionCumplimiento(_db, _clock)
             .Where(id => proveedorIds.Contains(id)).ToListAsync(cancellationToken)).ToHashSet();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ProveedorFiscalDto>> ObtenerFiscalesPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new Dictionary<Guid, ProveedorFiscalDto>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Proveedores
+            .AsNoTracking()
+            .Where(p => proveedorIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => new ProveedorFiscalDto(p.Id, p.Rfc, p.RazonSocial,
+                p.Origen == Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero, p.Pais, p.TaxId), cancellationToken);
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerBloqueadosPorIdsAsync(

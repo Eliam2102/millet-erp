@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => ({
   crear: vi.fn(),
   autorizar: vi.fn(),
   rechazar: vi.fn(),
+  revertir: vi.fn(),
   propuesta: null as unknown,
   usuario: '' as string,
   conciliacion: null as unknown,
@@ -68,6 +69,13 @@ vi.mock('@/features/cxc/api/useAplicaciones', () => ({
   useCrearPropuestaAplicacion: () => ({ mutate: mocks.crear, isPending: false }),
   useAutorizarAjuste: () => ({ mutate: mocks.autorizar, isPending: false }),
   useRechazarAjuste: () => ({ mutate: mocks.rechazar, isPending: false }),
+  useRevertirAjuste: () => ({ mutate: mocks.revertir, isPending: false }),
+}));
+// M-240: la sección de soporte usa el servicio genérico de adjuntos (react-query); aquí basta saber qué recibe.
+vi.mock('@/components/erp/adjuntos/DocumentoAdjuntosSection', () => ({
+  DocumentoAdjuntosSection: ({ titulo, tipo, soloLectura }: { titulo?: string; tipo: string; soloLectura?: boolean }) => (
+    <div data-testid="soporte-ajuste" data-tipo={tipo} data-solo-lectura={String(Boolean(soloLectura))}>{titulo}</div>
+  ),
 }));
 vi.mock('@/features/cxc/api/useConciliacionPolizas', () => ({
   useConciliacionPolizas: () => ({ data: mocks.conciliacion, isLoading: false, isError: false }),
@@ -223,6 +231,52 @@ describe('CXC-06 · ajuste documentado de un cobro corto', () => {
     expect(within(tipo as HTMLElement).getByText('—')).toHaveClass('text-ink-muted');
     const motivo = screen.getByText('Motivo').nextElementSibling!;
     expect(within(motivo as HTMLElement).getByText('—')).toHaveClass('text-ink-muted');
+  });
+
+  it('M-240: la comisión por autorizar muestra la sección de soporte y avisa que es obligatorio', () => {
+    mocks.propuesta = propuestaConAjuste();
+    render(<DetalleAplicacion />);
+    const soporte = screen.getByTestId('soporte-ajuste');
+    expect(soporte).toHaveTextContent('Soporte del ajuste');
+    expect(soporte).toHaveAttribute('data-tipo', 'propuesta_aplicacion_cxc');
+    expect(soporte).toHaveAttribute('data-solo-lectura', 'false');
+    expect(screen.getByText(/se autoriza solo con su soporte/)).toBeInTheDocument();
+  });
+
+  it('M-240: un ajuste autorizado de un cobro aplicado se revierte con motivo', () => {
+    mocks.propuesta = propuestaConAjuste({
+      estado: 2, ajustePorAutorizar: false, ajusteAutorizadoPor: AUTORIZADOR, ajusteAutorizadoEn: '2026-11-11T12:00:00Z',
+      reppTimbrado: true, version: 5,
+    });
+    render(<DetalleAplicacion />);
+    expect(screen.getByTestId('soporte-ajuste')).toHaveAttribute('data-solo-lectura', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Revertir ajuste' }));
+    const confirmar = screen.getAllByRole('button', { name: 'Revertir ajuste' }).at(-1)!;
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Motivo de la reversa/), { target: { value: 'El banco devolvió la comisión' } });
+    fireEvent.click(confirmar);
+    expect(mocks.revertir).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'pap-1', versionEsperada: 5, motivo: 'El banco devolvió la comisión' }),
+      expect.anything(),
+    );
+  });
+
+  it('M-240: sin REP timbrado o ya revertido no se ofrece revertir; revertido muestra el motivo', () => {
+    mocks.propuesta = propuestaConAjuste({
+      estado: 2, ajustePorAutorizar: false, ajusteAutorizadoEn: '2026-11-11T12:00:00Z', reppTimbrado: false,
+    });
+    const { unmount } = render(<DetalleAplicacion />);
+    expect(screen.queryByRole('button', { name: 'Revertir ajuste' })).not.toBeInTheDocument();
+    unmount();
+
+    mocks.propuesta = propuestaConAjuste({
+      estado: 2, ajustePorAutorizar: false, ajusteAutorizadoEn: '2026-11-11T12:00:00Z', reppTimbrado: true,
+      ajusteRevertidoEn: '2026-11-11T18:00:00Z', motivoReversaAjuste: 'El banco devolvió la comisión',
+    });
+    render(<DetalleAplicacion />);
+    expect(screen.queryByRole('button', { name: 'Revertir ajuste' })).not.toBeInTheDocument();
+    expect(screen.getByText('Ajuste revertido')).toBeInTheDocument();
+    expect(screen.getByText('El banco devolvió la comisión')).toBeInTheDocument();
   });
 
   it('lista por omisión las diferencias con su causa probable', () => {

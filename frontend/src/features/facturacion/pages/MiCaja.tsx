@@ -1,3 +1,5 @@
+import { abrirPdfParaImprimir } from '@/components/erp/reportes/imprimir-pdf';
+import { obtenerArchivo } from '@/features/facturacion/lib/descargas';
 import { DateTimeDisplay, ErrorState, TableSkeleton } from '@/components/erp';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { resumirSesionCaja } from '@/features/facturacion/lib/resumen-caja';
@@ -71,6 +73,7 @@ import {
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { cn } from '@/lib/utils';
@@ -182,15 +185,22 @@ export function MiCaja() {
 
 function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId: string } | null }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
-  const cajas = useListarCajas(true);
   const abrir = useAbrirSesion();
   const idempotencyKey = useFormIdempotencyKey();
+  // H-U28: la sucursal del encabezado se preselecciona y filtra las cajas ofrecidas.
+  const sucursalEncabezado = useAuthStore((s) => s.currentSucursalId);
 
   const [cajaId, setCajaId] = useState<string | null>(ultima?.cajaId ?? null);
   // Aviso [12-C]: los ajustes pendientes de la caja elegida se drenan
   // automáticamente al abrir — el cajero debe saberlo antes de declarar.
   const ajustes = useAjustesCaja(cajaId);
-  const [sucursalId, setSucursalId] = useState<string | null>(ultima?.sucursalId ?? null);
+  const [sucursalId, setSucursalId] = useState<string | null>(
+    ultima?.sucursalId ?? sucursalEncabezado ?? null,
+  );
+  // Corporativo (leer-todas): puede listar las cajas de todas las sucursales.
+  const puedeTodas = useHasPermission(PermisosCanonicos.FacturacionCajaLeerTodas);
+  const [todasLasSucursales, setTodasLasSucursales] = useState(false);
+  const cajas = useListarCajas(true, todasLasSucursales ? null : sucursalId);
   const [fondo, setFondo] = useState('');
   const [autorizacionId, setAutorizacionId] = useState('');
   const [pideAutorizacion, setPideAutorizacion] = useState(false);
@@ -238,12 +248,28 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
+        {puedeTodas && (
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={todasLasSucursales}
+              onChange={(e) => {
+                setTodasLasSucursales(e.target.checked);
+                setCajaId(null);
+              }}
+            />
+            Ver cajas de todas las sucursales
+          </label>
+        )}
         <div className="space-y-1">
           <Label>Caja</Label>
           {cajas.isLoading ? (
             <p className="text-xs text-ink-muted">Cargando cajas…</p>
           ) : (
-            <Select value={cajaId ?? undefined} onValueChange={setCajaId}>
+            <Select
+              value={cajaId ?? undefined}
+              onValueChange={setCajaId}
+            >
               <SelectTrigger aria-label="Caja">
                 <SelectValue placeholder="Selecciona una caja" />
               </SelectTrigger>
@@ -1052,8 +1078,8 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
 // ─── Movimientos y cobros de la sesión ───────────────────────────────
 
 /** Reimpresión del Vale de Caja de un retiro: mismo folio y datos (86e3ww6tw). */
-function reimprimirVale(movimientoId: string, folio: number) {
-  descargarValeCaja(movimientoId, folio).catch((error: unknown) =>
+function reimprimirVale(movimientoId: string) {
+  abrirPdfParaImprimir(() => obtenerArchivo(`/api/v1/facturacion/cajas/movimientos/${movimientoId}/vale.pdf`)).catch((error: unknown) =>
     toastError(error, 'No se pudo descargar el Vale de Caja.'),
   );
 }
@@ -1104,7 +1130,7 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
                       variant="ghost"
                       size="sm"
                       aria-label={`Vale de caja folio ${m.folioVale}`}
-                      onClick={() => reimprimirVale(m.id, m.folioVale!)}
+                      onClick={() => reimprimirVale(m.id)}
                     >
                       <FileText className="mr-1 h-3.5 w-3.5" aria-hidden />
                       Vale de caja

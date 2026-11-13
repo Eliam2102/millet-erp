@@ -392,6 +392,22 @@ Una factura "requiere pedimento" si **alguna** de sus líneas lo marca.
   `PedimentoSalidasWorker` empareja la Hoja de Salida ↔ pedimento y dispara
   el timbre. Esta retención afecta **solo** a esa factura, no al resto.
 
+> **M-216 (10-nov-2026) · fuente del pedimento = expediente de Comercio exterior.**
+> El Sistema de Salidas se absorbe en el ERP (D03), así que ya no hay vista de
+> Hojas de Salida que leer. El pedimento se captura en el expediente de Comercio
+> exterior y Facturación lo lee con `IEmbarqueExportacionReadPort`:
+> - al emitir, si la factura está ligada a un expediente con pedimento, las líneas
+>   que lo requieren lo toman y la factura **no se retiene**;
+> - `ExpedientePedimentosReader` (lector del `PedimentoSalidasWorker`) libera las
+>   retenidas cuyo expediente ya tiene pedimento; la bitácora registra el origen
+>   `PedimentoExpedienteCe`;
+> - sin expediente o sin pedimento la factura sigue retenida y su detalle dice cuál
+>   falta (`MotivoPedimento`). La venta nacional de primera mano de producto
+>   importado no tiene vínculo automático línea → lote → pedimento de importación
+>   (D22 pendiente): se captura a mano en el detalle de la factura.
+> - Con CCE el SAT prohíbe `InformacionAduanera` en el concepto (CFDI40195): el
+>   pedimento se conserva en la línea, pero no viaja en el XML.
+
 > **Por qué no es post-timbrado en sentido estricto:** el pedimento va en el
 > **XML normal** (no en CCE) y un CFDI timbrado es **inmutable**. Si se
 > timbrara sin pedimento, incorporarlo después exigiría **cancelar +
@@ -497,6 +513,7 @@ el claim, el `estado_facturacion` (binario) y el resultado. Matriz operación
 | `FacturaAnticipo` | CFDI de anticipo (I, serie FANT) | Siempre nominal |
 | `NotaCredito` | NC (E): amortización / bonificación / devolución | Relación 07/01/03 |
 | `CartaPorte` | Traslado (T o I), tramo, vehículo, operador, mercancías | Entidad propia, multi-tramo |
+| `TramoTraslado` (M-354) | Tramo del traslado de un pedido con su modalidad: `VehiculoPropio` (emite Carta Porte de Millet, queda ligada) o `TransportistaTercero` (no emite; registra el documento del tercero). El tramo marítimo de exportación no se modela: no genera Carta Porte de Millet | Una `CartaPorte` observada (timbrado fallido) se corrige con rastro (`tramos_traslado_correcciones`) y se reemite con «Reintentar» |
 | `ReciboPago` (REPP) | Pago (P) con complemento Pago 2.0 | Multi-factura, parcialidades |
 | `Anticipo` | Saldo amortizable, estado, vinculaciones | Separado del CFDI |
 | `PedidoFacturable` | Pedido normalizado listo para facturar (+ snapshot si es externo) | `origen` ∈ {Aw, PlantaPintura, **Manual**}; ingesta o captura. Salidas NO es origen de pedido |
@@ -737,7 +754,7 @@ deploy falla con `/health/ready` 503.
 | `IActivosFijosReadPort` | Activos Fijos (o catálogo mínimo) | Valor en libros, depreciación, validación de alta |
 | `IAwSolicitudesReader` | Integraciones.Aw | Lee la cola `aw_solicitud_pedido` (operaciones pendientes) y los datos del pedido (cabecera/líneas) que cada solicitud referencia |
 | `IPlantaPinturaPedidosReader` | Integraciones.Origenes | **Órdenes de servicio de Planta Pintura** listas para facturar (vista SQL). Único reader de pedidos del módulo Origenes |
-| `ISalidasPedimentosReader` | Integraciones.Origenes | Hoja de Salida con Contenedor ↔ pedimento + packing list. **No** provee pedidos; alimenta la asociación de pedimento (§3.bis.5) |
+| `ISalidasPedimentosReader` | Facturación (`ExpedientePedimentosReader`, M-216) | Pedimento del expediente de Comercio exterior ligado a cada factura retenida. **No** provee pedidos; alimenta la asociación de pedimento (§3.bis.5) |
 | `IPeriodoContablePort` | Contabilidad | ¿Período cerrado? (candado) |
 | `IFiscalApiClient` | Integraciones.Fiscal | Timbrar / cancelar / consultar estatus |
 | `ICsdProvider` | Integraciones.Fiscal | CSD del emisor por empresa (sello) |
@@ -907,7 +924,7 @@ cada una con su patrón. La tabla vive en un único lugar del backend,
 | `TimbradoPendienteWorker` | Resuelve `TimbradoEnProceso` consultando el PAC (FSM asíncrona, Decisión 01-C). Con [01-G G5] el pedido queda ligado a su factura, así que vencer a `PAC_TIMEOUT` ya no deja pedidos inconsistentes; el reintento/descarte ocurre sobre la factura | cada N seg/min |
 | `CancelacionSatPollerWorker` | Poll de estatus de cancelaciones `EnProceso` (respuesta del receptor 3 días) | intra-día |
 | `EnvioCfdiCorreoWorker` | Reintentos de envío de CFDI al cliente con backoff | continuo |
-| `PedimentoSalidasWorker` | Empareja Hojas de Salida ↔ facturas de exportación y aplica pedimento | cada N min |
+| `PedimentoSalidasWorker` | Aplica a las facturas retenidas el pedimento de su expediente de Comercio exterior (M-216) | cada N min |
 | `OutboxPublisherWorker<FacturacionDbContext>` | Publica eventos del Outbox a Service Bus | continuo |
 
 Catálogos SAT: la sincronización del espejo (nocturna) vive en
@@ -1018,6 +1035,7 @@ y la memoria de estructura de ventanas ERP.
 | `IFiscalApiClient` fase 2 (timbrar/cancelar/consultar + complementos) | `<IntegracionesFiscalFase2>` | Stub que devuelve UUID/sello fake en sandbox | Implementar fase 2 de Integraciones.Fiscal (rediseño asíncrono). Facturación consume el puerto |
 | `ICsdProvider` | `<IntegracionesFiscalCsd>` | Stub con CSD de pruebas SAT | Provisto por Integraciones.Fiscal; CSD en Key Vault |
 | `ICfdiRepositorioPort` (repo de **emitidos**) | — (adapter real) | `CfdiArchivoRepository` en `integraciones_fiscal` (F2-PR1, **no es stub**) | Ya wired: Facturación custodia sus CFDIs **emitidos** en `integraciones_fiscal.cfdi_archivo`. **Decisión "Separados" (owner, 2026-05-30):** CxP sigue con su blob para **recibidos** (no se unifican físicamente — son documentos de negocio distintos); un repositorio unificado para conciliación/BI lo arma el módulo 10 jalando de ambos. `UuidCfdi`/`IXmlCfdiParser`/`ICfdiBlobStorage` **no** se promueven (59/7/6 usos en CxP — deuda de refactor aparte si alguna vez duele) |
+| `<DireccionEntregaPedidoAw>`: dirección de entrega del pedido para el destino del tramo de Carta Porte | 86e4084ra · M-354 | `NoOpDireccionEntregaPedidoReadPort` (devuelve `null`; el destino del tramo se captura a mano) | Integraciones ajusta la vista del ERP con las dos direcciones de `BW_AUFTR_KOPF` (llave ID): principal `AH_STRASSE/PLZ/ORT/PROVINZ/LAND` y de entrega `AL_NAME1/STRASSE/PLZ/ORT/PROVINZ/LAND`. Regla ya implementada (`DireccionEntregaPedido.Resolver`): si `AL_NAME1` y `AL_STRASSE` vienen vacíos, se entrega en la principal. Al existir la vista, implementar `IDireccionEntregaPedidoReadPort` y registrarlo en lugar del NoOp |
 | `Millet.Integraciones.Origenes` (Planta Pintura + Salidas) | `<IntegracionesOrigenes>` | Fixtures/stub readers | Nuevo módulo con Hybrid Connection a `SER-DATA`; readers de las 2 vistas |
 | `IAwSolicitudesReader` | ✅ **CERRADO** (ADR-0048, PR3 #449) | `AwSolicitudesSqlReader` (Integraciones.Aw/Pedidos) sobre `MILLET_INTEGRACION.aw_solicitud_pedido` + vistas `vw_erp_pedido_*`; activo vía toggle `AwIntegracionDb`. `StubAwSolicitudesReader` queda como fallback dev | Ya wired. Vistas se afinan en la fase guiada (runbook M2) |
 | `IAwWriteBackPort` (claim al ingestar + resultado UUID/estatus al facturar) | ✅ **CERRADO — mitad A+W** (ADR-0048, PR3/PR5 #449/#452) | `AwWriteBackSqlAdapter` + `WriteBackResultadoWorker` (columnas `write_back_*` de `ingesta_control` como outbox local) | Ya wired. `ingesta_control` sigue siendo fuente de verdad |

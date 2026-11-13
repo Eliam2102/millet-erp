@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- H-U22: UMT por fracción arancelaria (catálogo público SAT); ver Domain/Catalogos/README.md -->
+    <EmbeddedResource Include="Domain/Catalogos/c_FraccionArancelaria_umt.csv" LogicalName="Millet.SharedKernel.Catalogos.c_FraccionArancelaria_umt.csv" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!--
       F6-PR2: tests integration de Compras llaman OutboxPublisherWorker.PollOnceAsync
       (internal) directamente para evitar el loop de Task.Delay y verificar
@@ -32,6 +37,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Serilog" />
+    <PackageReference Include="PdfPig" />
     <!--
       Application infra (CQRS, validación, mapping). Las extension
       methods AddMilletApplication(...) en SharedKernel.Application

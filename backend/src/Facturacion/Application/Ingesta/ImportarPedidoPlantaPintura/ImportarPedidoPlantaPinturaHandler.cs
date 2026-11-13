@@ -24,14 +24,17 @@ public sealed class ImportarPedidoPlantaPinturaHandler
     private readonly FacturacionDbContext _db;
     private readonly IClientesReadPort _clientes;
     private readonly IProductosReadPort _productos;
+    private readonly IEmpleadosReadPort _empleados;
     private readonly IClock _clock;
 
     public ImportarPedidoPlantaPinturaHandler(
-        FacturacionDbContext db, IClientesReadPort clientes, IProductosReadPort productos, IClock clock)
+        FacturacionDbContext db, IClientesReadPort clientes, IProductosReadPort productos, IEmpleadosReadPort empleados,
+        IClock clock)
     {
         _db = db;
         _clientes = clientes;
         _productos = productos;
+        _empleados = empleados;
         _clock = clock;
     }
 
@@ -56,36 +59,54 @@ public sealed class ImportarPedidoPlantaPinturaHandler
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
                 $"cliente_clave='{pedido.ClienteRef}': está inactivo en el ERP.", cancellationToken);
 
-        if (pedido.Lineas.Count != 1)
+        // Trazabilidad (script 16 v4): capturista obligatorio y vendedor opcional, ambos del catálogo de empleados del ERP.
+        var capturista = pedido.EmpleadoCapturaClave?.Trim();
+        if (string.IsNullOrEmpty(capturista))
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                $"La orden debe traer exactamente una línea (trae {pedido.Lineas.Count}).", cancellationToken);
+                "empleado_captura_clave: viene vacía; el portal debe mandar el empleado del usuario que captura.", cancellationToken);
+        if (!await _empleados.ExisteClaveAsync(capturista, cancellationToken))
+            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                $"empleado_captura_clave={capturista}: no existe en el ERP", cancellationToken);
+        var vendedor = string.IsNullOrWhiteSpace(pedido.VendedorClave) ? null : pedido.VendedorClave.Trim();
+        if (vendedor is not null && !await _empleados.ExisteClaveAsync(vendedor, cancellationToken))
+            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                $"vendedor_clave={vendedor}: no existe en el ERP", cancellationToken);
 
-        var l = pedido.Lineas[0];
-        if (l.Cantidad <= 0)
+        // Una línea de venta por línea de la orden (script 16 v3); todas se validan antes de crear.
+        if (pedido.Lineas.Count == 0)
             return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                $"m2={l.Cantidad}: debe ser mayor a 0.", cancellationToken);
-        if (l.Precio < 0)
-            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                $"precio_m2={l.Precio}: no puede ser negativo.", cancellationToken);
+                "La orden no trae líneas (pinturas_pedido_linea).", cancellationToken);
 
-        var prod = await _productos.ResolverPorReferenciaAsync(l.ProductoRef, cancellationToken);
-        if (prod is null)
-            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ArticuloNoExiste,
-                $"servicio_clave='{l.ProductoRef}': no existe en el ERP (Planta Pintura exige preexistencia).", cancellationToken);
-        if (!prod.Activo)
-            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
-                $"servicio_clave='{l.ProductoRef}': está inactivo en el ERP.", cancellationToken);
-        if (!prod.EsServicioRecubrimiento)
-            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ServicioNoMarcado,
-                $"servicio_clave='{l.ProductoRef}': no está marcado como servicio de recubrimiento.", cancellationToken);
-        if (string.IsNullOrWhiteSpace(l.ClaveProdServSat ?? prod.ClaveProdServSat)
-            || string.IsNullOrWhiteSpace(l.ClaveUnidadSat ?? prod.ClaveUnidadSat)
-            || string.IsNullOrWhiteSpace(prod.ObjetoImp) || prod.TasaIvaTraslado is null)
-            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ProductoSinClaveSat,
-                $"servicio_clave='{l.ProductoRef}': tiene datos fiscales incompletos en el ERP (clave SAT, unidad, objeto de impuesto o tasa de IVA).", cancellationToken);
-        if (l.TasaIva is decimal tasa && tasa != prod.TasaIvaTraslado)
-            return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.IvaNoCuadra,
-                $"iva_porcentaje={tasa * 100:0.##}: no coincide con la tasa del servicio '{l.ProductoRef}' ({prod.TasaIvaTraslado * 100:0.##}).", cancellationToken);
+        var lineas = new List<(LineaPedidoPlantaPintura Linea, ProductoFiscalLectura Producto)>(pedido.Lineas.Count);
+        foreach (var l in pedido.Lineas)
+        {
+            if (l.Cantidad <= 0)
+                return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                    $"m2={l.Cantidad}: debe ser mayor a 0 (servicio '{l.ProductoRef}').", cancellationToken);
+            if (l.Precio < 0)
+                return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                    $"precio_m2={l.Precio}: no puede ser negativo (servicio '{l.ProductoRef}').", cancellationToken);
+
+            var prod = await _productos.ResolverPorReferenciaAsync(l.ProductoRef, cancellationToken);
+            if (prod is null)
+                return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ArticuloNoExiste,
+                    $"servicio_clave='{l.ProductoRef}': no existe en el ERP (Planta Pintura exige preexistencia).", cancellationToken);
+            if (!prod.Activo)
+                return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.Otro,
+                    $"servicio_clave='{l.ProductoRef}': está inactivo en el ERP.", cancellationToken);
+            if (!prod.EsServicioRecubrimiento)
+                return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ServicioNoMarcado,
+                    $"servicio_clave='{l.ProductoRef}': no está marcado como servicio de recubrimiento.", cancellationToken);
+            if (string.IsNullOrWhiteSpace(l.ClaveProdServSat ?? prod.ClaveProdServSat)
+                || string.IsNullOrWhiteSpace(l.ClaveUnidadSat ?? prod.ClaveUnidadSat)
+                || string.IsNullOrWhiteSpace(prod.ObjetoImp) || prod.TasaIvaTraslado is null)
+                return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.ProductoSinClaveSat,
+                    $"servicio_clave='{l.ProductoRef}': tiene datos fiscales incompletos en el ERP (clave SAT, unidad, objeto de impuesto o tasa de IVA).", cancellationToken);
+            if (l.TasaIva is decimal tasa && tasa != prod.TasaIvaTraslado)
+                return await RegistrarExcepcionAsync(command.EmpresaId, pedido.NumeroPedido, MotivoExcepcion.IvaNoCuadra,
+                    $"iva_porcentaje={tasa * 100:0.##}: no coincide con la tasa del servicio '{l.ProductoRef}' ({prod.TasaIvaTraslado * 100:0.##}).", cancellationToken);
+            lineas.Add((l, prod));
+        }
 
         // Crear el pedido facturable.
         PedidoFacturable nuevo;
@@ -94,9 +115,10 @@ public sealed class ImportarPedidoPlantaPinturaHandler
             nuevo = PedidoFacturable.ImportarDesdePlantaPintura(
                 command.EmpresaId, pedido.NumeroPedido, pedido.SucursalId, cliente.ClienteId, cliente.RazonSocial,
                 pedido.CanalVenta, pedido.ComportamientoFiscal, pedido.Moneda, pedido.ObraId, pedido.ObraNombre,
-                pedido.Comentarios, pedido.VersionOrigen, pedido.EstadoOrigen);
-            nuevo.AgregarLinea(prod.ProductoId, l.Descripcion, l.ClaveProdServSat ?? prod.ClaveProdServSat,
-                l.ClaveUnidadSat ?? prod.ClaveUnidadSat, l.Cantidad, l.Precio, l.Descuento, l.RequierePedimento);
+                pedido.Comentarios, pedido.VersionOrigen, pedido.EstadoOrigen, pedido.FechaPedido, capturista, vendedor);
+            foreach (var (l, prod) in lineas)
+                nuevo.AgregarLinea(prod.ProductoId, l.Descripcion, l.ClaveProdServSat ?? prod.ClaveProdServSat,
+                    l.ClaveUnidadSat ?? prod.ClaveUnidadSat, l.Cantidad, l.Precio, l.Descuento, l.RequierePedimento);
             nuevo.RecalcularTotal();
         }
         catch (BusinessRuleException ex)

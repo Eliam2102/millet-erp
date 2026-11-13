@@ -12,7 +12,7 @@ export interface OtrEnvio {
   clienteId: string;
   expedienteId: string | null;
   contenedorId: string | null;
-  estado: 1 | 2 | 3;
+  estado: 1 | 2 | 3 | 4;
   motivoVinculacion: string | null;
   contenido: {
     cliente: string;
@@ -33,7 +33,7 @@ export interface OtrEnvio {
     posicion: number;
     cantidad: number;
     unidad: string;
-    estado: 1 | 2 | 3;
+    estado: 1 | 2 | 3 | 4;
     motivo: string | null;
     partidaId: string | null;
   }[];
@@ -55,6 +55,41 @@ export interface OtrEnvio {
   }[];
 }
 const BASE = '/api/v1/comercio-exterior/otr';
+export type OtrFila = Pick<
+  OtrEnvio,
+  | 'id'
+  | 'idOrigen'
+  | 'version'
+  | 'versionAplicada'
+  | 'sucursalId'
+  | 'estado'
+  | 'motivoVinculacion'
+  | 'contenido'
+>;
+export function useOtrBandeja() {
+  return useQuery({
+    queryKey: [...ceKeys.all, 'otr-bandeja'],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<OtrFila[]>(`${BASE}/bandeja`, { signal })).data,
+  });
+}
+/** Entradas OTR que el lector rechazó en definitiva; sin sucursal, sólo para quien gestiona OTR en todas. */
+export interface OtrRechazo {
+  id: string;
+  idOrigen: string;
+  versionOrigen: number;
+  intentos: number;
+  motivo: string | null;
+  fecha: string;
+}
+export function useOtrRechazos(enabled: boolean) {
+  return useQuery({
+    queryKey: [...ceKeys.all, 'otr-rechazos'],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<OtrRechazo[]>(`${BASE}/rechazos`, { signal })).data,
+    enabled,
+  });
+}
 export function useOtrEnvios(expedienteId?: string) {
   return useQuery({
     queryKey: [...ceKeys.all, 'otr', expedienteId],
@@ -80,7 +115,15 @@ export function useOtrAccion() {
   const keyFor = useBodyScopedIdempotencyKey();
   const conflict = useConflictDialog();
   return useMutation({
-    mutationFn: ({ envio, ruta, body }: { envio: OtrEnvio; ruta: string; body?: unknown }) =>
+    mutationFn: ({
+      envio,
+      ruta,
+      body,
+    }: {
+      envio: Pick<OtrEnvio, 'id' | 'version'>;
+      ruta: string;
+      body?: unknown;
+    }) =>
       apiRequest<OtrEnvio>(`${BASE}/${envio.id}/${ruta}`, {
         method: 'POST',
         body,

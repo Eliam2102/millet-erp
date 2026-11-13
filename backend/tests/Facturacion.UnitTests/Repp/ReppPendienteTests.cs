@@ -194,6 +194,31 @@ public sealed class ReppPendienteTests
         (await Servicio(db, 19.25m).TipoCambioAsync(Pendiente(moneda: "USD"), default)).Should().Be(19.25m);
     }
 
+    [Fact]
+    public async Task M173_caida_del_PAC_deja_el_REP_en_proceso_con_su_folio_ligado_al_pendiente_y_no_lo_reemite()
+    {
+        using var db = Db();
+        var f = Factura(); var p = Pendiente([new(f.Id, 100)]);
+        db.FacturasVenta.Add(f); db.ReppPendientes.Add(p); await db.SaveChangesAsync();
+        var fiscal = new FakeFiscalCaida();
+        var sender = new EmisionSender(new EmitirReppHandler(db, new FakeSender(new ReservarFolioResponse("P-PRUEBA", 1, "")),
+            new FakePeriodoContablePort(), fiscal, new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            new FakeEmpresaContext(Empresa), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora),
+            new ValidadorReceptorFiscal(new FakeClientesReadPort(), new FakeCatalogosSatReadPort(), db), new FakeCuentaBancariaMilletReadPort()));
+        var handler = new EmitirReppPendienteHandler(db, Servicio(db), new Banco(20m), sender, new FakeCuentaBancariaMilletReadPort());
+
+        var resultado = await handler.Handle(new(p.Id), default);
+
+        resultado.Emitido.Should().BeFalse();
+        db.ChangeTracker.Clear();
+        var repp = await db.RecibosPago.SingleAsync();
+        (repp.Folio, repp.Estado).Should().Be(("P-PRUEBA", EstadoTimbrado.TimbradoEnProceso));
+        (await db.ReppPendientes.SingleAsync()).IntentoReciboPagoId.Should().Be(repp.Id);
+        await handler.Handle(new(p.Id), default);
+        (await db.RecibosPago.CountAsync()).Should().Be(1);
+        fiscal.Llamadas.Should().Be(1);
+    }
+
     [Theory]
     [InlineData(TimbradoEstado.Timbrado, true)]
     [InlineData(TimbradoEstado.Fallido, false)]
@@ -254,6 +279,20 @@ public sealed class ReppPendienteTests
         var resultado = await handler.Handle(new ReppPendientesQuery(), default);
         resultado.Items.Should().ContainSingle().Which.Id.Should().Be(propio.Id);
         resultado.Kpis.Should().Be(new ReppPendientesKpis(1, 1, 0, 1));
+    }
+
+    [Fact]
+    public async Task Bandeja_pagina_en_servidor_y_devuelve_el_total_real()
+    {
+        using var db = Db();
+        db.ReppPendientes.AddRange(Pendiente(), Pendiente(), Pendiente());
+        await db.SaveChangesAsync();
+        var handler = new ReppPendienteQueryHandler(db, Servicio(db), new FakeClientesReadPort(), new Banco(null), new FakeClock(Ahora), new FakeCuentaBancariaMilletReadPort());
+
+        var resultado = await handler.Handle(new ReppPendientesQuery(Offset: 1, Limit: 1), default);
+
+        resultado.Items.Should().HaveCount(1);
+        resultado.Total.Should().Be(3);
     }
 
     [Fact]

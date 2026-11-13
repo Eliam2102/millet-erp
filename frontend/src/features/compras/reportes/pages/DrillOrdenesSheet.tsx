@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Loader2 } from 'lucide-react';
@@ -49,7 +50,8 @@ const ORIGEN: Record<OrigenCompromiso, string> = {
   'oc-esperada': 'Fecha esperada en la OC',
 };
 
-const dinero = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dinero = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2,
+});
 const cantidad = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 4 });
 
 /** `yyyy-MM-dd[...]` → `dd/MM/yyyy` sin pasar por Date (evita desfase de zona horaria). */
@@ -68,7 +70,9 @@ export function DrillOrdenesSheet({ target, filtros, onClose }: Props) {
   return (
     <Sheet open={target != null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent size="lg">
-        {target && <Contenido key={target.titulo + target.indicador} target={target} filtros={filtros} />}
+        {target && (
+          <Contenido key={target.titulo + target.indicador} target={target} filtros={filtros} />
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -128,7 +132,9 @@ function Contenido({ target, filtros }: { target: DrillTarget; filtros: FiltrosA
           </p>
         ) : (
           <>
-            <p className="text-xs text-ink-muted">{items.length} {items.length === 1 ? 'orden' : 'órdenes'}</p>
+            <p className="text-xs text-ink-muted">
+              {items.length} {items.length === 1 ? 'orden' : 'órdenes'}
+            </p>
             <ul className="space-y-3">
               {items.map((oc) => (
                 <li key={oc.ocId}>
@@ -197,17 +203,31 @@ function TarjetaOrden({ oc }: { oc: OrdenDrill }) {
 
       {oc.lineas.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <Table className="w-full text-xs">
             <caption className="sr-only">Líneas de {oc.folio}</caption>
             <thead>
               <tr className="border-b border-line-divider text-left text-2xs uppercase tracking-[0.04em] text-ink-muted">
-                <th scope="col" className="py-1.5 pr-2 font-semibold">Línea</th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">Cantidad</th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">Recibido neto</th>
-                <th scope="col" className="px-2 py-1.5 font-semibold">Compromiso</th>
-                <th scope="col" className="px-2 py-1.5 font-semibold">Completada</th>
-                <th scope="col" className="px-2 py-1.5 font-semibold">A tiempo</th>
-                <th scope="col" className="py-1.5 pl-2 font-semibold">Completa</th>
+                <th scope="col" className="py-1.5 pr-2 font-semibold">
+                  Línea
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Cantidad
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Recibido neto
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-semibold">
+                  Compromiso
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-semibold">
+                  Completada
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-semibold">
+                  A tiempo
+                </th>
+                <th scope="col" className="py-1.5 pl-2 font-semibold">
+                  Completa
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -216,7 +236,9 @@ function TarjetaOrden({ oc }: { oc: OrdenDrill }) {
                   <td className="py-1.5 pr-2 text-ink">
                     <span className="font-mono text-ink-muted">{l.numero}</span> {l.articulo}
                   </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">{cantidad.format(l.cantidad)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {cantidad.format(l.cantidad)}
+                  </td>
                   <td className="px-2 py-1.5 text-right tabular-nums">
                     {cantidad.format(l.recibidoNeto)}
                   </td>
@@ -250,21 +272,31 @@ function TarjetaOrden({ oc }: { oc: OrdenDrill }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       )}
 
       {oc.facturas.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <Table className="w-full text-xs">
             <caption className="sr-only">Facturas de {oc.folio}</caption>
             <thead>
               <tr className="border-b border-line-divider text-left text-2xs uppercase tracking-[0.04em] text-ink-muted">
-                <th scope="col" className="py-1.5 pr-2 font-semibold">Factura</th>
-                <th scope="col" className="px-2 py-1.5 font-semibold">Fecha</th>
-                <th scope="col" className="px-2 py-1.5 font-semibold">Estado</th>
-                <th scope="col" className="px-2 py-1.5 text-right font-semibold">Total</th>
-                <th scope="col" className="py-1.5 pl-2 text-right font-semibold">Diferencia vs OC</th>
+                <th scope="col" className="py-1.5 pr-2 font-semibold">
+                  Factura
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-semibold">
+                  Fecha
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-semibold">
+                  Estado
+                </th>
+                <th scope="col" className="px-2 py-1.5 text-right font-semibold">
+                  Total
+                </th>
+                <th scope="col" className="py-1.5 pl-2 text-right font-semibold">
+                  Diferencia vs OC
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -291,7 +323,7 @@ function TarjetaOrden({ oc }: { oc: OrdenDrill }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       )}
     </article>

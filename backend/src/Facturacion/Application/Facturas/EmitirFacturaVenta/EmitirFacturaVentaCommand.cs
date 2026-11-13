@@ -58,7 +58,9 @@ public sealed record EmitirFacturaVentaCommand(
     Guid? SalidaFacturableId = null,
     // FAC-08b: factura timbrada que esta sustituye. La nueva lleva la relación 04 a su UUID y,
     // al timbrar, el ERP solicita la cancelación de la original con motivo 01.
-    Guid? SustituyeComprobanteId = null) : IRequest<EmitirFacturaVentaResponse>;
+    Guid? SustituyeComprobanteId = null,
+    // M-340: versión de la proforma aprobada de la que se emite (la valida EmitirFacturaDesdeProformaHandler).
+    Guid? ProformaPedidoId = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 /// <param name="ComentarioNotaCredito">FMT-6: comentario libre de la NC de aplicación; se imprime en «Comentarios - Comments».</param>

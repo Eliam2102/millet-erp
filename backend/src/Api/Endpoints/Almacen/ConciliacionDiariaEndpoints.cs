@@ -22,7 +22,8 @@ namespace Millet.Api.Endpoints.Almacen;
 public static class ConciliacionDiariaEndpoints
 {
     public sealed record FisicoLineaRequest(Guid ArticuloId, Guid? ProductoAwVarianteId, string? Lote, decimal Fisico);
-    public sealed record EjecutarConciliacionRequest(Guid AlmacenId, DateOnly? Fecha, string Fuente, List<FisicoLineaRequest> Lineas);
+    public sealed record EjecutarConciliacionRequest(Guid AlmacenId, DateOnly? Fecha, string Fuente, List<FisicoLineaRequest> Lineas,
+        bool ConfirmarPendientes = false);
     public sealed record AclararDiferenciaRequest(string Motivo);
 
     public sealed record DiferenciaResponse(Guid Id, Guid ConciliacionId, Guid AlmacenId, string? AlmacenClave, DateOnly Fecha,
@@ -42,7 +43,7 @@ public static class ConciliacionDiariaEndpoints
 
         group.MapPost("/", async (EjecutarConciliacionRequest req, AlmacenDbContext db, IIntegrationEventPublisher events,
             IVarianteVidrioReadPort variantes, IArticuloReadPort articulos, IPeriodoContableReadPort periodo,
-            DocumentoSucursalScope scope, ICurrentUserContext user, ICurrentEmpresaContext empresa, CancellationToken ct) =>
+            DocumentoSucursalScope scope, ICurrentUserContext user, ICurrentEmpresaContext empresa, ISucursalReadPort sucursales, CancellationToken ct) =>
         {
             var almacen = await db.Almacenes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == req.AlmacenId, ct)
                 ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{req.AlmacenId}'.");
@@ -52,7 +53,8 @@ public static class ConciliacionDiariaEndpoints
             await using var tx = db.Database.IsNpgsql() ? await db.Database.BeginTransactionAsync(ct) : null;
             var (corrida, difs) = await ConciliacionDiariaApp.EjecutarAsync(db, events, variantes, articulos, periodo, empresaId,
                 user.UserId ?? Guid.Empty, req.AlmacenId, req.Fecha, req.Fuente,
-                (req.Lineas ?? []).Select(l => new FisicoLinea(l.ArticuloId, l.ProductoAwVarianteId, l.Lote, l.Fisico)).ToList(), ct);
+                (req.Lineas ?? []).Select(l => new FisicoLinea(l.ArticuloId, l.ProductoAwVarianteId, l.Lote, l.Fisico)).ToList(), ct,
+                req.ConfirmarPendientes, await ClavesSucursalAsync(sucursales, almacen.SucursalId, ct));
             await db.SaveChangesAsync(ct);
             if (tx is not null) await tx.CommitAsync(ct);
             return Results.Ok(new CorridaResponse(corrida.Id, corrida.AlmacenId, almacen.Clave, corrida.Fecha, corrida.Fuente,
@@ -65,8 +67,22 @@ public static class ConciliacionDiariaEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-225: antes de conciliar, los consumos de mesa y mermas del día y lo que quedó sin aplicar (evento omitido o duplicado).
+        group.MapGet("/eventos-del-dia", async ([FromQuery] Guid almacenId, [FromQuery] DateOnly fecha, AlmacenDbContext db,
+            DocumentoSucursalScope scope, ISucursalReadPort sucursales, CancellationToken ct) =>
+        {
+            var almacen = await db.Almacenes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == almacenId, ct)
+                ?? throw new EntityNotFoundException("ALMACEN_NO_ENCONTRADO", $"No existe el almacén '{almacenId}'.");
+            await scope.VerificarSucursalAsync(almacen.SucursalId, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            return Results.Ok(await ConciliacionDiariaApp.EventosDelDiaAsync(db, almacenId, fecha, ct,
+                await ClavesSucursalAsync(sucursales, almacen.SucursalId, ct)));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosCrear)
+        .WithName("EventosDelDiaConciliacion")
+        .Produces<EventosDelDia>(StatusCodes.Status200OK);
+
         // Existencia teórica del almacén por hoja/medida/lote: la lista contra la que se captura el físico.
-        group.MapGet("/existencia", async ([FromQuery] Guid almacenId, AlmacenDbContext db, IArticuloReadPort articulos,
+        group.MapGet("/existencia", async ([FromQuery] Guid almacenId, [FromQuery] DateOnly? fecha, AlmacenDbContext db, IArticuloReadPort articulos,
             IVarianteVidrioReadPort variantes, DocumentoSucursalScope scope, CancellationToken ct) =>
         {
             var almacen = await db.Almacenes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == almacenId, ct)
@@ -79,6 +95,13 @@ public static class ConciliacionDiariaEndpoints
                                group s by new { s.ArticuloId, s.ProductoAwVarianteId, s.Lote } into g
                                select new { g.Key.ArticuloId, g.Key.ProductoAwVarianteId, g.Key.Lote, Cantidad = g.Sum(x => x.CantidadDisponible) })
                 .ToListAsync(ct);
+            // M-225: con fecha pasada, el teórico al cierre de ese día (saldo de hoy menos lo movido después).
+            if (fecha is { } dia)
+            {
+                var posteriores = await ConciliacionDiariaApp.NetoPosteriorAsync(db, almacenId, filas.Select(f => f.ArticuloId).Distinct().ToArray(), dia, ct);
+                filas = filas.Select(f => f with { Cantidad = f.Cantidad - posteriores.GetValueOrDefault((f.ArticuloId, f.ProductoAwVarianteId, f.Lote)) })
+                    .Where(f => f.Cantidad > 0).ToList();
+            }
             var maestro = await articulos.ObtenerPorIdsAsync(filas.Select(f => f.ArticuloId).Distinct().ToList(), ct);
             var medidas = await variantes.ObtenerPorIdsAsync(
                 filas.Where(f => f.ProductoAwVarianteId != null).Select(f => f.ProductoAwVarianteId!.Value).Distinct().ToList(), ct);
@@ -185,5 +208,14 @@ public static class ConciliacionDiariaEndpoints
                 d.AreaHojaM2 is null ? a?.UnidadMedida ?? "PZA" : "hojas", d.Teorico, d.Fisico, d.Diferencia, d.Sentido,
                 d.CostoUnitarioMxn, d.ValorMxn, d.FolioMovimiento, d.Estado, d.MotivoAclaracion, d.AclaradaAt);
         }).ToList();
+    }
+
+    /// <summary>M-225: claves con que la app nombra la sucursal del almacén (Clave y ClaveAw).</summary>
+    private static async Task<IReadOnlyCollection<string>> ClavesSucursalAsync(ISucursalReadPort sucursales, Guid sucursalId, CancellationToken ct)
+    {
+        var s = await sucursales.ObtenerAsync(sucursalId, ct);
+        // ClaveAw admite alias separados por coma (Conkal: CONKAL,PERIFERICO,OBRAS): cuenta cada uno.
+        return s is null ? [] : new[] { s.Clave }.Concat(Millet.Administracion.Domain.Sucursal.ClavesAw(s.ClaveAw))
+            .Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct().ToArray();
     }
 }

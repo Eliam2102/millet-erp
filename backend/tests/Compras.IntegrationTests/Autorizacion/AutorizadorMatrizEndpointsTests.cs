@@ -69,7 +69,7 @@ public class AutorizadorMatrizEndpointsTests : IClassFixture<StubsWebApplication
 
             var resp = await otro.PostAsJsonAsync(
                 "/api/v1/compras/requisiciones/autorizaciones-masivas",
-                new { Ids = new[] { rq }, Nivel = 1, Notas = (string?)null });
+                new { Items = await ItemsLoteAsync(admin, rq), Nivel = 1, Notas = (string?)null });
 
             var item = (await ReadJsonAsync(resp)).GetProperty("resultados")[0];
             Assert.False(item.GetProperty("ok").GetBoolean());

@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Millet.Almacen.Domain.Ports.Blob;
 using Millet.Api.Auth;
@@ -44,50 +45,7 @@ public static class PackingListBlobEndpoints
 
     public static IEndpointRouteBuilder MapPackingListBlobEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/v1/almacen/recepciones/packing-list/blob", async (
-            IFormFile archivo,
-            IAlmacenarBlobPort blob,
-            CancellationToken cancellationToken) =>
-        {
-            if (archivo is null || archivo.Length == 0)
-            {
-                throw new BusinessRuleException(
-                    "ARCHIVO_REQUERIDO",
-                    "Debe enviarse un archivo en el campo 'archivo' del multipart.");
-            }
-
-            if (archivo.Length > MaxBytes)
-            {
-                throw new BusinessRuleException(
-                    "ARCHIVO_DEMASIADO_GRANDE",
-                    $"El archivo excede el tamaño máximo permitido ({MaxBytes / (1024 * 1024)} MB).");
-            }
-
-            var contentType = archivo.ContentType ?? "application/octet-stream";
-            if (!MimeWhitelist.Contains(contentType.ToLowerInvariant()))
-            {
-                throw new BusinessRuleException(
-                    "MIME_NO_PERMITIDO",
-                    $"Tipo MIME '{contentType}' no permitido para packing list. " +
-                    $"Aceptados: PDF, imágenes (JPEG/PNG/WebP), Office (DOC/DOCX/XLS/XLSX) y texto plano.");
-            }
-
-            var blobId = Guid.CreateVersion7();
-            string blobRef;
-            await using (var stream = archivo.OpenReadStream())
-            {
-                blobRef = await blob.SubirAsync(
-                    blobId,
-                    stream,
-                    contentType,
-                    archivo.FileName,
-                    cancellationToken);
-            }
-
-            return Results.Created(
-                blobRef,
-                new SubirPackingListResponse(blobRef, archivo.FileName, archivo.Length, contentType));
-        })
+        app.MapPost("/api/v1/almacen/recepciones/packing-list/blob", SubirAsync)
         .DisableAntiforgery() // Multipart en API REST con JWT bearer.
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -108,6 +66,50 @@ public static class PackingListBlobEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         return app;
+    }
+
+    /// <summary>Sube el archivo al blob de Almacén y devuelve su referencia (packing list, evidencia de recepción o de rotura).</summary>
+    public static async Task<IResult> SubirAsync(IFormFile archivo, IAlmacenarBlobPort blob, CancellationToken cancellationToken)
+    {
+        if (archivo is null || archivo.Length == 0)
+        {
+            throw new BusinessRuleException(
+                "ARCHIVO_REQUERIDO",
+                "Debe enviarse un archivo en el campo 'archivo' del multipart.");
+        }
+
+        if (archivo.Length > MaxBytes)
+        {
+            throw new BusinessRuleException(
+                "ARCHIVO_DEMASIADO_GRANDE",
+                $"El archivo excede el tamaño máximo permitido ({MaxBytes / (1024 * 1024)} MB).");
+        }
+
+        var contentType = archivo.ContentType ?? "application/octet-stream";
+        if (!MimeWhitelist.Contains(contentType.ToLowerInvariant()))
+        {
+            throw new BusinessRuleException(
+                "MIME_NO_PERMITIDO",
+                $"Tipo MIME '{contentType}' no permitido para packing list. " +
+                $"Aceptados: PDF, imágenes (JPEG/PNG/WebP), Office (DOC/DOCX/XLS/XLSX) y texto plano.");
+        }
+
+        var blobId = Guid.CreateVersion7();
+        string blobRef;
+        await using (var stream = archivo.OpenReadStream())
+        {
+            await AdjuntosPoliticaOptions.ValidarSiEsPdfAsync(archivo.FileName, contentType, stream, cancellationToken);
+            blobRef = await blob.SubirAsync(
+                blobId,
+                stream,
+                contentType,
+                archivo.FileName,
+                cancellationToken);
+        }
+
+        return Results.Created(
+            blobRef,
+            new SubirPackingListResponse(blobRef, archivo.FileName, archivo.Length, contentType));
     }
 }
 

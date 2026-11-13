@@ -21,6 +21,7 @@ import {
   CreditCard,
   FileBadge,
   FileCheck2,
+  FileCode2,
   FileSpreadsheet,
   FileText,
   FlaskConical,
@@ -28,6 +29,7 @@ import {
   HandCoins,
   Home,
   Inbox,
+  Landmark,
   Layers,
   LineChart,
   ListChecks,
@@ -49,6 +51,7 @@ import {
   ShieldAlert,
   ShoppingCart,
   Sliders,
+  TrendingUp,
   Truck,
   Undo2,
   Unlock,
@@ -273,10 +276,18 @@ const moduloAlmacen: NavModulo = {
         {
           label: 'Mensajes de la app',
           description:
-            'Salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
+            'Entradas y salidas de la app de Almacenes que el ERP marcó (sin existencia o con un dato por corregir) y a las que contestó ERROR con folio; los siguientes de su referencia esperan.',
           to: '/almacen/mensajes-app',
           icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Origen de captura MP',
+          description:
+            'Si la recepción, el consumo, la merma y la requisición de materia prima se capturan en el ERP o llegan solo de la app de Almacenes; con bitácora y reversa.',
+          to: '/almacen/origen-captura',
+          icon: ShieldAlert,
+          permission: PermisosCanonicos.AlmacenCierreMesGestionarTodasSucursales,
         },
         {
           label: 'Conciliación diaria',
@@ -291,6 +302,14 @@ const moduloAlmacen: NavModulo = {
           description:
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
           to: '/almacen/salidas',
+          icon: PackageMinus,
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
+        },
+        {
+          label: 'Tambores por línea',
+          description:
+            'Tambor o cubeta activo de silicón y Ködispace en cada línea de producción, con su historial de salidas.',
+          to: '/almacen/tambores-linea',
           icon: PackageMinus,
           permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
@@ -546,6 +565,13 @@ const moduloCuentasPorPagar: NavModulo = {
           permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
         },
         {
+          label: 'DIOT',
+          description: 'Operaciones con terceros del mes por pagos, con el archivo de carga del SAT.',
+          to: '/cxp/reportes/diot',
+          icon: FileText,
+          permission: PermisosCanonicos.CuentasPorPagarReportesDiot,
+        },
+        {
           label: 'Estados de cuenta TC',
           description:
             'Reporte consolidado de estados de cuenta de tarjetas de crédito empresariales con sus pasivos asociados.',
@@ -683,6 +709,14 @@ const moduloTesoreria: NavModulo = {
             PermisosCanonicos.TesoreriaDevolucionesAutorizar,
             PermisosCanonicos.TesoreriaDevolucionesPagar,
           ],
+        },
+        {
+          label: 'Cheques recibidos',
+          description:
+            'Cheques de clientes en firme pendiente: confirmar contra el estado de cuenta o registrar el rebote.',
+          to: '/tesoreria/cheques',
+          icon: Banknote,
+          permission: PermisosCanonicos.TesoreriaMovimientosVer,
         },
         {
           label: 'Diferencias de corte',
@@ -1146,6 +1180,14 @@ const moduloContabilidad: NavModulo = {
           icon: Upload,
           permission: PermisosCanonicos.ContabilidadCatalogoImportar,
         },
+        {
+          label: 'Saldos iniciales',
+          description:
+            'Carga de la balanza de cierre del sistema anterior: mapeo de columnas, vista previa por renglón, autorización por otra persona y póliza de apertura.',
+          to: '/contabilidad/saldos-iniciales',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadCatalogoImportar,
+        },
       ],
     },
     {
@@ -1202,12 +1244,28 @@ const moduloContabilidad: NavModulo = {
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
+          label: 'Importar póliza de nómina',
+          description:
+            'La póliza de la nómina externa entra por archivo (.csv o .xlsx): se revisa renglón por renglón y nace en borrador, cuadrada y con el archivo adjunto.',
+          to: '/contabilidad/polizas/importar-nomina',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadPolizasCapturar,
+        },
+        {
           label: 'Pólizas recurrentes',
           description:
             'Plantillas que generan la póliza de cada mes en su día, con reversa automática opcional; las activa otro usuario.',
           to: '/contabilidad/polizas/recurrentes',
           icon: Repeat,
           permission: PermisosCanonicos.ContabilidadRecurrentesLeer,
+        },
+        {
+          label: 'Incidencias posteriores',
+          description:
+            'Lo que se encontró después de autorizar una póliza o cerrar un periodo: se registra, queda pendiente en el cierre y se resuelve con su póliza de ajuste o reapertura acotada.',
+          to: '/contabilidad/incidencias',
+          icon: AlertTriangle,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
           label: 'Motor contable',
@@ -1228,6 +1286,37 @@ const moduloContabilidad: NavModulo = {
             'Saldo inicial, cargos, abonos y saldo final por cuenta del periodo o acumulada, por nivel y sucursal, con su cuadre.',
           to: '/contabilidad/reportes/balanza',
           icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Balance general',
+          description:
+            'Activo, pasivo y capital al cierre del periodo por rubros del catálogo, con comparativo del año anterior y su cuadre.',
+          to: '/contabilidad/reportes/balance-general',
+          icon: Landmark,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Estado de resultados',
+          description:
+            'Ingresos, costo, gastos y utilidad del periodo o acumulada del ejercicio por rubros, con comparativo del año anterior.',
+          to: '/contabilidad/reportes/estado-resultados',
+          icon: TrendingUp,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Integraciones del auditor',
+          description:
+            'Ingresos, costo, gastos, financiamiento y compras del periodo abiertos por cuenta y cliente o proveedor.',
+          to: '/contabilidad/reportes/integracion',
+          icon: ListTree,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Paquete del auditor',
+          description: 'Todos los reportes que pide el auditor al cierre, con el módulo de cada uno y acceso según permisos.',
+          to: '/contabilidad/reportes/auditor',
+          icon: BookOpenCheck,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
         {
@@ -1281,6 +1370,14 @@ const moduloContabilidad: NavModulo = {
             'IVA trasladado cobrado, IVA acreditable pagado y retenciones del mes, con el cuadre contra las cuentas, el cumplimiento de cada documento y el borrador de la póliza.',
           to: '/contabilidad/reportes/liquidacion-iva',
           icon: Receipt,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Contabilidad electrónica',
+          description:
+            'Catálogo con código agrupador, balanza del mes y pólizas en XML del SAT, validados contra el esquema oficial; lista antes las cuentas sin código agrupador.',
+          to: '/contabilidad/reportes/contabilidad-electronica',
+          icon: FileCode2,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
       ],
@@ -1392,6 +1489,22 @@ const productoTerminado: NavModulo = {
           to: '/producto-terminado/excepciones',
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
+        },
+        {
+          label: 'Solicitudes de salida parcial',
+          description:
+            'Pedidos incompletos que piden salir: Crédito y Cobranza autoriza o rechaza (Gerencia de Ventas como suplente).',
+          to: '/producto-terminado/solicitudes',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
+        },
+        {
+          label: 'Casos de daño',
+          description:
+            'Daño antes de cargar, rechazo en sitio o devolución: evidencia, dictamen de Calidad y correctivo fiscal.',
+          to: '/producto-terminado/casos',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
       ],
     },

@@ -136,4 +136,17 @@ public sealed class AutorizacionVentaActivo : BaseEntity, IPerteneceAEmpresa, IA
         Estado = EstadoAutorizacionActivo.Usada;
         FacturaVentaId = facturaVentaId;
     }
+
+    /// <summary>
+    /// M-173: la factura que la consumió se descartó sin llegar al PAC (emisión abortada, B2); la
+    /// autorización vuelve a estar disponible. Solo para la factura que la usó.
+    /// </summary>
+    public void LiberarUso(Guid facturaVentaId)
+    {
+        if (Estado == EstadoAutorizacionActivo.Usada && FacturaVentaId == facturaVentaId)
+        {
+            Estado = EstadoAutorizacionActivo.Autorizada;
+            FacturaVentaId = null;
+        }
+    }
 }

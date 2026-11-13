@@ -12,6 +12,7 @@ using Millet.CuentasPorPagar.Infrastructure.Parsing;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Infrastructure.Workers;
 using Millet.CuentasPorPagar.UnitTests.P8;
+using Millet.Compartido.Application.Ports;
 using Millet.SharedKernel.Application;
 
 namespace Millet.CuentasPorPagar.UnitTests.Mailbox;
@@ -142,6 +143,7 @@ public sealed class CfdiMailboxIngestionWorkerTests : IDisposable
                 .AddSingleton<ICfdiBlobStorage, BlobStub>()
                 .AddSingleton<IIntegrationEventPublisher, EventosStub>()
                 .AddSingleton<IAuditOriginContext, OrigenStub>()
+                .AddSingleton<IEmpresaResolverPort>(new EmpresaPorRfc(t._empresa))
                 .AddSingleton(cliente)
                 .BuildServiceProvider();
             var sched = new WorkerSchedulingOptions { RfcsReceptores = new Dictionary<string, Guid> { [RfcMillet] = t._empresa } };
@@ -152,6 +154,13 @@ public sealed class CfdiMailboxIngestionWorkerTests : IDisposable
         }
 
         public void Dispose() { Db.Dispose(); _sp.Dispose(); }
+    }
+
+    // El buzón entra con el IngresarCfdiHandler real; la carga manual (M-257) consulta este puerto, el buzón no.
+    private sealed class EmpresaPorRfc(Guid empresaId) : IEmpresaResolverPort
+    {
+        public Task<EmpresaResolution?> ResolveByRfcAsync(string rfcBuscado, CancellationToken cancellationToken = default) =>
+            Task.FromResult<EmpresaResolution?>(rfcBuscado.Equals(RfcMillet, StringComparison.OrdinalIgnoreCase) ? new(empresaId, RfcMillet, "Empresa ficticia") : null);
     }
 
     private sealed class Monitor<T>(T valor) : IOptionsMonitor<T>

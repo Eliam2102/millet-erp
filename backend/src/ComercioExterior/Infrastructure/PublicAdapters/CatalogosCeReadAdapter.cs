@@ -4,11 +4,13 @@ using Millet.ComercioExterior.Application;
 using Millet.ComercioExterior.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Infrastructure;
+using Millet.Identidad.Application;
+using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Infrastructure.PublicAdapters;
-public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock, IUsuarioSucursalReadPort sucursales, Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext ce) : ICatalogosCeReadPort
+public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock, IUsuarioSucursalReadPort sucursales, Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext ce, IPermissionLoader permisos) : ICatalogosCeReadPort
 {
     public async Task<IReadOnlyList<ReferenciaCe>> ReferenciasAsync(string tipo, string q, CancellationToken ct)
     {
@@ -17,6 +19,14 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
         if (tipo == "proveedores")
             return await db.Proveedores.AsNoTracking().Where(x => x.RazonSocial.Contains(q) || x.Clave.Contains(q)).OrderBy(x => x.RazonSocial).Take(50).Select(x => new ReferenciaCe(x.Id, x.Clave + " · " + x.RazonSocial)).ToListAsync(ct);
         throw new BusinessRuleException("CE_REFERENCIA_INVALIDA", "Tipo de referencia desconocido.");
+    }
+
+    /// <summary>M-169: tipo de persona del maestro de proveedores (derivado del RFC al darlo de alta: 13 caracteres = física).</summary>
+    public async Task<IReadOnlySet<Guid>> ProveedoresPersonaFisicaAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var lista = ids.Distinct().ToList();
+        return (await db.Proveedores.AsNoTracking().Where(x => lista.Contains(x.Id) && x.TipoPersona == Millet.Catalogos.Domain.TipoPersonaProveedor.Fisica)
+            .Select(x => x.Id).ToListAsync(ct)).ToHashSet();
     }
 
     public const string Entidad = "expediente_ce";
@@ -36,8 +46,14 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
 
     public async Task ValidarResponsableAsync(Guid sucursal, Guid responsable, CancellationToken ct)
     {
-        if (!await identidad.Usuarios.AnyAsync(x => x.Id == responsable && x.Activo && identidad.UsuarioEmpresaRoles.Any(r => r.UsuarioId == x.Id), ct)
-            || !await sucursales.EstaAsociadoAsync(responsable, sucursal, ct))
+        var empresa = await db.Sucursales.Where(x => x.Id == sucursal).Select(x => (Guid?)x.EmpresaId).SingleOrDefaultAsync(ct);
+        if (empresa is null || !await identidad.Usuarios.AnyAsync(x => x.Id == responsable && x.Activo
+                && identidad.UsuarioEmpresaRoles.Any(r => r.UsuarioId == x.Id && r.EmpresaId == empresa), ct))
+            throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Seleccione un usuario activo con acceso a la sucursal del expediente.");
+        if (await sucursales.EstaAsociadoAsync(responsable, sucursal, ct)) return;
+        // El alcance del responsable puede ser corporativo por permiso, igual que el del actor (ADR-0051).
+        var efectivos = await permisos.LoadForUserInEmpresaAsync(responsable, empresa.Value, ct);
+        if (!efectivos.Contains(PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales))
             throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Seleccione un usuario activo con acceso a la sucursal del expediente.");
     }
 
@@ -54,8 +70,8 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
         if (tipos.Count == 0)
             throw new BusinessRuleException("CE_REQUISITOS_NO_CONFIGURADOS", "El catálogo de requisitos no está configurado para esta operación.");
         var hitos = await ce.RequisitosHitos.AsNoTracking().Where(x => x.Tipo == tipo).ToDictionaryAsync(x => x.TipoDocumentoId, x => x.HitoClave, ct);
-        // PLATFORM-TODO(<CeRequisitoCondicional>): condicional fijo por clave hasta configurar la regla.
-        return tipos.Select(x => new RequisitoDocumento(x.Id, x.Codigo, x.Nombre, x.Obligatorio, x.Codigo is "IMP_REGULATORIOS" or "EXP_ORIGEN" or "EXP_ISF" or "EXP_CARTA_PORTE", hitos.GetValueOrDefault(x.Id))).ToArray();
+        // M-373: «condicional» se configura por tipo de documento (compartido.adjunto_tipos_documento.condicional).
+        return tipos.Select(x => new RequisitoDocumento(x.Id, x.Codigo, x.Nombre, x.Obligatorio, x.Condicional, hitos.GetValueOrDefault(x.Id))).ToArray();
     }
 
     public async Task<IReadOnlyList<Guid>> AdjuntosVigentesAsync(Guid expediente, CancellationToken ct)
@@ -66,7 +82,7 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
 
     public async Task ValidarAdjuntoAsync(Guid expediente, Guid tipo, Guid adjunto, CancellationToken ct)
     {
-        if (!await db.Adjuntos.AnyAsync(x => x.Id == adjunto && x.TipoEntidad == Entidad && x.EntidadId == expediente && x.TipoDocumentoId == tipo && x.BajaEn == null, ct) || !(await AdjuntosVigentesAsync(expediente, ct)).Contains(adjunto))
+        if (!await db.Adjuntos.AnyAsync(x => x.Id == adjunto && x.TipoEntidad == Entidad && x.EntidadId == expediente && db.AdjuntoTiposDocumento.Any(t => t.Id == tipo && t.TipoEntidad == Entidad && t.Activo) && x.BajaEn == null, ct) || !(await AdjuntosVigentesAsync(expediente, ct)).Contains(adjunto))
             throw new BusinessRuleException("CE_ADJUNTO_INVALIDO", "El archivo debe estar vigente, ser de este tipo y pertenecer al expediente.");
     }
 

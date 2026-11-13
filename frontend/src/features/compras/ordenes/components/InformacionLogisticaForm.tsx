@@ -20,6 +20,7 @@ import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-con
 import { useTransportistas } from '@/features/catalogos/api';
 import { cn } from '@/lib/utils';
 import { useForm, Controller } from 'react-hook-form';
+import { DireccionEntregaSelector } from './DireccionEntregaSelector';
 
 /**
  * <c>&lt;InformacionLogisticaForm/&gt;</c> — sub-tab "Logística" del
@@ -108,7 +109,7 @@ function ReadView({
         )}
       </div>
 
-      <dl className="grid gap-3 text-sm md:grid-cols-2">
+      <dl className="grid gap-3 text-sm @lg:grid-cols-2">
         <Field label="Dirección de entrega">
           {oc.infoLogisticaDireccion ?? <span className="text-ink-muted">—</span>}
         </Field>
@@ -118,7 +119,7 @@ function ReadView({
         <Field label="Número de guía">
           {oc.infoLogisticaNumeroGuia ?? <span className="text-ink-muted">—</span>}
         </Field>
-        <Field label="Instrucciones de envío" className="md:col-span-2">
+        <Field label="Instrucciones de envío" className="@lg:col-span-2">
           {oc.infoLogisticaInstrucciones ?? <span className="text-ink-muted">—</span>}
         </Field>
       </dl>
@@ -141,6 +142,7 @@ function EditView({
   const mutation = useActualizarInformacionLogistica();
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
+  const [otraExplicita, setOtraExplicita] = useState(false);
 
   const form = useForm<LogisticaValues>({
     defaultValues: {
@@ -198,7 +200,7 @@ function EditView({
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
       onKeyDown={(e) => {
-        if (e.key === 'Escape' && !mutation.isPending) {
+        if (e.key === 'Escape' && !e.defaultPrevented && e.currentTarget.contains(e.target as Node) && !mutation.isPending) {
           e.preventDefault();
           onCancel();
         }
@@ -236,15 +238,16 @@ function EditView({
         <Controller
           name="direccionEntrega"
           control={form.control}
+          rules={{ validate: value => !otraExplicita || Boolean(value.trim()) || 'Escribe la dirección de entrega.' }}
           render={({ field }) => (
-            <TextAreaField
+            <DireccionEntregaSelector
               value={field.value || null}
               onChange={(v) => field.onChange(v ?? '')}
-              maxLength={500}
-              minRows={2}
-              textareaProps={{
-                placeholder: 'Calle, número, colonia, ciudad, CP…',
+              onOtraChange={otra => {
+                setOtraExplicita(otra);
+                if (!otra) form.clearErrors('direccionEntrega');
               }}
+              error={form.formState.errors.direccionEntrega?.message}
             />
           )}
         />
@@ -321,7 +324,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn('space-y-0.5', className)}>
+    <div className={cn('min-w-0 space-y-0.5 [overflow-wrap:anywhere]', className)}>
       <dt className="text-xs font-medium text-ink-muted">{label}</dt>
       <dd>{children}</dd>
     </div>

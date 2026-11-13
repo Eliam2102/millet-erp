@@ -68,6 +68,16 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static MovimientoPieza PasoPieza(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, Guid albaranId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, tipo, anterior, $"{albaranId}/{ocurridoAt.UtcTicks}", ocurridoAt, usuario);
 
+    /// <summary>
+    /// Salida por un albarán de A+W (el albarán vive en A+W): se llama después de embarcar; referencia =
+    /// <c>aw-albaran:{pedidoAlbaran}:{folio}</c>, con el pedido de A+W que lleva el albarán para no depender de que
+    /// <c>NR_LIEFERSCHEIN</c> sea único en todo A+W.
+    /// </summary>
+    public static MovimientoPieza SalidaAlbaranAw(PiezaPt pieza, EstadoPieza anterior, string pedidoAlbaran, int folio, DateTimeOffset ocurridoAt)
+        => new(pieza, TipoMovimientoPieza.Salida, anterior, ReferenciaAlbaranAw(pedidoAlbaran, folio), ocurridoAt, "sistema");
+
+    public static string ReferenciaAlbaranAw(string pedidoAlbaran, int folio) => $"aw-albaran:{pedidoAlbaran.Trim()}:{folio}";
+
     /// <summary>Reversa de la salida de una pieza por cancelación de albarán (PT5.8 / §11).</summary>
     public static MovimientoPieza SalidaCancelada(PiezaPt pieza, EstadoPieza anterior, Guid albaranId, string motivo, DateTimeOffset ocurridoAt, string usuario)
     {
@@ -76,11 +86,23 @@ public sealed class MovimientoPieza : BaseEntity, IAuditable, IPerteneceAEmpresa
         return new(pieza, TipoMovimientoPieza.SalidaCancelada, anterior, referencia, ocurridoAt, usuario);
     }
 
+    /// <summary>Movimiento de un hecho de PT (ubicación, daño, dictamen, corrección): se llama después de cambiar el estado; <c>referencia</c> es el documento (caso, entrega).</summary>
+    public static MovimientoPieza Hecho(PiezaPt pieza, TipoMovimientoPieza tipo, EstadoPieza anterior, string referencia, DateTimeOffset ocurridoAt, Guid? usuario)
+        => new(pieza, tipo, anterior, referencia.Length > 200 ? referencia[..200] : referencia, ocurridoAt, usuario?.ToString() ?? "sistema");
+
     public static MovimientoPieza TrasladoSalida(PiezaPt pieza, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, TipoMovimientoPieza.TrasladoSalida, EstadoPieza.EnPT, EstadoPieza.EnTransito, pieza.SucursalId, destino, traspasoId, ocurridoAt, usuario);
 
     public static MovimientoPieza TrasladoRecepcion(PiezaPt pieza, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
         => new(pieza, TipoMovimientoPieza.TrasladoRecepcion, EstadoPieza.EnTransito, EstadoPieza.EnPT, origen, destino, traspasoId, ocurridoAt, usuario);
+
+    /// <summary>Aclaración del traspaso: la pieza que no llegó regresa al PT de origen.</summary>
+    public static MovimientoPieza TrasladoRegreso(PiezaPt pieza, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, TipoMovimientoPieza.TrasladoRegreso, EstadoPieza.EnTransito, EstadoPieza.EnPT, origen, destino, traspasoId, ocurridoAt, usuario);
+
+    /// <summary>Aclaración del traspaso: la pieza se dio por perdida y queda en revisión para Calidad.</summary>
+    public static MovimientoPieza TrasladoPerdida(PiezaPt pieza, Guid origen, Guid destino, Guid traspasoId, DateTimeOffset ocurridoAt, string usuario)
+        => new(pieza, TipoMovimientoPieza.TrasladoPerdida, EstadoPieza.EnTransito, EstadoPieza.EnRevision, origen, destino, traspasoId, ocurridoAt, usuario);
 
     public static MovimientoPieza Alta(PiezaPt pieza, string referencia, DateTimeOffset ocurridoAt)
         => new(pieza, TipoMovimientoPieza.Alta, null, referencia, ocurridoAt);

@@ -426,6 +426,23 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// master. En comprobantes históricos pre-F12 Nombre/LugarExpedicion vienen
     /// vacíos y <see cref="DatosFiscalesEmisor.Validar"/> lo rechaza.
     /// </summary>
+    /// <summary>
+    /// CCE121: al timbrar en una fecha distinta de la emisión (reintento o pedimento), el
+    /// TipoCambio del CFDI se toma del catálogo del día del CFDI, el mismo que el TipoCambioUSD
+    /// del complemento. Solo antes de timbrar (Borrador) y en moneda extranjera.
+    /// </summary>
+    public void ActualizarTipoCambioParaTimbrar(decimal tipoCambio)
+    {
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("TIPO_CAMBIO_INMUTABLE",
+                $"Solo se actualiza el tipo de cambio de un comprobante por timbrar (actual: {Estado}).");
+        if (Moneda == "MXN")
+            throw new BusinessRuleException("TIPO_CAMBIO_MXN", "Un comprobante en MXN no lleva tipo de cambio.");
+        if (tipoCambio <= 0)
+            throw new BusinessRuleException("TIPO_CAMBIO_VALOR_INVALIDO", "El tipo de cambio debe ser mayor a cero.");
+        TipoCambio = tipoCambio;
+    }
+
     public void ActualizarEmisorParaReintento(DatosFiscalesEmisor emisor)
     {
         if (Estado != EstadoTimbrado.TimbradoFallido)
@@ -435,6 +452,30 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
         NombreEmisor = emisor.Nombre;
         RegimenFiscalEmisor = emisor.RegimenFiscal;
         LugarExpedicion = emisor.LugarExpedicion;
+    }
+
+    /// <summary>
+    /// N-01: al reintentar un timbrado fallido con el cliente ya corregido en el maestro, el receptor toma sus datos fiscales
+    /// vigentes (RFC, razón social, régimen y código postal); el uso de CFDI y el país son del documento y no cambian.
+    /// Solo antes de timbrar. Devuelve los campos que cambiaron.
+    /// </summary>
+    public IReadOnlyList<string> ActualizarReceptorParaReintento(DatosFiscalesReceptor receptor)
+    {
+        if (Estado != EstadoTimbrado.TimbradoFallido)
+            throw new BusinessRuleException("RECEPTOR_INMUTABLE",
+                "Solo se actualizan los datos del receptor de un comprobante cuyo timbrado falló.");
+        if (string.IsNullOrWhiteSpace(receptor.Rfc) || string.IsNullOrWhiteSpace(receptor.Nombre)
+            || string.IsNullOrWhiteSpace(receptor.RegimenFiscal) || string.IsNullOrWhiteSpace(receptor.CodigoPostal))
+            throw new BusinessRuleException("RECEPTOR_INCOMPLETO", "El receptor necesita RFC, razón social, régimen fiscal y código postal.");
+
+        var cambios = new List<string>();
+        var rfc = receptor.Rfc.ToUpperInvariant();
+        if (!string.Equals(ReceptorRfc, rfc, StringComparison.Ordinal)) { cambios.Add("RFC"); ReceptorRfc = rfc; }
+        if (!string.Equals(ReceptorNombre, receptor.Nombre, StringComparison.Ordinal)) { cambios.Add("razón social"); ReceptorNombre = receptor.Nombre; }
+        if (!string.Equals(ReceptorRegimenFiscal, receptor.RegimenFiscal, StringComparison.Ordinal)) { cambios.Add("régimen fiscal"); ReceptorRegimenFiscal = receptor.RegimenFiscal; }
+        if (!string.Equals(ReceptorCodigoPostal, receptor.CodigoPostal, StringComparison.Ordinal)) { cambios.Add("código postal"); ReceptorCodigoPostal = receptor.CodigoPostal; }
+        ReceptorEsGenerico = receptor.EsGenerico;
+        return cambios;
     }
 
     public DatosFiscalesEmisor SnapshotEmisor() =>

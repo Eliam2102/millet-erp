@@ -38,6 +38,8 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.Property(e => e.TipoCambio).HasPrecision(12, 6);
         builder.Property(e => e.FechaValor).IsRequired();
         builder.Property(e => e.ReferenciaBancaria).HasMaxLength(120);
+        builder.Property(e => e.MotivoDuplicado).HasMaxLength(500);
+        builder.Property(e => e.MotivoTipoCambio).HasMaxLength(300);
         builder.Property(e => e.DestinoBanco).HasMaxLength(120);
         builder.Property(e => e.DestinoNumeroCuenta).HasMaxLength(40);
         builder.Property(e => e.DestinoTitular).HasMaxLength(254);
@@ -110,6 +112,7 @@ public sealed class AplicacionPagoProveedorConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.FacturaProveedorId).IsRequired();
         builder.Property(e => e.ProveedorId).IsRequired();
         builder.Property(e => e.ImporteAplicado).HasPrecision(18, 2).IsRequired();
+        builder.Property(e => e.Redondeo).HasPrecision(18, 2).HasDefaultValue(0m).IsRequired();
         builder.Property(e => e.CorridaId);
         builder.Property(e => e.Revertida).IsRequired();
         builder.Property(e => e.MotivoReversa).HasMaxLength(400);
@@ -132,5 +135,27 @@ public sealed class AplicacionPagoProveedorConfiguration : IEntityTypeConfigurat
         // §5.1: trazabilidad por pasivo.
         builder.HasIndex(e => e.FacturaProveedorId)
             .HasDatabaseName("ix_aplicacion_pago_factura");
+    }
+}
+
+public sealed class AutorizacionRedondeoPagoConfiguration : IEntityTypeConfiguration<Domain.Pasivos.AutorizacionRedondeoPago>
+{
+    public void Configure(EntityTypeBuilder<Domain.Pasivos.AutorizacionRedondeoPago> builder)
+    {
+        builder.ToTable("autorizacion_redondeo_pago");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
+        builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.FacturaProveedorId).IsRequired();
+        builder.Property(e => e.Redondeo).HasPrecision(18, 2).IsRequired();
+        builder.Property(e => e.Motivo).HasMaxLength(400).IsRequired();
+        builder.Property(e => e.SolicitadoPor).IsRequired();
+        builder.Property(e => e.Estado).HasConversion<int>().IsRequired();
+        builder.Property(e => e.MotivoRechazo).HasMaxLength(400);
+        builder.Property(e => e.CreadoEn).IsRequired();
+        builder.HasIndex(e => new { e.EmpresaId, e.FacturaProveedorId }).HasDatabaseName("ix_autorizacion_redondeo_pago_factura");
+        // Una sola solicitud viva (solicitada o autorizada) por factura.
+        builder.HasIndex(e => e.FacturaProveedorId).HasDatabaseName("ux_autorizacion_redondeo_pago_vigente")
+            .IsUnique().HasFilter("estado IN (1, 2)");
     }
 }

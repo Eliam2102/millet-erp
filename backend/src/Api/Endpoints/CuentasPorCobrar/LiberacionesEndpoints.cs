@@ -153,6 +153,35 @@ public static class LiberacionesEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-238: corregir el dato que retuvo el pedido (cliente; condición y saldo se corrigen en cartera) y volver a
+        // evaluar la liberación. Crea una decisión nueva con la misma cascada y deja el rastro de antes y después.
+        liberaciones.MapPost("/{id:guid}/corregir-reevaluar", async (
+            Guid id,
+            [FromBody] CorregirReevaluarLiberacionBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new ReevaluarLiberacionRetenidaCommand(id, body.Tipo, body.Detalle, body.ClienteIdCorregido), cancellationToken);
+            return Results.Created($"/api/v1/cuentas-por-cobrar/liberaciones/{response.Nueva.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionDecidir)
+        .WithName("CorregirYReevaluarLiberacion")
+        .Produces<ReevaluacionLiberacionResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-238: historial del pedido con todas sus evaluaciones y las correcciones que las ligan.
+        liberaciones.MapGet("/pedidos/{pedidoRef}/historial", async (
+            string pedidoRef, IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new HistorialLiberacionPedidoQuery(pedidoRef), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionDecidir)
+        .WithName("HistorialLiberacionPedido")
+        .Produces<IReadOnlyList<EvaluacionPedidoItem>>(StatusCodes.Status200OK);
+
         // C7.3: autorizar una decisión PendienteAutorizacion (cobertura
         // 50–99 %). Permiso de override; quien registró la pendiente no
         // puede autorizarla (422) y una pendiente se resuelve una vez (409).
@@ -241,6 +270,41 @@ public static class LiberacionesEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-239: vigencia y firmas por monto; el diálogo de solicitud las usa para proponer la vigencia.
+        autorizaciones.MapGet("/configuracion", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ConfiguracionExcepcionCreditoQuery(), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverride)
+            .WithName("ConfiguracionExcepcionCredito")
+            .Produces<ConfiguracionExcepcionCreditoResponse>(StatusCodes.Status200OK);
+
+        autorizaciones.MapPut("/reglas-firma", async (
+            GuardarReglasFirmaExcepcionCreditoCommand body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(body, ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion)
+            .WithName("GuardarReglasFirmaExcepcionCredito")
+            .Produces<ConfiguracionExcepcionCreditoResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-239: segunda firma (Dirección) de una excepción pendiente por su monto.
+        autorizaciones.MapPost("/{id:guid}/firmar", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+
+            return Results.Ok(await mediator.Send(new FirmarAutorizacionCreditoCommand(id, v), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverrideDireccion)
+        .WithName("FirmarAutorizacionCredito")
+        .Produces<AutorizacionCreditoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         autorizaciones.MapPost("/{id:guid}/cancelar", async (
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
@@ -269,6 +333,9 @@ public sealed record AutorizarLiberacionPendienteBody(string Motivo);
 
 /// <summary>Body de <c>POST /liberaciones/{id}/rechazar</c> (C7.3).</summary>
 public sealed record RechazarLiberacionPendienteBody(string Motivo);
+
+/// <summary>M-238: body de corregir y reevaluar una retención.</summary>
+public sealed record CorregirReevaluarLiberacionBody(TipoCorreccionLiberacion Tipo, string Detalle, Guid? ClienteIdCorregido);
 
 /// <summary>Body de <c>PUT /liberaciones/reglas-serie/admin/{id}/comportamiento</c> (C7.2).</summary>
 public sealed record CambiarComportamientoSerieBody(ComportamientoSerie Comportamiento);

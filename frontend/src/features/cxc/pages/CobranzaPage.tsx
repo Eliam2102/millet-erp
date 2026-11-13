@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { useUsuarios } from '@/features/catalogos/api';
 import { useSeguimientosCobranza } from '@/features/cxc/api/useCobranza';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
+import { PanelFichasCobranza } from '@/features/cxc/components/PanelFichasCobranza';
 import { TimelineCobranza } from '@/features/cxc/components/TimelineCobranza';
 import { useRegistrarGestion } from '@/features/cxc/components/registrar-gestion-context';
 import { ResultadoCobranza } from '@/features/cxc/api/types';
@@ -92,6 +93,8 @@ export function CobranzaPage() {
         }
       />
 
+      <PanelFichasCobranza clienteId={clienteId} />
+
       <ListadoModulo
         tabs={
           <TabsEstado
@@ -131,11 +134,10 @@ export function CobranzaPage() {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={items.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
         }

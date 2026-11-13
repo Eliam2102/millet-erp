@@ -21,6 +21,7 @@ import {
   type CartaPorteValues,
 } from '@/features/facturacion/schemas/carta-porte';
 import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import type { TramoPrefill } from '@/features/facturacion/components/nueva-carta-porte-context';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { hoyLocalISO } from '@/lib/datetime';
@@ -44,6 +45,8 @@ import { toast } from 'sonner';
 export interface NuevaCartaPorteProps {
   onClose: (opts?: { force?: boolean }) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  /** M-354: tramo de vehículo propio que se emite (prellena el tramo y liga la Carta Porte). */
+  tramo?: TramoPrefill | null;
 }
 
 function defaultMercancia() {
@@ -121,6 +124,7 @@ function FormInner({
   onClose,
   onDirtyChange,
   emisor,
+  tramo,
 }: NuevaCartaPorteProps & { emisor: EmisorDefaultsResponse }) {
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirCartaPorte();
@@ -140,6 +144,17 @@ function FormInner({
       rfcEmisor: emisor.rfcEmisor,
       regimenFiscalEmisor: emisor.regimenFiscalEmisor,
       sucursalId: emisor.sucursalIdDefault ?? '',
+      ...(tramo
+        ? {
+            origen: tramo.origen,
+            destino: tramo.destino,
+            origenCodigoPostal: tramo.origenCodigoPostal ?? '',
+            origenEstado: tramo.origenEstado ?? '',
+            destinoCodigoPostal: tramo.destinoCodigoPostal ?? '',
+            destinoEstado: tramo.destinoEstado ?? '',
+            ...(tramo.distanciaKm != null ? { distanciaKm: tramo.distanciaKm } : {}),
+          }
+        : {}),
     },
   });
 
@@ -198,7 +213,8 @@ function FormInner({
           distanciaKm: values.distanciaKm,
           vehiculoId: values.vehiculoId,
           operadorId: values.operadorId,
-          pedidoFacturableId: null,
+          pedidoFacturableId: tramo?.pedidoFacturableId ?? null,
+          tramoId: tramo?.tramoId ?? null,
           fechaSalida: `${values.fechaSalida}T08:00:00Z`,
           fechaLlegadaEstimada: `${values.fechaLlegadaEstimada}T18:00:00Z`,
           montoServicio: values.montoServicio,

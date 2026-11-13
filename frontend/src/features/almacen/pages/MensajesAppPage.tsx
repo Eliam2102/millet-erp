@@ -5,8 +5,10 @@ import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useMensajesAppMarcados, type MensajeAppMarcado } from '@/features/almacen/api/useConsumoComponentes';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { useMensajesAppMarcados, type MensajeAppMarcado,
+} from '@/features/almacen/api/useConsumoComponentes';
 import { esApiError } from '@/lib/api';
 
 const ESTADOS = { 1: 'EN_REVISION', 2: 'ERROR' } as const;
@@ -22,7 +24,7 @@ function movimientoApp(f: MensajeAppMarcado): string {
 }
 
 /**
- * Salidas de la app de Almacenes que el ERP marcó y a las que contestó ERROR con folio de revisión (acuerdo con TI, 5-nov).
+ * Entradas y salidas de la app de Almacenes que el ERP marcó y a las que contestó ERROR con folio de revisión (acuerdo con TI, 5-nov).
  * EN_REVISION: no había existencia suficiente. ERROR: un dato no cuadró (artículo, medida, sucursal, campo). Ninguna movió
  * saldo y los mensajes siguientes de la misma referencia esperan. La app los reprocesa con el mismo mensaje cuando ya se corrigió.
  */
@@ -40,7 +42,7 @@ export function MensajesAppPage() {
     <div className="space-y-5">
       <PageHeader
         titulo="Mensajes de la app"
-        descripcion="Salidas de la app de Almacenes que el ERP no pudo aplicar. Ninguna descontó existencia: la app recibió ERROR con el folio de revisión y el motivo."
+        descripcion="Entradas y salidas de la app de Almacenes que el ERP no pudo aplicar. Ninguna movió existencia: la app recibió ERROR con el folio de revisión y el motivo."
       />
       <AvisoEnLinea tono="advertencia">
         Mientras una salida siga aquí, los mensajes que le siguen de la misma referencia esperan. Corrige el dato o la
@@ -75,7 +77,7 @@ export function MensajesAppPage() {
           />
         ) : (
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Mensaje</TableHead>

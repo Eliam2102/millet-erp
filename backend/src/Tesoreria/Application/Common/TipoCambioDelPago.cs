@@ -25,9 +25,10 @@ public static class TipoCambioDelPago
 
     /// <summary>Resuelve y guarda el TC en el movimiento; devuelve el que quedó.</summary>
     public static async Task<decimal?> FijarAsync(MovimientoBancario movimiento, ITipoCambioPagoReadPort? catalogo,
-        decimal? capturado, CancellationToken ct)
+        decimal? capturado, CancellationToken ct, string? motivoCapturado = null)
     {
-        movimiento.FijarTipoCambio(await ResolverAsync(catalogo, movimiento.Moneda, movimiento.FechaValor, capturado, ct));
+        movimiento.FijarTipoCambio(await ResolverAsync(catalogo, movimiento.Moneda, movimiento.FechaValor, capturado, ct),
+            capturado is null ? null : motivoCapturado);
         return movimiento.TipoCambio;
     }
 

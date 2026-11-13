@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { EmpresaLogoSection } from './EmpresaLogoSection';
 import { PaginacionTabla } from '@/components/erp';
 import { ESTADOS_CSD } from '../lib/estados-ui';
@@ -31,9 +32,11 @@ function fecha(valor: string | null | undefined) {
 }
 
 export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleResponse }) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const { empresa, sucursales } = detalle;
   const [pagina, setPagina] = useState(0);
-  const paginaActual = Math.min(pagina, Math.max(0, Math.ceil(sucursales.length / 10) - 1));
+  const paginaActual = Math.min(pagina, Math.max(0, Math.ceil(sucursales.length / limiteTabla) - 1),
+  );
   const canFiscal = useHasPermission(P.IntegracionesFiscalLeer);
   const canSeries = useHasPermission(P.AdminSeriesGestionar);
   const canSucursales = useHasPermission(P.AdminEmpresasSucursalesGestionar);
@@ -183,7 +186,7 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sucursales.slice(paginaActual * 10, (paginaActual + 1) * 10).map((sucursal) => (
+              {sucursales.slice(paginaActual * limiteTabla, (paginaActual + 1) * limiteTabla).map((sucursal) => (
                 <TableRow className="border-b border-line-row" key={sucursal.id}>
                   <TableCell className="px-3 py-3">
                     {sucursal.nombre}{' '}
@@ -212,10 +215,9 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
         )}
         <PaginacionTabla
           total={sucursales.length}
-          offset={paginaActual * 10}
-          limit={10}
-          tamanos={[]}
-          onChange={(offset) => setPagina(offset / 10)}
+          offset={paginaActual * limiteTabla}
+          limit={limiteTabla}
+          onChange={(offset) => setPagina(offset / limiteTabla)}
         />
       </section>
     </div>

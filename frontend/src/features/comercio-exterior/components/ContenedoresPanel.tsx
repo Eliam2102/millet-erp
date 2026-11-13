@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { SalidaPanel, PackingPartida, AduanalesPartida } from './SalidaPanel';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { PaginacionTabla } from '@/components/erp';
@@ -30,6 +31,7 @@ import { DateTimeDisplay, ErrorState } from '@/components/erp';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
+import { hoyLocalISO } from '@/lib/datetime';
 import { useContenedores, useMutarContenedor, usePedidosEmbarcables } from '../api/hooks';
 import type {
   Contenedor,
@@ -51,11 +53,48 @@ const vacio: DatosContenedor = {
   bultos: null,
 };
 export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const id = data.expediente.id;
   const query = useContenedores(id);
   const mutar = useMutarContenedor(id);
   const gestionar =
     useHasPermission(P.ComercioExteriorContenedoresGestionar) && data.expediente.estado === 1;
+  const niveles = [
+    {
+      id: 'credito',
+      nombre: 'Crédito y Cobranza · parcialidad',
+      suplencia: false,
+      permitido: useHasPermission(P.ComercioExteriorEmbarquesCredito),
+    },
+    {
+      id: 'ventas',
+      nombre: 'Gerencia de Ventas · suplencia de parcialidad',
+      suplencia: true,
+      permitido: useHasPermission(P.ComercioExteriorEmbarquesVentas),
+    },
+    {
+      id: 'administracion',
+      nombre: 'Dirección de Administración · excepción sin factura',
+      suplencia: false,
+      permitido: useHasPermission(P.ComercioExteriorEmbarquesAdministracion),
+    },
+    {
+      id: 'planeacion',
+      nombre: 'Dirección de Planeación · suplencia sin factura',
+      suplencia: true,
+      permitido: useHasPermission(P.ComercioExteriorEmbarquesPlaneacion),
+    },
+    {
+      id: 'contraloria',
+      nombre: 'Contraloría · suplencia sin factura',
+      suplencia: true,
+      permitido: useHasPermission(P.ComercioExteriorEmbarquesContraloria),
+    },
+  ].filter((nivel) => nivel.permitido);
+  const [nivelId, setNivelId] = useState('');
+  const [motivoAprobacion, setMotivoAprobacion] = useState('');
+  const [suplencia, setSuplencia] = useState('');
+  const nivel = niveles.find((opcion) => opcion.id === nivelId);
   const [edicion, setEdicion] = useState<Contenedor | 'nuevo' | null>(null);
   const [seleccion, setSeleccion] = useState('');
   const [pagina, setPagina] = useState(0);
@@ -97,7 +136,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
   }
   return (
     <section className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-md font-semibold">Contenedores y partidas</h2>
           <p className="text-xs text-ink-muted">
@@ -140,55 +179,56 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {d.contenedores.slice(pagina * 10, pagina * 10 + 10).map((c) => (
-                <TableRow key={c.id} className="h-12 border-b border-line-row">
-                  <TableCell className="px-3 font-mono text-xs">
-                    {c.numero ?? 'Por asignar'}
-                  </TableCell>
-                  <TableCell className="px-3">{c.blGuia ?? 'Pendiente'}</TableCell>
-                  <TableCell className="px-3">
-                    {c.booking ?? <span className="text-ink-muted">Sin booking</span>}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    {c.fechaEmbarqueReal ? (
-                      <DateTimeDisplay value={c.fechaEmbarqueReal} />
-                    ) : (
-                      'Pendiente'
-                    )}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    <Badge variant={estadosContenedor[c.estado].tono}>
-                      {estadosContenedor[c.estado].texto}
-                    </Badge>
-                    {c.motivoCancelacion && (
-                      <p className="text-xs text-ink-muted">{c.motivoCancelacion}</p>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-3">
-                    {gestionar && c.estado === 1 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSeleccion(c.id);
-                          setEdicion(c);
-                        }}
-                      >
-                        Editar contenedor
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {d.contenedores
+                .slice(pagina * limiteTabla, pagina * limiteTabla + limiteTabla)
+                .map((c) => (
+                  <TableRow key={c.id} className="h-12 border-b border-line-row">
+                    <TableCell className="px-3 font-mono text-xs">
+                      {c.numero ?? 'Por asignar'}
+                    </TableCell>
+                    <TableCell className="px-3">{c.blGuia ?? 'Pendiente'}</TableCell>
+                    <TableCell className="px-3">
+                      {c.booking ?? <span className="text-ink-muted">Sin booking</span>}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      {c.fechaEmbarqueReal ? (
+                        <DateTimeDisplay value={c.fechaEmbarqueReal} />
+                      ) : (
+                        'Pendiente'
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      <Badge variant={estadosContenedor[c.estado].tono}>
+                        {estadosContenedor[c.estado].texto}
+                      </Badge>
+                      {c.motivoCancelacion && (
+                        <p className="text-xs text-ink-muted">{c.motivoCancelacion}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3">
+                      {gestionar && c.estado === 1 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSeleccion(c.id);
+                            setEdicion(c);
+                          }}
+                        >
+                          Editar contenedor
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </div>
         <PaginacionTabla
           total={d.contenedores.length}
-          offset={pagina * 10}
-          limit={10}
-          tamanos={[]}
-          onChange={(offset) => setPagina(offset / 10)}
+          offset={pagina * limiteTabla}
+          limit={limiteTabla}
+          onChange={(offset) => setPagina(offset / limiteTabla)}
         />
       </div>
       {contenedor && (
@@ -206,7 +246,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
             >
               {activos.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.numero ?? <span className="text-ink-muted">Sin número</span>}
+                  {c.numero?.trim() || c.blGuia?.trim() || c.booking?.trim() || 'Sin número'}
                 </option>
               ))}
             </select>
@@ -311,9 +351,111 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
               </Table>
             </div>
           )}
+          {data.expediente.tipo === 2 && (
+            <FormSeccion titulo="Preparación y despacho de exportación">
+              <p className="text-sm">
+                {contenedor.preparadoParaFacturarEn
+                  ? contenedor.facturasVigentes
+                    ? 'Las salidas del contenedor tienen factura timbrada vigente.'
+                    : 'Preparación registrada. Verifique las salidas y facture en Facturación.'
+                  : 'Prepare las partidas para facturar antes de registrar el despacho.'}
+              </p>
+              {contenedor.parcial && contenedor.parcial.versionEmbarque === d.versionEmbarque && (
+                <Badge variant="success">Parcialidad autorizada</Badge>
+              )}
+              {contenedor.excepcion &&
+                contenedor.excepcion.versionEmbarque === d.versionEmbarque && (
+                  <Badge variant="warning">Excepción sin factura autorizada</Badge>
+                )}
+              {gestionar &&
+                !contenedor.preparadoParaFacturarEn &&
+                !contenedor.fechaEmbarqueReal && (
+                  <Button
+                    variant="outline"
+                    disabled={mutar.isPending}
+                    onClick={() => {
+                      void mutar
+                        .mutateAsync({ ruta: `contenedores/${contenedor.id}/preparar-factura` })
+                        .catch(() => {});
+                    }}
+                  >
+                    Preparar factura
+                  </Button>
+                )}
+              {niveles.length > 0 &&
+                data.expediente.estado === 1 &&
+                !contenedor.fechaEmbarqueReal && (
+                  <form
+                    className="space-y-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (!nivel) return;
+                      void mutar
+                        .mutateAsync({
+                          ruta: `contenedores/${contenedor.id}/aprobar-despacho`,
+                          body: {
+                            nivel: nivel.id,
+                            motivo: motivoAprobacion,
+                            suplencia: nivel.suplencia ? suplencia : null,
+                          },
+                        })
+                        .then(() => {
+                          setNivelId('');
+                          setMotivoAprobacion('');
+                          setSuplencia('');
+                        })
+                        .catch(() => {});
+                    }}
+                  >
+                    <Label htmlFor="ce-nivel-despacho">Nivel de autorización</Label>
+                    <select
+                      id="ce-nivel-despacho"
+                      className={selectClass}
+                      value={nivelId}
+                      required
+                      onChange={(event) => setNivelId(event.target.value)}
+                    >
+                      <option value="">Seleccione una autorización</option>
+                      {niveles.map((opcion) => (
+                        <option key={opcion.id} value={opcion.id}>
+                          {opcion.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <Label htmlFor="ce-motivo-despacho">Motivo</Label>
+                    <Input
+                      id="ce-motivo-despacho"
+                      required
+                      minLength={5}
+                      maxLength={500}
+                      value={motivoAprobacion}
+                      onChange={(event) => setMotivoAprobacion(event.target.value)}
+                    />
+                    {nivel?.suplencia && (
+                      <>
+                        <Label htmlFor="ce-suplencia">
+                          Por qué no pudo autorizar el nivel anterior
+                        </Label>
+                        <Input
+                          id="ce-suplencia"
+                          required
+                          minLength={5}
+                          maxLength={500}
+                          value={suplencia}
+                          onChange={(event) => setSuplencia(event.target.value)}
+                        />
+                      </>
+                    )}
+                    <Button type="submit" variant="outline" disabled={mutar.isPending || !nivel}>
+                      Registrar autorización
+                    </Button>
+                  </form>
+                )}
+            </FormSeccion>
+          )}
           {gestionar && (
             <>
-              {data.expediente.tipo === 2 && (
+              {data.expediente.tipo === 2 && !contenedor.preparadoParaFacturarEn && (
                 <AsignarPartida
                   key={contenedor.id}
                   data={data}
@@ -354,13 +496,16 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                             <Input
                               id="ce-fecha-embarque"
                               type="date"
+                              max={hoyLocalISO()}
+                              aria-describedby="ce-fecha-embarque-ayuda"
                               required
                               value={fecha}
                               onChange={(e) => setFecha(e.target.value)}
                             />
                           </FormCampo>
-                          <p className="text-xs text-ink-muted">
-                            Requiere BL o guía, partidas y los participantes del transporte.
+                          <p id="ce-fecha-embarque-ayuda" className="text-xs text-ink-muted">
+                            Capture una fecha igual o anterior a hoy. Requiere BL o guía, partidas y
+                            los participantes del transporte.
                           </p>
                         </>
                       ) : (
@@ -516,9 +661,14 @@ function PedimentoForm({
                 id="ce-ped-fecha"
                 required
                 type="date"
+                max={hoyLocalISO()}
+                aria-describedby="ce-ped-fecha-ayuda"
                 value={p.fecha}
                 onChange={(e) => setP({ ...p, fecha: e.target.value })}
               />
+              <p id="ce-ped-fecha-ayuda" className="text-xs text-ink-muted">
+                Capture una fecha igual o anterior a hoy.
+              </p>
             </Campo>
           </FormSeccion>
         </FormCampo>
@@ -601,7 +751,7 @@ function ContenedorForm({
             {inicial === 'nuevo' ? 'Agregar contenedor' : 'Editar contenedor'}
           </SheetTitle>
           <SheetDescription>
-            Referencias de transporte del expediente de exportación.
+            Referencias de transporte del expediente de comercio exterior.
           </SheetDescription>
         </SheetHeader>
         <form
@@ -661,7 +811,7 @@ function ContenedorForm({
                   onChange={(e) =>
                     setDatos({
                       ...datos,
-                      modalidad: e.target.value ? (Number(e.target.value) as 1 | 2 | 3) : null,
+                      modalidad: e.target.value ? (Number(e.target.value) as 1 | 2 | 3 | 4) : null,
                     })
                   }
                 >
@@ -669,6 +819,7 @@ function ContenedorForm({
                   <option value="1">Marítimo</option>
                   <option value="2">Terrestre</option>
                   <option value="3">Aéreo</option>
+                  <option value="4">Paquetería</option>
                 </select>
               </Campo>
               <Campo label="Bultos" id="ce-c-bultos">
@@ -923,6 +1074,7 @@ function PartidasImportacion({
           {(d.partidasOc ?? []).map((l) => (
             <TableRow key={l.id}>
               <TableCell>
+                {l.ocFolio ? `${l.ocFolio} · ` : ''}
                 {l.posicion} · {l.descripcion}
               </TableCell>
               <TableCell>
@@ -999,6 +1151,7 @@ function PartidasImportacion({
                   .filter((l) => l.remanente > 0)
                   .map((l) => (
                     <option key={l.id} value={l.id}>
+                      {l.ocFolio ? `${l.ocFolio} · ` : ''}
                       {l.posicion} · {l.descripcion}
                     </option>
                   ))}

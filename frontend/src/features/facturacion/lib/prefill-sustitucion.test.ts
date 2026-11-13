@@ -3,6 +3,11 @@ import { prefillSustitucion } from '@/features/facturacion/lib/prefill-sustituci
 import type { DatosSustitucionResponse } from '@/features/facturacion/api/types';
 
 const datos: DatosSustitucionResponse = {
+  motivo: '01',
+  llevaRelacion04: true,
+  pasos: null,
+  requiereAceptacion: true,
+  razonesSinAceptacion: null,
   sustituyeComprobanteId: 'f-1',
   sustituyeFolio: 'A-1',
   sustituyeUuid: '11111111-1111-1111-1111-111111111111',
@@ -66,4 +71,15 @@ describe('prefillSustitucion (FAC-08b)', () => {
     expect(p.lineas).toHaveLength(1);
     expect(p.lineas?.[0]).toMatchObject({ cantidad: 2, valorUnitario: 50, objetoImp: '02' });
   });
+
+  it('con motivo 02 o 04 la nueva va sin relación con la original', () => {
+    const p = prefillSustitucion({ ...datos, motivo: '02', llevaRelacion04: false });
+    expect(p.sustituye).toBeUndefined();
+    expect(p.receptorRfc).toBe('AAA010101AAA');
+  });
+  it('conserva cantidad histórica y precisión del maestro para el nuevo borrador', () => {
+    const p = prefillSustitucion({ ...datos, lineas: [{ ...datos.lineas[0], productoId: 'producto-kg', cantidad: 1.125, decimalesCantidad: 3 }] });
+    expect(p.lineas?.[0]).toMatchObject({ productoId: 'producto-kg', cantidad: 1.125, decimalesCantidad: 3 });
+  });
+
 });

@@ -289,7 +289,16 @@ export interface RevisionVigente {
   vencida: boolean;
 }
 
+export interface RevisionRepp {
+  pendiente: boolean;
+  ultimaAutorizacionEn: string | null;
+  pagos: { pagoId: string; fechaPago: string; importe: number; cubiertoRepp: number; moneda: string | null }[];
+}
+
 export interface FacturaDetalle {
+  revisionRepp?: RevisionRepp | null;
+  esServicioComercioExterior?: boolean;
+  servicioCeSegundaFirma?: boolean;
   revisionVigente?: RevisionVigente | null;
   obra?: string | null;
   conceptoRetencion?: string | null;
@@ -336,6 +345,7 @@ export interface FacturaDetalle {
   version: number;
   lineas: FacturaLinea[];
   /** Etiquetas resueltas server-side (ADR-0042); null si no resuelven. */
+  proveedorClave?: string | null;
   proveedorNombre: string | null;
   sucursalNombre: string | null;
   /** 86e3tactf: bloqueo total del proveedor y, con el motivo 13, quién pidió no pagar la factura. */
@@ -359,6 +369,8 @@ export interface CapturarFacturaConOcLinea {
 }
 
 export interface CapturarFacturaConOcCommand {
+  /** M-080: confirma el TC capturado cuando se aparta del catálogo más que la tolerancia (requiere permiso). */
+  confirmaTipoCambio?: boolean;
   recepcionId?: string | null;
   obra?: string | null;
   conceptoRetencion?: string | null;
@@ -1188,6 +1200,12 @@ export interface SolicitudViaticosDetalle {
   fechaLiquidacion: string | null;
   montoComprobado: number | null;
   diferenciaLiquidacion: number | null;
+  /** M-449: lo comprobado por encima del límite de la política y su autorización (Dirección de Finanzas). */
+  excesoComprobacion?: number;
+  comprobacionFueraDePolitica?: boolean;
+  excesoAutorizadoPor?: string | null;
+  excesoAutorizadoEn?: string | null;
+  limiteComprobacion?: number;
   lineas: LineaViaticosDetalle[];
   version: number;
   empleadoNombre: string | null;

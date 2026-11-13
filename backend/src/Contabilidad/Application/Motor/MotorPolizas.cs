@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -39,7 +40,8 @@ public sealed class RechazoMotorException(CausaRechazoContable causa, string? de
 }
 
 public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IPolizaContablePort puerto, IClock clock,
-    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores, ILogger<GenerarPolizaDesdeEventoHandler>? logger = null)
+    ICentroCostoContabilidadPort centros, IEnumerable<IEnriquecedorEventoContable> enriquecedores, ILogger<GenerarPolizaDesdeEventoHandler>? logger = null,
+    ITipoCambioContabilidadReadPort? catalogoTc = null, IToleranciaTipoCambioReadPort? toleranciaTc = null)
     : IRequestHandler<GenerarPolizaDesdeEventoCommand, ResultadoMotor>
 {
     public async Task<ResultadoMotor> Handle(GenerarPolizaDesdeEventoCommand request, CancellationToken cancellationToken)
@@ -58,7 +60,7 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         catch (Exception ex) when (Clasificar(ex) is { } r)
         {
             db.ChangeTracker.Clear();
-            var rechazo = await RegistrarRechazoAsync(e, r.Causa, r.Detalle, ex.Message, ct);
+            var rechazo = await RegistrarRechazoAsync(e, r.Causa, r.Detalle, MensajeRechazo(ex), ct);
             return new(null, rechazo.Id, r.Causa, r.Detalle, rechazo.Mensaje);
         }
     }
@@ -73,9 +75,12 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
 
         if (e.SucursalId is not { } sucursal)
             throw Falta("SucursalId");
-        if (e.Moneda != Poliza.MonedaNacional && e.TipoCambio is not > 0)
-            throw Falta("TipoCambio");
-        var tc = e.Moneda == Poliza.MonedaNacional ? 1m : e.TipoCambio!.Value;
+        var tc = await TipoCambioDelEventoAsync(e, ct);
+
+        // M-005: CE reconoce el gasto al distribuir; la factura usa la cuenta por aplicar para no duplicarlo.
+        if (e.Tipo == NormalizadorEventos.FacturaProveedorRegistrada && e.EsServicioComercioExterior)
+            foreach (var linea in plantilla.Lineas.Where(l => l.Rol == "GASTO"))
+                linea.Rol = "GASTOS_IMPORTACION_POR_APLICAR";
 
         var codigos = plantilla.Lineas.Select(l => l.Rol).Distinct().ToList();
         var porClasificador = plantilla.Lineas.Where(l => l.RolPorClasificador).Select(l => l.Rol + "_").Distinct().ToList();
@@ -124,17 +129,8 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
                 if (mxn < 0) (cargo, abono) = (-abono, -cargo);
                 var (dim1, dim2, dim3) = l.ConCentroCosto ? Dimensiones(centro, niveles) : (null, null, null);
 
-                // 86e3z5w25: Si la partida imputa a cuentas 500 (Costos) o 600 (Gastos) y la plantilla no pide centro,
-                // asignar Dim2 (Área) por omisión según el módulo emisor, y derivar Dim1 desde la sucursal.
-                if (!l.ConCentroCosto)
-                {
-                    var codigoCuenta = await db.Cuentas.IgnoreQueryFilters().AsNoTracking()
-                        .Where(c => c.Id == cuentaPartida).Select(c => c.Codigo).FirstOrDefaultAsync(ct) ?? "";
-                    if (codigoCuenta.StartsWith('5') || codigoCuenta.StartsWith('6'))
-                    {
-                        dim2 ??= await ResolverAreaPorOmisionAsync(e.EmpresaId, sucursal, e.Tipo, ct);
-                    }
-                }
+                // M-453: sin área por omisión. Una partida a 500/600 sin el área o el equipo que exige la regla C-03 va a Rechazos
+                // («Dato faltante»): el área y el equipo los captura el usuario, el motor no los deduce.
                 if (dim1 == null && dim3 == null && dim2 == null)
                 {
                     dim1 = ubicacionSucursalId;
@@ -166,6 +162,87 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         return new SolicitudPolizaAutomatica(plantilla.TipoOperacionClave, e.FechaContable, plantilla.Concepto, e.Documento, e.Llave,
             partidas, OrigenMovimiento.Automatica, e.EmpresaId);
     }
+
+    /// <summary>
+    /// M-207 (86e3zr7nf): eventos de un CFDI (facturas, notas y anticipos de CxP y Facturación) cuyo TC se compara contra el
+    /// catálogo común. Pagos, cobros, revaluación y demás usan su propio TC (el del banco o el del cierre) y no se comparan.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> EventosConTcDeCfdi = new HashSet<string>(StringComparer.Ordinal)
+    {
+        NormalizadorEventos.FacturaProveedorRegistrada,
+        NormalizadorEventos.NotaCreditoProveedorRegistrada,
+        NormalizadorEventos.AnticipoProveedorCapturado,
+        NormalizadorEventos.FacturaVentaTimbrada,
+        NormalizadorEventos.FacturaAnticipoTimbrada,
+        NormalizadorEventos.NotaCreditoTimbrada,
+    };
+
+    /// <summary>Días hacia atrás que se busca el TC del catálogo cuando la fecha no tiene registro (fin de semana o festivo).</summary>
+    internal const int DiasAtrasCatalogoTc = 5;
+
+    /// <summary>
+    /// M-207: TC con el que se contabiliza el evento.
+    /// <list type="bullet">
+    /// <item>MXN = 1. Eventos que no son de un CFDI: el del evento, como antes (sin él, <see cref="CausaRechazoContable.DatoFaltante"/>).</item>
+    /// <item>Con un TC sustituto autorizado en su rechazo pendiente: ese (o el del documento, si se autorizó aceptarlo), sin comparar.</item>
+    /// <item>CFDI con TC y catálogo con valor: fuera de la tolerancia → <see cref="CausaRechazoContable.TipoCambioFueraDeTolerancia"/>.</item>
+    /// <item>CFDI sin TC: el del catálogo; si tampoco hay → <see cref="CausaRechazoContable.TipoCambioFaltante"/>.</item>
+    /// <item>CFDI con TC y catálogo sin valor: el del documento (no se bloquea).</item>
+    /// </list>
+    /// </summary>
+    private async Task<decimal> TipoCambioDelEventoAsync(EventoContable e, CancellationToken ct)
+    {
+        if (e.Moneda == Poliza.MonedaNacional || !EventosConTcDeCfdi.Contains(e.Tipo) || catalogoTc is null)
+            return ResolverTipoCambio(e, esCfdi: false, null, null, null, 0m);
+
+        var autorizado = await db.RechazosContables.IgnoreQueryFilters().AsNoTracking()
+            .Where(r => r.EmpresaId == e.EmpresaId && r.TipoEvento == e.Tipo && r.EventoId == e.EventoId
+                && r.Estado == EstadoRechazoContable.Pendiente && r.TcAutorizadoEn != null)
+            .Select(r => new { r.TcAccion, r.TcValor }).FirstOrDefaultAsync(ct);
+        var catalogo = autorizado is null ? await TipoCambioCatalogoAsync(e.Moneda, e.FechaContable, ct) : null;
+        var tolerancia = autorizado is null && toleranciaTc is not null ? await toleranciaTc.ToleranciaPctAsync(ct) : 0m;
+        return ResolverTipoCambio(e, esCfdi: true, autorizado?.TcAccion, autorizado?.TcValor, catalogo, tolerancia);
+    }
+
+    /// <summary>M-207: decisión pura del TC (ver <see cref="TipoCambioDelEventoAsync"/>). Lanza <see cref="RechazoMotorException"/>.</summary>
+    internal static decimal ResolverTipoCambio(EventoContable e, bool esCfdi, AccionTipoCambioRechazo? autorizado, decimal? valorAutorizado,
+        decimal? catalogo, decimal toleranciaPct)
+    {
+        if (e.Moneda == Poliza.MonedaNacional) return 1m;
+        if (!esCfdi)
+            return e.TipoCambio is > 0 ? e.TipoCambio.Value : throw Falta("TipoCambio");
+        if (autorizado == AccionTipoCambioRechazo.Sustituto && valorAutorizado is > 0)
+            return valorAutorizado.Value;
+        if (autorizado == AccionTipoCambioRechazo.AceptarDocumento && e.TipoCambio is > 0)
+            return e.TipoCambio.Value;
+
+        if (e.TipoCambio is > 0 && e.TipoCambio.Value is var documento)
+        {
+            if (catalogo is > 0 && toleranciaPct > 0 && DiferenciaPct(documento, catalogo.Value) is var pct && pct > toleranciaPct)
+                throw new RechazoMotorException(CausaRechazoContable.TipoCambioFueraDeTolerancia,
+                    string.Create(CultureInfo.InvariantCulture, $"{documento:0.0000}|{catalogo.Value:0.0000}"),
+                    string.Create(CultureInfo.InvariantCulture,
+                        $"TC del documento {documento:0.0000}, catálogo {catalogo.Value:0.0000} ({pct:0.00} %): fuera de la tolerancia de {toleranciaPct:0.##} %."));
+            return documento;
+        }
+        return catalogo is > 0
+            ? catalogo.Value
+            : throw new RechazoMotorException(CausaRechazoContable.TipoCambioFaltante, e.Moneda,
+                $"El documento en {e.Moneda} no trae tipo de cambio y el catálogo no tiene el del {e.FechaContable:dd/MM/yyyy}.");
+    }
+
+    /// <summary>TC del catálogo a la fecha; si no hay registro (fin de semana o festivo), el último anterior hasta <see cref="DiasAtrasCatalogoTc"/> días.</summary>
+    private async Task<decimal?> TipoCambioCatalogoAsync(string moneda, DateOnly fecha, CancellationToken ct)
+    {
+        for (var i = 0; i <= DiasAtrasCatalogoTc; i++)
+            if (await catalogoTc!.ValorEnMxnAsync(moneda, fecha.AddDays(-i), ct) is > 0 and var valor)
+                return valor;
+        return null;
+    }
+
+    /// <summary>Diferencia del TC del documento contra el del catálogo, en porcentaje del catálogo, a 2 decimales.</summary>
+    internal static decimal DiferenciaPct(decimal documento, decimal catalogo) =>
+        Math.Round(Math.Abs(documento - catalogo) / catalogo * 100m, 2, MidpointRounding.AwayFromZero);
 
     /// <summary>CON-11: TC de la línea; el rol con TC propio (BANCOS al TC del pago) manda sobre el del evento (el del documento).</summary>
     internal static decimal TipoCambioDeLinea(EventoContable e, string rol, decimal tcEvento) =>
@@ -320,6 +397,18 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         _ => null,
     };
 
+    /// <summary>
+    /// M-453: mensaje de la bandeja. Si faltan dimensiones obligatorias, solo el aviso del validador («Partida 2: Falta Área: es
+    /// obligatoria para la cuenta 601… en «…»»), sin el prefijo técnico de la validación; lo demás, el mensaje de la excepción.
+    /// </summary>
+    internal static string MensajeRechazo(Exception ex) =>
+        ex is ValidationException v && v.Errors.Where(EsDimensionFaltante).Select(x => x.Message).ToList() is { Count: > 0 } faltantes
+            ? string.Join(" ", faltantes)
+            : ex.Message;
+
+    private static bool EsDimensionFaltante(ValidationError x) =>
+        x.Code.StartsWith("CONTAB_DIM_", StringComparison.Ordinal) && x.Code.Contains("OBLIGATORIA_FALTANTE", StringComparison.Ordinal);
+
     private async Task<RechazoContable> RegistrarRechazoAsync(EventoContable e, CausaRechazoContable causa, string? detalle, string mensaje, CancellationToken ct)
     {
         var existente = await db.RechazosContables.IgnoreQueryFilters()
@@ -345,46 +434,6 @@ public sealed class GenerarPolizaDesdeEventoHandler(ContabilidadDbContext db, IP
         rechazo.MarcarReprocesado(poliza.Id, usuario, clock.UtcNow);
         await db.SaveChangesAsync(ct);
         return rechazo.Id;
-    }
-
-    /// <summary>86e3z5w25: Área (Dim2) por omisión según el módulo emisor para pólizas automáticas a cuentas 500 y 600.</summary>
-    private async Task<Guid?> ResolverAreaPorOmisionAsync(Guid empresaId, Guid sucursalId, string tipoEvento, CancellationToken ct)
-    {
-        var dim1Id = await db.UbicacionesSucursal.IgnoreQueryFilters().AsNoTracking()
-            .Where(x => x.SucursalId == sucursalId && (empresaId == Guid.Empty || x.EmpresaId == empresaId))
-            .Select(x => (Guid?)x.Dim1Id)
-            .FirstOrDefaultAsync(ct);
-
-        if (dim1Id is null) return null;
-
-        var alcance = new AlcanceCentros([dim1Id.Value], []);
-        var areas = await centros.BuscarAsync(DimensionContable.Dim2, null, alcance, incluirInactivos: false, 50, ct);
-        if (areas.Count == 0) return null;
-
-        string[] palabrasClave = tipoEvento switch
-        {
-            _ when tipoEvento.StartsWith("almacen", StringComparison.OrdinalIgnoreCase)
-                => ["ALMACEN", "ALMACÉN"],
-            _ when tipoEvento.StartsWith("comercio_exterior", StringComparison.OrdinalIgnoreCase)
-                   || tipoEvento.Contains("expediente", StringComparison.OrdinalIgnoreCase)
-                   || tipoEvento.StartsWith("importacion", StringComparison.OrdinalIgnoreCase)
-                => ["COMERCIO", "EXTERIOR", "IMPORTACION", "IMPORTACIÓN", "ALMACEN"],
-            _ when tipoEvento.StartsWith("tesoreria", StringComparison.OrdinalIgnoreCase)
-                => ["TESORERIA", "TESORERÍA", "FINANZAS", "ADMINISTRACION", "ADMINISTRACIÓN"],
-            _ when tipoEvento.StartsWith("cxp", StringComparison.OrdinalIgnoreCase)
-                => ["PAGAR", "ADMINISTRACION", "ADMINISTRACIÓN", "FINANZAS"],
-            _ => []
-        };
-
-        foreach (var palabra in palabrasClave)
-        {
-            var coincidencia = areas.FirstOrDefault(a =>
-                a.Nombre.Contains(palabra, StringComparison.OrdinalIgnoreCase) ||
-                a.Clave.Contains(palabra, StringComparison.OrdinalIgnoreCase));
-            if (coincidencia is not null) return coincidencia.Id;
-        }
-
-        return areas[0].Id;
     }
 }
 

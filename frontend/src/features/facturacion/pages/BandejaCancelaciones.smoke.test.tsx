@@ -8,6 +8,9 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 
+const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('sonner', () => ({ toast: toastMock }));
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
@@ -64,6 +67,32 @@ describe('<BandejaCancelaciones> — smoke (F6.5)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
     await waitFor(() => expect(screen.getByText('No hay solicitudes en esta vista.')).toBeInTheDocument());
     expect(autorizada).toBe(true);
+  });
+
+  it('M18: si el SAT rechaza la cancelación, avisa con error y el motivo del SAT', async () => {
+    toastMock.success.mockClear();
+    toastMock.error.mockClear();
+    mswServer.use(
+      http.get('*/api/v1/facturacion/comprobantes/cancelaciones', () => HttpResponse.json([pendiente])),
+      http.post('*/api/v1/facturacion/comprobantes/f-1/cancelar/autorizar', () =>
+        HttpResponse.json({
+          solicitudId: 's-1',
+          comprobanteId: 'f-1',
+          estadoComprobante: 'Timbrado',
+          estadoSolicitud: 'Rechazada',
+          estatusSat: 'Rechazada',
+          mensajeError: 'SAT 205: el SAT aún no refleja este CFDI',
+        }),
+      ),
+    );
+
+    render(<BandejaCancelaciones />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('FV-100')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+    expect(toastMock.error.mock.calls[0][0]).toMatch(/El SAT rechazó la cancelación de FV-100.*Motivo: SAT 205/);
+    expect(toastMock.success).not.toHaveBeenCalled();
   });
 
   it('no autoriza sin motivo y envía el motivo al rechazar', async () => {
@@ -142,5 +171,95 @@ describe('<BandejaCancelaciones> — smoke (F6.5)', () => {
     expect(urls.some((u) => u.includes('todos=true') && u.includes('estado='))).toBe(false);
     expect(screen.getByText('Rechazada por el SAT', { selector: 'p' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Autorizar' })).toBeNull();
+  });
+  it('M-235: arriba del umbral la primera firma manda la huella y avisa que falta la segunda', async () => {
+    let url = '';
+    mswServer.use(
+      http.get('*/api/v1/facturacion/comprobantes/cancelaciones', () =>
+        HttpResponse.json([{ ...pendiente, firmasRequeridas: 2, firmasDadas: 0, huella: 'abc123' }]),
+      ),
+      http.post('*/api/v1/facturacion/comprobantes/f-1/cancelar/autorizar', ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({
+          solicitudId: 's-1',
+          comprobanteId: 'f-1',
+          estadoComprobante: 'Timbrado',
+          estadoSolicitud: 'PendienteAutorizacion',
+          estatusSat: null,
+          firmasRequeridas: 2,
+          firmasDadas: 1,
+        });
+      }),
+    );
+
+    render(<BandejaCancelaciones />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText(/Firmas: 0 de 2/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dar primera firma' }));
+    await waitFor(() => expect(url).toContain('huella=abc123'));
+    await waitFor(() =>
+      expect(toastMock.success).toHaveBeenCalledWith(expect.stringContaining('Falta la segunda firma')),
+    );
+  });
+
+  it('M-235: quien dio la primera firma no ve el botón; ve la firma anulada si la solicitud cambió', async () => {
+    useAuthStore.setState({ user: { id: 'u-contador', email: 'c@demo.local', nombre: 'Contador' } } as never);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/comprobantes/cancelaciones', () =>
+        HttpResponse.json([
+          {
+            ...pendiente,
+            firmasRequeridas: 2,
+            firmasDadas: 1,
+            primeraFirmaPor: 'Contador',
+            primeraFirmaPorId: 'u-contador',
+          },
+          {
+            ...pendiente,
+            solicitudId: 's-2',
+            comprobanteId: 'f-2',
+            folio: 'FV-200',
+            firmasRequeridas: 2,
+            firmasDadas: 0,
+            firmaAnuladaMotivo: 'Se modificó el motivo o el sustituto después de la primera firma.',
+          },
+        ]),
+      ),
+    );
+
+    render(<BandejaCancelaciones />, { wrapper: createQueryWrapper() });
+
+    expect(
+      await screen.findByText('Diste la primera firma; la segunda la da otra persona.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Firma anulada: Se modificó el motivo/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Dar primera firma' })).toHaveLength(1);
+    useAuthStore.setState({ user: null } as never);
+  });
+
+  it('M-235: quien solicitó puede modificar el motivo de su solicitud pendiente', async () => {
+    useAuthStore.setState({ user: { id: 'u-ingresos', email: 'i@demo.local', nombre: 'Ingresos demo' } } as never);
+    let cuerpo: unknown = null;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/comprobantes/cancelaciones', () => HttpResponse.json([pendiente])),
+      http.put('*/api/v1/facturacion/comprobantes/f-1/cancelar', async ({ request }) => {
+        cuerpo = await request.json();
+        return HttpResponse.json({
+          solicitudId: 's-1',
+          comprobanteId: 'f-1',
+          estadoComprobante: 'Timbrado',
+          estadoSolicitud: 'PendienteAutorizacion',
+          estatusSat: null,
+        });
+      }),
+    );
+
+    render(<BandejaCancelaciones />, { wrapper: createQueryWrapper() });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Modificar' }));
+    fireEvent.change(screen.getByLabelText('Motivo SAT de FV-100'), { target: { value: '03' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    await waitFor(() => expect(cuerpo).toEqual({ motivoSat: '03', uuidSustituto: null }));
+    useAuthStore.setState({ user: null } as never);
   });
 });

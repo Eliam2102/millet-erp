@@ -75,6 +75,8 @@ import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccion
  * alternar entre las dos bandejas; si solo tiene uno, se fija al que aplica.</para>
  */
 export function BandejaPendientesOc() {
+  const canCeN1 = useHasPermission(PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1);
+  const canCeN2 = useHasPermission(PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2);
   const canN1 = useHasPermission(PermisosCanonicos.ComprasOrdenesAutorizarNivel1);
   const canN2 = useHasPermission(PermisosCanonicos.ComprasOrdenesAutorizarNivel2);
 
@@ -152,7 +154,7 @@ export function BandejaPendientesOc() {
   const items = query.data?.items ?? [];
   const userId = useAuthStore((s) => s.user?.id);
   const autorizables = puedeAutorizar
-    ? items.filter((oc) => oc.compradorTitularId !== userId)
+    ? items.filter((oc) => oc.compradorTitularId !== userId && (!oc.esServicioComercioExterior || (nivelActivo === 'Nivel1' ? canCeN1 : canCeN2)))
     : [];
   const seleccionadas = autorizables.filter((oc) => seleccion.has(oc.id));
   const todasSeleccionadas =
@@ -210,7 +212,7 @@ export function BandejaPendientesOc() {
     >
       <PageHeader
         titulo="OC por autorizar"
-        descripcion={`Órdenes esperando firma ${nivelActivo === 'Nivel1' ? 'Nivel 1 (Jefe Compras)' : 'Nivel 2 (Dirección)'}, las más viejas primero.`}
+        descripcion={`Órdenes esperando firma ${nivelActivo === 'Nivel1' ? 'Nivel 1 (Compras o Comercio Exterior)' : 'Nivel 2 (Dirección o Dirección Comercial)'}, las más viejas primero.`}
         acciones={
           tieneAmbos && (
             <TabsList aria-label="Nivel de autorización" className="flex gap-1 border-b">
@@ -351,7 +353,7 @@ export function BandejaPendientesOc() {
                           comprador={resolverUsuario(oc.compradorTitularId)}
                           ahoraMs={ahoraMs}
                           seleccionada={seleccion.has(oc.id)}
-                          puedeAutorizar={puedeAutorizar}
+                          puedeAutorizar={puedeAutorizar && (!oc.esServicioComercioExterior || (nivelActivo === 'Nivel1' ? canCeN1 : canCeN2))}
                           esAutor={oc.compradorTitularId === userId}
                           bloqueado={autorizarMasivo.isPending}
                           resultado={resultados[oc.id]}
@@ -452,7 +454,7 @@ function FilaOc({
         <IndicadoresOc oc={oc} />
       </TableCell>
       <TableCell className="px-3 py-2">
-        <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+        <EstadoBadge tipo="orden-compra" estado={oc.estado} servicioCe={oc.esServicioComercioExterior} />
       </TableCell>
       <TableCell className="px-3 py-2 text-right">
         <div className="flex flex-wrap items-center justify-end gap-2">

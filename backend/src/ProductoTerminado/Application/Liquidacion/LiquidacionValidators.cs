@@ -13,6 +13,8 @@ public sealed class LiquidarRutaPtValidator : AbstractValidator<LiquidarRutaPtCo
             a.RuleFor(x => x.Efectivo).InclusiveBetween(0m, 99_999_999m);
             a.RuleFor(x => x.Voucher).InclusiveBetween(0m, 99_999_999m);
             a.RuleFor(x => x.VoucherReferencia).MaximumLength(100);
+            a.RuleFor(x => x.TipoTarjeta).Must(t => t is null || t.Trim() is "Credito" or "Debito").WithMessage("El tipo de tarjeta es Credito o Debito.");
+            a.RuleFor(x => x.TarjetaUltimos4).MaximumLength(4);
         });
         RuleFor(x => x.Imprevistos).Must(i => i.Count <= 20).WithMessage("Máximo 20 imprevistos por hoja.");
         RuleForEach(x => x.Imprevistos).ChildRules(i =>

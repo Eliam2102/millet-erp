@@ -19,8 +19,6 @@ namespace Millet.Api.Endpoints.Facturacion;
 /// </summary>
 public static class ConciliacionSatEndpoints
 {
-    private const long TamanoMaximo = 20 * 1024 * 1024;
-
     public static IEndpointRouteBuilder MapFacturacionConciliacionSatEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app
@@ -33,7 +31,7 @@ public static class ConciliacionSatEndpoints
         {
             if (archivo is null || archivo.Length == 0)
                 throw new BusinessRuleException("ARCHIVO_REQUERIDO", "Envía el archivo de metadatos del SAT en el campo 'archivo'.");
-            if (archivo.Length > TamanoMaximo)
+            if (archivo.Length > LectorMetadataSat.TamanoMaximoBytes)
                 throw new BusinessRuleException("CONCILIACION_SAT_ARCHIVO_GRANDE", "El archivo del SAT no debe pasar de 20 MB.");
             // Las fechas llegan como texto para que un campo vacío dé el 422 en español y no el error del binder.
             if (string.IsNullOrWhiteSpace(desde) || string.IsNullOrWhiteSpace(hasta))

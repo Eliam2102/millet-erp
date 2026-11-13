@@ -30,13 +30,16 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
     private readonly IIntegrationEventPublisher _eventos;
     private readonly IClock _clock;
     private readonly IProductosReadPort? _productos;
+    private readonly ICatalogosSatReadPort? _catalogos;
 
     public AplicarPedimentoHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
-        IProductosReadPort? productos = null)
+        IProductosReadPort? productos = null,
+        // CCE121: TipoCambioUSD del catálogo para la fecha en que se timbra; sin puerto se conserva el guardado.
+        ICatalogosSatReadPort? catalogos = null)
     {
         _receptorFiscal = receptorFiscal;
         _db = db;
@@ -47,6 +50,7 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         _eventos = eventos;
         _clock = clock;
         _productos = productos;
+        _catalogos = catalogos;
     }
 
     public async Task<AplicarPedimentoResponse> Handle(AplicarPedimentoCommand command, CancellationToken cancellationToken)
@@ -76,9 +80,14 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         // Aplica el pedimento (vuelve a Borrador) y timbra.
         factura.AplicarPedimento(command.Pedimento, command.FechaDocAduanero, command.IdentificacionMercancia);
 
+        // CCE121: se timbra hoy, así que TipoCambioUSD y TipoCambio son los del catálogo de hoy.
+        if (_catalogos is not null)
+            await TipoCambioCce.AlinearConFechaDeTimbradoAsync(_catalogos, factura, ahora, cancellationToken);
+
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
-            _fiscal, _cfdiRepo, ahora, cancellationToken);
+            _fiscal, _cfdiRepo, ahora, cancellationToken,
+            TimbradoDurable.AntesDelPac(_db, factura)); // M-173: con el pedimento, en proceso antes del PAC
 
         // FAC-08b: sustituta retenida por pedimento: al timbrar se solicita la cancelación de la original.
         await Sustituciones.SustitucionCfdi.SolicitarCancelacionOriginalAsync(

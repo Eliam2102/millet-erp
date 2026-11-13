@@ -44,7 +44,13 @@ public class AutorizacionesMasivasEndpointsTests : IClassFixture<StubsWebApplica
 
         var resp = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
             "/api/v1/compras/requisiciones/autorizaciones-masivas",
-            new { Ids = new[] { rq1, inexistente, rq2 }, Nivel = 1, Notas = (string?)null });
+            new
+            {
+                Items = (await AutorizacionTestSeeding.ItemsLoteAsync(client, rq1, rq2))
+                    .Prepend(new { Id = inexistente, Version = 1 }).ToArray(),
+                Nivel = 1,
+                Notas = (string?)null,
+            });
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var resultados = (await ReadJsonAsync(resp)).GetProperty("resultados").EnumerateArray().ToList();
@@ -72,7 +78,7 @@ public class AutorizacionesMasivasEndpointsTests : IClassFixture<StubsWebApplica
 
         var resp = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(factory)).PostAsJsonAsync(
             "/api/v1/compras/requisiciones/autorizaciones-masivas",
-            new { Ids = new[] { rq }, Nivel = 1, Notas = (string?)null });
+            new { Items = await AutorizacionTestSeeding.ItemsLoteAsync(client, rq), Nivel = 1, Notas = (string?)null });
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var crudo = await resp.Content.ReadAsStringAsync();
@@ -115,6 +121,98 @@ public class AutorizacionesMasivasEndpointsTests : IClassFixture<StubsWebApplica
         Assert.False(item.TryGetProperty("esMenorCuantia", out _));
         Assert.True(item.GetProperty("esRecurrente").GetBoolean());
         Assert.True(item.TryGetProperty("disponibilidad", out _));
+    }
+
+    [Fact]
+    public async Task AutorizacionMasiva_UnaCambioDesdeLaSeleccion_ItemCambioYLasDemasSeFirman()
+    {
+        var client = await CreateSuperAdminClientAsync(_factory);
+        var rq1 = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 2m) });
+        var rq2 = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 3m) });
+        var rq3 = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 4m) });
+        var items = await AutorizacionTestSeeding.ItemsLoteAsync(client, rq1, rq2, rq3);
+
+        // Entre la selección y la firma alguien devuelve y retransmite la tercera: cambia su versión.
+        (await client.PostAsJsonAsync($"/api/v1/compras/requisiciones/{rq3}/devolver", new { Comentario = "Ajustar cantidad" }))
+            .EnsureSuccessStatusCode();
+        (await client.PostAsync($"/api/v1/compras/requisiciones/{rq3}/transmitir", content: null))
+            .EnsureSuccessStatusCode();
+
+        var resp = await (await AutorizacionTestSeeding.CreateAutorizadorAsync(_factory)).PostAsJsonAsync(
+            "/api/v1/compras/requisiciones/autorizaciones-masivas",
+            new { Items = items, Nivel = 1, Notas = (string?)null });
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var resultados = (await ReadJsonAsync(resp)).GetProperty("resultados").EnumerateArray().ToList();
+        Assert.True(Resultado(resultados, rq1).GetProperty("ok").GetBoolean());
+        Assert.True(Resultado(resultados, rq2).GetProperty("ok").GetBoolean());
+        var cambio = Resultado(resultados, rq3);
+        Assert.False(cambio.GetProperty("ok").GetBoolean());
+        Assert.Equal("RQ_CAMBIO_DESDE_SELECCION", cambio.GetProperty("errorCodigo").GetString());
+    }
+
+    [Fact]
+    public async Task DevolucionMasiva_SinComentario_Retorna400()
+    {
+        var client = await CreateSuperAdminClientAsync(_factory);
+        var rq = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 2m) });
+
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/compras/requisiciones/devoluciones-masivas",
+            new { Items = await AutorizacionTestSeeding.ItemsLoteAsync(client, rq), Comentario = "  " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Equal((int)Millet.Compras.Domain.EstadoRequisicion.EnAutorizacion, await AutorizacionTestSeeding.EstadoAsync(client, rq));
+    }
+
+    [Fact]
+    public async Task DevolucionMasiva_ConComentario_LasTresVuelvenABorradorConSuComentario()
+    {
+        var client = await CreateSuperAdminClientAsync(_factory);
+        var ids = new[]
+        {
+            await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 2m) }),
+            await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 3m) }),
+            await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 4m) }),
+        };
+
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/compras/requisiciones/devoluciones-masivas",
+            new { Items = await AutorizacionTestSeeding.ItemsLoteAsync(client, ids), Comentario = "Falta justificar" });
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var resultados = (await ReadJsonAsync(resp)).GetProperty("resultados").EnumerateArray().ToList();
+        Assert.All(ids, id => Assert.True(Resultado(resultados, id).GetProperty("ok").GetBoolean()));
+        foreach (var id in ids)
+        {
+            var detalle = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{id}"));
+            Assert.Equal((int)Millet.Compras.Domain.EstadoRequisicion.Borrador, detalle.GetProperty("estado").GetInt32());
+            Assert.Equal("Falta justificar", detalle.GetProperty("comentarioDevolucion").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task RechazoMasivo_SinMotivo_Retorna400_Y_ConMotivo_Rechaza()
+    {
+        var client = await CreateSuperAdminClientAsync(_factory);
+        var rq = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloSembrado, 2m) });
+        var items = await AutorizacionTestSeeding.ItemsLoteAsync(client, rq);
+
+        var sinMotivo = await client.PostAsJsonAsync(
+            "/api/v1/compras/requisiciones/rechazos-masivos",
+            new { Items = items, MotivoId = Guid.Empty, MotivoTexto = (string?)null });
+        Assert.Equal(HttpStatusCode.BadRequest, sinMotivo.StatusCode);
+
+        var motivos = (await ReadJsonAsync(await client.GetAsync("/api/v1/compras/motivos-rechazo"))).EnumerateArray();
+        var otro = motivos.Single(m => m.GetProperty("clave").GetString() == "RECH-OTRO").GetProperty("id").GetGuid();
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/compras/requisiciones/rechazos-masivos",
+            new { Items = items, MotivoId = otro, MotivoTexto = "No procede" });
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var resultados = (await ReadJsonAsync(resp)).GetProperty("resultados").EnumerateArray().ToList();
+        Assert.True(Resultado(resultados, rq).GetProperty("ok").GetBoolean());
+        Assert.Equal((int)Millet.Compras.Domain.EstadoRequisicion.Rechazada, await AutorizacionTestSeeding.EstadoAsync(client, rq));
     }
 
     // ── Seeding y helpers (mismo patrón que PreviewCubrimientoEndpointsTests) ──

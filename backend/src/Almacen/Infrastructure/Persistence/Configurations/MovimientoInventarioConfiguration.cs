@@ -24,7 +24,7 @@ public sealed class MovimientoInventarioConfiguration : IEntityTypeConfiguration
         builder.ToTable("movimientos_inventario", t =>
         {
             t.HasCheckConstraint("ck_movimientos_tipo",
-                "tipo BETWEEN 0 AND 13");
+                "tipo BETWEEN 0 AND 15");
             t.HasCheckConstraint("ck_movimientos_estado",
                 "estado BETWEEN 0 AND 3");
         });
@@ -70,6 +70,7 @@ public sealed class MovimientoInventarioConfiguration : IEntityTypeConfiguration
         builder.Property(x => x.PersonaDestinatariaId);
         builder.Property(x => x.ComentarioLibre);
         builder.Property(x => x.Motivo).HasMaxLength(500);
+        builder.Property(x => x.MotivoClave).HasMaxLength(MovimientoInventario.MotivoClaveMax);
         builder.Property(x => x.EstadoMaterial).HasMaxLength(50);
 
         builder.Property(x => x.FacturaIdOrigenDiff);

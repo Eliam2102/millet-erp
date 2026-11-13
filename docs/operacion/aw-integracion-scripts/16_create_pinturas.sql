@@ -1,7 +1,26 @@
--- PROPUESTA v2 · no se ejecuta sin visto bueno de TI (Millet) y de Jorge
+-- PROPUESTA v4 · no se ejecuta sin visto bueno de TI (Millet) y de Jorge
+-- v4 (10-nov) trazabilidad de quién captura y quién vende cada orden (Jorge Toache, 10-nov: los usuarios del portal ya
+-- están ligados a empleados de A+W, pero hoy capturista y vendedor viajan con valores fijos; Millet decidió que sí):
+--   · pinturas_pedido lleva empleado_captura_clave (obligatoria: empleado del usuario del portal que transmite) y
+--     vendedor_clave (opcional: vendedor de la orden si la tiene). Ambas con la clave de dbo.pinturas_empleado.
+--     El ERP rechaza (erp_resultado = 2) una clave que no esté en su catálogo de empleados, p. ej.
+--     «empleado_captura_clave=E123: no existe en el ERP».
+--   · Idempotente sobre la v3 ya aplicada en MILLET_INTEGRACION_DEV: si las columnas faltan se agregan con
+--     ALTER TABLE (la NOT NULL con un default temporal que se quita enseguida). Sin cambio de permisos: el portal
+--     conserva INSERT en la cabecera (las columnas nuevas incluidas) y el ERP su SELECT.
+-- v3 (10-nov) recoge la revisión de Jorge Toache del 10-nov sobre la v2 (la v2 no se aplicó en ninguna base, así que
+-- la v3 crea directo la forma final):
+--   · pinturas_pedido se parte en cabecera (pinturas_pedido) y líneas (pinturas_pedido_linea). Antes el portal
+--     resumía la orden en una fila con m2 totales y precio promedio (importe / m2); ahora viaja el detalle:
+--     una fila por línea con servicio, m2, precio por m2 y piezas (si el detalle las trae). El ERP factura una
+--     línea por cada línea de la orden.
+--   · La cabecera lleva fecha_pedido (fecha de la orden en el portal). creado_at sigue siendo la hora de inserción
+--     (orden de la cola); una orden capturada un día y transmitida al siguiente conserva su fecha.
+--   · Se conserva lo aprobado: guard de BD, contraseña por variable, portal solo SELECT e INSERT (DENY UPDATE, DELETE
+--     en cabecera y líneas; sin reenvío: un cambio = orden nueva) y ERP con UPDATE solo de las 4 columnas del acuse.
 -- v2 (5-nov) recoge lo pedido por TI el 30-oct y 1-nov: clave de cliente numérica; contacto y celular en
 -- pinturas_cliente; el portal solo SELECT e INSERT (sin UPDATE); sin reenvío (orden transmitida = cerrada);
--- obras compartidas A+W/Pinturas. Si la v1 ya se aplicó en alguna base, ejecute antes el rollback del final.
+-- obras compartidas A+W/Pinturas.
 -- Portal de Pinturas (ASP.NET WebForms, BD Pinturas_NEW) <-> ERP, vía MILLET_INTEGRACION(_DEV).
 -- Ejecutar en SER-DATA\AWBUSINESS como sysadmin, con: sqlcmd -b -v Password="..." -i 16_create_pinturas.sql
 -- (-b para que el guard de BD detenga el resto de lotes). No ejecutar en una base interna del proveedor A+W.
@@ -17,10 +36,14 @@
 --     · Servicio: conserva la clave actual de SAP (p. ej. SER95224), por eso es texto.
 --     · Obra: catálogo compartido; origen = AW (viene de KA_OBJEKT, referencia_aw = su ID) o PINTURAS (alta manual).
 --   Pedido que INSERTA Pinturas y el ERP LEE y confirma:
---     pinturas_pedido (una fila por orden transmitida, línea única; folio_orden único = idempotencia)
+--     pinturas_pedido (cabecera: una fila por orden transmitida; folio_orden único = idempotencia)
+--     pinturas_pedido_linea (detalle: una fila por línea de la orden; al menos una)
+--     · El portal inserta la cabecera y TODAS sus líneas en UNA transacción (BEGIN TRAN ... COMMIT): el ERP no debe
+--       ver una orden a medias. Una cabecera sin líneas se queda pendiente y el ERP no la toma.
 --     · Sin reenvío: una orden transmitida queda cerrada; el portal solo tiene INSERT y SELECT (sin UPDATE ni DELETE).
 --       Si el ERP la rechaza, se captura una orden nueva con folio nuevo.
---     · Acuse del ERP: erp_resultado (1 creado, 2 error), erp_pedido_id (PedidoFacturable.Id),
+--     · Trazabilidad (v4): empleado_captura_clave (obligatoria) y vendedor_clave (opcional), claves de pinturas_empleado.
+--     · Acuse del ERP (en la cabecera): erp_resultado (1 creado, 2 error), erp_pedido_id (PedidoFacturable.Id),
 --       erp_error (en rechazo: qué campo y qué valor no cuadró, p. ej. «cliente_clave=123: no existe en el ERP»),
 --       erp_procesado_at. Pendientes = erp_resultado IS NULL.
 -- Logins: millet_erp_integracion (ya existe, 04_create_login.sql) y millet_pinturas_portal (nuevo).
@@ -71,26 +94,48 @@ CREATE TABLE dbo.pinturas_empleado (
     updated_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
--- Pedido de Pinturas: una fila por orden transmitida, siempre con una sola línea (servicio, m2 totales, precio promedio).
+-- Pedido de Pinturas · cabecera: una fila por orden transmitida. El acuse del ERP vive aquí.
 IF OBJECT_ID(N'dbo.pinturas_pedido', N'U') IS NULL
 CREATE TABLE dbo.pinturas_pedido (
     id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
     folio_orden nvarchar(50) NOT NULL UNIQUE, -- folio de la orden de Pinturas: clave de idempotencia
+    fecha_pedido date NOT NULL, -- fecha de la orden en el portal (no la de transmisión)
     cliente_clave int NOT NULL,
     cliente_nombre nvarchar(200) NOT NULL,
     obra_clave nvarchar(50) NULL,
     obra_nombre nvarchar(200) NULL,
     comentarios nvarchar(1000) NULL,
-    servicio_clave nvarchar(50) NOT NULL,
-    m2 decimal(18,6) NOT NULL CHECK (m2 > 0),
-    precio_m2 decimal(18,6) NOT NULL CHECK (precio_m2 >= 0), -- precio promedio = importe total / m2 totales
     iva_porcentaje decimal(5,2) NOT NULL CHECK (iva_porcentaje >= 0), -- IVA de la orden; el ERP lo traduce a indicador de impuesto
     moneda nchar(3) NOT NULL DEFAULT N'MXN',
-    creado_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
+    empleado_captura_clave nvarchar(50) NOT NULL, -- v4: empleado del usuario del portal que captura (pinturas_empleado.clave)
+    vendedor_clave nvarchar(50) NULL, -- v4: vendedor de la orden, si lo tiene (pinturas_empleado.clave)
+    creado_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME(), -- hora de inserción (orden de la cola)
     erp_resultado tinyint NULL CHECK (erp_resultado IN (1,2)), -- 1 creado, 2 error
     erp_pedido_id uniqueidentifier NULL, -- PedidoFacturable.Id
     erp_error nvarchar(500) NULL,
     erp_procesado_at datetime2(3) NULL
+);
+-- v4 sobre una cabecera v3 ya creada: agrega las claves de empleado si faltan. La NOT NULL entra con un default
+-- temporal (las filas existentes quedarían con '' y el ERP no las acepta) y el default se quita enseguida: el portal
+-- siempre debe mandar la clave.
+IF COL_LENGTH(N'dbo.pinturas_pedido', N'empleado_captura_clave') IS NULL
+BEGIN
+    ALTER TABLE dbo.pinturas_pedido ADD empleado_captura_clave nvarchar(50) NOT NULL
+        CONSTRAINT df_pinturas_pedido_empleado_tmp DEFAULT N'';
+    ALTER TABLE dbo.pinturas_pedido DROP CONSTRAINT df_pinturas_pedido_empleado_tmp;
+END
+IF COL_LENGTH(N'dbo.pinturas_pedido', N'vendedor_clave') IS NULL
+    ALTER TABLE dbo.pinturas_pedido ADD vendedor_clave nvarchar(50) NULL;
+-- Pedido de Pinturas · líneas: el detalle de la orden, una fila por línea (servicio, m2, precio por m2, piezas).
+IF OBJECT_ID(N'dbo.pinturas_pedido_linea', N'U') IS NULL
+CREATE TABLE dbo.pinturas_pedido_linea (
+    pedido_id bigint NOT NULL REFERENCES dbo.pinturas_pedido (id),
+    linea int NOT NULL CHECK (linea > 0), -- número de línea dentro de la orden (1, 2, 3...)
+    servicio_clave nvarchar(50) NOT NULL,
+    piezas int NULL CHECK (piezas > 0), -- si el detalle de la orden las trae
+    m2 decimal(18,6) NOT NULL CHECK (m2 > 0),
+    precio_m2 decimal(18,6) NOT NULL CHECK (precio_m2 >= 0), -- precio por m2 de la línea (sin promediar)
+    CONSTRAINT pk_pinturas_pedido_linea PRIMARY KEY (pedido_id, linea)
 );
 -- Longitudes (folio_orden, claves de servicio/obra/empleado nvarchar(50)): a confirmar con TI contra Pinturas_NEW.
 -- Cola de pendientes del ERP.
@@ -129,22 +174,26 @@ GRANT SELECT, INSERT, UPDATE ON dbo.pinturas_obra     TO millet_erp_integracion;
 GRANT SELECT, INSERT, UPDATE ON dbo.pinturas_empleado TO millet_erp_integracion;
 -- ERP: lee pedidos y solo escribe el acuse.
 GRANT SELECT ON dbo.pinturas_pedido TO millet_erp_integracion;
+GRANT SELECT ON dbo.pinturas_pedido_linea TO millet_erp_integracion;
 GRANT UPDATE (erp_resultado, erp_pedido_id, erp_error, erp_procesado_at) ON dbo.pinturas_pedido TO millet_erp_integracion;
 
--- Portal: solo lee los catálogos; inserta pedidos y lee el acuse. Sin UPDATE ni DELETE (sin reenvío).
+-- Portal: solo lee los catálogos; inserta pedidos (cabecera y líneas) y lee el acuse. Sin UPDATE ni DELETE (sin reenvío).
 -- El REVOKE limpia cualquier UPDATE que haya dejado la v1.
 GRANT SELECT ON dbo.pinturas_cliente  TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_servicio TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_obra     TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_empleado TO millet_pinturas_portal;
 GRANT SELECT, INSERT ON dbo.pinturas_pedido TO millet_pinturas_portal;
+GRANT SELECT, INSERT ON dbo.pinturas_pedido_linea TO millet_pinturas_portal;
 REVOKE UPDATE ON dbo.pinturas_pedido FROM millet_pinturas_portal;
 DENY UPDATE, DELETE ON dbo.pinturas_pedido TO millet_pinturas_portal;
+DENY UPDATE, DELETE ON dbo.pinturas_pedido_linea TO millet_pinturas_portal;
 COMMIT;
 GO
 
--- Verificación (esperado: 5 tablas; SELECT, INSERT, UPDATE del ERP en catálogos y SELECT + UPDATE de 4 columnas en pedido;
--- portal: SELECT en 5, INSERT en pedido, DENY UPDATE y DENY DELETE en pedido; índice filtrado con filtro erp_resultado IS NULL).
+-- Verificación (esperado: 6 tablas; ERP: SELECT, INSERT, UPDATE en catálogos, SELECT en cabecera y líneas y UPDATE de
+-- 4 columnas en la cabecera; portal: SELECT en 6, INSERT en cabecera y líneas, DENY UPDATE y DENY DELETE en ambas;
+-- índice filtrado con filtro erp_resultado IS NULL).
 SELECT name FROM sys.tables WHERE name LIKE N'pinturas[_]%' ORDER BY name;
 SELECT pr.name AS principal, OBJECT_NAME(p.major_id) AS objeto, p.permission_name, p.state_desc,
        COL_NAME(p.major_id, p.minor_id) AS columna
@@ -153,10 +202,14 @@ JOIN sys.database_principals pr ON pr.principal_id = p.grantee_principal_id
 WHERE pr.name IN (N'millet_erp_integracion', N'millet_pinturas_portal') AND OBJECT_NAME(p.major_id) LIKE N'pinturas[_]%'
 ORDER BY pr.name, objeto, p.permission_name, columna;
 SELECT name, filter_definition FROM sys.indexes WHERE name = N'ix_pinturas_pedido_pendiente';
+-- v4 (esperado: empleado_captura_clave is_nullable 0, vendedor_clave is_nullable 1; ninguna con default).
+SELECT c.name, c.max_length / 2 AS largo, c.is_nullable, c.default_object_id FROM sys.columns c
+WHERE c.object_id = OBJECT_ID(N'dbo.pinturas_pedido') AND c.name IN (N'empleado_captura_clave', N'vendedor_clave');
 GO
 
 /* Rollback (en cada BD donde se aplicó; borra los datos de Pinturas en la base puente):
    BEGIN TRANSACTION;
+   DROP TABLE IF EXISTS dbo.pinturas_pedido_linea;
    DROP TABLE IF EXISTS dbo.pinturas_pedido;
    DROP TABLE IF EXISTS dbo.pinturas_empleado;
    DROP TABLE IF EXISTS dbo.pinturas_obra;
@@ -168,4 +221,6 @@ GO
    -- DROP LOGIN millet_pinturas_portal;
    -- No se elimina millet_erp_integracion: lo comparten los demás flujos (04_create_login.sql);
    -- sus permisos sobre pinturas_* se van con las tablas.
+   -- Solo deshacer la v4 (volver a la forma v3 sin borrar datos):
+   -- ALTER TABLE dbo.pinturas_pedido DROP COLUMN empleado_captura_clave, vendedor_clave;
 */

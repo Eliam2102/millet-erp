@@ -19,6 +19,7 @@ export function defaultLinea(
     descripcion: '',
     claveUnidadSat: 'H87',
     cantidad: 1,
+    decimalesCantidad: null,
     valorUnitario: 0,
     descuento: 0,
     objetoImp: '02',
@@ -99,14 +100,18 @@ export function valoresIniciales(
     lineas: [defaultLinea(emisor.tasaIvaDefault)],
   };
   if (prefill == null) return base;
+  // M-158: con expediente de CE, la fracción y la unidad aduana son las revisadas ahí (mismo orden por
+  // posición que usa el servidor al emitir); el artículo (B12) solo llena cuando no hay datos de CE.
+  const aduanalesCe = aduanalesDeComercioExterior(prefill.embarqueCe);
   const lineas =
     prefill.lineas && prefill.lineas.length > 0
-      ? prefill.lineas.map((l) => ({
+      ? prefill.lineas.map((l, i) => ({
           productoId: l.productoId,
           claveProdServSat: l.claveProdServSat,
           descripcion: l.descripcion,
           claveUnidadSat: l.claveUnidadSat || 'H87',
           cantidad: l.cantidad,
+          decimalesCantidad: l.decimalesCantidad ?? null,
           valorUnitario: l.valorUnitario,
           descuento: l.descuento,
           objetoImp: l.objetoImp ?? '02',
@@ -116,8 +121,8 @@ export function valoresIniciales(
           requierePedimento: l.requierePedimento,
           // B12: la línea del pedido hereda la fracción y la unidad aduana del artículo
           // (como al elegirlo a mano en Partidas); siguen editables.
-          fraccionArancelaria: l.fraccionArancelaria ?? null,
-          unidadAduana: l.unidadAduana ?? null,
+          fraccionArancelaria: aduanalesCe[i]?.fraccionArancelaria ?? l.fraccionArancelaria ?? null,
+          unidadAduana: aduanalesCe[i]?.unidadAduana ?? l.unidadAduana ?? null,
           cantidadAduana: null,
           valorUnitarioAduana: null,
           valorDolares: null,
@@ -162,4 +167,12 @@ export function valoresIniciales(
     obraNombre: prefill.obraNombre ?? null,
     lineas,
   };
+}
+
+/** M-158: datos aduanales de CE ordenados por posición (vacío si el pedido no tiene expediente ligado). */
+export function aduanalesDeComercioExterior(
+  embarque: EmitirFacturaPrefill['embarqueCe'],
+): { posicion: number; fraccionArancelaria: string; unidadAduana: string }[] {
+  if (!embarque?.ligado) return [];
+  return [...(embarque.datosAduanales ?? [])].sort((a, b) => a.posicion - b.posicion);
 }

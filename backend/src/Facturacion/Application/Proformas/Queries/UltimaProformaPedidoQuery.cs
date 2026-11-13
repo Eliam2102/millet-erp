@@ -44,7 +44,10 @@ public sealed class UltimaProformaPedidoHandler
             .OrderByDescending(p => p.NumeroVersion)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return proforma is null ? null : ProformaPedidoResponse.Desde(proforma);
+        if (proforma is null) return null;
+        var conformidad = await _db.ProformasConformidad.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.ProformaPedidoId == proforma.Id, cancellationToken);
+        return ProformaPedidoResponse.Desde(proforma, conformidad: conformidad);
     }
 }
 

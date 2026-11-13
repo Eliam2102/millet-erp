@@ -41,6 +41,11 @@ export const ESTADOS_UI = {
     activa: { tono: 'success', texto: 'Activa' },
     inactiva: { tono: 'neutral', texto: 'Inactiva' },
   },
+  solicitudCuenta: {
+    1: { tono: 'warning', texto: 'Pendiente' },
+    2: { tono: 'success', texto: 'Aprobada' },
+    3: { tono: 'danger', texto: 'Rechazada' },
+  },
   concepto: {
     activo: { tono: 'success', texto: 'Activo' },
     inactivo: { tono: 'neutral', texto: 'Inactivo' },

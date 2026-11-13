@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { BookOpen } from 'lucide-react';
+import { Activity, BookOpen, CirclePause } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 import { administracionAdminCards } from '@/modules/administracion/admin';
@@ -104,6 +104,31 @@ export const adminRegistry: readonly AdminSection[] = [
     href: '/sistema-diseno',
     permisoRequerido: PermisosCanonicos.AdminParametrosEditar,
     orden: 100,
+    grupo: 'modulos',
+    displayMode: 'custom',
+  },
+  {
+    id: 'admin-integraciones-tablero',
+    modulo: 'admin',
+    titulo: 'Tablero de integraciones',
+    descripcion:
+      'Estado, errores, reintentos y alertas de cada integración (A+W, Service Bus, correo).',
+    icon: Activity,
+    href: '/admin/integraciones/tablero',
+    permisoRequerido: PermisosCanonicos.InfraHealthLeer,
+    orden: 90,
+    grupo: 'modulos',
+    displayMode: 'custom',
+  },
+  {
+    id: 'admin-tramos',
+    modulo: 'admin',
+    titulo: 'Tramos de la operación',
+    descripcion: 'Detener y reanudar tramos (captura de producto terminado) con motivo y otra persona que autoriza.',
+    icon: CirclePause,
+    href: '/admin/tramos',
+    permisoRequerido: PermisosCanonicos.CompartidoTramosGestionar,
+    orden: 95,
     grupo: 'modulos',
     displayMode: 'custom',
   },

@@ -128,6 +128,23 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// </summary>
     public bool EsCredito { get; private set; }
 
+    /// <summary>
+    /// Fecha del pedido en el origen (fecha del documento de venta). Planta Pintura la manda en
+    /// <c>pinturas_pedido.fecha_pedido</c> (script 16 v3): una orden capturada un día y transmitida al
+    /// siguiente conserva su fecha. Null en A+W y Manual (su fecha es <c>CreatedAt</c>). El CFDI se fecha
+    /// al emitirse, como exige el SAT.
+    /// </summary>
+    public DateOnly? FechaPedido { get; private set; }
+
+    /// <summary>
+    /// Trazabilidad de Planta Pintura (script 16 v4): clave del empleado del usuario del portal que capturó la orden
+    /// (<c>pinturas_pedido.empleado_captura_clave</c>, = <c>Empleado.Clave</c>). Null en A+W y Manual.
+    /// </summary>
+    public string? EmpleadoCapturaClave { get; private set; }
+
+    /// <summary>Vendedor de la orden de Planta Pintura (<c>pinturas_pedido.vendedor_clave</c>, = <c>Empleado.Clave</c>); opcional.</summary>
+    public string? VendedorClave { get; private set; }
+
     private readonly List<PedidoFacturableLinea> _lineas = [];
     public IReadOnlyCollection<PedidoFacturableLinea> Lineas => _lineas.AsReadOnly();
 
@@ -170,7 +187,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Moneda = moneda.ToUpperInvariant();
         ObraId = obraId;
         ObraNombre = obraNombre;
-        Comentarios = comentarios;
+        Comentarios = Ingesta.ExcepcionImportacion.Recortar(comentarios);
         CapturadoPor = capturadoPor;
         VersionOrigen = versionOrigen;
         EstadoOrigen = estadoOrigen;
@@ -282,7 +299,10 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         string? obraNombre,
         string? comentarios,
         long versionOrigen,
-        string? estadoOrigen) =>
+        string? estadoOrigen,
+        DateOnly? fechaPedido = null,
+        string? empleadoCapturaClave = null,
+        string? vendedorClave = null) =>
         new(
             id: Guid.CreateVersion7(),
             empresaId: empresaId,
@@ -300,7 +320,12 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
             capturadoPor: null,
             versionOrigen: versionOrigen,
             estadoOrigen: estadoOrigen,
-            estado: EstadoPedidoFacturable.Importado);
+            estado: EstadoPedidoFacturable.Importado)
+        {
+            FechaPedido = fechaPedido,
+            EmpleadoCapturaClave = empleadoCapturaClave,
+            VendedorClave = vendedorClave,
+        };
 
     /// <summary>
     /// Refresca la cabecera desde el origen (Modificación A+W). <b>La factura
@@ -342,7 +367,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Moneda = moneda.ToUpperInvariant();
         ObraId = obraId;
         ObraNombre = obraNombre;
-        Comentarios = comentarios;
+        Comentarios = Ingesta.ExcepcionImportacion.Recortar(comentarios);
         VersionOrigen = versionOrigen;
         EstadoOrigen = estadoOrigen;
         EstablecerRanura(ranura);
@@ -430,14 +455,18 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         decimal descuento,
         bool requierePedimento,
         string? bomJson = null,
-        decimal? tasaIva = null)
+        decimal? tasaIva = null,
+        int? posicion = null)
     {
         AsegurarEditable("agregar línea");
+        // posicion: la ingesta A+W conserva la posición de origen aunque omita líneas en cero (OTR enlaza por posición).
+        if (posicion is int p && _lineas.Any(l => l.Posicion == p))
+            throw new BusinessRuleException("PEDIDO_LINEA_POSICION_DUPLICADA", $"La posición {p} ya existe en el pedido.");
 
         var linea = new PedidoFacturableLinea(
             id: Guid.CreateVersion7(),
             pedidoFacturableId: Id,
-            posicion: _lineas.Count + 1,
+            posicion: posicion ?? _lineas.Count + 1,
             productoId: productoId,
             productoDescripcion: productoDescripcion,
             claveProdServSat: claveProdServSat,
@@ -484,7 +513,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Moneda = moneda.ToUpperInvariant();
         ObraId = obraId;
         ObraNombre = obraNombre;
-        Comentarios = comentarios;
+        Comentarios = Ingesta.ExcepcionImportacion.Recortar(comentarios);
 
         // F6.1: un pedido manual legacy (sin clase) queda clasificado al editarlo;
         // la validación exige la clase igual que en la captura.

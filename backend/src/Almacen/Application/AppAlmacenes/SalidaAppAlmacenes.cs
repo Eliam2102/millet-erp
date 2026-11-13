@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Cierre;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Revision;
 using Millet.Almacen.Domain.Catalogo;
+using Millet.Almacen.Domain.Conteos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Almacen.Application.AppAlmacenes;
 
@@ -16,7 +20,11 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 public sealed record SalidaApp(
     TipoMovimiento Tipo, Guid SucursalId, Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId,
     decimal Cantidad, decimal? CostoUnitarioMxn, string Motivo, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null);
+    string? Causa = null, string? ArticuloAw = null, Guid? CentroCostoId = null, LlaveAlmacenApp? Almacen = null, string? Lote = null,
+    string? MotivoClave = null);
+
+/// <summary>Una partida de salida ya repartida contra un saldo concreto (ubicación, lote y costo de ese saldo).</summary>
+internal sealed record PartidaSalidaApp(SalidaApp Salida, Guid SubAlmacenId, LineaRevisionMov Linea);
 
 /// <summary>
 /// Salidas de la app de Almacenes (F1-MP-07; ACUERDO 28-oct reglas 1–4, correos de Jorge 30-oct y 5-nov):
@@ -41,26 +49,82 @@ public static class SalidaAppAlmacenes
     /// <summary>
     /// Varias salidas del mismo mensaje, todo o nada: si la existencia de cualquier (artículo, variante) no alcanza
     /// para la suma de sus partidas, el mensaje queda <see cref="EnRevision"/> y no se crea ningún movimiento.
-    /// Todas las partidas comparten sucursal (la del primer elemento).
+    /// Todas las partidas comparten sucursal (la del primer elemento). Con <paramref name="origen"/> (v9: cancelación de entrada,
+    /// reclamación) cada partida sale al costo con que entró en el original (<see cref="CostoOrigenApp"/>); si no está, al promedio.
+    /// M-333: el movimiento lleva la fecha del hecho (<paramref name="fecha"/>, la del sobre de la app; sin ella, hoy). Con esa fecha en
+    /// un mes cerrado (inventario o Contabilidad) o con el almacén en conteo anual, el mensaje queda <see cref="EnRevision"/> con el
+    /// motivo, sin mover saldo: la corrección se hace en el mes corriente con un ajuste (Fernando, 10-nov).
     /// </summary>
     public static async Task<(string Estado, string? Folio, string? Error)> RegistrarAsync(
         AlmacenDbContext db, IIntegrationEventPublisher events, Guid empresaId, Guid usuarioId,
-        IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
+        IReadOnlyList<SalidaApp> salidas, CancellationToken ct, OrigenApp? origen = null,
+        DateOnly? fecha = null, IPeriodoContableReadPort? periodo = null)
+    {
+        var dia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        try
+        {
+            if (periodo is null) await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, dia, ct);
+            else await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, dia, periodo, ct);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return (EnRevision, null, $"{ex.Message} La corrección se registra en el mes corriente con un ajuste.");
+        }
+
+        var original = await CostoOrigenApp.LeerAsync(db, origen, ct);
+        if (original.Count > 0)
+            salidas = salidas.Select(s => s with
+            {
+                CostoUnitarioMxn = CostoOrigenApp.Costo(original, s.ArticuloId, s.ProductoAwVarianteId, s.Lote) ?? s.CostoUnitarioMxn,
+            }).ToList();
+        var (partidas, estado, error) = await RepartirAsync(db, salidas, ct);
+        if (partidas is null) return (estado, null, error);
+
+        var subs = partidas.Select(p => p.SubAlmacenId).Distinct().ToList();
+        if (await db.Set<BloqueoInventario>().AsNoTracking().AnyAsync(b => subs.Contains(b.SubAlmacenId) && b.Activo && b.BloqueaSalidas, ct))
+            return (EnRevision, null, "El almacén está en conteo anual; las salidas quedan bloqueadas hasta que se aplique o rechace el conteo.");
+
+        // Un movimiento solo lleva líneas de un sub-almacén: uno por (tipo, motivo, sub-almacén) tocado.
+        var folios = new List<string>();
+        foreach (var grupo in partidas.GroupBy(l => (l.Salida.Tipo, l.Salida.Motivo, l.SubAlmacenId)))
+        {
+            var s = grupo.First().Salida;
+            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, dia, grupo.Key.Motivo,
+                grupo.Select(l => l.Linea).ToList(), ct, s.MotivoClave);
+            await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
+                events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), ct);
+            folios.Add(mov.Folio);
+        }
+        return (Recibido, string.Join(", ", folios), null);
+    }
+
+    /// <summary>
+    /// Reparte las salidas entre los saldos de la sucursal (o, con llave de la app, de la ubicación de esa llave; M-446), todo o
+    /// nada. No crea movimientos. Sin existencia → <see cref="EnRevision"/>; llave desconocida → ERROR. Con <c>Lote</c> toma
+    /// primero los saldos de ese lote. El costo de la partida es el del mensaje o, si no trae, el promedio del saldo.
+    /// </summary>
+    internal static async Task<(List<PartidaSalidaApp>? Partidas, string Estado, string? Error)> RepartirAsync(
+        AlmacenDbContext db, IReadOnlyList<SalidaApp> salidas, CancellationToken ct)
     {
         var sucursalId = salidas[0].SucursalId;
-        var porClave = salidas.GroupBy(x => (x.ArticuloId, x.ProductoAwVarianteId))
+        var (llaves, errorLlave) = await LlavesAlmacenApp.ResolverAsync(db, sucursalId, salidas.Select(x => x.Almacen).ToList(), ct);
+        if (errorLlave is not null) return (null, "ERROR", errorLlave);
+        Guid? Ubicacion(SalidaApp x) => llaves is null ? null : llaves[x.Almacen!].UbicacionId;
+
+        var porClave = salidas.GroupBy(x => (x.ArticuloId, x.ProductoAwVarianteId, Ubicacion: Ubicacion(x)))
             .OrderBy(g => g.Key.ArticuloId).ToList();
 
         // Fase 1: carga/bloquea saldos por clave y valida la suma; el pendiente por saldo se lleva localmente.
-        var restante = new Dictionary<(Guid, Guid?), List<(SaldoInventario Saldo, decimal Resta)>>();
+        var restante = new Dictionary<(Guid, Guid?, Guid?), List<(SaldoInventario Saldo, decimal Resta)>>();
         foreach (var grp in porClave)
         {
-            var (articuloId, varianteId) = grp.Key;
+            var (articuloId, varianteId, ubicacionId) = grp.Key;
             var saldosQ = from saldo in db.SaldosInventario
                           join sub in db.SubAlmacenes on saldo.SubAlmacenId equals sub.Id
                           join alm in db.Almacenes on sub.AlmacenId equals alm.Id
                           where alm.SucursalId == sucursalId && saldo.ArticuloId == articuloId
                                 && saldo.ProductoAwVarianteId == varianteId
+                                && (ubicacionId == null || saldo.UbicacionId == ubicacionId)
                                 && sub.Tipo != TipoSubAlmacen.MaterialEnRevision && sub.Tipo != TipoSubAlmacen.Transitorio
                                 && saldo.CantidadDisponible > 0
                           select saldo;
@@ -74,49 +138,43 @@ public static class SalidaAppAlmacenes
                     $"SELECT 1 FROM almacen.saldos_inventario WHERE articulo_id = {articuloId} AND ubicacion_id = ANY({ubicaciones}) ORDER BY articulo_id, ubicacion_id, producto_aw_variante_id, lote FOR UPDATE", ct);
             }
 
-            var saldos = await saldosQ.OrderByDescending(x => x.CantidadDisponible).ThenBy(x => x.UbicacionId).ToListAsync(ct);
+            // Lote más antiguo primero (Fernando 10-nov: el ERP también indica el lote; supuesto P-093): la existencia
+            // heredada sin lote sale antes y luego por antigüedad del saldo (Id = Guid v7, en orden de creación).
+            var saldos = await saldosQ.OrderBy(x => x.Lote != null).ThenBy(x => x.Id).ToListAsync(ct);
             var disponible = saldos.Sum(x => x.CantidadDisponible);
             var pedida = grp.Sum(x => x.Cantidad);
             if (disponible < pedida)
             {
                 var m = grp.First();
                 var medida = m.AnchoMm is null ? "" : $" {m.AnchoMm:0.####}x{m.AltoMm:0.####}";
-                return (EnRevision, null,
-                    $"Sin existencia suficiente (artículo A+W {m.ArticuloAw ?? m.ArticuloId.ToString()}{medida} mm): disponible {disponible:0.####} {m.UnidadMedida}, solicitada {pedida:0.####} {m.UnidadMedida}.");
+                var donde = ubicacionId is null ? "" : $" en el almacén {grp.First().Almacen}";
+                return (null, EnRevision,
+                    $"Sin existencia suficiente{donde} (artículo A+W {m.ArticuloAw ?? m.ArticuloId.ToString()}{medida} mm): disponible {disponible:0.####} {m.UnidadMedida}, solicitada {pedida:0.####} {m.UnidadMedida}.");
             }
-            restante[(articuloId, varianteId)] = saldos.Select(x => (x, x.CantidadDisponible)).ToList();
+            restante[(articuloId, varianteId, ubicacionId)] = saldos.Select(x => (x, x.CantidadDisponible)).ToList();
         }
 
         // Fase 2: reparte cada partida entre los saldos de su clave, descontando lo ya tomado por partidas previas.
-        var lineas = new List<(TipoMovimiento Tipo, string Motivo, Guid SubAlmacenId, string Causa, LineaRevisionMov Linea)>();
+        var partidas = new List<PartidaSalidaApp>();
         foreach (var s in salidas)
         {
-            var lista = restante[(s.ArticuloId, s.ProductoAwVarianteId)];
+            var lista = restante[(s.ArticuloId, s.ProductoAwVarianteId, Ubicacion(s))];
+            var lote = LineaMovimiento.NormalizarLote(s.Lote);
             var resta = s.Cantidad;
-            for (var i = 0; i < lista.Count && resta > 0; i++)
+            // Primero el lote del mensaje (si lo trae); el orden estable conserva «el lote más antiguo primero» dentro de cada bloque.
+            foreach (var i in Enumerable.Range(0, lista.Count).OrderByDescending(i => lote is not null && lista[i].Saldo.Lote == lote))
             {
+                if (resta <= 0) break;
                 var (saldo, libre) = lista[i];
                 if (libre <= 0) continue;
                 var toma = Math.Min(resta, libre);
-                lineas.Add((s.Tipo, s.Motivo, saldo.SubAlmacenId, s.Causa ?? SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(s.Tipo), new LineaRevisionMov(s.ArticuloId, s.UnidadMedida, toma,
+                partidas.Add(new PartidaSalidaApp(s, saldo.SubAlmacenId, new LineaRevisionMov(s.ArticuloId, s.UnidadMedida, toma,
                     s.CostoUnitarioMxn ?? saldo.CostoPromedioMxn, saldo.UbicacionId,
                     s.ProductoAwVarianteId, s.AnchoMm, s.AltoMm, saldo.Lote, s.CentroCostoId)));
                 lista[i] = (saldo, libre - toma);
                 resta -= toma;
             }
         }
-
-        // Un movimiento solo lleva líneas de un sub-almacén: uno por (tipo, motivo, sub-almacén) tocado.
-        var folios = new List<string>();
-        var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
-        foreach (var grupo in lineas.GroupBy(l => (l.Tipo, l.Motivo, l.SubAlmacenId)))
-        {
-            var mov = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, grupo.Key.Tipo, fecha, grupo.Key.Motivo,
-                grupo.Select(l => l.Linea).ToList(), ct);
-            await SalidaInventarioRegistradaIntegrationEvent.PublicarAsync(
-                events, db, empresaId, mov.Id, grupo.Key.SubAlmacenId, grupo.First().Causa, ct);
-            folios.Add(mov.Folio);
-        }
-        return (Recibido, string.Join(", ", folios), null);
+        return (partidas, Recibido, null);
     }
 }

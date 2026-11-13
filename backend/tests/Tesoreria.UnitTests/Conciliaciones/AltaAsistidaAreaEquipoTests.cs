@@ -17,7 +17,7 @@ namespace Millet.Tesoreria.UnitTests.Conciliaciones;
 /// <summary>
 /// H1 paso 3 (86e3z5w25): en la alta desde el extracto el usuario captura el área (y el equipo) cuando la cuenta del concepto los
 /// exige (regla C-03). Contabilidad los valida con la sucursal de la cuenta bancaria; el centro va solo en el evento de la base.
-/// Un dato inválido rechaza la alta; sin dato la alta procede (la póliza queda en Rechazos). Datos ficticios.
+/// Un dato inválido rechaza la alta; M-450 (86e3zr7ft): sin el dato que la cuenta exige, la alta tampoco procede. Datos ficticios.
 /// </summary>
 public sealed class AltaAsistidaAreaEquipoTests
 {
@@ -103,6 +103,38 @@ public sealed class AltaAsistidaAreaEquipoTests
     }
 
     [Fact]
+    public async Task M450_sin_el_area_que_exige_la_cuenta_la_alta_no_procede()
+    {
+        await using var db = Db();
+        var (c, l) = await PrepararAsync(db, conSucursal: true);
+        var publisher = new Publisher();
+
+        var act = () => new AltaAsistidaDesdeExtractoHandler(db, new TestUser(Usuario), new TestClock(), publisher,
+            new PuertoFalso(faltante: "Falta el área: la cuenta 601.FIX lo exige (regla de dimensiones C-03). Captúrelo para continuar."))
+            .Handle(Alta(c, l, null, null), default);
+
+        var ex = (await act.Should().ThrowAsync<BusinessRuleException>()).Which;
+        ex.Code.Should().Be("TES_DIMENSION_FALTANTE");
+        ex.Message.Should().Contain("Falta el área");
+        publisher.Eventos.Should().BeEmpty();
+        (await db.MovimientosBancarios.CountAsync()).Should().Be(1, "solo el depósito previo");
+    }
+
+    [Fact]
+    public async Task M450_sin_area_y_sin_exigencia_la_alta_procede_sin_centro()
+    {
+        await using var db = Db();
+        var (c, l) = await PrepararAsync(db, conSucursal: true);
+        var publisher = new Publisher();
+        var puerto = new PuertoFalso();
+
+        await new AltaAsistidaDesdeExtractoHandler(db, new TestUser(Usuario), new TestClock(), publisher, puerto).Handle(Alta(c, l, null, null), default);
+
+        puerto.Recibido.Should().NotBeNull("Contabilidad dice si la cuenta exige el área");
+        publisher.Eventos.OfType<MovimientoBancarioRegistradoIntegrationEvent>().Should().OnlyContain(x => x.CentroCostoId == null);
+    }
+
+    [Fact]
     public async Task Con_area_pero_sin_sucursal_conocida_la_alta_se_rechaza()
     {
         await using var db = Db();
@@ -143,8 +175,8 @@ public sealed class AltaAsistidaAreaEquipoTests
         }
     }
 
-    /// <summary>Contabilidad: acepta (equipo si viene; si no, el área) o devuelve el error dado.</summary>
-    private sealed class PuertoFalso(string? error = null) : IDimensionesCapturaPort
+    /// <summary>Contabilidad: acepta (equipo si viene; si no, el área), devuelve el error dado o avisa el faltante dado.</summary>
+    private sealed class PuertoFalso(string? error = null, string? faltante = null) : IDimensionesCapturaPort
     {
         public MovimientoCaptura? Recibido { get; private set; }
 
@@ -159,7 +191,7 @@ public sealed class AltaAsistidaAreaEquipoTests
             Recibido = movimiento;
             var exigencia = new ExigenciaDimensiones(true, false, "601.FIX");
             return Task.FromResult(error is null
-                ? new DimensionesCapturaResultado(null, null, equipoId ?? areaId, exigencia)
+                ? new DimensionesCapturaResultado(null, faltante, equipoId ?? areaId, exigencia)
                 : new DimensionesCapturaResultado(error, null, null, exigencia));
         }
     }

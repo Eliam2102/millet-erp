@@ -20,7 +20,8 @@ public sealed record ContraEntregaNoLiquidadaEvent(Guid Empresa, DateTimeOffset 
     : IntegrationEvent("producto_terminado.contra-entrega.no-liquidada.v1", Empresa, Fecha);
 
 /// <summary>
-/// La primera hoja de salida emitida del pedido lo pasa a 71 (en ruta). Es el aviso que A+W consume (el acuse en A+W es de U1.5).
+/// Estatus 72 para A+W (aw_retorno, script 14 v5). En A+W no se revierte (TI, 10-nov), así que se publica una sola vez, cuando un albarán del
+/// pedido ya no se puede cancelar: factura timbrada (al emitir o al timbrar), entrega en ruta o liquidación cerrada. El 71 lo pone A+W con el albarán.
 /// </summary>
 public sealed record PedidoEnRutaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string HojaSalidaFolio, string AlbaranFolio, string? CartaPorteFolio)
     : IntegrationEvent("producto_terminado.pedido.en-ruta.v1", Empresa, Fecha);
@@ -39,3 +40,29 @@ public sealed record EntregaConfirmadaEvent(Guid Empresa, DateTimeOffset Fecha, 
 /// <summary>El pedido está facturado y entregado: pasa a 115 (una sola vez). Es el aviso que A+W consume (el acuse en A+W es de U1.5).</summary>
 public sealed record PedidoFacturadoEntregadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string Estado)
     : IntegrationEvent("producto_terminado.pedido.facturado-entregado.v1", Empresa, Fecha);
+
+/// <summary>Piezas de un pedido dentro de un traspaso, por posición (para valuar el movimiento de inventario).</summary>
+public sealed record PedidoPiezasTraspaso(Guid PedidoPtId, string NumeroPedido, IReadOnlyList<PosicionEntregada> Posiciones);
+
+/// <summary>
+/// El traspaso se autorizó y las piezas salieron de <c>SucursalOrigenId</c> hacia tránsito (M-249). Contabilidad: cargo cuenta puente «inventario por
+/// traspaso», abono inventario PT del origen. No es un préstamo.
+/// </summary>
+public sealed record TraspasoSalidaAutorizadaEvent(Guid Empresa, DateTimeOffset Fecha, Guid TraspasoId, string Folio, Guid SucursalOrigenId, Guid SucursalDestinoId, IReadOnlyList<PedidoPiezasTraspaso> Pedidos)
+    : IntegrationEvent("producto_terminado.traspaso.salida-autorizada.v1", Empresa, Fecha);
+
+/// <summary>
+/// Piezas en tránsito entraron al inventario de <c>SucursalId</c> (M-249, M-350), con lo que el puente se salda: <c>Recepcion</c> (llegaron a destino, también las que
+/// llegan tarde), <c>RegresoOrigen</c> (volvieron al PT de origen) o <c>Perdida</c> (quedan en revisión en destino para Calidad).
+/// Contabilidad: cargo inventario PT de esa sucursal, abono cuenta puente.
+/// </summary>
+public sealed record TraspasoEntradaRegistradaEvent(Guid Empresa, DateTimeOffset Fecha, Guid TraspasoId, string Folio, string Resultado, Guid SucursalId, IReadOnlyList<PedidoPiezasTraspaso> Pedidos)
+    : IntegrationEvent("producto_terminado.traspaso.entrada-registrada.v1", Empresa, Fecha);
+
+/// <summary>
+/// M-248: se corrigió una entrega confirmada antes de cerrar la liquidación. Lleva lo entregado vigente por posición (no un delta); la versión
+/// anterior queda en el historial de la entrega. Informativo: el costo de ventas de PT se valúa al cerrar F1-PT-09.
+/// </summary>
+public sealed record EntregaCorregidaEvent(Guid Empresa, DateTimeOffset Fecha, Guid PedidoPtId, string NumeroPedido, string AlbaranFolio, int Version,
+    IReadOnlyList<PosicionEntregada> Entregadas, int Rechazadas, string Motivo)
+    : IntegrationEvent("producto_terminado.entrega.corregida.v1", Empresa, Fecha);

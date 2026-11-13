@@ -26,9 +26,9 @@ public sealed class AppSalidaResolverAdapter : IAppSalidaResolverPort
     {
         using var bypass = _empresa.Bypass();
         var suc = sucursalCodigo.Trim();
-        var sucursalId = await _maestros.Sucursales.AsNoTracking()
-            .Where(x => x.Clave == suc || x.ClaveAw == suc).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(ct);
-        if (sucursalId is null) return Fallo($"No existe la sucursal '{suc}'.");
+        var sucursal = await SucursalPorClaveApp.BuscarAsync(_maestros, suc, ct);
+        if (!sucursal.Encontrada) return Fallo(sucursal.Mensaje(suc));
+        var sucursalId = (Guid?)sucursal.Id;
 
         var resueltos = new List<GrupoSalidaResuelto>(grupos.Count);
         foreach (var g in grupos)

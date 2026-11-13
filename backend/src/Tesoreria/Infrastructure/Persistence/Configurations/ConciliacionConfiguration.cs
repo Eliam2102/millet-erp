@@ -11,7 +11,7 @@ public sealed class ConciliacionConfiguration : IEntityTypeConfiguration<Concili
     {
         builder.ToTable("conciliacion", t =>
         {
-            t.HasCheckConstraint("ck_conciliacion_estado", "estado IN (1, 2)");
+            t.HasCheckConstraint("ck_conciliacion_estado", "estado IN (1, 2, 3)");
             t.HasCheckConstraint("ck_conciliacion_periodo_mes", "periodo_mes BETWEEN 1 AND 12");
         });
 
@@ -31,6 +31,8 @@ public sealed class ConciliacionConfiguration : IEntityTypeConfiguration<Concili
         builder.Property(e => e.MotivoReapertura).HasMaxLength(500);
         builder.Property(e => e.ReabiertaPor);
         builder.Property(e => e.ReabiertaEn);
+        builder.Property(e => e.VistoBuenoPor);
+        builder.Property(e => e.VistoBuenoEn);
         builder.Property(e => e.FirmanteNombre).HasMaxLength(150);
         builder.Property(e => e.FirmantePuesto).HasMaxLength(100);
         builder.Property(e => e.ActaGeneradaEn);
@@ -55,5 +57,12 @@ public sealed class ConciliacionConfiguration : IEntityTypeConfiguration<Concili
             .HasForeignKey(b => b.ConciliacionId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(e => e.Bitacora).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // M-201: movimientos de libros en tránsito; siempre se cargan porque entran en la diferencia.
+        builder.HasMany(e => e.PartidasLibro)
+            .WithOne()
+            .HasForeignKey(p => p.ConciliacionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(e => e.PartidasLibro).UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
     }
 }

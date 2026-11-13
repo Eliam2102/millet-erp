@@ -37,11 +37,69 @@ public sealed class PlantaPinturaTests
         "PP-1", Guid.NewGuid(), "CLI-1", "Cliente PP", CanalesVentaConocidos.PlantaPintura,
         ComportamientoFiscal.MostradorInmediato, "MXN", null, null, "comentario", version, "ABIERTO",
         [new LineaPedidoPlantaPintura("PRD-1", "Pintura", "01010101", "H87", 2m, 100m, 0m, false)],
-        "{\"pp\":\"PP-1\"}");
+        "{\"pp\":\"PP-1\"}", EmpleadoCapturaClave: "EMP-001");
+
+    // Catálogo de empleados del ERP de las pruebas: EMP-001 (capturista) y EMP-002 (vendedor).
+    private sealed class Empleados(params string[] claves) : IEmpleadosReadPort
+    {
+        public Task<bool> ExisteClaveAsync(string clave, CancellationToken cancellationToken) =>
+            Task.FromResult(claves.Contains(clave));
+    }
 
     private static ImportarPedidoPlantaPinturaHandler Handler(
         FacturacionDbContext db, ClienteFiscalLectura? cliente, ProductoFiscalLectura? producto) =>
-        new(db, new FakeClientesReadPort(cliente), new FakeProductosReadPort(producto), new FakeClock(Ahora));
+        new(db, new FakeClientesReadPort(cliente), new FakeProductosReadPort(producto), new Empleados("EMP-001", "EMP-002"),
+            new FakeClock(Ahora));
+
+    [Fact]
+    public async Task Script16v4_guarda_capturista_y_vendedor_y_los_muestra_en_el_pedido()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        var resp = await Handler(db, Cliente(), Producto()).Handle(new ImportarPedidoPlantaPinturaCommand(empresaId,
+            Pedido() with { EmpleadoCapturaClave = " EMP-001 ", VendedorClave = "EMP-002" }), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        var pedido = await db.PedidosFacturables.SingleAsync();
+        pedido.EmpleadoCapturaClave.Should().Be("EMP-001");
+        pedido.VendedorClave.Should().Be("EMP-002");
+    }
+
+    [Fact]
+    public async Task Script16v4_sin_vendedor_se_acepta()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        var resp = await Handler(db, Cliente(), Producto()).Handle(new ImportarPedidoPlantaPinturaCommand(empresaId,
+            Pedido() with { VendedorClave = null }), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        var pedido = await db.PedidosFacturables.SingleAsync();
+        pedido.EmpleadoCapturaClave.Should().Be("EMP-001");
+        pedido.VendedorClave.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("E999", null, "empleado_captura_clave=E999: no existe en el ERP")]
+    [InlineData("EMP-001", "V404", "vendedor_clave=V404: no existe en el ERP")]
+    [InlineData("  ", null, "empleado_captura_clave: viene vacía; el portal debe mandar el empleado del usuario que captura.")]
+    public async Task Script16v4_empleado_desconocido_rechaza_sin_crear_pedido(string capturista, string? vendedor, string detalle)
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        var resp = await Handler(db, Cliente(), Producto()).Handle(new ImportarPedidoPlantaPinturaCommand(empresaId,
+            Pedido() with { EmpleadoCapturaClave = capturista, VendedorClave = vendedor }), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.PedidoFacturableId.Should().BeNull();
+        resp.MotivoExcepcion.Should().Be(MotivoExcepcion.Otro);
+        resp.Detalle.Should().Be(detalle);
+        (await db.PedidosFacturables.AnyAsync()).Should().BeFalse();
+        (await db.ExcepcionesImportacion.SingleAsync()).Detalle.Should().Be(detalle);
+    }
 
     [Fact]
     public void ImportarDesdePlantaPintura_tiene_origen_PlantaPintura()
@@ -66,6 +124,62 @@ public sealed class PlantaPinturaTests
         pedido.Origen.Should().Be(OrigenPedido.PlantaPintura);
         await db.IngestaControles.SingleAsync();
         await db.PedidosFacturablesSnapshot.SingleAsync();
+    }
+
+    [Fact]
+    public async Task Script16v3_una_linea_de_venta_por_linea_y_fecha_del_pedido()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var fecha = new DateOnly(2026, 11, 9);
+        var p = Pedido() with
+        {
+            FechaPedido = fecha,
+            Lineas =
+            [
+                new LineaPedidoPlantaPintura("PRD-1", "Blanco mate", null, null, 80.5m, 85.25m, 0m, false, 0.16m),
+                new LineaPedidoPlantaPintura("PRD-2", "Negro satinado", null, null, 45m, 92m, 0m, false, 0.16m),
+            ],
+        };
+
+        var resp = await Handler(db, Cliente(), Producto())
+            .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, p), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        var pedido = await db.PedidosFacturables.Include(x => x.Lineas).SingleAsync();
+        pedido.FechaPedido.Should().Be(fecha);
+        pedido.Lineas.Select(l => (l.Cantidad, l.Precio)).Should().BeEquivalentTo(new[] { (80.5m, 85.25m), (45m, 92m) });
+        pedido.Total.Should().Be(6862.63m + 4140m, "80.5 × 85.25 y 45 × 92, sin promediar");
+    }
+
+    [Fact]
+    public async Task Orden_sin_lineas_se_rechaza()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        var resp = await Handler(db, Cliente(), Producto())
+            .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, Pedido() with { Lineas = [] }), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Detalle.Should().Contain("pinturas_pedido_linea");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Una_linea_mala_rechaza_la_orden_completa()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var buena = Pedido().Lineas[0];
+        var p = Pedido() with { Lineas = [buena, buena with { ProductoRef = "PRD-9", Precio = -1m }] };
+
+        var resp = await Handler(db, Cliente(), Producto())
+            .Handle(new ImportarPedidoPlantaPinturaCommand(empresaId, p), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Detalle.Should().Contain("precio_m2=-1").And.Contain("PRD-9");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
     }
 
     [Fact]
@@ -243,6 +357,21 @@ public sealed class PlantaPinturaTests
         var reader = await TickConAsync(() => new(ResultadoSolicitudAw.Rechazada, null, MotivoExcepcion.IvaNoCuadra, "IVA no cuadra"));
 
         reader.Acuses.Should().ContainSingle().Which.Should().Be(("PP-1", ResultadoAcusePlantaPintura.Error, (Guid?)null, (string?)"IVA no cuadra"));
+    }
+
+    [Fact]
+    public async Task Script16v4_capturista_desconocido_se_acusa_con_error_2_y_el_motivo()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var rechazo = await Handler(db, Cliente(), Producto()).Handle(new ImportarPedidoPlantaPinturaCommand(empresaId,
+            Pedido() with { EmpleadoCapturaClave = "E999" }), CancellationToken.None);
+
+        var reader = await TickConAsync(() => rechazo);
+
+        reader.Acuses.Should().ContainSingle().Which.Should().Be(("PP-1", ResultadoAcusePlantaPintura.Error, (Guid?)null,
+            (string?)"empleado_captura_clave=E999: no existe en el ERP"));
+        ((short)ResultadoAcusePlantaPintura.Error).Should().Be(2, "erp_resultado = 2 en pinturas_pedido");
     }
 
     [Fact]

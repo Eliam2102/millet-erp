@@ -10,6 +10,7 @@ namespace Millet.Compras.Application.Listar;
 /// <list type="bullet">
 ///   <item><see cref="Disponibilidad"/>: cuánto de la RQ cubriría el almacén hoy (estimación, igual que el preview de cubrimiento).</item>
 ///   <item><see cref="EsRecurrente"/>: el requisitante tiene ≥ 3 RQ en 60 días en la misma clasificación.</item>
+///   <item><see cref="Version"/>: versión de la RQ al listar; los lotes la devuelven para detectar cambios entre la selección y la firma (M-254).</item>
 /// </list>
 /// </summary>
 public sealed record PendienteAutorizacionItemResponse(
@@ -32,7 +33,8 @@ public sealed record PendienteAutorizacionItemResponse(
     NivelAutorizacion? NivelPendiente,
     OrigenRequisicion Origen,
     DisponibilidadPendiente Disponibilidad,
-    bool EsRecurrente);
+    bool EsRecurrente,
+    int Version);
 
 /// <summary>
 /// Disponibilidad de almacén de una RQ pendiente. <c>Total</c>: todas las

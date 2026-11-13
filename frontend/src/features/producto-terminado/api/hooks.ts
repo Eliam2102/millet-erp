@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { ConfirmarEntregaBody, CrearHojaSalidaBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezasPagina, ResultadoEscaneo, SalidasPendientesPagina, TraspasoDto, TraspasosPagina } from './types';
+import type { AutorizarHojaBody, CancelarFacturaCasoBody, CasoDanoDto, CasosPagina, ConfirmarEntregaBody, CorregirEntregaBody, CrearHojaSalidaBody, CrearTraspasoBody, DictaminarCasoBody, DiferenciaTraspasoBody, EntregaEvidenciaDto, EscaneoDto, EscaneosPagina, HojaSalidaDto, HojasSalidaPagina, PiezaDto, PiezasPagina, ResolverParcialBody, ResultadoEscaneo, SalidasPendientesPagina, SolicitarParcialBody, SolicitudParcialDto, SolicitudesParcialesPagina, TraspasoDto, TraspasosPagina, UbicarPiezasBody } from './types';
 
 const BASE = '/api/v1/producto-terminado';
 
@@ -74,7 +74,8 @@ export function useSalidasPendientes(f: {
   });
 }
 
-export function useTraspasos(f: { estado?: string; page?: number; pageSize?: number }) {
+/** `estado` admite varios separados por coma; `destinoId` filtra por la sucursal que recibe («Por recibir»). */
+export function useTraspasos(f: { estado?: string; destinoId?: string; page?: number; pageSize?: number }) {
   return useQuery({
     queryKey: [...ptKeys.all, 'traspasos', f],
     queryFn: async ({ signal }) =>
@@ -94,11 +95,45 @@ export function useCrearTraspaso() {
   const qc = useQueryClient();
   const keyFor = useBodyScopedIdempotencyKey();
   return useMutation({
-    mutationFn: (body: { sucursalOrigenId: string; sucursalDestinoId: string; etiquetas: string[] }) =>
+    mutationFn: (body: CrearTraspasoBody) =>
       apiRequest<TraspasoDto>(`${BASE}/traspasos`, { method: 'POST', body, idempotencyKey: keyFor(body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
   });
 }
+
+/** Autoriza el traspaso preparado (otra persona): las piezas salen a tránsito. */
+export function useAutorizarTraspaso() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: (id: string) => apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}/autorizar`, { method: 'POST', idempotencyKey: keyFor({ id }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Clasifica las piezas que no llegaron (motivo obligatorio; evidencia obligatoria si llegó dañada). */
+export function useClasificarDiferencias() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: ({ id, piezas }: { id: string; piezas: DiferenciaTraspasoBody[] }) =>
+      apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}/clasificar-diferencias`, { method: 'POST', body: { piezas }, idempotencyKey: keyFor({ id, piezas }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** Aclara una pieza clasificada: regresa al origen o se da por perdida (la que llega tarde se recibe). */
+export function useAclararDiferencia() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: ({ id, piezaId, resolucion }: { id: string; piezaId: string; resolucion: 'RegresadaAlOrigen' | 'DadaPorPerdida' }) =>
+      apiRequest<TraspasoDto>(`${BASE}/traspasos/${id}/aclarar-diferencia`, { method: 'POST', body: { piezaId, resolucion }, idempotencyKey: keyFor({ id, piezaId, resolucion }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export const EVIDENCIA_TRASPASO_URL = `${BASE}/traspasos/evidencia/blob`;
 
 /** `piezaIds` ausente = recepción total; una lista parcial deja la diferencia pendiente. */
 export function useRecibirTraspaso() {
@@ -152,6 +187,17 @@ export function useAccionHojaSalida() {
   });
 }
 
+/** Reglas de salida 2 y 4: autoriza la hoja sin factura o la salida parcial. La llave lleva el cuerpo: reintentar lo mismo no registra otra. */
+export function useAutorizarHojaSalida() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: AutorizarHojaBody }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${id}/autorizar`, { method: 'POST', body, idempotencyKey: keyFor({ id, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
 /** Carga física pieza por pieza (PT5.4). El intento va en la llave: tras un rechazo, escanear la misma etiqueta otra vez llega al servidor y no repite la respuesta guardada. */
 export function useCargaHoja() {
   const qc = useQueryClient();
@@ -182,5 +228,103 @@ export function useEvidenciaEntrega(hojaId: string, albaranId: string, activa: b
     queryKey: [...ptKeys.all, 'entrega-evidencia', hojaId, albaranId],
     enabled: activa,
     queryFn: async ({ signal }) => (await apiRequest<EntregaEvidenciaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/entrega/evidencia`, { signal })).data,
+  });
+}
+
+/** M-251: asigna almacén y lugar a piezas EnPT. */
+export function useUbicarPiezas() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async (body: UbicarPiezasBody) =>
+      (await apiRequest<PiezaDto[]>(`${BASE}/piezas/ubicar`, { method: 'POST', body, idempotencyKey: keyFor(body) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export function useSolicitudesParciales(f: { estado?: string; pedido?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'salidas-parciales', f],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<SolicitudesParcialesPagina>(`${BASE}/salidas-parciales${qs(f)}`, { signal })).data,
+  });
+}
+
+export function useSolicitarSalidaParcial() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async (body: SolicitarParcialBody) =>
+      (await apiRequest<SolicitudParcialDto>(`${BASE}/salidas-parciales`, { method: 'POST', body, idempotencyKey: keyFor(body) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export function useResolverSalidaParcial() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: ResolverParcialBody }) =>
+      (await apiRequest<SolicitudParcialDto>(`${BASE}/salidas-parciales/${id}/resolver`, { method: 'POST', body, idempotencyKey: keyFor({ id, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** M-247: albarán de una hoja Emitida. Pedir y resolver la cancelación son dos pasos de dos personas. */
+export function useCancelacionAlbaran() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ hojaId, albaranId, paso, body }: { hojaId: string; albaranId: string; paso: 'solicitar-cancelacion' | 'resolver-cancelacion'; body: { motivo: string; autorizar?: boolean } }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/${paso}`, { method: 'POST', body, idempotencyKey: keyFor({ hojaId, albaranId, paso, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+/** M-248: corrige una entrega ya confirmada; queda una versión nueva en el historial. */
+export function useCorregirEntrega() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async ({ hojaId, albaranId, body }: { hojaId: string; albaranId: string; body: CorregirEntregaBody }) =>
+      (await apiRequest<HojaSalidaDto>(`${BASE}/hojas-salida/${hojaId}/albaranes/${albaranId}/entrega/corregir`, { method: 'POST', body, idempotencyKey: keyFor({ hojaId, albaranId, body }) })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
+  });
+}
+
+export function useCasos(f: { estado?: string; pedido?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'casos', f],
+    queryFn: async ({ signal }) => (await apiRequest<CasosPagina>(`${BASE}/casos${qs(f)}`, { signal })).data,
+  });
+}
+
+export function useEvidenciaCaso(id: string, activa: boolean) {
+  return useQuery({
+    queryKey: [...ptKeys.all, 'caso-evidencia', id],
+    enabled: activa,
+    queryFn: async ({ signal }) => (await apiRequest<EntregaEvidenciaDto>(`${BASE}/casos/${id}/evidencia`, { signal })).data,
+  });
+}
+
+export type AccionCaso =
+  | { tipo: 'registrar'; body: { etiquetas: string[]; motivo: string; evidencia?: string } }
+  | { tipo: 'evidencia'; id: string; body: { evidencia: string } }
+  | { tipo: 'dictaminar'; id: string; body: DictaminarCasoBody }
+  | { tipo: 'nota-credito'; id: string }
+  | { tipo: 'cancelar-factura'; id: string; body: CancelarFacturaCasoBody }
+  | { tipo: 'cerrar'; id: string };
+
+/** Una sola mutación para todas las acciones del caso; la llave lleva la acción completa. */
+export function useAccionCaso() {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  return useMutation({
+    mutationFn: async (a: AccionCaso) => {
+      const ruta = a.tipo === 'registrar' ? `${BASE}/casos` : `${BASE}/casos/${a.id}/${a.tipo}`;
+      const body = 'body' in a ? a.body : undefined;
+      return (await apiRequest<CasoDanoDto>(ruta, { method: 'POST', body, idempotencyKey: keyFor(a) })).data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.all }),
   });
 }

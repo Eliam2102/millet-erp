@@ -13,8 +13,11 @@ using Millet.Facturacion.Application.Pedidos.Queries;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 using Millet.Facturacion.Application.Proformas;
 using Millet.Facturacion.Application.Proformas.CompararProformaPedido;
+using Millet.Facturacion.Application.Proformas.EmitirFacturaDesdeProforma;
 using Millet.Facturacion.Application.Proformas.GenerarProformaPedido;
 using Millet.Facturacion.Application.Proformas.Queries;
+using Millet.Facturacion.Application.Proformas.RegistrarConformidadProforma;
+using Millet.Facturacion.Domain.Proformas;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Identidad.Domain;
@@ -44,6 +47,7 @@ public static class PedidosFacturablesEndpoints
             [FromQuery] string? alcance,
             [FromQuery] ClasePedidoManual? clase,
             [FromQuery] bool? credito,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -51,7 +55,7 @@ public static class PedidosFacturablesEndpoints
             // 86e3tfdw2: ?credito=true|false filtra por condición de pago.
             var response = await mediator.Send(
                 new BandejaPedidosFacturablesQuery(
-                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase, credito),
+                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase, credito, q),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -186,18 +190,28 @@ public static class PedidosFacturablesEndpoints
             [FromQuery] bool? soloPendientes,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
+            [FromQuery] bool? soloResueltas,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
-            var items = await mediator.Send(
-                new BandejaExcepcionesImportacionQuery(soloPendientes ?? true, offset ?? 0, limit ?? 50),
+            var response = await mediator.Send(
+                new BandejaExcepcionesImportacionQuery(soloPendientes ?? true, offset ?? 0, limit ?? 50, q, soloResueltas == true),
                 cancellationToken);
-            return Results.Ok(items);
+            return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
         .WithName("BandejaExcepcionesImportacion")
         .WithSummary("Bandeja de excepciones de importación A+W/Planta Pintura")
-        .Produces<IReadOnlyList<ExcepcionImportacionItem>>(StatusCodes.Status200OK);
+        .Produces<BandejaExcepcionesImportacionResponse>(StatusCodes.Status200OK);
+
+        // GET: M-233 — envíos de A+W en curso o de resultado incierto (sin acuse en aw_solicitud_pedido).
+        group.MapGet("/envios-inciertos", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new EnviosAwInciertosQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("EnviosAwInciertos")
+        .WithSummary("Envíos de A+W en curso o de resultado incierto")
+        .Produces<IReadOnlyList<EnvioAwInciertoItem>>(StatusCodes.Status200OK);
 
         // POST: resuelve una excepción de importación (F3-PR1b).
         group.MapPost("/excepciones/{id:guid}/resolver", async (
@@ -288,6 +302,48 @@ public static class PedidosFacturablesEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-234: conformidad del cliente con UNA versión de la proforma (quién, cuándo, medio).
+        // Una proforma vencida no se aprueba (422); mutación → Idempotency-Key (ADR-0020).
+        group.MapPost("/{id:guid}/proformas/{proformaId:guid}/conformidad", async (
+            Guid id,
+            Guid proformaId,
+            RegistrarConformidadBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(
+                new RegistrarConformidadProformaCommand(id, proformaId, body.Quien, body.Medio, body.Fecha, body.Notas),
+                cancellationToken);
+            return Results.Created($"/api/v1/facturacion/pedidos-facturables/{id}/proformas/ultima", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("RegistrarConformidadProforma")
+        .WithSummary("Registra la conformidad del cliente con una versión de la proforma")
+        .Produces<ProformaConformidadResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // M-340: factura desde la versión aprobada de la proforma, sin recaptura. Se bloquea sin conformidad o si el pedido
+        // cambió después de aprobar (la conformidad queda invalidada); mutación → Idempotency-Key (ADR-0020).
+        group.MapPost("/{id:guid}/proformas/{proformaId:guid}/facturar", async (
+            Guid id,
+            Guid proformaId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new EmitirFacturaDesdeProformaCommand(id, proformaId), cancellationToken);
+            return Results.Created($"/api/v1/facturacion/facturas/{response.Id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("EmitirFacturaDesdeProforma")
+        .WithSummary("Emite la factura del pedido desde la versión aprobada de su proforma")
+        .Produces<Millet.Facturacion.Application.Facturas.EmitirFacturaVenta.EmitirFacturaVentaResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
 
@@ -311,6 +367,13 @@ public static class PedidosFacturablesEndpoints
         string Referencia,
         IReadOnlyList<SalidaFacturableLineaDto> Lineas,
         OrigenSalidaFacturable? Origen = null);
+
+    /// <summary>M-234: body de conformidad; <c>Medio</c> viaja como texto (Correo, Telefono, Presencial, Mensajeria, Otro).</summary>
+    public sealed record RegistrarConformidadBody(
+        string Quien,
+        [property: System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<MedioConformidadProforma>))] MedioConformidadProforma Medio,
+        DateOnly? Fecha = null,
+        string? Notas = null);
 
     public sealed record EditarPedidoFacturableRequest(
         Guid ClienteId,

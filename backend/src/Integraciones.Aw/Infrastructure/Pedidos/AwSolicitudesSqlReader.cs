@@ -52,22 +52,31 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
         _logger = logger;
     }
 
+    /// <summary>Minutos que espera un pedido Pospuesto (catálogo incompleto) antes de volver a entrar al lote.</summary>
+    public const int EsperaPospuestaMinutos = 10;
+
     public async Task<IReadOnlyList<SolicitudAw>> LeerPendientesAsync(
         int max, CancellationToken cancellationToken)
     {
-        // Pendiente = resultado NULL o Pospuesta(3), en orden (pedido, version)
-        // — doc 04 §2. El índice IX_asp_barrido cubre exactamente este scan.
+        // Pendiente = resultado NULL o Pospuesta(3), en orden (pedido, version) — doc 04 §2.
+        // Un pedido con una versión Pospuesta reintentada hace menos de EsperaPospuestaMinutos sale del lote completo
+        // (todas sus versiones, para no romper el orden): sin esto las 50 pospuestas de número más bajo llenaban cada
+        // lote y los pendientes nuevos nunca se leían (QA, 10-nov: 1,048 sin procesar desde el 26-oct).
         const string sql = """
-            SELECT TOP(@max) solicitud_id, numero_pedido, operacion, [version], creada_at
-              FROM dbo.aw_solicitud_pedido
-             WHERE resultado IS NULL OR resultado = 3
-             ORDER BY numero_pedido, [version]
+            SELECT TOP(@max) s.solicitud_id, s.numero_pedido, s.operacion, s.[version], s.creada_at
+              FROM dbo.aw_solicitud_pedido s
+             WHERE (s.resultado IS NULL OR s.resultado = 3)
+               AND NOT EXISTS (SELECT 1 FROM dbo.aw_solicitud_pedido e
+                                WHERE e.numero_pedido = s.numero_pedido AND e.resultado = 3
+                                  AND e.procesada_at > DATEADD(MINUTE, -@espera, SYSDATETIMEOFFSET()))
+             ORDER BY s.numero_pedido, s.[version]
             """;
 
         return await EjecutarAsync("LeerPendientes", async connection =>
         {
             using var command = CrearCommand(connection, sql);
             command.Parameters.Add(new SqlParameter("@max", SqlDbType.Int) { Value = max });
+            command.Parameters.Add(new SqlParameter("@espera", SqlDbType.Int) { Value = EsperaPospuestaMinutos });
 
             var rows = new List<SolicitudAw>();
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -113,13 +122,31 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
         Guid? sucursalId = cabecera.NumeroSucursal is null
             ? null
             : await _sucursales.ResolverAsync(cabecera.NumeroSucursal, cancellationToken);
+        // M-243: los departamentos que no son sucursal (REPOSICIONES, REEMPLAZOS, RETRABAJO, MUESTRAS) toman la
+        // sucursal del pedido origen (AH_HAUPT_AUFTR → pedido_sustituido_numero). Sin pedido origen o si tampoco
+        // resuelve, el pedido espera en la bandeja como antes. El usuario creador no viene en la vista.
+        string? sucursalOrigen = null;
+        if (sucursalId is null && cabecera.PedidoSustituidoNumero is long pedidoOrigen)
+        {
+            var padre = pedidoOrigen.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            sucursalOrigen = (await EjecutarAsync("LeerCabeceraPedidoOrigen", c => LeerCabeceraAsync(c, padre, cancellationToken), cancellationToken))?.NumeroSucursal;
+            if (sucursalOrigen is not null)
+                sucursalId = await _sucursales.ResolverAsync(sucursalOrigen, cancellationToken);
+            if (sucursalId is not null)
+                _logger.LogInformation(
+                    "[AwSolicitudesSqlReader] pedido {Pedido}: departamento '{Valor}' sin sucursal; toma '{Origen}' del pedido origen {PedidoOrigen}",
+                    numeroPedido, cabecera.NumeroSucursal, sucursalOrigen, padre);
+        }
         if (sucursalId is null)
         {
             _logger.LogWarning(
                 "[AwSolicitudesSqlReader] pedido {Pedido}: numero_sucursal '{Valor}' sin sucursal activa con esa clave_aw en el catálogo → pospuesta",
                 numeroPedido, cabecera.NumeroSucursal);
             return LecturaPedidoAw.EsperaConfig(MotivoExcepcion.SucursalSinClaveAw,
-                $"numero_sucursal '{cabecera.NumeroSucursal}' sin sucursal activa con esa clave_aw en el catálogo");
+                $"numero_sucursal '{cabecera.NumeroSucursal}' sin sucursal activa con esa clave_aw en el catálogo"
+                + (cabecera.PedidoSustituidoNumero is long po
+                    ? $"; el pedido origen {po} tampoco la resuelve ('{sucursalOrigen ?? "sin departamento"}')"
+                    : "; sin pedido origen para tomarla — asigna la clave_aw o corrige el pedido en A+W"));
         }
 
         // El canal se resuelve igual: canal_ventas trae el GRUPPE crudo de
@@ -151,6 +178,8 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
     /// motivo para la bandeja y el flag de config-fixable que decide
     /// pospuesta vs rechazo (doc 04 §4, FAC-ING-PR3).
     /// </summary>
+    private static string Texto(decimal v) => v.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+
     internal static LecturaPedidoAw Construir(
         CabeceraRow cab,
         IReadOnlyList<LineaRow> lineas,
@@ -178,6 +207,17 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
                 "pedido sin líneas en vw_erp_pedido_linea");
         }
 
+        // 86e40b4mp: una posición sin descripción no se puede facturar; antes reventaba al crear la línea y el
+        // pedido se releía cada tick. Ahora es dato inválido del origen: va a la bandeja y no se reintenta.
+        if (lineas.FirstOrDefault(l => string.IsNullOrWhiteSpace(l.Descripcion)) is { } sinDescripcion)
+        {
+            logger.LogWarning(
+                "[AwSolicitudesSqlReader] pedido {Pedido}: posición {Posicion} sin descripción de producto → rechazo",
+                cab.NumeroPedido, sinDescripcion.NumeroPosicion);
+            return LecturaPedidoAw.DatosInvalidos(MotivoExcepcion.Otro,
+                $"posición {sinDescripcion.NumeroPosicion} (producto {sinDescripcion.ProductoRef}) llega de A+W sin descripción del producto");
+        }
+
         // PR5 — totales de control (doc 04 §3.1): si la vista de cabecera
         // aporta totales y no cuadran con las líneas leídas, el pedido NO se
         // ingesta con importes potencialmente corruptos → null → bandeja
@@ -190,7 +230,8 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
                 "[AwSolicitudesSqlReader] pedido {Pedido}: total_cantidad de cabecera ({Cabecera}) no cuadra con las líneas ({Lineas}) → rechazo",
                 cab.NumeroPedido, totalCantidad, lineas.Sum(l => l.Cantidad));
             return LecturaPedidoAw.DatosInvalidos(MotivoExcepcion.TotalesNoCuadran,
-                $"total_cantidad de cabecera ({totalCantidad}) no cuadra con las líneas ({lineas.Sum(l => l.Cantidad)})");
+                $"total_cantidad de cabecera ({totalCantidad}) no cuadra con las líneas ({lineas.Sum(l => l.Cantidad)})",
+                new DiferenciaCampoIngesta("total_cantidad", Texto(lineas.Sum(l => l.Cantidad)), Texto(totalCantidad)));
         }
         // Ambos lados de esta comparación son BRUTOS (con IVA): los importes
         // de A+W vienen con impuesto y se comparan ANTES de convertir a neto
@@ -205,7 +246,8 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
                     "[AwSolicitudesSqlReader] pedido {Pedido}: importe_total de cabecera ({Cabecera}) no cuadra con las líneas ({Lineas}) → rechazo",
                     cab.NumeroPedido, importeTotal, importeLineas);
                 return LecturaPedidoAw.DatosInvalidos(MotivoExcepcion.TotalesNoCuadran,
-                    $"importe_total de cabecera ({importeTotal}) no cuadra con las líneas ({importeLineas})");
+                    $"importe_total de cabecera ({importeTotal}) no cuadra con las líneas ({importeLineas})",
+                    new DiferenciaCampoIngesta("importe_total", Texto(importeLineas), Texto(importeTotal)));
             }
         }
 

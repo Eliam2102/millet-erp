@@ -127,6 +127,14 @@ beforeEach(() => {
   };
 });
 describe('Contenedores de exportación', () => {
+  it.each([null, '', '   '])('identifica por guía un transporte sin contenedor (%s)', (numero) => {
+    state.data!.contenedores[0].numero = numero;
+    render(<ContenedoresPanel data={data} />);
+    expect(screen.getByRole('combobox', { name: 'Consultar partidas del contenedor' }))
+      .toHaveDisplayValue('DEMO-BL');
+    expect(screen.getByRole('option', { name: 'DEMO-BL' }).children).toHaveLength(0);
+  });
+
   it('exige una aduana del backend y la envía al registrar el pedimento', async () => {
     render(<ContenedoresPanel data={data} />);
     const selector = screen.getByRole('combobox', { name: 'Aduana' });

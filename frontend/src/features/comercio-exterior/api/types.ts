@@ -83,7 +83,10 @@ export interface ExpedienteDetalle {
   }[];
   expediente: ExpedienteFila;
   ocId: string | null;
+  ocIds?: string[];
   ocFolio: string | null;
+  ordenesCompra?: OcImportacion[];
+  recepcionesImportacion?: RecepcionImportacionCe[];
   informacionImportacion: {
     paisOrigen: string | null;
     numeroContenedor: string | null;
@@ -115,9 +118,22 @@ export interface ExpedienteDetalle {
     fecha: string;
   }[];
 }
+export interface RecepcionImportacionCe {
+  ocId: string;
+  ocFolio: string;
+  recepcion: {
+    recepcionId: string;
+    clavePedimento: string;
+    numeroPedimento: string;
+    numeroBl: string;
+    numeroContenedor: string | null;
+    aduana: string;
+  };
+}
 export interface CrearExpediente {
   tipo: TipoExpediente;
   ocId: string | null;
+  ocIds?: string[];
   sucursalId: string | null;
   referencia: string;
   incotermId: string | null;
@@ -130,6 +146,7 @@ export interface CrearExpediente {
 }
 export interface OcImportacion {
   id: string;
+  proveedorId?: string;
   folio: string;
   moneda: string;
   sucursalId: string;
@@ -157,6 +174,19 @@ export interface Hito {
   atrasado: boolean;
   diasAtraso: number;
   conIncidencia?: boolean;
+  /** M-373: correcciones de la fecha real o la omisión, la más reciente primero. */
+  correcciones?: CorreccionHito[] | null;
+}
+export interface CorreccionHito {
+  id: string;
+  fechaRealAnterior: string | null;
+  omitidoAnterior: boolean;
+  fechaRealNueva: string | null;
+  omitidoNuevo: boolean;
+  motivo: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  fecha: string;
 }
 export interface AvisoHito {
   id: string;
@@ -164,8 +194,12 @@ export interface AvisoHito {
   hitoNombre: string;
   fechaCompromiso: string;
   fechaAviso: string;
+  /** M-373: el atraso dejó de existir al corregir el hito. */
+  cerradoEn?: string | null;
+  motivoCierre?: string | null;
 }
 export interface Filtros {
+  limit?: number;
   atraso?: boolean;
   tipo?: number;
   estado?: number;
@@ -174,8 +208,16 @@ export interface Filtros {
   sucursalId?: string;
 }
 
+export interface AutorizacionDespacho {
+  nivel: string;
+  versionEmbarque: number;
+}
 export interface Contenedor {
-  modalidad?: 1 | 2 | 3 | null;
+  preparadoParaFacturarEn?: string | null;
+  parcial?: AutorizacionDespacho | null;
+  excepcion?: AutorizacionDespacho | null;
+  facturasVigentes?: boolean;
+  modalidad?: 1 | 2 | 3 | 4 | null;
   id: string;
   numero: string | null;
   sello: string | null;
@@ -191,7 +233,14 @@ export interface Contenedor {
 }
 export type DatosContenedor = Omit<
   Contenedor,
-  'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion'
+  | 'id'
+  | 'fechaEmbarqueReal'
+  | 'estado'
+  | 'motivoCancelacion'
+  | 'preparadoParaFacturarEn'
+  | 'parcial'
+  | 'excepcion'
+  | 'facturasVigentes'
 >;
 export interface PedimentoExportacion {
   aduana?: string | null;
@@ -258,6 +307,7 @@ export interface ContenedoresDetalle {
   }[];
   partidasOc?: {
     id: string;
+    ocFolio?: string | null;
     posicion: number;
     descripcion: string;
     cantidad: number;
@@ -286,6 +336,8 @@ export interface EmbarqueCe {
   fechaPedimento: string | null;
   incoterm: string | null;
   contenedores: { id: string; numero: string; blGuia: string; fechaEmbarqueReal: string }[] | null;
+  /** M-158: fracción y unidad aduana revisadas en Comercio Exterior, por posición; mandan en la factura. */
+  datosAduanales?: { posicion: number; fraccionArancelaria: string; unidadAduana: string }[] | null;
 }
 export interface DatosEmbarqueCe {
   aduana?: string | null;

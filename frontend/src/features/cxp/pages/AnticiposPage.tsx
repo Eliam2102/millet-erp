@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { useState } from 'react';
@@ -141,7 +142,7 @@ export function AnticiposPage() {
         />
       ) : (
         <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
+          <Table paginada className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-3 py-2 text-left">UUID</th>
@@ -198,7 +199,7 @@ export function AnticiposPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       )}
 

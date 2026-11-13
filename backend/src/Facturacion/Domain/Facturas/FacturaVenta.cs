@@ -83,6 +83,19 @@ public sealed class FacturaVenta : Comprobante
     public string? CondicionesPago { get; private set; }
     public string? Proforma { get; private set; }
 
+    /// <summary>M-340: versión de la proforma aprobada de la que se emitió esta factura (null = emitida sin proforma).</summary>
+    public Guid? ProformaPedidoId { get; private set; }
+
+    /// <summary>M-340: liga la factura a la versión aprobada de la proforma de la que se emite. Solo antes de timbrar.</summary>
+    public void VincularProformaOrigen(Guid proformaPedidoId)
+    {
+        if (Uuid is not null || Estado is not EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("FACTURA_INMUTABLE", "La proforma de origen se liga solo antes del timbrado.");
+        if (ProformaPedidoId is not null && ProformaPedidoId != proformaPedidoId)
+            throw new BusinessRuleException("FAC_PROFORMA_ORIGEN_YA_LIGADO", "La factura ya está ligada a otra proforma.");
+        ProformaPedidoId = proformaPedidoId;
+    }
+
     // Calculados desde las partidas: no se persisten acumulados duplicados.
     public decimal TotalKg => Lineas.Sum(l => l.PesoKg ?? 0m);
     public decimal TotalPie2 => Lineas.Sum(l => l.AreaPie2 ?? 0m);
@@ -311,6 +324,19 @@ public sealed class FacturaVenta : Comprobante
             linea.AplicarPedimento(pedimento, fechaDocAduanero, identificacionMercancia);
 
         VolverABorradorDesdePedimento();
+    }
+
+    /// <summary>
+    /// M-216: en el Borrador de una factura ligada a un expediente de Comercio exterior, llena con el
+    /// pedimento del expediente las líneas que lo requieren y aún no lo tienen, para que no se retenga.
+    /// </summary>
+    public void CompletarPedimentoDesdeExpediente(string pedimento, DateOnly fechaPedimento)
+    {
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("FACTURA_NO_BORRADOR", $"Solo un Borrador toma el pedimento del expediente (actual: {Estado}).");
+
+        foreach (var linea in _lineas.Where(l => l.RequierePedimento && string.IsNullOrWhiteSpace(l.Pedimento)))
+            linea.AplicarPedimento(pedimento, fechaPedimento, linea.IdentificacionMercancia);
     }
 
     /// <summary>

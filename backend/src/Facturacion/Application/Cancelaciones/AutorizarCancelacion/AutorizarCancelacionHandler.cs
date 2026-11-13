@@ -5,7 +5,6 @@ using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
-using Millet.Facturacion.Domain.Ingesta;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
@@ -21,7 +20,8 @@ namespace Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
 /// si queda en proceso, el <c>CancelacionSatPollerWorker</c> lo resuelve; si lo
 /// rechaza, el comprobante vuelve a Timbrado. Quien solicitó no puede autorizar.
 /// </summary>
-public sealed record AutorizarCancelacionCommand(Guid ComprobanteId) : IRequest<SolicitarCancelacionResponse>;
+/// <param name="Huella">M-235: huella de la solicitud que vio quien autoriza; si cambió, se bloquea.</param>
+public sealed record AutorizarCancelacionCommand(Guid ComprobanteId, string? Huella = null) : IRequest<SolicitarCancelacionResponse>;
 
 public sealed class AutorizarCancelacionHandler(
     FacturacionDbContext db, ICfdiTimbradoPort fiscal, IIntegrationEventPublisher eventos, ICurrentUserContext user, IClock clock)
@@ -35,10 +35,24 @@ public sealed class AutorizarCancelacionHandler(
 
         var solicitud = await CadenaCancelacion.PendienteDeAsync(db, command.ComprobanteId, cancellationToken);
         var ahora = clock.UtcNow;
-        solicitud.Autorizar(usuarioId, user.UserName, ahora);
 
         // El comprobante pudo cambiar desde que se solicitó: se revisa otra vez antes de ir al PAC.
         var comprobante = await CadenaCancelacion.CargarCancelableAsync(db, command.ComprobanteId, cancellationToken);
+
+        // M-235: si el importe cambió desde que se autorizó, la firma previa se anula y se bloquea la ejecución.
+        if (solicitud.ActualizarImporte(Firmas.FirmasCancelacion.ImporteMxn(comprobante)))
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            throw new BusinessRuleException("CANCELACION_VERSION_CAMBIO",
+                "El importe del comprobante cambió desde que se autorizó la cancelación. Revísala y vuelve a autorizar.");
+        }
+
+        // M-235: con dos firmas, la primera solo se registra; la segunda (otra persona) la envía al PAC.
+        if (!solicitud.Autorizar(usuarioId, user.UserName, ahora, command.Huella))
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return SolicitarCancelacionResponse.De(comprobante, solicitud);
+        }
 
         var resultado = await fiscal.CancelarAsync(
             new CancelacionSolicitud(comprobante.EmpresaId, comprobante.Uuid ?? string.Empty, comprobante.RfcEmisor, solicitud.MotivoSat, solicitud.UuidSustituto),
@@ -93,20 +107,9 @@ public sealed class AutorizarCancelacionHandler(
 
         switch (comprobante)
         {
-            case FacturaVenta { PedidoFacturableId: { } pedidoId }:
-                var pedido = await db.PedidosFacturables.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken);
-                pedido?.RevertirAFacturable();
-
-                // TR-01: sin write-back por pedido; la cancelación hacia A+W es otro tipo de fila (fuera de TR-01).
-                if (pedido?.Origen == OrigenPedido.Aw)
-                {
-                    var control = await db.IngestaControles
-                        .FirstOrDefaultAsync(c => c.PedidoFacturableId == pedido.Id, cancellationToken);
-                    if (control is not null)
-                    {
-                        control.CambiarEstado(EstadoIngesta.Importado);
-                    }
-                }
+            case FacturaVenta factura:
+                // M-188: pedido vigente → re-facturable; cancelado en origen → la salida se descarta (sin PEDIDO_CANCELADO).
+                await EfectosCancelacionPedido.AplicarAsync(db, factura, clock.UtcNow, cancellationToken);
                 break;
 
             case FacturaAnticipo:

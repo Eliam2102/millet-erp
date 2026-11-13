@@ -78,7 +78,13 @@ public sealed record SolicitudViaticosDetalleResponse(
     string? JefeDirectoNombre = null,
     string? PuestoNombre = null,
     string? ComentarioDevolucion = null,
-    DateTimeOffset? FechaDevolucion = null);
+    DateTimeOffset? FechaDevolucion = null,
+    // M-449: comprobación fuera de política.
+    decimal ExcesoComprobacion = 0m,
+    bool ComprobacionFueraDePolitica = false,
+    Guid? ExcesoAutorizadoPor = null,
+    DateTimeOffset? ExcesoAutorizadoEn = null,
+    decimal LimiteComprobacion = 0m);
 
 public sealed class ObtenerSolicitudViaticosHandler
     : IRequestHandler<ObtenerSolicitudViaticosQuery, SolicitudViaticosDetalleResponse>
@@ -140,12 +146,20 @@ public sealed class ObtenerSolicitudViaticosHandler
             s.AutorizadoPorDf, s.FechaAutorizacionDf,
             s.RechazadoPor, s.FechaRechazo, s.MotivoRechazo,
             s.FechaSolicitud, s.FechaAnticipoPagado, s.FechaComprobacion,
-            s.FechaLiquidacion, s.MontoComprobado, s.DiferenciaLiquidacion,
+            s.FechaLiquidacion,
+            // O2 (M-449): las comprobaciones capturadas antes de este cambio no tienen el monto guardado; se toma de sus líneas.
+            s.MontoComprobado ?? (s.Lineas.Count > 0 ? s.Lineas.Sum(l => l.Total) : (decimal?)null),
+            s.DiferenciaLiquidacion,
             lineas, s.Version,
             EmpleadoNombre: empleado?.Nombre,
             JefeDirectoNombre: jefe?.Nombre,
             PuestoNombre: puesto?.Nombre,
             ComentarioDevolucion: s.ComentarioDevolucion,
-            FechaDevolucion: s.FechaDevolucion);
+            FechaDevolucion: s.FechaDevolucion,
+            ExcesoComprobacion: s.ExcesoComprobacion,
+            ComprobacionFueraDePolitica: s.ComprobacionFueraDePolitica,
+            ExcesoAutorizadoPor: s.ExcesoAutorizadoPor,
+            ExcesoAutorizadoEn: s.ExcesoAutorizadoEn,
+            LimiteComprobacion: s.LimiteComprobacion);
     }
 }

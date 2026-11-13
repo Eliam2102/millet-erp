@@ -23,6 +23,12 @@ public sealed class TerminalTarjetaOptions
 
     public ColumnasTerminal ColumnasGmr { get; set; } = ColumnasTerminal.GmrTrst();
 
+    /// <summary>
+    /// Archivo «statement» que descarga Tesorería del portal de Getnet (CSV con BOM, una fila por venta,
+    /// afiliación y código de terminal por renglón, comisión e IVA en negativo).
+    /// </summary>
+    public ColumnasTerminal ColumnasStatement { get; set; } = ColumnasTerminal.Statement();
+
     /// <summary>Valor de la columna de estatus que indica venta aprobada (portal).</summary>
     public string EstatusAprobada { get; set; } = "Aprobada";
 
@@ -56,15 +62,47 @@ public sealed class ColumnasTerminal
     public string Moneda { get; set; } = "Moneda";
     public string Ultimos4 { get; set; } = "TDC";
     public string Autorizacion { get; set; } = "# de Auth.";
-    public string Estatus { get; set; } = "Estatus";
+    /// <summary>Vacío = el layout no trae estatus: toda fila de venta cuenta como aprobada.</summary>
+    public string? Estatus { get; set; } = "Estatus";
     public string Comision { get; set; } = "Comisión";
     public string IvaComision { get; set; } = "IVA Comisión";
-    public string Neto { get; set; } = "Neto";
-    public string FolioLiquidacion { get; set; } = "Folio de liquidación";
+    /// <summary>Vacío = se calcula como importe − comisión − IVA cuando el archivo trae ambos.</summary>
+    public string? Neto { get; set; } = "Neto";
+    public string? FolioLiquidacion { get; set; } = "Folio de liquidación";
     /// <summary>Fecha en que el banco liquidó (GMR: <c>DAT_SETTLED</c>). Vacío = la del día de la venta.</summary>
     public string? FechaLiquidacion { get; set; }
     /// <summary>Tipo de movimiento financiero (GMR: <c>DES_FINANCIAL_MOVEMENTS_TYPE</c>). Vacío = todo es venta.</summary>
     public string? TipoMovimiento { get; set; }
+    /// <summary>Valores de <see cref="TipoMovimiento"/> que son venta. Vacío = el de <c>TipoMovimientoVenta</c> de las opciones.</summary>
+    public string[]? TiposVenta { get; set; }
+    /// <summary>Número de afiliación del comercio (statement: «Afiliación»). Vacío = el layout no lo trae.</summary>
+    public string? Afiliacion { get; set; }
+    /// <summary>Código de la terminal (statement: «Cod. Terminal»). Vacío = el layout no lo trae.</summary>
+    public string? CodTerminal { get; set; }
+
+    /// <summary>
+    /// Statement de Getnet (portal): no trae número de operación ni estatus; la llave es el ARN y toda fila de tipo «Venta»
+    /// es una venta aprobada. Comisión e IVA vienen en negativo y el neto se calcula (venta − comisión − IVA).
+    /// </summary>
+    public static ColumnasTerminal Statement() => new()
+    {
+        NoOperacion = "ARN",
+        Fecha = "Fecha Transacción",
+        Hora = "Hora Transacción",
+        Importe = "Venta",
+        Moneda = "Divisa",
+        Ultimos4 = "Tarjeta Número",
+        Autorizacion = "Cod. Aut",
+        Estatus = null,
+        Comision = "Comisión",
+        IvaComision = "I.V.A *Valor estimado",
+        Neto = null,
+        FolioLiquidacion = null,
+        TipoMovimiento = "Tipo Transacción",
+        TiposVenta = ["Venta"],
+        Afiliacion = "Afiliación",
+        CodTerminal = "Cod. Terminal",
+    };
 
     /// <summary>Nombres reales del archivo OneGMR TRST de Getnet México.</summary>
     public static ColumnasTerminal GmrTrst() => new()

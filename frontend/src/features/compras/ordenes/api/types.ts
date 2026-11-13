@@ -162,8 +162,11 @@ const ESTADO_OC_LABELS: Record<EstadoOrdenCompra, string> = {
   [EstadoOrdenCompra.Rechazada]: 'Rechazada',
   [EstadoOrdenCompra.CancelacionSolicitada]: 'Cancelación solicitada',
 };
-export const estadoOcToString = (e: EstadoOrdenCompra): string =>
-  ESTADO_OC_LABELS[e];
+export const estadoOcToString = (e: EstadoOrdenCompra, servicioCe = false): string => {
+  if (servicioCe && e === EstadoOrdenCompra.EnAutorizacionJefeCompras) return 'En autorización Comercio Exterior';
+  if (servicioCe && e === EstadoOrdenCompra.EnAutorizacionDireccion) return 'En autorización Dirección Comercial';
+  return ESTADO_OC_LABELS[e];
+};
 
 /**
  * Devuelve la clave del enum (no el label humano). Útil para alimentar
@@ -242,6 +245,7 @@ export interface OrdenCompraResumen {
   folio: string;
   folioAnio: number;
   estado: EstadoOrdenCompra;
+  esServicioComercioExterior?: boolean;
   subEstadoRecepcion: SubEstadoRecepcion;
   subEstadoFacturacion: SubEstadoFacturacion;
   subEstadoPago: SubEstadoPago;
@@ -384,14 +388,14 @@ export interface RecepcionImportacion {
   recepcionId: string;
   numeroPedimento: string;
   numeroBl: string;
-  numeroContenedor: string;
+  numeroContenedor: string | null;
   aduana: string;
   clavePedimento: string;
   partidas: { lineaOcId: string; fraccionArancelaria: string }[];
 }
 
 export interface OrdenCompraDetalleResponse {
-  transporteCe?: { numeroPedimento: string | null; contenedores: { numero: string; blGuia: string | null }[] } | null;
+  transporteCe?: { numeroPedimento: string | null; contenedores: { numero: string | null; blGuia: string | null; modalidad?: number | null }[] } | null;
   recepcionesImportacion?: RecepcionImportacion[];
   /** Proveedor con compras previas recurrentes; ausente si no hay dato. */
   esRecurrente?: boolean;
@@ -450,6 +454,7 @@ export interface OrdenCompraDetalleResponse {
   observaciones: string | null;
   sinRequisicionPrevia: boolean;
   esImportacion: boolean;
+  esServicioComercioExterior?: boolean;
   cotizacionExcepcionada: boolean;
   /** ISO 8601 UTC. */
   fechaDocumento: string;

@@ -136,6 +136,7 @@ public static class DependencyInjection
         services.AddScoped<IDependenciaRevisoraReadPort, Adapters.DependenciaRevisoraReadPortAdapter>();
         // C1.2: TC real desde compartido.tipos_cambio (cierra <TipoCambioReadPort>).
         services.AddScoped<ITipoCambioReadPort, Adapters.TipoCambioReadPortAdapter>();
+        services.AddScoped<Domain.Ports.Administracion.IToleranciaTipoCambioReadPort, Adapters.ToleranciaTipoCambioReadPortAdapter>();
         services.AddScoped<IProveedorReadPort, Adapters.ProveedorReadPortAdapter>();
         services.AddScoped<Domain.Ports.Administracion.IToleranciaGeneralReadPort, Adapters.ToleranciaGeneralReadPortAdapter>();
         services.AddScoped<Domain.Ports.Administracion.IToleranciaTarjetasReadPort, Adapters.ToleranciaTarjetasReadPortAdapter>();
@@ -159,6 +160,7 @@ public static class DependencyInjection
             TarjetaCredito.ConciliacionAutomaticaService>();
 
         services.AddScoped<Application.Reportes.Comun.SaldosHistoricos>();
+        services.AddScoped<Application.Reportes.Diot.LectorDiot>();
         services.AddScoped<Application.FacturaProveedor.Elegibilidad.ElegibilidadFacturaService>();
         services.AddScoped<Application.Integration.Mappers.PasivoAutorizadoParaPagoMapper>();
         services.AddScoped<Application.Integration.Mappers.FacturaPagoAplicadoMapper>();

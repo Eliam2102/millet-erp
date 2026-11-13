@@ -5,6 +5,11 @@ using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Application.Saldos;
 using Millet.Api.Auth;
 using Millet.Identidad.Domain;
+using Microsoft.EntityFrameworkCore;
+using Millet.Administracion.Application.Abstractions;
+using Millet.Api.Web;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Endpoints.Almacen.Saldos;
 
@@ -80,6 +85,37 @@ public static class SaldosEndpoints
         .WithName("SaldosPorUbicacion")
         .WithSummary("Saldos por ubicación de un artículo, para el selector de salida (C7.2b)")
         .Produces<IReadOnlyList<SaldoUbicacionItem>>(StatusCodes.Status200OK);
+
+        // M-231: traslado de hojas entre posiciones del mismo almacén (salida + entrada ligadas, sin póliza). 409 si el saldo ya cambió.
+        group.MapPost("/traslados-posicion", async (
+            Millet.Almacen.Application.Saldos.TrasladarPosicion req,
+            Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext db,
+            Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort variantes,
+            Millet.Almacen.Domain.Ports.IArticuloReadPort articulos,
+            Millet.Almacen.Domain.Ports.IPeriodoContableReadPort periodo,
+            DocumentoSucursalScope scope,
+            ICurrentUserContext user,
+            ICurrentEmpresaContext empresa,
+            CancellationToken ct) =>
+        {
+            var subAlmacenId = await db.SaldosInventario.AsNoTracking().Where(s => s.Id == req.SaldoId).Select(s => (Guid?)s.SubAlmacenId).FirstOrDefaultAsync(ct)
+                ?? throw new EntityNotFoundException("SALDO_NO_ENCONTRADO", "La existencia elegida ya no está; recarga la pantalla.");
+            var (_, sucursalId) = await Millet.Almacen.Application.Catalogo.AlmacenSucursalResolver.ResolverAsync(db, subAlmacenId, ct);
+            if (sucursalId is Guid suc) await scope.VerificarSucursalAsync(suc, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
+            await using var tx = db.Database.IsNpgsql() ? await db.Database.BeginTransactionAsync(ct) : null;
+            var r = await Millet.Almacen.Application.Saldos.TrasladoPosicionApp.RegistrarAsync(db, variantes, articulos, periodo,
+                empresa.Current ?? throw new BusinessRuleException("TRASLADO_SIN_EMPRESA", "El contexto de empresa es requerido."),
+                user.UserId ?? Guid.Empty, req, ct);
+            await db.SaveChangesAsync(ct);
+            if (tx is not null) await tx.CommitAsync(ct);
+            return Results.Ok(r);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasRegistrar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("TrasladarEntrePosiciones")
+        .Produces<Millet.Almacen.Application.Saldos.TrasladoPosicionResultado>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // PR6 (ADR-0047): consulta jerárquica — hijos lazy de un nodo con
         // rollup (cantidad + valor aditivos; el CPP NO se promedia). Modo

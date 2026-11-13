@@ -1,3 +1,4 @@
+import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { PageHeader } from '@/components/erp/PageHeader';
 import {
   Table,
@@ -11,7 +12,7 @@ import { PaginacionTabla, BarraFiltros } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
 import { type ReactNode, useState } from 'react';
-import { FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react';
+import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/erp/feedback/ErrorState';
@@ -111,7 +112,7 @@ export function ReporteAlmacen<TFila>({
     try {
       const { descargarReportePdf } =
         await import('@/components/erp/reportes/exporters/reporte-pdf-exporter');
-      await descargarReportePdf(reporte, nombreArchivo ?? slugify(reporte.titulo));
+      await descargarReportePdf(reporte, nombreArchivo ?? slugify(reporte.titulo), getCelda);
     } catch (err) {
       toast.error('No se pudo generar el PDF', {
         description: err instanceof Error ? err.message : String(err),
@@ -127,7 +128,7 @@ export function ReporteAlmacen<TFila>({
     try {
       const { descargarReporteExcel } =
         await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
-      await descargarReporteExcel(reporte, nombreArchivo ?? slugify(reporte.titulo));
+      await descargarReporteExcel(reporte, nombreArchivo ?? slugify(reporte.titulo), getCelda);
     } catch (err) {
       toast.error('No se pudo generar el Excel', {
         description: err instanceof Error ? err.message : String(err),
@@ -205,21 +206,23 @@ export function ReporteAlmacen<TFila>({
                   )}
                   PDF
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
-                  <Printer className="mr-2 h-4 w-4" />
-                  Imprimir
-                </Button>
+                <ImprimirReporteButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  reporte={reporte}
+                  obtenerCelda={getCelda}
+                />
               </div>
             }
           />
 
           <ListadoModulo
             pie={
-              <PaginacionTabla
+              <PaginacionTabla regionId={paginacion.regionId}
                 total={(filasVisibles ?? reporte.filas).length}
                 offset={paginacion.offset}
-                limit={10}
-                tamanos={[]}
+                limit={paginacion.limit}
                 onChange={paginacion.onChange}
               />
             }

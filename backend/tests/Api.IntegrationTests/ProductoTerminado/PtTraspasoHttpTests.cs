@@ -32,18 +32,41 @@ public class PtTraspasoHttpTests
         return (a, b, etiquetas.ToArray());
     }
 
+    /// <summary>Prepara con <paramref name="origen"/> y autoriza con otra persona: devuelve el id del traspaso ya en tránsito.</summary>
+    private async Task<Guid> SalidaAsync(HttpClient origen, Guid a, Guid b, string[] etiquetas)
+    {
+        using var autoriza = await _d.ClienteAsync(Operativo, a);
+        var id = (await Json(await origen.PostAsJsonAsync($"{Base}/traspasos", new { sucursalOrigenId = a, sucursalDestinoId = b, etiquetas }))).GetProperty("id").GetGuid();
+        var autorizado = await autoriza.PostAsync($"{Base}/traspasos/{id}/autorizar", null);
+        Assert.Equal(HttpStatusCode.OK, autorizado.StatusCode);
+        return id;
+    }
+
     [Fact]
-    public async Task CA5_10_salida_pasa_a_transito_y_la_recepcion_la_deja_en_el_PT_de_destino()
+    public async Task CA5_10_salida_pasa_a_transito_al_autorizar_y_la_recepcion_la_deja_en_el_PT_de_destino()
     {
         var (a, b, etiquetas) = await PrepararAsync(2);
         using var origen = await _d.ClienteAsync(Operativo, a);
         using var destino = await _d.ClienteAsync(Operativo, b);
 
-        var salida = await origen.PostAsJsonAsync($"{Base}/traspasos", new { sucursalOrigenId = a, sucursalDestinoId = b, etiquetas });
-        Assert.Equal(HttpStatusCode.OK, salida.StatusCode);
-        var t = await Json(salida);
-        Assert.Equal("EnTransito", t.GetProperty("estado").GetString());
-        var id = t.GetProperty("id").GetGuid();
+        // Preparado: documentado con folio, las piezas siguen en el PT de origen.
+        var preparado = await origen.PostAsJsonAsync($"{Base}/traspasos", new { sucursalOrigenId = a, sucursalDestinoId = b, etiquetas });
+        Assert.Equal(HttpStatusCode.OK, preparado.StatusCode);
+        var p = await Json(preparado);
+        Assert.Equal("Preparado", p.GetProperty("estado").GetString());
+        Assert.StartsWith("TR-", p.GetProperty("folio").GetString());
+        var id = p.GetProperty("id").GetGuid();
+        var sinMover = await Json(await origen.GetAsync($"{Base}/piezas?sucursalId={a}&pageSize=200"));
+        Assert.All(sinMover.GetProperty("items").EnumerateArray().Where(x => etiquetas.Contains(x.GetProperty("etiqueta").GetString()!)),
+            x => Assert.Equal("EnPT", x.GetProperty("estado").GetString()));
+
+        // Quien lo preparó no lo autoriza; otra persona sí.
+        var mismo = await origen.PostAsync($"{Base}/traspasos/{id}/autorizar", null);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, mismo.StatusCode);
+        using var autoriza = await _d.ClienteAsync(Operativo, a);
+        var autorizado = await autoriza.PostAsync($"{Base}/traspasos/{id}/autorizar", null);
+        Assert.Equal(HttpStatusCode.OK, autorizado.StatusCode);
+        Assert.Equal("EnTransito", (await Json(autorizado)).GetProperty("estado").GetString());
 
         // En tránsito: ya no cuenta en el PT de origen y el destino aún no la tiene.
         var enOrigen = await Json(await origen.GetAsync($"{Base}/piezas?sucursalId={a}&pageSize=200"));
@@ -68,7 +91,7 @@ public class PtTraspasoHttpTests
         var (a, b, etiquetas) = await PrepararAsync(2);
         using var origen = await _d.ClienteAsync(Operativo, a);
         using var destino = await _d.ClienteAsync(Operativo, b);
-        var id = (await Json(await origen.PostAsJsonAsync($"{Base}/traspasos", new { sucursalOrigenId = a, sucursalDestinoId = b, etiquetas }))).GetProperty("id").GetGuid();
+        var id = await SalidaAsync(origen, a, b, etiquetas);
         var detalle = await Json(await destino.GetAsync($"{Base}/traspasos/{id}"));
         var piezas = detalle.GetProperty("piezas").EnumerateArray().Select(x => x.GetProperty("piezaId").GetGuid()).ToArray();
 
@@ -96,7 +119,7 @@ public class PtTraspasoHttpTests
         Assert.Equal(HttpStatusCode.Forbidden, ajeno.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await soloVer.PostAsJsonAsync($"{Base}/traspasos", new { sucursalOrigenId = a, sucursalDestinoId = b, etiquetas })).StatusCode);
 
-        var id = (await Json(await origen.PostAsJsonAsync($"{Base}/traspasos", new { sucursalOrigenId = a, sucursalDestinoId = b, etiquetas }))).GetProperty("id").GetGuid();
+        var id = await SalidaAsync(origen, a, b, etiquetas);
         Assert.Equal(HttpStatusCode.Forbidden, (await origen.PostAsync($"{Base}/traspasos/{id}/recibir", null)).StatusCode);
     }
 }

@@ -1,3 +1,4 @@
+import { ImprimirPdfButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { formatMoney } from '@/lib/money';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -30,7 +31,7 @@ import { EstadoReembolsoNcBadge } from '@/features/facturacion/components/Estado
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
-import { descargarArchivo } from '@/features/facturacion/lib/descargas';
+import { descargarArchivo, obtenerArchivo } from '@/features/facturacion/lib/descargas';
 import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas-anticipo-search-schema';
 import { ETIQUETA_TIPO_RELACION } from '@/features/facturacion/lib/glosario';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
@@ -39,7 +40,7 @@ import { useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Ban, Download, FileCode, Printer, X } from 'lucide-react';
+import { Ban, Download, FileCode, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -57,7 +58,7 @@ export function DetalleFacturaAnticipo() {
   const query = useFacturaAnticipoDetalle(id);
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la factura de anticipo"
@@ -106,7 +107,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="@container min-w-0 space-y-5">
       {/* ── Sub-topbar de acciones (§6.5, no se imprime) ─────────── */}
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-3">
@@ -137,10 +138,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     <Download className="mr-1 h-4 w-4" />
                     PDF
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => window.print()}>
-                    <Printer className="mr-1 h-4 w-4" />
-                    Imprimir
-                  </Button>
+                  <ImprimirPdfButton generarPdf={() => obtenerArchivo(`${BASE}/${f.id}/pdf`)} />
                   {puedeCancelar && vigente && !cancelacionPendiente && (
                     <Button
                       variant="outline"
@@ -183,9 +181,9 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
         puedeRetirar={puedeCancelar}
       />
 
-      <div className="space-y-5">
+      <div className="@container min-w-0 space-y-5">
         <section className="space-y-4">
-          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
             <Dato label="Receptor">
               <div>{f.receptorNombre}</div>
               <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>
@@ -228,7 +226,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
         </section>
 
         <section className="space-y-4">
-          <div className="space-y-5">
+          <div className="@container min-w-0 space-y-5">
             {/* ── Saldo amortizable (13-A) ─────────────────────────── */}
             {f.anticipo != null && (
               <section className="space-y-3">
@@ -633,9 +631,9 @@ function Kpi({ label, valor, moneda }: { label: string; valor: number; moneda: s
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dd className="text-sm [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }

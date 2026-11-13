@@ -32,11 +32,11 @@ public static class CorreoSalienteRegistration
         {
             ICorreoSaliente transporte = proveedor switch
             {
-                "Graph" => new GraphCorreoSaliente(
+                "Graph" => new LimitesCorreoSaliente(new GraphCorreoSaliente(
                     new GraphSendMail(new GraphServiceClient(
                         new ClientSecretCredential(auth.TenantId, auth.ClientId, auth.ClientSecret),
                         ["https://graph.microsoft.com/.default"])),
-                    opciones.Remitente.Trim(), opciones.NombreRemitente),
+                    opciones.Remitente.Trim(), opciones.NombreRemitente), opciones.Limites, TimeProvider.System),
                 "SandboxLocal" => ActivatorUtilities.CreateInstance<SmtpSandboxCorreoSaliente>(sp),
                 _ => ActivatorUtilities.CreateInstance<NoOpCorreoSaliente>(sp),
             };
@@ -45,6 +45,14 @@ public static class CorreoSalienteRegistration
                 sp.GetRequiredService<ILogger<RegistroCorreoSaliente>>());
             return new ModoPruebasCorreoSaliente(registrado, opciones.ModoPruebas);
         });
+
+        if (opciones.EsGraph && opciones.SecretoVenceEl is { } vence)
+        {
+            var aviso = new VencimientoSecretoCorreo(vence, TimeSpan.FromDays(opciones.AvisoSecretoDiasAntes));
+            services.AddSingleton(aviso);
+            services.AddHostedService<VencimientoSecretoCorreoWorker>();
+            services.AddHealthChecks().AddCheck<VencimientoSecretoCorreoHealthCheck>("correo-secreto-graph", tags: ["correo"]);
+        }
         return services;
     }
 
@@ -72,6 +80,15 @@ public static class CorreoSalienteRegistration
                 throw new InvalidOperationException(
                     $"{s}:Proveedor=Graph no puede arrancar: falta configurar {string.Join(", ", faltan)}.");
         }
+
+        // Topes de Exchange Online para erpmillet@ (Jorge Toache, 10-nov-2026): 30 mensajes/min,
+        // 500 destinatarios/mensaje, 10,000 destinatarios/24 h. La configuración no puede pasarlos.
+        var l = opciones.Limites;
+        if (l.MensajesPorMinuto is < 1 or > 30 || l.MaxDestinatariosPorMensaje is < 1 or > 500
+            || l.MaxDestinatariosPorDia is < 1 or > 10_000 || l.Reintentos < 0 || l.EsperaInicialSegundos < 0)
+            throw new InvalidOperationException(
+                $"{s}:Limites fuera de rango: MensajesPorMinuto 1-30, MaxDestinatariosPorMensaje 1-500, " +
+                "MaxDestinatariosPorDia 1-10000, Reintentos y EsperaInicialSegundos >= 0.");
 
         var pruebas = opciones.ModoPruebas;
         if (pruebas.Activo && !pruebas.BuzonesPrueba.Any(b => b.Contains('@')))

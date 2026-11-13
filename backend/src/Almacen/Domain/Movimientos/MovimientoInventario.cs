@@ -83,7 +83,7 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
 
     public void VincularSalidaLiberacion(Guid salidaId)
     {
-        if (Tipo != TipoMovimiento.ReincorporacionTrasRevision || salidaId == Guid.Empty)
+        if (Tipo is not (TipoMovimiento.ReincorporacionTrasRevision or TipoMovimiento.EntradaTrasladoInterno) || salidaId == Guid.Empty)
             throw new BusinessRuleException("LIBERACION_PAR_INVALIDO", "La reincorporación requiere una salida válida.");
         SalidaOrigenId = salidaId;
     }
@@ -102,6 +102,20 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
 
     // Devolución.
     public string? Motivo { get; private set; }
+
+    /// <summary>
+    /// M-283 (contrato v9): clave fija del motivo de la app de Almacenes (SOBRANTE, FALTANTE, CONSUMO_INTERNO, PRESTAMO…). Con ella
+    /// Contabilidad asigna la cuenta aunque el motivo se renombre. Sin catálogo: una clave nueva o de prueba se guarda tal cual.
+    /// </summary>
+    public string? MotivoClave { get; private set; }
+
+    public void AsignarMotivoClave(string? clave)
+    {
+        var t = clave?.Trim();
+        MotivoClave = string.IsNullOrEmpty(t) ? null : t.Length > MotivoClaveMax ? t[..MotivoClaveMax] : t;
+    }
+
+    public const int MotivoClaveMax = 60;
     public string? EstadoMaterial { get; private set; }
 
     // F3-PR1: ajuste de precio variante B.

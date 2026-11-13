@@ -50,9 +50,12 @@ public static class PedidosDependencyInjection
         // 86e3wjt5r: notas de crédito de A+W (tabla puente aw_solicitud_nota_credito).
         services.AddScoped<IAwNotasCreditoPort, AwNotasCreditoAdapter>();
         // TR-01: filas Documento de aw_retorno (único escritor hacia A+W por factura).
-        services.AddScoped<IAwRetornoPort>(sp => new AwRetornoAdapter(
-            sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
-            AwRetornoAdapter.CandadoSqlServer));
+        // IntegracionesAw:Retorno:Habilitado=false: sin adaptador Real, el ERP no escribe ni lee aw_retorno en SQL Server
+        // (AwRetornoDocumentoService lo omite con AW_ORIGEN_SIN_CONFIGURAR). 10-nov: apagado mientras TI construye su servicio.
+        if (configuration.GetValue("IntegracionesAw:Retorno:Habilitado", true))
+            services.AddScoped<IAwRetornoPort>(sp => new AwRetornoAdapter(
+                sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
+                AwRetornoAdapter.CandadoSqlServer));
         // I13.2: publicación de tipo de cambio en dbo.erp_tipo_cambio.
         services.AddScoped<IAwTipoCambioPort>(sp => new AwTipoCambioAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), sp.GetRequiredService<IOptions<AwPedidosOptions>>(),
@@ -65,21 +68,24 @@ public static class PedidosDependencyInjection
         services.AddScoped<IAwArticulosReader, AwArticulosSqlReader>();
         services.AddScoped<IMasterProvisioningPort, AwMasterProvisioningAdapter>();
 
-        // I13.9: pedidos de Planta Pintura en dbo.pinturas_pedido de la misma base (script 16 v2). Pisa
+        // I13.9: pedidos de Planta Pintura en dbo.pinturas_pedido de la misma base (script 16 v3). Pisa
         // StubPlantaPinturaPedidosReader (cierra <PlantaPinturaOrigenes> en la lectura y el acuse).
         AddPinturasPedidos(services, configuration);
         services.AddScoped<IPlantaPinturaPedidosReader>(sp => new PinturasPedidosAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(), postgres: false,
             sp.GetRequiredService<IPinturasSucursalResolver>(), sp.GetRequiredService<IOptions<PinturasPedidosOptions>>(),
-            sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
+            sp.GetRequiredService<IClock>(), sp.GetRequiredService<ILogger<PinturasPedidosAdapter>>()));
 
-        // Publicador de catálogos hacia Planta Pintura (script 16 v2).
+        // Publicador de catálogos hacia Planta Pintura (script 16 v3).
         services.AddScoped<IPinturasCatalogosPublisher>(sp => new PinturasCatalogosAdapter(
             sp.GetRequiredService<IIntegracionSqlConnectionFactory>(),
             postgres: false,
             sp.GetRequiredService<IOptions<PinturasCatalogosOptions>>(),
             sp.GetRequiredService<IClock>(),
             sp.GetRequiredService<ILogger<PinturasCatalogosAdapter>>()));
+
+        // Obras de A+W (KA_OBJEKT); pisa el NoOp de AddPinturasPedidos. Solo aquí: el origen Demo no tiene KA_OBJEKT.
+        services.AddScoped<IPinturasObrasSource, AwPinturasObrasSqlSource>();
 
         services.AddHostedService<PinturasCatalogosSyncWorker>();
 

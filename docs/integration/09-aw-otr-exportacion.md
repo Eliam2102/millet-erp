@@ -89,6 +89,26 @@ versión aunque su contenido sea el mismo; (3) 45 pirámides mezclan clientes y 
 
 Regla del 890 (Guadalupe Polanco, 6-nov): en OTR no se modifica un envío cancelado, se cancela y se crea uno nuevo; el ERP trata la cancelación y el alta nueva como envíos distintos. No existe diccionario de OTR; booking y BL viven sólo en el ERP (Janette Niquete). `EstatusRutaExcluidos` (por omisión `50`) y `EstatusRutaCancelada` (por omisión `890`) siguen siendo opciones. Una ruta que sale del conjunto leído (por ejemplo, vuelve a 50) no se interpreta como cancelación.
 
+**Pedidos con expedición parcial, ceros e histórico SAP (diagnóstico 10446260, 12-nov).**
+
+- *Reparto a pedidos hijo.* Las piezas de OTR llevan el pedido de origen aunque salgan con el albarán de un hijo
+  `DOK_TYP = 'Expedición parcial'` (TI 11-nov). Por cada posición del origen, el lector reparte primero a los hijos
+  (`REF_AUSLIEF_AUFTR_ID/POS`, sin `OR_AVBEREICH = 'RECLAMACIONES'`), cada uno hasta su `PP_MENGE`, y el resto al origen.
+  Usa las piezas de la misma posición en pirámides anteriores (ruta y contenedor menores, sin rutas excluidas ni
+  canceladas) para no llenar dos veces al mismo hijo. El ERP vuelve a validar K3. Necesita SELECT sobre
+  `MILMAIN.SYSADM.BW_AUFTR_POS` (script 22, pendiente de TI); sin él, todo va al origen como antes.
+- *Cantidad cero.* Una partida con cantidad 0 ya no rechaza la pirámide: se guarda `Omitida` con
+  `CE_OTR_CANTIDAD_CERO` y no se propone. Una negativa sigue rechazando el envío.
+- *Histórico SAP* (`IntegracionesAw:HistoricoSap`, apagado por omisión, corte `EstatusDesde` = 115). Encendido, las
+  partidas de pedidos con estatus igual o mayor quedan `Omitida` con `CE_OTR_HISTORICO_SAP`, y un envío cuyas partidas
+  son todas históricas queda en `Histórico SAP`: visible, no se vincula (`CE_OTR_HISTORICO_SAP`) ni se factura. La
+  misma opción hace que la ingesta de pedidos rechace el alta de un pedido en ese estatus (motivo `HistoricoSap` en la
+  bandeja de importación). Tratamiento propuesto, pendiente de confirmar con Facturación.
+- *Rechazos visibles.* Las entradas que el lector rechaza en definitiva (`otr_entrada_control`) se listan en la pestaña
+  «Rechazados» de la bandeja OTR (`GET /api/v1/comercio-exterior/otr/rechazos`), con id, versión, intentos y motivo.
+  Sólo para quien gestiona OTR en todas las sucursales (un rechazo no tiene sucursal).
+- *Posición inexistente.* Se valida antes que la unidad: `CE_OTR_POSICION_INEXISTENTE` en vez de `CE_OTR_UNIDAD_DISTINTA`.
+
 **Supuestos por validar en UAT con Comercio Exterior:** `bultos` = `SUM(POS_QTY)` y unidad de línea `H87` no están confirmados por Millet.
 
 ## Contrato de entrada (origen Demo)
@@ -164,8 +184,13 @@ El índice de barrido selecciona `erp_resultado IS NULL` o `Error`, orden por id
   conserva la protección manual. Se auditan actor, fecha, decisión y motivo. Una decisión
   sobre un valor ERP ya modificado o versión antigua se rechaza
   (`CE_OTR_CONFLICTO_DESACTUALIZADO`); no hay sobrescritura silenciosa.
-- Cancelación de origen: vínculo Cancelado, partidas en revisión; pedidos y facturas se
-  conservan. Un id cancelado no se reactiva (`CE_OTR_CANCELADO`); se requiere un nuevo id.
+- Cancelación de origen (890): vínculo Cancelado; pedidos y facturas se conservan. Un id cancelado no se
+  reactiva (`CE_OTR_CANCELADO`); el cambio llega como un envío nuevo (M-445, Guadalupe Polanco 6-nov). Si el
+  contenedor del envío cancelado está activo, sin embarque real, sin preparación para facturar y sin factura,
+  el ERP lo cancela: sus partidas dejan de reservar cantidad y el envío nuevo, al vincularse, las toma bajo K3
+  sin duplicarlas. Si no se puede cancelar (embarcado, preparado o con factura), sus partidas quedan en
+  revisión y el envío nuevo queda Pendiente con `CE_CANTIDAD_EXCEDE_PEDIDO` hasta resolverlas a mano.
+  Demo: `aw-origen-demo.sh otr-cancelacion` cancela `DEMO-OTR-1` y carga `DEMO-OTR-3`.
 - Cierre financiero sigue bloqueado por CE-03 (`CE_CIERRE_FINANCIERO_PENDIENTE`). El
   cierre no se informa a A+W (ver «Regreso a A+W: no aplica»).
 
@@ -176,7 +201,8 @@ A+W las acusara. Se retiró: A+W no lee esa tabla. La tabla `comercio_exterior.o
 conserva sólo como historial y ya no crece. Si Millet necesita ver el booking en OTR, iría como un
 tipo nuevo en `aw_retorno`, que aplica el servicio de Windows de TI (fuera de alcance hoy).
 
-La bandeja del lanzador contiene sólo los envíos por vincular.
+La bandeja del lanzador inicia en Por vincular y permite consultar también Vinculados, Cancelados, Histórico SAP y
+Rechazados (esta última sólo con gestión OTR en todas las sucursales).
 
 ## Encendido, Demo y operación
 
@@ -220,3 +246,18 @@ responsables de recuperación y firma I13.4: **Por confirmar con Millet y Jorge*
 - `compartido.sucursales.clave_aw` admite varias claves separadas por coma (la primera es la principal, el resto alias, máx. 40 caracteres en total). Se edita donde ya se edita `ClaveAw` (crear/actualizar sucursal). Una clave no puede repetirse entre sucursales. Respuesta de TI (30-oct): Conkal = `CONKAL,PERIFERICO,OBRAS`; Circuito = `CIRCUITO`; Chichí Suárez = `COTTOLENGO`; Cancún = `CANCUN`.
 - `REPOSICIONES`, `REEMPLAZOS`, `REPOSICIÓN CON COSTO`, `RETRABAJO`, `MUESTRAS` **no son sucursales**: no se configuran como alias y el envío queda `PorVincular` con `CE_OTR_SUCURSAL_DESCONOCIDA`. Pendiente de decisión de administración: heredar la sucursal del pedido original.
 - La dirección de entrega sale de `LOCATION_ADDRESS_TEXT` y, si viene vacía, de `LOCATION_ADDRESS`. Antes solo se usaba la primera y, al venir vacía, el envío se rechazaba con `CE_OTR_DATOS_INVALIDOS`.
+
+
+### Revalidar una equivalencia de sucursal en un envío ya leído
+
+La consulta de la bandeja sin expediente devuelve los tres estados OTR; conserva el aislamiento por empresa y sucursal. Las pestañas filtran esos estados en el cliente. Con `expedienteId`, sólo devuelve los envíos de ese expediente y exige acceso a su sucursal.
+
+`GET /api/v1/comercio-exterior/otr/bandeja` es la lectura ligera del lanzador: devuelve sólo cabeceras, versiones ERP/A+W, estado, motivo y datos de cliente/entrega/contenedor. No carga ni transfiere partidas o conflictos históricos, tampoco las líneas dentro del contenido de origen. Conserva el permiso de lectura y los mismos filtros de empresa/sucursal que la consulta completa. La consulta `GET /otr?expedienteId=...` conserva el detalle completo y sus controles de acceso; vinculación y revalidación siguen enviando la versión ERP de la cabecera mediante `If-Match`. Publicar la API antes del frontend que consume la ruta nueva.
+
+`POST /api/v1/comercio-exterior/otr/{id}/revalidar-sucursal` vuelve a resolver la clave A+W guardada contra el catálogo de sucursales activas. Usa el permiso de gestión OTR, el alcance corporativo de gestión para el registro sin sucursal, `Idempotency-Key` y `If-Match` con la **versión ERP**, no la marca de tiempo A+W. También comprueba el acceso de gestión a la sucursal resuelta.
+
+Sólo se aplica a un envío `PorVincular`, con cliente reconocido, sucursal vacía y sin expediente ni contenedor. No recibe una sucursal elegida por el solicitante. Sin equivalencia activa se rechaza y conserva el bloqueo. Los vinculados, cancelados o ya resueltos no se reasignan.
+
+La revalidación actualiza la sucursal local y reevalúa el motivo de las partidas vigentes. Conserva la versión fuente, el contenido y su hash, los IDs/cantidades de las partidas, los conflictos y el control de lectura. El cambio local incrementa la versión ERP y queda en la auditoría existente. No crea un expediente, no vincula ni confirma partidas y no escribe en A+W.
+
+Es una acción explícita: abrir la bandeja, reiniciar el worker o desplegar el código no revalida automáticamente el histórico. Antes de recuperar un lote en QA, obtener una vista previa de sólo lectura con IDs, versiones ERP, clave A+W y equivalencia propuesta, autorizar su aplicación y volver a comprobar las versiones; no borrar controles ni inventar una nueva versión de origen.

@@ -6,7 +6,8 @@ import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import {
   useConsumosEnRevision,
   type ConsumoEnRevision,
@@ -16,7 +17,8 @@ import { esApiError } from '@/lib/api';
 
 const ESTADOS = { 1: 'EN_REVISION', 2: 'EXCEPCION' } as const;
 const OPERACION: Record<number, string> = { 999970: 'Ensamblado', 999980: 'Laminación' };
-const mm = (n: number | null) => (n == null ? '—' : n.toLocaleString('es-MX', { maximumFractionDigits: 2 }));
+const mm = (n: number | null) =>
+  n == null ? '—' : n.toLocaleString('es-MX', { maximumFractionDigits: 2 });
 
 function leer(f: ConsumoEnRevision): ConsumoPayload | null {
   try {
@@ -83,7 +85,7 @@ export function ConsumosRevisionPage() {
           />
         ) : (
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Pedido</TableHead>

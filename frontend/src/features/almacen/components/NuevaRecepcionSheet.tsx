@@ -3,7 +3,13 @@ import { errorUsuario } from '@/lib/error-usuario';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import type { ImportacionRecepcionValues } from '../schemas/recepcion';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { IndicadorAlmacenBadge } from './IndicadorAlmacenBadge';
 import { OrdenCompraRecepcionSelector } from './OrdenCompraRecepcionSelector';
@@ -172,6 +178,8 @@ const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'c
   RECEPCION_TODO_RECHAZADO: 'callout',
   RECEPCION_RECHAZO_LINEA_INVALIDA: 'callout',
   LISTA_EMPAQUE_VIDRIO: 'callout',
+  PERIODO_CONTABLE_NO_ADMITE: 'callout',
+  PERIODO_CERRADO: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
@@ -181,7 +189,18 @@ const TITULOS_CALLOUT: Record<string, string> = {
   RECEPCION_TODO_RECHAZADO: 'Todas las partidas se rechazaron en el acto',
   RECEPCION_RECHAZO_LINEA_INVALIDA: 'Una partida rechazada no es de la orden',
   LISTA_EMPAQUE_VIDRIO: 'La lista de empaque no admite vidrio',
+  PERIODO_CONTABLE_NO_ADMITE: 'El periodo no admite movimientos',
+  PERIODO_CERRADO: 'El periodo de inventario está cerrado',
 };
+/** Rechazos que se corrigen en las partidas: el aviso remite a cantidades y racks. */
+const CALLOUT_DE_PARTIDAS = new Set([
+  'RECEPCION_EXCEDE_PENDIENTE',
+  'ENTRADA_SIN_ASIGNACION',
+  'RECEPCION_MULTI_SUBALMACEN',
+  'RECEPCION_SUCURSAL_DISTINTA',
+  'RECEPCION_TODO_RECHAZADO',
+  'RECEPCION_RECHAZO_LINEA_INVALIDA',
+]);
 
 function NuevaRecepcionFormBody({
   ordenCompraIdInicial,
@@ -234,6 +253,8 @@ function NuevaRecepcionFormBody({
     detalle: string;
     /** U-4: rechazo original, para enlazar la incidencia que abrió el servidor. */
     error?: unknown;
+    /** El rechazo se corrige en las partidas (cantidades o racks). */
+    dePartidas?: boolean;
   } | null>(null);
   // G-3: el servidor avisó que esa remisión/factura ya se recibió en la OC; solo continúa con motivo.
   const [yaRecibida, setYaRecibida] = useState<string | null>(null);
@@ -268,7 +289,13 @@ function NuevaRecepcionFormBody({
     // Solo se rellenan las líneas cuyo artículo tiene asignado ese rack; el
     // resto se avisa sobre la lista de líneas y se elige a mano.
     const filas = form.getValues('filas') ?? [];
-    const destinos = destinoPorFila(filas, ubicacionId, ubicInfo, asignadas.porArticulo, subsEnRevision.ids);
+    const destinos = destinoPorFila(
+      filas,
+      ubicacionId,
+      ubicInfo,
+      asignadas.porArticulo,
+      subsEnRevision.ids,
+    );
     for (const index of indicesParaAutoAsignar(filas, destinos)) {
       form.setValue(`filas.${index}.ubicacionId`, destinos[index], {
         shouldDirty: true,
@@ -298,6 +325,8 @@ function NuevaRecepcionFormBody({
     [filasWatch],
   );
   const asignadas = useUbicacionesAsignadasPorArticulo(articuloIds);
+  // M-159: solo ubicaciones de la sucursal destino de la OC (misma query que LineasDesdeOc).
+  const sucursalOc = useOrdenCompra(ordenCompraId || null).data?.sucursalDestinoId ?? null;
   // Opciones del helper: racks asignados a los artículos de la OC que no son de A+W + almacenes generales (sin Material en revisión).
   const opcionesHelper = useMemo(() => {
     if (!asignadas.listo || !subsEnRevision.listo) return undefined;
@@ -305,11 +334,17 @@ function NuevaRecepcionFormBody({
     for (const f of filasWatch ?? [])
       if (!f.medida) asignadas.porArticulo.get(f.articuloId)?.forEach((id) => union.add(id));
     ubicInfo.forEach((u, id) => {
-      if (u.esDefault && u.estatus === EstatusCatalogo.Activo && !subsEnRevision.ids.has(u.subAlmacenId))
+      if (
+        u.esDefault &&
+        u.estatus === EstatusCatalogo.Activo &&
+        !subsEnRevision.ids.has(u.subAlmacenId)
+      )
         union.add(id);
     });
+    if (sucursalOc)
+      for (const id of union) if (ubicInfo.get(id)?.sucursalId !== sucursalOc) union.delete(id);
     return union;
-  }, [asignadas.listo, asignadas.porArticulo, filasWatch, ubicInfo, subsEnRevision]);
+  }, [asignadas.listo, asignadas.porArticulo, filasWatch, ubicInfo, subsEnRevision, sucursalOc]);
   const queryClient = useQueryClient();
   const puedeLeerCfdis = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisLeer);
   const puedeCargarCfdi = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisCargarManual);
@@ -335,7 +370,10 @@ function NuevaRecepcionFormBody({
   function onSubmit(values: RecepcionFormValues) {
     setAvisoServidor(null);
     if (yaRecibida && !values.motivoDuplicado?.trim()) {
-      form.setError('motivoDuplicado', { type: 'required', message: 'Captura el motivo para registrarla otra vez.' });
+      form.setError('motivoDuplicado', {
+        type: 'required',
+        message: 'Captura el motivo para registrarla otra vez.',
+      });
       return;
     }
     // Un solo sub-almacén por recepción: el conflicto ya se ve por línea.
@@ -389,7 +427,9 @@ function NuevaRecepcionFormBody({
           cantidadRechazada: f.cantidadRechazada ?? 0,
           motivoRechazo: (f.cantidadRechazada ?? 0) > 0 ? f.motivoRechazo?.trim() || null : null,
           evidenciaBlobRef:
-            (f.cantidadDanada ?? 0) > 0 || (f.cantidadRechazada ?? 0) > 0 ? f.evidenciaBlobRef ?? null : null,
+            (f.cantidadDanada ?? 0) > 0 || (f.cantidadRechazada ?? 0) > 0
+              ? (f.evidenciaBlobRef ?? null)
+              : null,
         };
       });
 
@@ -470,7 +510,9 @@ function NuevaRecepcionFormBody({
 
   function manejarError(error: unknown) {
     if (!esApiError(error)) {
-      toast.error("Error inesperado al registrar la recepción. Revisa los datos del registro; si continúa, avisa a soporte.");
+      toast.error(
+        'Error inesperado al registrar la recepción. Revisa los datos del registro; si continúa, avisa a soporte.',
+      );
       return;
     }
     if (error.code === 'RECEPCION_YA_RECIBIDA') {
@@ -482,18 +524,15 @@ function NuevaRecepcionFormBody({
       error,
       { codigos: CODIGOS_RECEPCION },
     );
-    if (resultado === 'callout') {
-      // El servidor no indica la línea: se deja el aviso persistente sobre las líneas.
-      setAvisoServidor({
-        titulo: TITULOS_CALLOUT[error.code ?? ''] ?? 'No se pudo registrar',
-        detalle: errorUsuario(error),
-        error,
-      });
-      return;
-    }
-    if (resultado) return;
-    toast.error(errorUsuario(error), {
-      description: codigoSoporte(error),
+    if (resultado && resultado !== 'callout') return;
+    // Sin campo que marcar: aviso persistente en el sheet, sobre las líneas, con el mensaje del servidor (Problem Details).
+    const codigo = error.code ?? '';
+    const soporte = codigoSoporte(error);
+    setAvisoServidor({
+      titulo: TITULOS_CALLOUT[codigo] ?? 'No se pudo registrar la recepción',
+      detalle: soporte ? `${errorUsuario(error)} (${soporte})` : errorUsuario(error),
+      error,
+      dePartidas: CALLOUT_DE_PARTIDAS.has(codigo),
     });
   }
 
@@ -834,14 +873,23 @@ function NuevaRecepcionFormBody({
           </Field>
 
           {avisoServidor && (
-            <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}
-              accion={<EnlaceIncidenciaRechazo error={avisoServidor.error} />}>
+            <AvisoEnLinea
+              tono="error"
+              titulo={avisoServidor.titulo}
+              accion={<EnlaceIncidenciaRechazo error={avisoServidor.error} />}
+            >
               {avisoServidor.detalle}
-              {avisoServidor.titulo === TITULOS_CALLOUT.LISTA_EMPAQUE_VIDRIO ? '' : ' Revisa las cantidades y los racks de las partidas marcadas.'}
+              {avisoServidor.dePartidas
+                ? ' Revisa las cantidades y los racks de las partidas marcadas.'
+                : ''}
             </AvisoEnLinea>
           )}
 
-          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} listaEmpaque={variante === 'B'} />
+          <LineasDesdeOc
+            form={form}
+            asignadas={asignadas.porArticulo}
+            listaEmpaque={variante === 'B'}
+          />
         </form>
       </SheetBody>
 
@@ -916,12 +964,31 @@ function LineasDesdeOc({
     if (ultimaOcCargada.current === ocId) return;
     ultimaOcCargada.current = ocId;
     form.setValue('filas', construirFilas(ocQuery.data.lineas, recibiblesQuery.data));
-    form.setValue('importacion', ocQuery.data.esImportacion ? {
-      numeroPedimento: ocQuery.data.transporteCe?.numeroPedimento ?? ocQuery.data.infoImportNumeroPedimento ?? '',
-      numeroBl: ocQuery.data.transporteCe?.contenedores.length === 1 ? ocQuery.data.transporteCe.contenedores[0].blGuia ?? '' : ocQuery.data.infoImportNumeroBl ?? '',
-      numeroContenedor: ocQuery.data.transporteCe?.contenedores.length === 1 ? ocQuery.data.transporteCe.contenedores[0].numero : ocQuery.data.infoImportNumeroContenedor ?? '',
-      aduana: '', clavePedimento: '',
-    } : null);
+    form.setValue(
+      'importacion',
+      ocQuery.data.esImportacion
+        ? {
+            numeroPedimento:
+              ocQuery.data.transporteCe?.numeroPedimento ??
+              ocQuery.data.infoImportNumeroPedimento ??
+              '',
+            numeroBl:
+              ocQuery.data.transporteCe?.contenedores.length === 1
+                ? (ocQuery.data.transporteCe.contenedores[0].blGuia ?? '')
+                : (ocQuery.data.infoImportNumeroBl ?? ''),
+            numeroContenedor:
+              ocQuery.data.transporteCe?.contenedores.length === 1
+                ? (ocQuery.data.transporteCe.contenedores[0].numero ?? '')
+                : (ocQuery.data.infoImportNumeroContenedor ?? ''),
+            modalidad:
+              ocQuery.data.transporteCe?.contenedores.length === 1
+                ? (ocQuery.data.transporteCe.contenedores[0].modalidad ?? undefined)
+                : undefined,
+            aduana: '',
+            clavePedimento: '',
+          }
+        : null,
+    );
   }, [ocId, ocQuery.data, recibiblesQuery.data, form]);
 
   const filas = useWatch({ control: form.control, name: 'filas' }) ?? [];
@@ -971,14 +1038,19 @@ function LineasDesdeOc({
   // PR4: divergencias vs el helper de cabecera (solo líneas incluidas que ya
   // traían otra ubicación — las vacías las auto-asignó el helper).
   const ubicInfo = new Map((ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u]));
-  const destinos = destinoPorFila(filas, ubicacionHelperId, ubicInfo, asignadas, subsEnRevision.ids);
+  const destinos = destinoPorFila(
+    filas,
+    ubicacionHelperId,
+    ubicInfo,
+    asignadas,
+    subsEnRevision.ids,
+  );
   const lineasEnOtraUbicacion = contarLineasEnOtraUbicacion(filas, destinos);
   // Partida que no es de A+W a la que el helper (un rack) no pudo dar destino (su sub-almacén no admite general).
   const sinRackDelHelper =
     ubicacionHelperId && !ubicInfo.get(ubicacionHelperId)?.esDefault
-      ? filas.filter(
-          (f, i) => f.incluida && !f.medida && !f.ubicacionId && destinos[i] == null,
-        ).length
+      ? filas.filter((f, i) => f.incluida && !f.medida && !f.ubicacionId && destinos[i] == null)
+          .length
       : 0;
   // Un movimiento = un sub-almacén (RECEPCION_MULTI_SUBALMACEN), avisado por línea.
   const subPorUbicacion = new Map(
@@ -997,11 +1069,22 @@ function LineasDesdeOc({
     <section className="space-y-2">
       {ocQuery.data?.esImportacion && <DatosImportacionRecepcion form={form} />}
       <h3 className="text-sm font-semibold">Partidas de la OC ({filas.length} pendientes)</h3>
-      {ocQuery.data?.esImportacion && filas.map((fila, index) => fila.incluida && (
-        <Field key={fila.lineaOcId} label={`Fracción arancelaria de la partida ${fila.posicion}`} error={form.formState.errors.filas?.[index]?.fraccionArancelaria?.message}>
-          <Input aria-label={`Fracción arancelaria de la partida ${fila.posicion}`} {...form.register(`filas.${index}.fraccionArancelaria`)} />
-        </Field>
-      ))}
+      {ocQuery.data?.esImportacion &&
+        filas.map(
+          (fila, index) =>
+            fila.incluida && (
+              <Field
+                key={fila.lineaOcId}
+                label={`Fracción arancelaria de la partida ${fila.posicion}`}
+                error={form.formState.errors.filas?.[index]?.fraccionArancelaria?.message}
+              >
+                <Input
+                  aria-label={`Fracción arancelaria de la partida ${fila.posicion}`}
+                  {...form.register(`filas.${index}.fraccionArancelaria`)}
+                />
+              </Field>
+            ),
+        )}
 
       {errorMessage && (
         <p role="alert" className="text-xs text-danger-fg">
@@ -1057,6 +1140,7 @@ function LineasDesdeOc({
                 index={index}
                 fila={fila}
                 vidrioEnListaEmpaque={listaEmpaque && !!fila.medida}
+                sucursalId={ocQuery.data?.sucursalDestinoId ?? null}
                 control={form.control}
                 setValue={form.setValue}
                 coincideConHelper={destinos[index] != null && fila.ubicacionId === destinos[index]}
@@ -1096,6 +1180,7 @@ function FilaLineaOc({
   index,
   fila,
   vidrioEnListaEmpaque,
+  sucursalId,
   control,
   setValue,
   coincideConHelper,
@@ -1106,6 +1191,8 @@ function FilaLineaOc({
   fila: FilaRecepcionValues;
   /** G-3: partida de vidrio en una recepción con lista de empaque: no se puede incluir. */
   vidrioEnListaEmpaque: boolean;
+  /** M-159: sucursal destino de la OC; el selector solo ofrece sus ubicaciones. */
+  sucursalId: string | null;
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
   setValue: ReturnType<typeof useForm<RecepcionFormValues>>['setValue'];
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
@@ -1184,7 +1271,9 @@ function FilaLineaOc({
 
         <TableCell className="whitespace-nowrap text-right align-top tabular-nums">
           {fila.medida ? hojasPend : formatCantidad(fila.pendiente, decResuelto)}{' '}
-          <span className="text-xs text-ink-muted">{fila.medida ? textoHojas : fila.unidadMedida}</span>
+          <span className="text-xs text-ink-muted">
+            {fila.medida ? textoHojas : fila.unidadMedida}
+          </span>
         </TableCell>
 
         <TableCell className="align-top">
@@ -1195,74 +1284,76 @@ function FilaLineaOc({
           )}
           {vidrioEnListaEmpaque && (
             <p className="mb-1 text-xs text-danger-fg" role="alert">
-              La lista de empaque no admite vidrio: recibe estas hojas por la recepción de materia prima.
+              La lista de empaque no admite vidrio: recibe estas hojas por la recepción de materia
+              prima.
             </p>
           )}
           {fila.medida && (
             <p className="mb-1 text-xs text-ink">
-              {etiquetaMedidaMm(fila.medida.anchoMm, fila.medida.altoMm)} · pendiente {hojasPend} {textoHojas}
+              {etiquetaMedidaMm(fila.medida.anchoMm, fila.medida.altoMm)} · pendiente {hojasPend}{' '}
+              {textoHojas}
             </p>
           )}
+          <Controller
+            name={`filas.${index}.cantidad` as const}
+            control={control}
+            render={({ field }) => (
+              <Input
+                id={idCantidad}
+                type="number"
+                inputMode={fila.medida ? 'numeric' : 'decimal'}
+                step={fila.medida ? 1 : stepParaDecimales(decimalesFila)}
+                min="0"
+                max={fila.medida ? hojasPend : fila.maximo}
+                disabled={!incluida}
+                className="min-w-24 text-right tabular-nums"
+                value={field.value ?? ''}
+                onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                aria-label={`${fila.medida ? 'Hojas' : 'Cantidad'} a recibir, partida ${fila.posicion}`}
+                aria-required={incluida || undefined}
+                aria-invalid={errorCantidad ? true : undefined}
+                aria-describedby={`${idCantidad}-ayuda`}
+              />
+            )}
+          />
+          <p
+            id={`${idCantidad}-ayuda`}
+            className={cn('mt-1 text-2xs', errorCantidad ? 'text-danger-fg' : 'text-ink-muted')}
+            role={errorCantidad ? 'alert' : undefined}
+          >
+            {errorCantidad ??
+              (fila.medida
+                ? 'Hojas enteras'
+                : `Pendiente ${formatCantidad(fila.pendiente, decResuelto)}`)}
+          </p>
+          <AvisoUnidadNoResoluble visible={unidadNoResoluble && !fila.medida} />
+          {!fila.esActivoFijo && (
+            <div className="mt-2">
               <Controller
-                name={`filas.${index}.cantidad` as const}
+                name={`filas.${index}.lote` as const}
                 control={control}
                 render={({ field }) => (
                   <Input
-                    id={idCantidad}
-                    type="number"
-                    inputMode={fila.medida ? 'numeric' : 'decimal'}
-                    step={fila.medida ? 1 : stepParaDecimales(decimalesFila)}
-                    min="0"
-                    max={fila.medida ? hojasPend : fila.maximo}
-                    disabled={!incluida}
-                    className="min-w-24 text-right tabular-nums"
+                    id={idLote}
                     value={field.value ?? ''}
-                    onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-                    aria-label={`${fila.medida ? 'Hojas' : 'Cantidad'} a recibir, partida ${fila.posicion}`}
-                    aria-required={incluida || undefined}
-                    aria-invalid={errorCantidad ? true : undefined}
-                    aria-describedby={`${idCantidad}-ayuda`}
+                    onChange={field.onChange}
+                    maxLength={50}
+                    disabled={!incluida}
+                    placeholder={fila.medida ? 'Lote del proveedor' : 'Lote (opcional)'}
+                    aria-label={`Lote del proveedor, partida ${fila.posicion}`}
+                    aria-required={(incluida && !!fila.medida) || undefined}
+                    aria-invalid={errorLote ? true : undefined}
+                    aria-describedby={errorLote ? `${idLote}-error` : undefined}
                   />
                 )}
               />
-              <p
-                id={`${idCantidad}-ayuda`}
-                className={cn('mt-1 text-2xs', errorCantidad ? 'text-danger-fg' : 'text-ink-muted')}
-                role={errorCantidad ? 'alert' : undefined}
-              >
-                {errorCantidad ??
-                  (fila.medida
-                    ? 'Hojas enteras'
-                    : `Pendiente ${formatCantidad(fila.pendiente, decResuelto)}`)}
-              </p>
-              <AvisoUnidadNoResoluble visible={unidadNoResoluble && !fila.medida} />
-              {!fila.esActivoFijo && (
-                <div className="mt-2">
-                  <Controller
-                    name={`filas.${index}.lote` as const}
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id={idLote}
-                        value={field.value ?? ''}
-                        onChange={field.onChange}
-                        maxLength={50}
-                        disabled={!incluida}
-                        placeholder={fila.medida ? 'Lote del proveedor' : 'Lote (opcional)'}
-                        aria-label={`Lote del proveedor, partida ${fila.posicion}`}
-                        aria-required={(incluida && !!fila.medida) || undefined}
-                        aria-invalid={errorLote ? true : undefined}
-                        aria-describedby={errorLote ? `${idLote}-error` : undefined}
-                      />
-                    )}
-                  />
-                  {errorLote && (
-                    <p id={`${idLote}-error`} role="alert" className="mt-1 text-2xs text-danger-fg">
-                      {errorLote}
-                    </p>
-                  )}
-                </div>
+              {errorLote && (
+                <p id={`${idLote}-error`} role="alert" className="mt-1 text-2xs text-danger-fg">
+                  {errorLote}
+                </p>
               )}
+            </div>
+          )}
         </TableCell>
 
         <TableCell className="align-top">
@@ -1281,7 +1372,9 @@ function FilaLineaOc({
                   value={field.value ?? null}
                   onChange={(id) => field.onChange(id)}
                   disabled={!incluida}
-                  incluirGeneral={!fila.medida}
+                  // M-159: la medida de A+W también entra al almacén general (solo se recibe con factura).
+                  incluirGeneral
+                  sucursalId={sucursalId}
                   accionSinUbicaciones={
                     fila.medida ? (
                       <AsignarUbicacionEnLinea
@@ -1335,26 +1428,26 @@ function FilaLineaOc({
             </dl>
             <FormGrid>
               {!fila.medida && (
-              <FormCampo span={6}>
-                <Field
-                  label="Unidad capturada"
-                  optional
-                  hint="Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar."
-                >
-                  <Controller
-                    name={`filas.${index}.unidadCapturada` as const}
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        {...field}
-                        value={field.value ?? ''}
-                        maxLength={20}
-                        placeholder={fila.unidadMedida}
-                      />
-                    )}
-                  />
-                </Field>
-              </FormCampo>
+                <FormCampo span={6}>
+                  <Field
+                    label="Unidad capturada"
+                    optional
+                    hint="Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar."
+                  >
+                    <Controller
+                      name={`filas.${index}.unidadCapturada` as const}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          value={field.value ?? ''}
+                          maxLength={20}
+                          placeholder={fila.unidadMedida}
+                        />
+                      )}
+                    />
+                  </Field>
+                </FormCampo>
               )}
               <FormCampo span={6}>
                 <Field label="Comentario" optional error={errors?.comentario?.message}>
@@ -1411,7 +1504,9 @@ function FilaLineaOc({
               </FormCampo>
               <FormCampo span={6}>
                 <Field
-                  label={fila.medida ? 'Hojas rechazadas en el acto' : 'Cantidad rechazada en el acto'}
+                  label={
+                    fila.medida ? 'Hojas rechazadas en el acto' : 'Cantidad rechazada en el acto'
+                  }
                   optional
                   hint="No entra al inventario; queda pendiente en la orden."
                   error={errors?.cantidadRechazada?.message}
@@ -1464,7 +1559,9 @@ function FilaLineaOc({
                           error={errors?.evidenciaBlobRef?.message}
                           onChange={(v) => {
                             field.onChange(v?.blobRef ?? null);
-                            setValue(`filas.${index}.evidenciaNombre` as const, v?.nombre ?? null, { shouldDirty: true });
+                            setValue(`filas.${index}.evidenciaNombre` as const, v?.nombre ?? null, {
+                              shouldDirty: true,
+                            });
                           }}
                         />
                       )}
@@ -1503,9 +1600,7 @@ function VarianteOption({
         active ? 'border-brand bg-brand-soft' : 'border-line-control hover:border-brand',
       )}
     >
-      <div className="text-sm font-medium">
-        {titulo}
-      </div>
+      <div className="text-sm font-medium">{titulo}</div>
       <div className="mt-0.5 text-xs text-ink-muted">{descripcion}</div>
     </button>
   );
@@ -1548,52 +1643,114 @@ function defaultValuesParaVariante(
   return { ...base, packingListBlobRef: '' };
 }
 
-function DatosImportacionRecepcion({ form }: { form: import('react-hook-form').UseFormReturn<RecepcionFormValues> }) {
+function DatosImportacionRecepcion({
+  form,
+}: {
+  form: import('react-hook-form').UseFormReturn<RecepcionFormValues>;
+}) {
   const ocId = useWatch({ control: form.control, name: 'ordenCompraId' });
   const oc = useOrdenCompra(ocId || null);
   const propuestas = oc.data?.transporteCe?.contenedores ?? [];
   const catalogo = useQuery({
     queryKey: ['almacen', 'catalogos-importacion'],
-    queryFn: async () => (await apiRequest<{ demo: boolean; aduanas: Record<string, string>; clavesPedimento: Record<string, string> }>('/api/v1/almacen/recepciones/catalogos-importacion')).data,
+    queryFn: async () =>
+      (
+        await apiRequest<{
+          demo: boolean;
+          aduanas: Record<string, string>;
+          clavesPedimento: Record<string, string>;
+        }>('/api/v1/almacen/recepciones/catalogos-importacion')
+      ).data,
   });
   return (
-    <FormSeccion titulo="Datos de importación" descripcion="Pedimento, BL o guía aérea y contenedor son obligatorios para confirmar. Aduanas y claves de pedimento: lista parcial mientras se carga el catálogo SAT completo.">
-        {propuestas.length > 1 && (
-          <FormCampo span={6}>
-            <Label htmlFor="recepcion-contenedor-ce">Propuesta del expediente</Label>
-            <select id="recepcion-contenedor-ce" className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3" defaultValue=""
-              onChange={(e) => {
-                const c = propuestas.find((c) => c.numero === e.target.value);
-                if (c) {
-                  form.setValue('importacion.numeroContenedor', c.numero, { shouldDirty: true });
-                  form.setValue('importacion.numeroBl', c.blGuia ?? '', { shouldDirty: true });
-                }
-              }}>
-              <option value="">Seleccione el contenedor recibido</option>
-              {propuestas.map((c) => <option key={c.numero} value={c.numero}>{c.numero}</option>)}
-            </select>
-          </FormCampo>
-        )}
-        {([['numeroPedimento', 'Número de pedimento'], ['numeroBl', 'BL o guía aérea'], ['numeroContenedor', 'Número de contenedor']] as const).map(([campo, etiqueta]) => (
-          <FormCampo key={campo} span={6}>
-            <Field label={etiqueta} required error={form.formState.errors.importacion?.[campo]?.message}>
-              <Input aria-label={etiqueta} {...form.register(`importacion.${campo}`)} />
-            </Field>
-          </FormCampo>
-        ))}
-        {([['aduana', 'Aduana', catalogo.data?.aduanas], ['clavePedimento', 'Clave de pedimento', catalogo.data?.clavesPedimento]] as const).map(([campo, etiqueta, opciones]) => (
-          <FormCampo key={campo} span={6}>
-            <Field label={etiqueta} required error={form.formState.errors.importacion?.[campo]?.message}>
-              <Controller control={form.control} name={`importacion.${campo}`} render={({ field }) => (
+    <FormSeccion
+      titulo="Datos de importación"
+      descripcion="Pedimento y BL o guía son obligatorios. Aérea y paquetería registradas en Comercio Exterior no requieren contenedor. Aduanas y claves de pedimento: lista parcial mientras se carga el catálogo SAT completo."
+    >
+      {propuestas.length > 1 && (
+        <FormCampo span={6}>
+          <Label htmlFor="recepcion-contenedor-ce">Propuesta del expediente</Label>
+          <select
+            id="recepcion-contenedor-ce"
+            className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+            defaultValue=""
+            onChange={(e) => {
+              const c = propuestas[Number(e.target.value)];
+              if (c) {
+                form.setValue('importacion.modalidad', c.modalidad ?? undefined, {
+                  shouldDirty: true,
+                });
+                form.setValue('importacion.numeroContenedor', c.numero ?? '', {
+                  shouldDirty: true,
+                });
+                form.setValue('importacion.numeroBl', c.blGuia ?? '', { shouldDirty: true });
+              }
+            }}
+          >
+            <option value="">Seleccione el contenedor recibido</option>
+            {propuestas.map((c, i) => (
+              <option key={i} value={i}>
+                {c.numero ?? c.blGuia}
+              </option>
+            ))}
+          </select>
+        </FormCampo>
+      )}
+      {(
+        [
+          ['numeroPedimento', 'Número de pedimento'],
+          ['numeroBl', 'BL o guía aérea'],
+          ['numeroContenedor', 'Número de contenedor'],
+        ] as const
+      ).map(([campo, etiqueta]) => (
+        <FormCampo key={campo} span={6}>
+          <Field
+            label={etiqueta}
+            required={campo !== 'numeroContenedor'}
+            error={form.formState.errors.importacion?.[campo]?.message}
+          >
+            <Input aria-label={etiqueta} {...form.register(`importacion.${campo}`)} />
+          </Field>
+        </FormCampo>
+      ))}
+      {(
+        [
+          ['aduana', 'Aduana', catalogo.data?.aduanas],
+          ['clavePedimento', 'Clave de pedimento', catalogo.data?.clavesPedimento],
+        ] as const
+      ).map(([campo, etiqueta, opciones]) => (
+        <FormCampo key={campo} span={6}>
+          <Field
+            label={etiqueta}
+            required
+            error={form.formState.errors.importacion?.[campo]?.message}
+          >
+            <Controller
+              control={form.control}
+              name={`importacion.${campo}`}
+              render={({ field }) => (
                 <Select value={field.value ?? ''} onValueChange={field.onChange}>
-                  <SelectTrigger aria-label={etiqueta}><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>{Object.entries(opciones ?? {}).map(([clave, nombre]) => <SelectItem key={clave} value={clave}>{clave} · {nombre}</SelectItem>)}</SelectContent>
+                  <SelectTrigger aria-label={etiqueta}>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(opciones ?? {}).map(([clave, nombre]) => (
+                      <SelectItem key={clave} value={clave}>
+                        {clave} · {nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
-              )} />
-            </Field>
-          </FormCampo>
-        ))}
-      {catalogo.isError && <p role="alert" className="text-sm text-danger-fg">No se pudo cargar el catálogo de importación. Vuelve a abrir la recepción para reintentar.</p>}
+              )}
+            />
+          </Field>
+        </FormCampo>
+      ))}
+      {catalogo.isError && (
+        <p role="alert" className="text-sm text-danger-fg">
+          No se pudo cargar el catálogo de importación. Vuelve a abrir la recepción para reintentar.
+        </p>
+      )}
     </FormSeccion>
   );
 }

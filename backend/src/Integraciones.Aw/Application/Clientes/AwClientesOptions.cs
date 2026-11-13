@@ -24,6 +24,12 @@ public sealed class AwClientesOptions
     public int SqlConnectTimeoutSeconds { get; set; } = 15;
     public int IntervaloProgramacionMinutos { get; set; } = 60;
 
+    /// <summary>
+    /// M-299: a quién se le abre la incidencia de un cliente cuya marca de bloqueo de A+W no tiene equivalencia.
+    /// Sin los dos datos no se abre (queda advertencia en el log y el cliente sigue Pendiente en la bitácora).
+    /// </summary>
+    public AwClientesIncidenciasOptions Incidencias { get; set; } = new();
+
     /// <summary>JSON opcional (formato de fixtures) para la fuente simulada.</summary>
     public string? ArchivoSimulado { get; set; }
 
@@ -32,4 +38,10 @@ public sealed class AwClientesOptions
     /// incluidos <c>&lt;indf&gt;</c> y vacío, se toma como MXN (doc 05 §4).
     /// </summary>
     public Dictionary<string, string> MapeoMoneda { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class AwClientesIncidenciasOptions
+{
+    public Guid? EmpresaId { get; set; }
+    public Guid? ResponsableUsuarioId { get; set; }
 }

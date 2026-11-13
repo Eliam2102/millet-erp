@@ -19,7 +19,7 @@ public sealed class AutorizarAjusteHandler(ComercioExteriorDbContext db, Expedie
         if (e.Version != request.Version) throw new ConcurrencyException("Expediente", e.Id);
         var i = e.Incidencias.SingleOrDefault(i => i.Id == request.IncidenciaId) ?? throw new EntityNotFoundException("CE_INCIDENCIA_NO_ENCONTRADA", "No existe la incidencia.");
         var p = e.Partidas.SingleOrDefault(p => p.Id == i.PartidaId);
-        var ids = p is not null ? new[] { p.PedidoFacturableId } : e.OcId is Guid ocId ? new[] { ocId } : Array.Empty<Guid>();
+        var ids = p is not null ? new[] { p.PedidoFacturableId } : e.OrdenesCompraIds;
         ExpedienteDetalle? resultado = null;
         await PedidoEmbarqueLock.ExecuteAsync(db, ids, async token =>
         {
@@ -32,8 +32,7 @@ public sealed class AutorizarAjusteHandler(ComercioExteriorDbContext db, Expedie
             else
             {
                 var imp = e.PartidasImportacion.SingleOrDefault(p => p.Id == i.PartidaId) ?? throw new BusinessRuleException("CE_PARTIDA_DATOS_INVALIDOS", "La partida del ajuste ya no existe.");
-                var oc = await compras.ObtenerAsync(e.OcId!.Value, token);
-                var linea = oc?.Partidas?.SingleOrDefault(l => l.Id == imp.OcLineaId) ?? throw new BusinessRuleException("CE_PARTIDA_DATOS_INVALIDOS", "La partida de la OC ya no existe.");
+                var linea = (await compras.ObtenerVariasAsync(e.OrdenesCompraIds, token)).SelectMany(o => o.Partidas ?? []).SingleOrDefault(l => l.Id == imp.OcLineaId) ?? throw new BusinessRuleException("CE_PARTIDA_DATOS_INVALIDOS", "La partida de la OC ya no existe.");
                 var otras = await servicio.CantidadesImportacionOtrosAsync(e, token);
                 facturada = linea.CantidadFacturada > 0; limite = linea.Cantidad - otras.GetValueOrDefault(linea.Id);
             }

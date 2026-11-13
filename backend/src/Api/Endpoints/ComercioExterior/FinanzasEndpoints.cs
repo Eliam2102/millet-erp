@@ -50,6 +50,16 @@ public static class FinanzasEndpoints
             await Mutar(new(id, 0, "corregir", anticipoId, Comprobacion: body), request, response, mediator, ct)).RequireAuthorization(anticipos).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/anticipos/{anticipoId:guid}/devolucion", async (Guid id, Guid anticipoId, ResolucionAnticipoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
             await Mutar(new(id, 0, "resolver", anticipoId, Resolucion: body with { Tipo = "devolucion" }), request, response, mediator, ct)).RequireAuthorization(anticipos).WithMetadata(new RequireIdempotencyKeyAttribute());
+        // M-327: reversa de un anticipo ya comprobado; la solicita Comercio exterior y la autoriza el Contador General.
+        padre.MapPost("/anticipos/{anticipoId:guid}/revertir-comprobacion", async (Guid id, Guid anticipoId, ReversaComprobacionDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            await Mutar(new(id, 0, "revertir-comprobacion", anticipoId, Reversa: body), request, response, mediator, ct))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionSolicitar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/anticipos/{anticipoId:guid}/reversa/autorizar", async (Guid id, Guid anticipoId, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            await Mutar(new(id, 0, "autorizar-reversa", anticipoId), request, response, mediator, ct))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionAutorizar).WithMetadata(new RequireIdempotencyKeyAttribute());
+        padre.MapPost("/anticipos/{anticipoId:guid}/reversa/rechazar", async (Guid id, Guid anticipoId, ReversaComprobacionDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
+            await Mutar(new(id, 0, "rechazar-reversa", anticipoId, Reversa: body), request, response, mediator, ct))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionAutorizar).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/anticipos/{anticipoId:guid}/resolver", async (Guid id, Guid anticipoId, ResolucionAnticipoDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>
             await Mutar(new(id, 0, "resolver", anticipoId, Resolucion: body), request, response, mediator, ct)).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosCeAutorizarDireccion).WithMetadata(new RequireIdempotencyKeyAttribute());
     }

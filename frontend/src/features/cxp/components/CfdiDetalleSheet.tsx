@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { formatMoney } from '@/lib/money';
 import { errorUsuario } from '@/lib/error-usuario';
 import { useState } from 'react';
@@ -18,13 +19,11 @@ import { fechaLocalISO } from '@/lib/datetime';
 import {
   useCfdiDetalle,
   useCfdiParseado,
-  useCfdiPdfUrl,
-} from '@/features/cxp/api/useCfdis';
+  useCfdiPdfUrl } from '@/features/cxp/api/useCfdis';
 import {
   CanalOrigenCfdiLabels,
   TipoCfdiLabels,
-  type CfdiListItem,
-} from '@/features/cxp/api/types';
+  type CfdiListItem } from '@/features/cxp/api/types';
 import { EstatusSatBadge } from '@/features/cxp/components/EstatusSatBadge';
 import { EstadoCfdiBadge } from '@/features/cxp/components/EstadoCfdiBadge';
 import { SolicitudesCancelacionPanel } from '@/features/cxp/components/SolicitudesCancelacionPanel';
@@ -48,8 +47,7 @@ export interface CfdiDetalleSheetProps {
 export function CfdiDetalleSheet({
   open,
   onOpenChange,
-  cfdi,
-}: CfdiDetalleSheetProps) {
+  cfdi }: CfdiDetalleSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" size="lg">
@@ -81,24 +79,19 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
       await descargarXmlCfdi(d.id, d.uuidCfdi);
     } catch (error) {
       toast.error(
-        errorUsuario(error, 'Error al descargar el XML.'),
-      );
+        errorUsuario(error, 'Error al descargar el XML.'));
     } finally {
       setDescargando(false);
     }
   }
 
   if (detalleQuery.isLoading) {
-    return (
-      <p className="px-4 text-sm text-muted-foreground">Cargando detalle…</p>
-    );
+    return <p className="px-4 text-sm text-muted-foreground">Cargando detalle…</p>;
   }
   if (!d) {
-    return (
-      <p className="px-4 text-sm text-destructive">
+    return <p className="px-4 text-sm text-destructive">
         No se pudo cargar el detalle del CFDI.
-      </p>
-    );
+      </p>;
   }
 
   return (
@@ -111,20 +104,28 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           valor={d.serie ? `${d.serie}-${d.folio ?? ''}` : (d.folio ?? '—')}
           mono
         />
-        <Metadato label="Fecha CFDI" valor={<DateTimeDisplay value={d.fechaCfdi ? fechaLocalISO(d.fechaCfdi) : null} variant="media" />} />
-        <Metadato label="Recepción" valor={<DateTimeDisplay value={d.fechaRecepcion ? fechaLocalISO(d.fechaRecepcion) : null} variant="media" />} />
+        <Metadato
+          label="Fecha CFDI"
+          valor={
+            <DateTimeDisplay
+              value={d.fechaCfdi ? fechaLocalISO(d.fechaCfdi) : null}
+              variant="media"
+            />
+          }
+        />
+        <Metadato
+          label="Recepción"
+          valor={
+            <DateTimeDisplay
+              value={d.fechaRecepcion ? fechaLocalISO(d.fechaRecepcion) : null}
+              variant="media"
+            />
+          }
+        />
         <Metadato label="Canal" valor={CanalOrigenCfdiLabels[d.canalOrigen]} />
         <Metadato label="Subtotal" valor={monto(d.subtotal, d.moneda)} mono />
-        <Metadato
-          label="IVA trasladado"
-          valor={monto(d.impuestosTrasladados, d.moneda)}
-          mono
-        />
-        <Metadato
-          label="Retenciones"
-          valor={monto(d.retenciones, d.moneda)}
-          mono
-        />
+        <Metadato label="IVA trasladado" valor={monto(d.impuestosTrasladados, d.moneda)} mono />
+        <Metadato label="Retenciones" valor={monto(d.retenciones, d.moneda)} mono />
         <Metadato label="Total" valor={monto(d.total, d.moneda)} mono />
         <Metadato
           label="Tipo de cambio"
@@ -139,15 +140,10 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
         <div>
           <dt className="text-xs text-muted-foreground">Estatus SAT</dt>
           <dd className="mt-0.5">
-            <EstatusSatBadge
-              estatus={d.estatusSat}
-              fechaCancelacion={d.fechaCancelacionSat}
-            />
+            <EstatusSatBadge estatus={d.estatusSat} fechaCancelacion={d.fechaCancelacionSat} />
           </dd>
         </div>
-        {d.motivoDescarte && (
-          <Metadato label="Motivo de descarte" valor={d.motivoDescarte} />
-        )}
+        {d.motivoDescarte && <Metadato label="Motivo de descarte" valor={d.motivoDescarte} />}
       </section>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -189,33 +185,30 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
             aria-label="Representación impresa del CFDI"
           />
         ) : (
-          <p className="text-sm text-destructive">
-            No se pudo cargar el PDF.
-          </p>
+          <p className="text-sm text-destructive">No se pudo cargar el PDF.</p>
         ))}
 
-      <SolicitudesCancelacionPanel cfdiId={d.id} facturaId={d.documentoDestinoId} />
+      <SolicitudesCancelacionPanel
+        cfdiId={d.id}
+        facturaId={d.documentoDestinoId}
+        rfcEmisor={d.rfcEmisor}
+      />
 
       <section className="space-y-2">
         <h3 className="text-sm font-medium">
-          Conceptos{' '}
-          {parseadoQuery.data
-            ? `(${parseadoQuery.data.lineas.length})`
-            : ''}
+          Conceptos {parseadoQuery.data ? `(${parseadoQuery.data.lineas.length})` : ''}
         </h3>
         {parseadoQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">Leyendo el XML…</p>
         ) : parseadoQuery.isError ? (
           <p className="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">
             No se pudo leer el XML del CFDI
-            {esApiError(parseadoQuery.error)
-              ? ` (${errorUsuario(parseadoQuery.error)})`
-              : ''}
-            . Los importes del encabezado provienen de la importación.
+            {esApiError(parseadoQuery.error) ? ` (${errorUsuario(parseadoQuery.error)})` : ''}. Los
+            importes del encabezado provienen de la importación.
           </p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
+            <Table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
@@ -230,21 +223,11 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
               <tbody>
                 {parseadoQuery.data?.lineas.map((l) => (
                   <tr key={l.posicion} className="border-t">
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {l.posicion}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
-                      {l.claveProdServ}
-                    </td>
-                    <td className="max-w-72 truncate px-3 py-2">
-                      {l.descripcion}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">
-                      {l.cantidad}
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {l.unidad ?? l.claveUnidad}
-                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{l.posicion}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{l.claveProdServ}</td>
+                    <td className="max-w-72 truncate px-3 py-2">{l.descripcion}</td>
+                    <td className="px-3 py-2 text-right font-mono tabular-nums">{l.cantidad}</td>
+                    <td className="px-3 py-2 text-xs">{l.unidad ?? l.claveUnidad}</td>
                     <td className="px-3 py-2 text-right font-mono tabular-nums">
                       {monto(l.valorUnitario, d.moneda)}
                     </td>
@@ -254,7 +237,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         )}
       </section>
@@ -274,7 +257,17 @@ function Metadato({
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={valor == null || valor === '' || valor === '—' ? 'text-ink-muted' : mono ? 'break-all font-mono text-xs tabular-nums' : ''}>{valor == null || valor === '' ? '—' : valor}</dd>
+      <dd
+        className={
+          valor == null || valor === '' || valor === '—'
+            ? 'text-ink-muted'
+            : mono
+              ? 'break-all font-mono text-xs tabular-nums'
+              : ''
+        }
+      >
+        {valor == null || valor === '' ? '—' : valor}
+      </dd>
     </div>
   );
 }

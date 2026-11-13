@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { errorUsuario } from '@/lib/error-usuario';
 import { useMemo, useState } from 'react';
 import { CheckCircle2, Pencil } from 'lucide-react';
@@ -63,7 +64,7 @@ export function TallerCierrePage() {
         descripcion="Registra el cierre diario del taller con las hojas descargadas por pedidos internos Serie 9000, que no se facturan."
       />
 
-      <section className="grid gap-4 rounded-lg border border-line-row bg-surface-card p-4 sm:grid-cols-2 lg:max-w-2xl">
+      <section className="grid gap-4 rounded-lg border border-line-row bg-surface-card p-4 sm:grid-cols-2">
         <Field label="Taller" required>
           <Select value={sucursalActiva ?? ''} onValueChange={setSucursalId}>
             <SelectTrigger aria-label="Taller">
@@ -132,7 +133,7 @@ export function TallerCierrePage() {
                 Este taller no tiene pedidos Serie 9000 en la fecha elegida.
               </p>
             ) : (
-              <table className="w-full text-sm">
+              <Table className="w-full text-sm">
                 <thead className="bg-surface-muted text-left text-xs text-ink-muted">
                   <tr>
                     <th className="px-4 py-2 font-medium">Pedido</th>
@@ -176,7 +177,7 @@ export function TallerCierrePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             )}
           </section>
 
@@ -249,7 +250,9 @@ function CierreForm({
             ? toast.error(errorUsuario(error), {
                 description: codigoSoporte(error),
               })
-            : toast.error("No se pudo guardar el cierre. Revisa los datos del registro; si continúa, avisa a soporte."),
+            : toast.error(
+                'No se pudo guardar el cierre. Revisa los datos del registro; si continúa, avisa a soporte.',
+              ),
       },
     );
   }

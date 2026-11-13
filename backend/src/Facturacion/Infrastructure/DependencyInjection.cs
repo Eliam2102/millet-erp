@@ -40,6 +40,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // M-145: vigencia de la proforma (15 días naturales por omisión, confirmados por Millet).
+        services.Configure<Millet.Facturacion.Application.Proformas.ProformaOpciones>(
+            configuration.GetSection(Millet.Facturacion.Application.Proformas.ProformaOpciones.Seccion));
+
         // --- Catálogos SAT: adapter REAL sobre Compartido (no stub) ---
         // Scoped porque consume CompartidoDbContext (scoped).
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
@@ -61,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<IPlazoCreditoClienteReadPort, CuentasPorCobrar.PlazoCreditoClienteReadAdapter>();
         services.AddScoped<ISaldoFacturaReadPort, CuentasPorCobrar.SaldoFacturaReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
+        services.AddScoped<IEmpleadosReadPort, DatosMaestros.EmpleadosReadAdapter>();
         services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
         // --- Datos fiscales del emisor (Administración): adapter REAL sobre ---
@@ -135,13 +140,15 @@ public static class DependencyInjection
         // mismo toggle. Stub = fallback dev (no auto-crea → bandeja).
         services.AddScoped<IMasterProvisioningPort, NoOpMasterProvisioningPort>();
 
-        // --- F7-PR2: pedimentos del Sistema de Salidas — stub hasta Integraciones.Origenes ---
-        // PLATFORM-TODO(<SalidasPedimentos>)
-        services.AddScoped<ISalidasPedimentosReader, StubSalidasPedimentosReader>();
+        // --- M-216: el pedimento de la factura retenida sale del expediente de Comercio exterior
+        // (el Sistema de Salidas se absorbe en el ERP, D03) ---
+        services.AddScoped<ISalidasPedimentosReader, Pedimentos.ExpedientePedimentosReader>();
 
         // --- F9: catálogo de Activos Fijos — stub hasta el módulo Activos Fijos ---
         // PLATFORM-TODO(<ActivosFijos>)
         services.AddScoped<IActivosFijosReadPort, NoOpActivosFijosReadPort>();
+        // M-354: dirección de entrega del pedido A+W (AL_/AH_) para el destino de la Carta Porte.
+        services.AddScoped<IDireccionEntregaPedidoReadPort, NoOpDireccionEntregaPedidoReadPort>(); // PLATFORM-TODO(<DireccionEntregaPedidoAw>)
 
         // --- F10-PR2: ingesta Planta Pintura. I13.9: con AwIntegracionDb lo pisa PinturasPedidosAdapter
         // (Integraciones.Aw, lectura + acuse); este stub queda como fallback dev sin conexión.

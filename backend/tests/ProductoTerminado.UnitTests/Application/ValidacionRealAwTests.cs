@@ -66,6 +66,27 @@ public sealed class ValidacionRealAwTests
             Task.FromResult(new CancelacionSalidaPt(false, false, false));
         public Task<CartaPorteSalida> EmitirCartaPorteAsync(SolicitudCartaPorte solicitud, CancellationToken ct) =>
             Task.FromResult(new CartaPorteSalida(Guid.NewGuid(), "CP-LOCAL-001"));
+
+        public Task<IReadOnlyDictionary<string, FacturaAlbaranRuta>> FacturasDeAlbaranesAsync(IReadOnlyList<string> albaranFolios, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, FacturaAlbaranRuta>>(new Dictionary<string, FacturaAlbaranRuta>());
+        public Task<IReadOnlyList<CobroRutaRegistrado>> RegistrarCobrosRutaAsync(Guid sucursalId, IReadOnlyList<CobroRutaAlbaran> cobros, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<CobroRutaRegistrado>>([]);
+        public Task<IReadOnlyList<FacturaPedidoSalida>> FacturasDePedidosAsync(IReadOnlyList<Guid> pedidoFacturableIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<FacturaPedidoSalida>>([]);
+
+        public Task<bool> CartaPorteVigenteAsync(Guid cartaPorteId, CancellationToken ct) => Task.FromResult(CartaPorteVigente);
+        public bool CartaPorteVigente { get; set; }
+        public List<(Guid FacturaId, IReadOnlyList<(int Posicion, int Piezas)> Piezas)> NotasDevolucion { get; } = [];
+        public Task<DocumentoFiscalPt> EmitirNotaCreditoDevolucionAsync(Guid facturaId, IReadOnlyList<(int Posicion, int Piezas)> piezas, string descripcion, CancellationToken ct)
+        {
+            NotasDevolucion.Add((facturaId, piezas));
+            return Task.FromResult(new DocumentoFiscalPt(Guid.NewGuid(), "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
+        }
+        public string EstadoNota { get; set; } = "Timbrado";
+        public Task<DocumentoFiscalPt> SolicitarCancelacionFacturaAsync(Guid facturaId, string motivoSat, string? uuidSustituto, CancellationToken ct) =>
+            Task.FromResult(new DocumentoFiscalPt(facturaId, "F-1", "CancelacionPendiente", true));
+        public Task<DocumentoFiscalPt?> EstadoDocumentoAsync(bool notaCredito, Guid id, CancellationToken ct) =>
+            Task.FromResult<DocumentoFiscalPt?>(new DocumentoFiscalPt(id, "NCRED-1", EstadoNota, EstadoNota != "Timbrado"));
     }
 
     private sealed record AwScanRow(string Auftnr, short Pos, int TeileNr, int Esnr, string Etikett, DateTime Zeit);
@@ -199,7 +220,7 @@ public sealed class ValidacionRealAwTests
         hoja1.Albaranes[0].NumeroPedido.Should().Be("10449822");
 
         // 5. Emitir Hoja de Salida (descuento de inventario, cambio a Embarcada y notificación a Facturación)
-        var emitirHandler = new EmitirHojaSalidaHandler(db, ptAcceso, pedidosPort, facturacion, events, empresaContext, reloj);
+        var emitirHandler = new EmisorAutorizado(db, pedidosPort, facturacion, new EmitirHojaSalidaHandler(db, ptAcceso, pedidosPort, facturacion, events, empresaContext, reloj), reloj);
         var hojaEmitida = await emitirHandler.Handle(new EmitirHojaSalidaCommand(hoja1.Id), CancellationToken.None);
         hojaEmitida.Estado.Should().Be("Emitida");
         hojaEmitida.YaEmitida.Should().BeFalse();
@@ -213,11 +234,8 @@ public sealed class ValidacionRealAwTests
         facturacion.Salidas[0].PedidoId.Should().Be(facturable1);
         facturacion.Salidas[0].Referencia.Should().Be(hoja1.Albaranes[0].Folio);
 
-        // Verificar evento publicado PedidoEnRutaEvent
-        var evt = events.Eventos.OfType<PedidoEnRutaEvent>().Single();
-        evt.NumeroPedido.Should().Be("10449822");
-        evt.AlbaranFolio.Should().Be(hoja1.Albaranes[0].Folio);
-        evt.HojaSalidaFolio.Should().Be(hoja1.Folio);
+        // Sin factura timbrada el albarán aún se cancela: el 72 no viaja al emitir (TI, 10-nov).
+        events.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty();
 
         // 6. Idempotencia: re-emitir la misma hoja no vuelve a descontar ni re-enviar
         var hojaReemitida = await emitirHandler.Handle(new EmitirHojaSalidaCommand(hoja1.Id), CancellationToken.None);
@@ -252,9 +270,6 @@ public sealed class ValidacionRealAwTests
         salida2.Referencia.Should().Be(hoja2.Albaranes[0].Folio);
         salida2.Lineas.Sum(l => l.Cantidad).Should().Be(2m);
 
-        // Verificar evento PedidoEnRutaEvent para 10449764
-        var evt2 = events.Eventos.OfType<PedidoEnRutaEvent>().Single(e => e.NumeroPedido == "10449764");
-        evt2.AlbaranFolio.Should().Be(hoja2.Albaranes[0].Folio);
-        evt2.HojaSalidaFolio.Should().Be(hoja2.Folio);
+        events.Eventos.OfType<PedidoEnRutaEvent>().Should().BeEmpty("el 72 espera entrega, liquidación o factura timbrada");
     }
 }

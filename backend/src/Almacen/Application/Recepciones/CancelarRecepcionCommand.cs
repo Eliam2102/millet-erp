@@ -68,16 +68,28 @@ public sealed class CancelarRecepcionHandler(
 {
     public async Task<CancelarRecepcionResponse> Handle(CancelarRecepcionCommand request, CancellationToken cancellationToken)
     {
-        var ct = cancellationToken;
         var usuarioId = currentUser.UserId ?? throw new BusinessRuleException(
             "RECEPCION_SIN_USUARIO", "Se requiere usuario autenticado.");
         var empresaId = currentEmpresa.Current ?? throw new BusinessRuleException(
             "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
-        var codigo = request.MotivoCodigo.Trim().ToUpperInvariant();
-        var texto = request.MotivoTexto.Trim();
+        return await CancelarAsync(request.RecepcionId, empresaId, usuarioId, request.MotivoCodigo.Trim().ToUpperInvariant(),
+            request.MotivoTexto.Trim(), desdeApp: false, cancellationToken);
+    }
+
+    /// <summary>
+    /// Cuerpo único de la cancelación, con empresa y usuario explícitos: lo usa el comando de la pantalla y la cancelación de entrada
+    /// de la app de Almacenes (CANCELACION_ENTRADA, contrato v9; Fernando Alejos 10-nov: reversa el asiento original con las mismas
+    /// cuentas y el mismo costo). <paramref name="desdeApp"/> solo cambia dos candados: la app cancela con el mismo usuario de servicio
+    /// que registró (no hay separación de funciones) y un mes ya cerrado de la entrada original no la frena, porque el contramovimiento
+    /// siempre lleva la fecha de hoy; hoy sí debe estar abierto.
+    /// </summary>
+    public async Task<CancelarRecepcionResponse> CancelarAsync(
+        Guid recepcionId, Guid empresaId, Guid usuarioId, string codigo, string texto, bool desdeApp, CancellationToken cancellationToken)
+    {
+        var ct = cancellationToken;
 
         // 1-2. Recepción (principal + hijo MAT-REV). Cancelar dos veces se rechaza.
-        var previa = await CargarAsync(request.RecepcionId, rastrear: false, ct);
+        var previa = await CargarAsync(recepcionId, rastrear: false, ct);
         if (previa.Principal.Estado == EstadoMovimiento.Cancelado) throw YaCancelada();
         // Sin OC no hay candado ni transacción (DevolucionOrigenLock) y el evento no tiene a quién avisar.
         if (previa.Principal.OcId is null)
@@ -87,20 +99,20 @@ public sealed class CancelarRecepcionHandler(
         //    y el dictamen MAT-REV), y relee ya con los candados. Orden fijo (OC, luego ids ordenados): los demás toman uno solo.
         await using var transaccion = await DevolucionOrigenLock.AbrirAsync(db, previa.Principal.OcId, ct);
         foreach (var movimientoId in previa.Ids.Order()) await DevolucionOrigenLock.AbrirAsync(db, movimientoId, ct);
-        var (principal, hijo, ids) = await CargarAsync(request.RecepcionId, rastrear: true, ct);
+        var (principal, hijo, ids) = await CargarAsync(recepcionId, rastrear: true, ct);
         if (principal.Estado == EstadoMovimiento.Cancelado) throw YaCancelada();
         if (principal.Estado != EstadoMovimiento.Registrado)
             throw new BusinessRuleException("RECEPCION_NO_CANCELABLE", "Solo se puede cancelar una recepción registrada.");
 
         // 4. Separación de funciones.
-        if (principal.RegistradoPor == usuarioId)
+        if (!desdeApp && principal.RegistradoPor == usuarioId)
             throw new BusinessRuleException("RECEPCION_CANCELA_MISMO_USUARIO",
                 "Quien registró la recepción no puede cancelarla: pide a otra persona con permiso que la cancele.");
 
         // 5. Periodo: ni la fecha de la recepción ni la de hoy (fecha del contramovimiento) pueden estar cerradas.
         var hoy = FechaNegocio.Hoy(clock.UtcNow);
-        await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, principal.FechaMovimiento, periodoContable, ct);
-        if (hoy != principal.FechaMovimiento)
+        if (!desdeApp) await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, principal.FechaMovimiento, periodoContable, ct);
+        if (desdeApp || hoy != principal.FechaMovimiento)
             await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, hoy, periodoContable, ct);
 
         // 6-9. Bloqueos de negocio.
@@ -182,7 +194,7 @@ public sealed class CancelarRecepcionHandler(
     [
         TipoMovimiento.SalidaConsumo, TipoMovimiento.SalidaPorVale, TipoMovimiento.SalidaPorDevolucionAProveedor,
         TipoMovimiento.AjusteNegativo, TipoMovimiento.BajaPorDano, TipoMovimiento.SalidaPorLiberacionRevision,
-        TipoMovimiento.SalidaNoPlanificada, TipoMovimiento.SalidaPorRotura,
+        TipoMovimiento.SalidaNoPlanificada, TipoMovimiento.SalidaPorRotura, TipoMovimiento.TrasladoInterno,
     ];
 
     private static BusinessRuleException YaCancelada() =>

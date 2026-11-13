@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router';
+import { hoyLocalISO } from '@/lib/datetime';
 import { agruparDepreciacion, type AgrupacionDepreciacion } from '../api/agrupacion';
 import { useState } from 'react';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -11,7 +13,7 @@ import { useLibroQuery, type Corrida, type Depreciacion } from '../api/libro';
 import { TablaLibro } from '../components/TablaLibro';
 import { columnasDepreciacion } from '../components/columnas-depreciacion';
 export function DepreciacionPage() {
-  const [periodo, setPeriodo] = useState('2026-02');
+  const [periodo, setPeriodo] = useState(() => hoyLocalISO().slice(0, 7));
   const [consultado, setConsultado] = useState('');
   const [motivo, setMotivo] = useState('');
   const [agrupacion, setAgrupacion] = useState<AgrupacionDepreciacion>('clase');
@@ -25,6 +27,7 @@ export function DepreciacionPage() {
   const faltantes = previa.data?.filter((f) => f.tasa == null) ?? [];
   const avisos = previa.data?.filter((f) => f.observacion && f.tasa != null) ?? [];
   const anular = useHasPermission(P.ActivosFijosDepreciacionAnular);
+  const verPoliza = useHasPermission(P.ContabilidadPolizasLeer);
   const corrida = historial.data?.find((c) => c.periodo === `${periodo}-01` && !c.anulada);
   return (
     <main className="space-y-5 text-sm">
@@ -142,49 +145,60 @@ export function DepreciacionPage() {
           { clave: 'polizaId', etiqueta: 'Póliza', tipo: 'texto' },
           { clave: 'motivoAnulacion', etiqueta: 'Motivo de anulación', tipo: 'texto' },
         ]}
-        accionFila={(c) =>
-          c.sinEfectoContable ? (
-            <div className="space-y-2">
-              <Badge variant="warning">Sin efecto contable</Badge>
-              {correr && (
-                <Button
-                  variant="outline"
-                  disabled={guardar.isPending}
-                  onClick={() =>
-                    guardar.mutate({
-                      ruta: `depreciacion/${c.id}/recuperar-poliza`,
-                      version: c.version,
-                      body: {},
-                    })
-                  }
-                >
-                  Generar póliza de nuevo
-                </Button>
-              )}
-            </div>
-          ) : c.anulada ? (
-            <Badge variant="neutral">Anulada</Badge>
-          ) : anular ? (
-            <Button
-              variant="outline"
-              disabled={!motivo.trim() || guardar.isPending}
-              title={
-                !motivo.trim() ? 'Capture un motivo' : guardar.isPending ? 'Guardando' : undefined
-              }
-              onClick={() =>
-                guardar.mutate({
-                  ruta: `depreciacion/${c.id}/anular`,
-                  version: c.version,
-                  body: { motivo },
-                })
-              }
-            >
-              Anular corrida
-            </Button>
-          ) : (
-            <Badge variant="success">Confirmada</Badge>
-          )
-        }
+        accionFila={(c) => (
+          <div className="flex flex-wrap items-center gap-3">
+            {verPoliza && c.polizaId && (
+              <Link
+                to="/contabilidad/polizas/$id"
+                params={{ id: c.polizaId }}
+                className="text-brand hover:underline"
+              >
+                Ver póliza
+              </Link>
+            )}
+            {c.sinEfectoContable ? (
+              <div className="space-y-2">
+                <Badge variant="warning">Sin efecto contable</Badge>
+                {correr && (
+                  <Button
+                    variant="outline"
+                    disabled={guardar.isPending}
+                    onClick={() =>
+                      guardar.mutate({
+                        ruta: `depreciacion/${c.id}/recuperar-poliza`,
+                        version: c.version,
+                        body: {},
+                      })
+                    }
+                  >
+                    Generar póliza de nuevo
+                  </Button>
+                )}
+              </div>
+            ) : c.anulada ? (
+              <Badge variant="neutral">Anulada</Badge>
+            ) : anular ? (
+              <Button
+                variant="outline"
+                disabled={!motivo.trim() || guardar.isPending}
+                title={
+                  !motivo.trim() ? 'Capture un motivo' : guardar.isPending ? 'Guardando' : undefined
+                }
+                onClick={() =>
+                  guardar.mutate({
+                    ruta: `depreciacion/${c.id}/anular`,
+                    version: c.version,
+                    body: { motivo },
+                  })
+                }
+              >
+                Anular corrida
+              </Button>
+            ) : (
+              <Badge variant="success">Confirmada</Badge>
+            )}
+          </div>
+        )}
       />
       {historial.data
         ?.filter((c) => !c.anulada && c.periodo === `${periodo}-01`)

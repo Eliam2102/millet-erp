@@ -41,10 +41,13 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
         // Pendiente = resultado NULL o Pospuesta(3), en orden (pedido, version)
         // — doc 04 §2. El índice IX_asp_barrido cubre exactamente este scan.
         const string sql = """
-            SELECT solicitud_id, numero_pedido, operacion, version, creada_at
-              FROM dbo.aw_solicitud_pedido
-             WHERE resultado IS NULL OR resultado = 3
-             ORDER BY numero_pedido, version
+            SELECT s.solicitud_id, s.numero_pedido, s.operacion, s.version, s.creada_at
+              FROM dbo.aw_solicitud_pedido s
+             WHERE (s.resultado IS NULL OR s.resultado = 3)
+               AND NOT EXISTS (SELECT 1 FROM dbo.aw_solicitud_pedido e
+                                WHERE e.numero_pedido = s.numero_pedido AND e.resultado = 3
+                                  AND e.procesada_at > now() - make_interval(mins => @espera))
+             ORDER BY s.numero_pedido, s.version
              LIMIT @max
             """;
 
@@ -52,6 +55,7 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
         {
             using var command = PgPlumbing.CrearCommand(connection, sql, _options);
             PgPlumbing.Param(command, "@max", DbType.Int32, max);
+            PgPlumbing.Param(command, "@espera", DbType.Int32, Pedidos.AwSolicitudesSqlReader.EsperaPospuestaMinutos);
 
             var rows = new List<SolicitudAw>();
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -97,13 +101,31 @@ public sealed class AwSolicitudesPgReader : IAwSolicitudesReader
         Guid? sucursalId = cabecera.NumeroSucursal is null
             ? null
             : await _sucursales.ResolverAsync(cabecera.NumeroSucursal, cancellationToken);
+        // M-243: los departamentos que no son sucursal (REPOSICIONES, REEMPLAZOS, RETRABAJO, MUESTRAS) toman la
+        // sucursal del pedido origen (AH_HAUPT_AUFTR → pedido_sustituido_numero). Sin pedido origen o si tampoco
+        // resuelve, el pedido espera en la bandeja como antes. El usuario creador no viene en la vista.
+        string? sucursalOrigen = null;
+        if (sucursalId is null && cabecera.PedidoSustituidoNumero is long pedidoOrigen)
+        {
+            var padre = pedidoOrigen.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            sucursalOrigen = (await PgPlumbing.EjecutarAsync(_connectionFactory, _options, _logger, "LeerCabeceraPedidoOrigen", c => LeerCabeceraAsync(c, padre, cancellationToken), cancellationToken))?.NumeroSucursal;
+            if (sucursalOrigen is not null)
+                sucursalId = await _sucursales.ResolverAsync(sucursalOrigen, cancellationToken);
+            if (sucursalId is not null)
+                _logger.LogInformation(
+                    "[AwSolicitudesPgReader] pedido {Pedido}: departamento '{Valor}' sin sucursal; toma '{Origen}' del pedido origen {PedidoOrigen}",
+                    numeroPedido, cabecera.NumeroSucursal, sucursalOrigen, padre);
+        }
         if (sucursalId is null)
         {
             _logger.LogWarning(
                 "[AwSolicitudesPgReader] pedido {Pedido}: numero_sucursal '{Valor}' sin sucursal activa con esa clave_aw en el catálogo → pospuesta",
                 numeroPedido, cabecera.NumeroSucursal);
             return LecturaPedidoAw.EsperaConfig(MotivoExcepcion.SucursalSinClaveAw,
-                $"numero_sucursal '{cabecera.NumeroSucursal}' sin sucursal activa con esa clave_aw en el catálogo");
+                $"numero_sucursal '{cabecera.NumeroSucursal}' sin sucursal activa con esa clave_aw en el catálogo"
+                + (cabecera.PedidoSustituidoNumero is long po
+                    ? $"; el pedido origen {po} tampoco la resuelve ('{sucursalOrigen ?? "sin departamento"}')"
+                    : "; sin pedido origen para tomarla — asigna la clave_aw o corrige el pedido en A+W"));
         }
 
         // El canal se resuelve igual: canal_ventas trae el GRUPPE crudo de

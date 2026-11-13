@@ -127,7 +127,13 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
     // U-4 (86e3yzemw): incidencias comunes del ERP (documento, paso, responsable, evidencia y paso para retomar).
     public DbSet<Millet.SharedKernel.Domain.Incidencias.Incidencia> Incidencias => Set<Millet.SharedKernel.Domain.Incidencias.Incidencia>();
+    /// <summary>M-047: lote común de cargas.</summary>
+    public DbSet<Millet.SharedKernel.Domain.Cargas.LoteCarga> LotesCarga => Set<Millet.SharedKernel.Domain.Cargas.LoteCarga>();
     public DbSet<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento> IncidenciasHistorial => Set<Millet.SharedKernel.Domain.Incidencias.IncidenciaMovimiento>();
+    /// <summary>I13.6: alertas del tablero de integraciones (abiertas y su recuperación).</summary>
+    public DbSet<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion> AlertasIntegracion => Set<Millet.SharedKernel.Domain.Integraciones.AlertaIntegracion>();
+    /// <summary>M-303: interruptores de tramo (detener y reanudar sin apagar la aplicación).</summary>
+    public DbSet<Millet.SharedKernel.Domain.Tramos.TramoOperativo> TramosOperativos => Set<Millet.SharedKernel.Domain.Tramos.TramoOperativo>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -254,6 +260,17 @@ public sealed class CompartidoDbContext : BaseDbContext
         ComercioExteriorTiposDocumento.Configure(modelBuilder);
         ConfigureAdjunto(modelBuilder);
         IncidenciasModelo.Configure(modelBuilder);
+        TableroIntegracionesModelo.Configure(modelBuilder);
+        var tramo = modelBuilder.Entity<Millet.SharedKernel.Domain.Tramos.TramoOperativo>();
+        tramo.ToTable("tramos_operativos");
+        tramo.HasKey(x => x.Id);
+        tramo.Property(x => x.Id).ValueGeneratedNever();
+        tramo.Property(x => x.Clave).HasMaxLength(80).IsRequired();
+        tramo.Property(x => x.Motivo).HasMaxLength(500);
+        tramo.Property(x => x.MotivoReanudacion).HasMaxLength(500);
+        tramo.Property(x => x.UltimoEventoCorrecto).HasMaxLength(300);
+        tramo.HasIndex(x => x.Clave).IsUnique();
+        LotesCargaModelo.Configure(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }
 
@@ -279,6 +296,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         tipo.Property(x => x.Nombre).HasMaxLength(200).IsRequired();
         tipo.Property(x => x.Orden).IsRequired();
         tipo.Property(x => x.Obligatorio).IsRequired();
+        tipo.Property(x => x.Condicional).IsRequired().HasDefaultValue(false);
         tipo.Property(x => x.SoloPersonaMoral).IsRequired();
         tipo.Property(x => x.ObligatorioPersonaMoral).IsRequired();
         tipo.Property(x => x.ObligatorioPersonaFisica).IsRequired();
@@ -289,31 +307,33 @@ public sealed class CompartidoDbContext : BaseDbContext
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var afTipos = new[] { "Factura de compra", "Póliza de seguro", "Garantía", "Contrato de arrendamiento", "Pedimento", "Manual", "Fotografía", "Otro" };
         for (var i = 0; i < afTipos.Length; i++)
-            tipo.HasData(new { Id = Guid.Parse($"0000000f-0003-0000-0000-{i + 1:000000000000}"), TipoEntidad = "activo_fijo", Codigo = $"AF_{i}", Nombre = afTipos[i], Orden = i + 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
+            tipo.HasData(new { Id = Guid.Parse($"0000000f-0003-0000-0000-{i + 1:000000000000}"), Condicional = false, TipoEntidad = "activo_fijo", Codigo = $"AF_{i}", Nombre = afTipos[i], Orden = i + 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
         tipo.HasData(
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), Condicional = false, TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), Condicional = false, TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F1-CON-04 (C1.3, R7): documento soporte de la póliza contable.
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), Condicional = false, TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // ALM-04: evidencia por línea de material en revisión (G1.2). Era ...0003, tomado por F1-CON-04 (póliza) en main.
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000006"), TipoEntidad = "linea_revision", Codigo = "foto_dano", Nombre = "Foto o evidencia del daño", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000006"), Condicional = false, TipoEntidad = "linea_revision", Codigo = "foto_dano", Nombre = "Foto o evidencia del daño", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F1-COM-02: PDF de la cotización del proveedor.
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000004"), TipoEntidad = "cotizacion_compra", Codigo = "cotizacion", Nombre = "Cotización del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000004"), Condicional = false, TipoEntidad = "cotizacion_compra", Codigo = "cotizacion", Nombre = "Cotización del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F6.9: evidencia del historial de CSD (R24).
-            new { Id = Guid.Parse("00000011-0007-0000-0000-000000000001"), TipoEntidad = "certificado_csd", Codigo = "acuse_renovacion", Nombre = "Acuse de renovación o sustitución del SAT", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
-            new { Id = Guid.Parse("00000011-0007-0000-0000-000000000002"), TipoEntidad = "certificado_csd", Codigo = "acuse_revocacion", Nombre = "Acuse o evidencia de revocación", Orden = 2, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0007-0000-0000-000000000001"), Condicional = false, TipoEntidad = "certificado_csd", Codigo = "acuse_renovacion", Nombre = "Acuse de renovación o sustitución del SAT", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0007-0000-0000-000000000002"), Condicional = false, TipoEntidad = "certificado_csd", Codigo = "acuse_revocacion", Nombre = "Acuse o evidencia de revocación", Orden = 2, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // M-240: soporte del ajuste de un cobro corto en CxC (estado de cuenta o aviso del banco); obligatorio para autorizar la comisión.
+            new { Id = Guid.Parse("00000011-0009-0000-0000-000000000001"), Condicional = false, TipoEntidad = "propuesta_aplicacion_cxc", Codigo = "soporte_comision", Nombre = "Estado de cuenta o aviso del banco", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F1-COM-11: evidencia de la respuesta del proveedor sobre la OC (G1.2). Plan reservaba ...0004, tomado por COM-02.
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000005"), TipoEntidad = "oc_respuesta_proveedor", Codigo = "evidencia_respuesta", Nombre = "Evidencia de la respuesta del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000005"), Condicional = false, TipoEntidad = "oc_respuesta_proveedor", Codigo = "evidencia_respuesta", Nombre = "Evidencia de la respuesta del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000004", "identificacion_representante_legal", "Identificación del representante legal", 4, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime),
             // 86e3pdmee: soporte para validar cuentas bancarias; no es parte del expediente obligatorio.
-            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), Condicional = false, TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // 86e3pdmee · demo 12-oct: opinión de cumplimiento y fotos del domicilio fiscal, opcionales (Millet define).
-            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000007"), TipoEntidad = "proveedor", Codigo = "opinion_cumplimiento", Nombre = "Opinión de cumplimiento (32-D)", Orden = 7, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)1, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.SoloNacional, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
-            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000008"), TipoEntidad = "proveedor", Codigo = "fotografias_domicilio", Nombre = "Fotografías del domicilio fiscal", Orden = 8, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000007"), Condicional = false, TipoEntidad = "proveedor", Codigo = "opinion_cumplimiento", Nombre = "Opinión de cumplimiento (32-D)", Orden = 7, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)1, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.SoloNacional, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000008"), Condicional = false, TipoEntidad = "proveedor", Codigo = "fotografias_domicilio", Nombre = "Fotografías del domicilio fiscal", Orden = 8, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
     }
 
     /// <summary>86e3pdmee · ADM-01: excepciones a documentos obligatorios del expediente.</summary>
@@ -339,6 +359,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     {
         Id = Guid.Parse(id),
         TipoEntidad = "proveedor",
+        Condicional = false,
         Codigo = codigo,
         Nombre = nombre,
         Orden = orden,
@@ -445,6 +466,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             AwOrigenParametro.Clave, "Real", TipoParametro.Texto,
             "Origen activo de A+W: Real o Demo. Cambiar desde la sincronización de Datos maestros.",
             new DateTimeOffset(2026, 10, 9, 0, 0, 0, TimeSpan.Zero), "integraciones.aw"));
+        parametro.HasData(SeedParametro(AvisoTipoCambioAwParametro.Id.ToString(),
+            AvisoTipoCambioAwParametro.Clave, AvisoTipoCambioAwParametro.ValorInicial, TipoParametro.Texto,
+            "Correos que reciben el aviso cuando el tipo de cambio hacia A+W se publica tarde o falla después de la hora límite; TI corre su tarea a mano ese día. Separe con coma; vacío apaga el correo.",
+            new DateTimeOffset(2026, 11, 10, 0, 0, 0, TimeSpan.Zero), "integraciones.aw"));
 
         var umbralesTime = new DateTimeOffset(2026, 10, 8, 0, 0, 0, TimeSpan.Zero);
         parametro.HasData(
@@ -483,6 +508,14 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedParametro("00000006-0001-0000-0000-00000000000b", ToleranciaTarjetasParametro.Clave,
                 "1.00", TipoParametro.Numero,
                 "Tolerancia de conciliación de tarjetas corporativas (MXN). Diferencia máxima aceptada entre el estado de cuenta y lo capturado.", seedTime, "cxp"),
+            SeedParametro("00000006-0001-0000-0000-00000000000d", ToleranciaTipoCambioCfdiParametro.Clave,
+                "1.00", TipoParametro.Numero,
+                "Diferencia máxima (%) entre el tipo de cambio de un CFDI en moneda extranjera y el del catálogo para su fecha. Fuera de ella, la póliza va a Rechazos para autorizar un valor. 0 apaga la comparación.",
+                new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero), "contabilidad"),
+            SeedParametro("00000006-0001-0000-0000-00000000000f", ToleranciaTipoCambioAbsolutaParametro.Clave,
+                "0.05", TipoParametro.Numero,
+                "Diferencia máxima (MXN por unidad de moneda extranjera) entre el tipo de cambio capturado en una factura de proveedor y el del catálogo. Mayor requiere confirmación del Contador General. 0 la apaga y aplica la tolerancia porcentual.",
+                new DateTimeOffset(2026, 11, 12, 0, 0, 0, TimeSpan.Zero), "contabilidad"),
             SeedParametro("00000006-0001-0000-0000-00000000000a",
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos,
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.FestivosIniciales, TipoParametro.Json,
@@ -1341,6 +1374,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         articulo.Property(x => x.PrecioReferenciaMonto).HasPrecision(15, 4);
         articulo.Property(x => x.PrecioReferenciaMoneda).HasMaxLength(3);
         articulo.Property(x => x.Estatus).HasConversion<short>().IsRequired();
+        // M-172: consumo por tambor a línea (silicón, Ködispace) y kilos por presentación.
+        articulo.Property(x => x.KgPorPresentacion).HasPrecision(10, 3);
 
         articulo.HasIndex(x => x.Clave).IsUnique();
         articulo.HasIndex(x => x.Naturaleza);

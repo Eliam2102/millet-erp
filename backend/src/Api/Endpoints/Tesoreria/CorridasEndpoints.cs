@@ -77,6 +77,14 @@ public static class CorridasEndpoints
             .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasCrear)
             .WithName("QuitarPasivoCorridaPago").Produces<CorridaResponse>();
 
+        // M-264: importe a pagar de una factura (pago parcial).
+        corridas.MapPut("/{id:guid}/pasivos/{facturaProveedorId:guid}/importe", async (Guid id, Guid facturaProveedorId,
+            [FromHeader(Name = "X-Expected-Version")] int? v, [FromBody] ImporteCorridaBody body, IMediator mediator, CancellationToken ct) =>
+            v is not int version ? SinVersion() : Results.Ok(await mediator.Send(new AjustarImporteCorridaCommand(id, facturaProveedorId, body.Importe, version), ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasCrear)
+            .WithName("AjustarImporteCorridaPago").Produces<CorridaResponse>();
+
         corridas.MapPost("/{id:guid}/enviar-autorizacion", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? v,
             IMediator mediator, CancellationToken ct) =>
             v is not int version ? SinVersion() : Results.Ok(await mediator.Send(new EnviarCorridaAAutorizacionCommand(id, version), ct)))
@@ -183,3 +191,5 @@ public static class CorridasEndpoints
     public sealed record EjecucionBody(IReadOnlyList<PagoCorridaItem>? Pagos);
     public sealed record PoliticaBody(IReadOnlyList<EscalonFirmaItem> Escalones);
 }
+
+public sealed record ImporteCorridaBody(decimal Importe);

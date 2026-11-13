@@ -90,8 +90,7 @@ export const EstadoTimbrado = {
   /** Nota de crédito de A+W que espera autorización (86e3wjt5r); no se timbra hasta autorizarla. */
   PorAutorizar: 9,
 } as const satisfies Record<string, number>;
-export type EstadoTimbrado =
-  (typeof EstadoTimbrado)[keyof typeof EstadoTimbrado];
+export type EstadoTimbrado = (typeof EstadoTimbrado)[keyof typeof EstadoTimbrado];
 
 /**
  * Eje fiscal de la facturación: cómo se comporta la venta frente al
@@ -105,8 +104,7 @@ export const ComportamientoFiscal = {
   VentaActivoFijo: 5,
   Administrativa: 6,
 } as const satisfies Record<string, number>;
-export type ComportamientoFiscal =
-  (typeof ComportamientoFiscal)[keyof typeof ComportamientoFiscal];
+export type ComportamientoFiscal = (typeof ComportamientoFiscal)[keyof typeof ComportamientoFiscal];
 
 /**
  * Clase de un pedido manual (F6.1). Mirror de backend <c>ClasePedidoManual</c>:
@@ -118,8 +116,7 @@ export const ClasePedidoManual = {
   VentaDirecta: 1,
   Emergencia: 2,
 } as const satisfies Record<string, number>;
-export type ClasePedidoManual =
-  (typeof ClasePedidoManual)[keyof typeof ClasePedidoManual];
+export type ClasePedidoManual = (typeof ClasePedidoManual)[keyof typeof ClasePedidoManual];
 /** Nombre de la clase tal como llega en las lecturas (`.ToString()`). */
 export type ClasePedidoManualNombre = keyof typeof ClasePedidoManual;
 
@@ -129,8 +126,7 @@ export const SubtipoVentaDirecta = {
   Almacenable: 2,
   Servicio: 3,
 } as const satisfies Record<string, number>;
-export type SubtipoVentaDirecta =
-  (typeof SubtipoVentaDirecta)[keyof typeof SubtipoVentaDirecta];
+export type SubtipoVentaDirecta = (typeof SubtipoVentaDirecta)[keyof typeof SubtipoVentaDirecta];
 export type SubtipoVentaDirectaNombre = keyof typeof SubtipoVentaDirecta;
 
 /**
@@ -166,8 +162,7 @@ export const EstadoAnticipo = {
   Amortizado: 2,
   Cancelado: 3,
 } as const satisfies Record<string, number>;
-export type EstadoAnticipo =
-  (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
+export type EstadoAnticipo = (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
 
 /**
  * Estado derivado en la comparativa de anticipos vs aplicaciones (F6.2):
@@ -222,9 +217,17 @@ export interface PedidoFacturableLineaInput {
  * (FE en cajas-pr6). Los hooks de lista desenvuelven <c>items</c> para no
  * tocar a los consumidores actuales.
  */
+/** Bandeja paginada en el servidor sin el contador «Sin asignar» (Carta Porte, excepciones). */
+export interface BandejaPaginada<TItem> {
+  items: TItem[];
+  total?: number;
+}
+
 export interface BandejaScoped<TItem> {
   items: TItem[];
   sinAsignarCount: number | null;
+  /** Filas que cumplen el filtro en el servidor (paginación servidor); ausente en bandejas que aún no lo envían. */
+  total?: number;
 }
 
 /**
@@ -624,6 +627,8 @@ export interface CartaPorteMercanciaInput {
 
 /** Command de emisión de Carta Porte (tipo T traslado / I ingreso). */
 export interface EmitirCartaPorteCommand {
+  /** M-354: tramo del traslado que se emite (solo vehículo propio). */
+  tramoId?: string | null;
   sucursalId: string;
   cajaId: string | null;
   tipoCfdi: string;
@@ -740,6 +745,77 @@ export interface CartaPorteDetalleResponse {
   timbradoErrorCodigo: string | null;
   timbradoErrorMensaje: string | null;
   folioPac: string | null;
+}
+
+/** M-354: modalidad del tramo. Solo el vehículo propio emite Carta Porte de Millet. */
+export type ModalidadTramo = 'VehiculoPropio' | 'TransportistaTercero';
+
+export interface TramoTraslado {
+  id: string;
+  pedidoFacturableId: string;
+  orden: number;
+  modalidad: ModalidadTramo;
+  origen: string;
+  destino: string;
+  distanciaKm: number | null;
+  origenCodigoPostal: string | null;
+  origenEstado: string | null;
+  destinoCodigoPostal: string | null;
+  destinoEstado: string | null;
+  fechaSalida: string | null;
+  cartaPorteId: string | null;
+  cartaPorteFolio: string | null;
+  cartaPorteEstado: string | null;
+  terceroNombre: string | null;
+  terceroRfc: string | null;
+  documentoTipo: string | null;
+  documentoFolio: string | null;
+  documentoUuid: string | null;
+  documentoFecha: string | null;
+  /** PorEmitir | CartaPorte{Estado} | SinDocumentoTercero | DocumentoTercero */
+  estado: string;
+}
+
+export interface CrearTramoBody {
+  modalidad: ModalidadTramo;
+  origen: string;
+  destino?: string;
+  distanciaKm?: number;
+  origenCodigoPostal?: string;
+  origenEstado?: string;
+  destinoCodigoPostal?: string;
+  destinoEstado?: string;
+}
+
+export interface DocumentoTerceroBody {
+  terceroNombre: string;
+  documentoTipo: string;
+  terceroRfc?: string;
+  folio?: string;
+  uuid?: string;
+  fecha?: string;
+}
+
+/** Renglón de la bitácora de correcciones de una Carta Porte observada. */
+export interface CorreccionCartaPorte {
+  campo: string;
+  valorAnterior: string | null;
+  valorNuevo: string | null;
+  motivo: string;
+  usuario: string | null;
+  en: string;
+}
+
+export interface CorregirCartaPorteBody {
+  motivo: string;
+  actualizarEmisor?: boolean;
+  origen?: string;
+  destino?: string;
+  distanciaKm?: number;
+  origenCodigoPostal?: string;
+  origenEstado?: string;
+  destinoCodigoPostal?: string;
+  destinoEstado?: string;
 }
 
 /** Respuesta de crear vehículo/operador (catálogo). */
@@ -890,6 +966,9 @@ export interface PedidoFacturableLineaDetalle {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  unidadMedidaId?: string | null;
+  unidadMedida?: string | null;
+  decimalesCantidad?: number | null;
 }
 
 /**
@@ -923,8 +1002,7 @@ export interface PedidoClienteFiscal {
  * canal desactivado sigue mostrando su nombre). `version` se usa como
  * `If-Match` al editar.
  */
-export interface PedidoFacturableDetalleResponse
-  extends ClasificacionPedidoLectura {
+export interface PedidoFacturableDetalleResponse extends ClasificacionPedidoLectura {
   /** F6.1: motivo de la captura de emergencia (solo clase Emergencia). */
   motivoEmergencia?: string | null;
   /** F6.1: pedido A+W para conciliar después (opcional, emergencia). */
@@ -970,6 +1048,14 @@ export interface PedidoFacturableDetalleResponse
  * RFC/razón social/régimen de la empresa del contexto + la sucursal
  * única activa (null si hay más de una — el usuario elige).
  */
+/** TipoCambioUSD del CCE: valor del catálogo USD para la emisión de hoy; null si falta. */
+export interface TipoCambioDofResponse {
+  moneda: string;
+  /** Fecha de emisión (AAAA-MM-DD) a la que aplica el valor publicado en el DOF el día hábil anterior. */
+  fecha: string;
+  valor: number | null;
+}
+
 export interface EmisorDefaultsResponse {
   rfcEmisor: string;
   razonSocialEmisor: string;
@@ -1035,6 +1121,8 @@ export interface ProductoAwLookupItem {
   unidadAduana: string | null;
   pesoUnitarioKg: number | null;
   datosFiscalesCompletos: boolean;
+  unidadMedidaId?: string | null;
+  decimalesCantidad?: number | null;
 }
 
 /** Item de la bandeja de excepciones de importación (GET /pedidos-facturables/excepciones). */
@@ -1046,6 +1134,22 @@ export interface ExcepcionImportacionItem {
   detalle: string | null;
   resuelto: boolean;
   createdAt: string;
+  /** M-233: campo del envío que no cuadra y sus valores (null si la excepción no es de totales). */
+  campo?: string | null;
+  valorRecibido?: string | null;
+  valorEsperado?: string | null;
+}
+
+/** M-233: envío de A+W sin acuse (GET /pedidos-facturables/envios-inciertos). */
+export interface EnvioAwInciertoItem {
+  solicitudId: string;
+  numeroPedido: string;
+  operacion: string;
+  version: number;
+  creadaAt: string;
+  estado: 'EnCurso' | 'Incierto';
+  versionAplicadaErp: number | null;
+  detalle: string | null;
 }
 
 /** Comprobante del historial de un pedido (GET /pedidos-facturables/{id}/comprobantes, B5). */
@@ -1174,7 +1278,11 @@ export interface EmitirFacturaVentaLinea {
  * Retenciones de IVA que nos hacen los clientes (tabla de Contabilidad del 5-nov): cada concepto
  * fija la tasa de la línea y la cuenta contable de la retención. Mismo catálogo que el backend.
  */
-export const CONCEPTOS_RETENCION_CLIENTE: ReadonlyArray<{ value: string; label: string; tasa: number }> = [
+export const CONCEPTOS_RETENCION_CLIENTE: ReadonlyArray<{
+  value: string;
+  label: string;
+  tasa: number;
+}> = [
   { value: 'FLETES', label: 'Fletes 4 %', tasa: 0.04 },
   { value: 'SERVICIOS', label: 'Servicios 6 %', tasa: 0.06 },
   { value: 'DESPERDICIO', label: 'Desperdicio 16 %', tasa: 0.16 },
@@ -1338,6 +1446,8 @@ export interface ComprobanteDetalleResponse {
   referenciaCliente?: string | null;
   condicionesPago?: string | null;
   proforma?: string | null;
+  /** M-340: versión de la proforma aprobada de la que viene la factura (el folio PF va en `proforma`). */
+  proformaPedidoId?: string | null;
   observaciones?: string | null;
   totalKg?: number;
   totalPie2?: number;
@@ -1354,6 +1464,7 @@ export interface ComprobanteDetalleResponse {
   estado: string;
   uuid: string | null;
   receptorRfc: string;
+  clienteClave?: string | null;
   receptorNombre: string;
   moneda: string;
   subtotal: number;
@@ -1382,6 +1493,8 @@ export interface ComprobanteDetalleResponse {
   notasCreditoAplicadas: NotaCreditoAplicadaDetalle[] | null;
   /** U-1: NC ligadas a la factura que no quedaron timbradas (no acreditan). */
   notasCreditoPendientes?: NotaCreditoPendienteDetalle[] | null;
+  /** M-216: por qué sigue retenida en PendientePedimento (falta expediente o pedimento). */
+  motivoPedimento?: string | null;
   /** FAC-08b: en la original, la factura que la sustituye (relación 04). */
   sustituidaPor?: SustitucionReferencia | null;
   /** FAC-08b: en la sustituta, la factura original. */
@@ -1399,7 +1512,19 @@ export interface SustitucionReferencia {
 }
 
 /** GET /facturas/{id}/sustitucion — borrador de la sustituta con los datos de la original. */
+/** ¿La cancelación necesita la aceptación del receptor? Si no, las razones (regla fiscal). */
+export interface AceptacionCancelacionResponse {
+  requiereAceptacion: boolean;
+  razonesSinAceptacion: string[];
+  esGlobal: boolean;
+}
+
 export interface DatosSustitucionResponse {
+  motivo: string;
+  llevaRelacion04: boolean;
+  pasos: string[] | null;
+  requiereAceptacion: boolean;
+  razonesSinAceptacion: string[] | null;
   sustituyeComprobanteId: string;
   sustituyeFolio: string;
   sustituyeUuid: string;
@@ -1428,6 +1553,7 @@ export interface DatosSustitucionResponse {
     descripcion: string;
     claveUnidadSat: string;
     cantidad: number;
+    decimalesCantidad?: number | null;
     valorUnitario: number;
     descuento: number;
     objetoImp: string;
@@ -1499,6 +1625,46 @@ export interface ReintentarTimbradoResponse {
   timbradoErrorCodigo: string | null;
   timbradoErrorMensaje: string | null;
   version: number;
+}
+
+/** M-285: efecto posterior al timbrado (evento contable, pedido y A+W, NC de ranura). */
+export interface EfectoComprobanteItem {
+  id: string;
+  tipo: string;
+  descripcion: string;
+  estado: 'Pendiente' | 'Aplicado' | string;
+  intentos: number;
+  ultimoErrorCodigo: string | null;
+  ultimoError: string | null;
+  ultimoIntentoAt: string | null;
+  aplicadoAt: string | null;
+}
+
+/** M-285: comprobante timbrado con efectos pendientes (bandeja). */
+export interface ComprobanteConEfectosPendientesItem {
+  comprobanteId: string;
+  folio: string;
+  uuid: string | null;
+  fechaTimbrado: string | null;
+  pendientes: EfectoComprobanteItem[];
+}
+
+/** M-284: un dato cotejado entre el comprobante del ERP y el XML timbrado. */
+export interface CampoCotejado {
+  campo: string;
+  erp: string;
+  xml: string;
+  coincide: boolean;
+}
+
+/** Respuesta de POST /comprobantes/{id}/adoptar-cfdi (M-284). */
+export interface AdoptarCfdiTimbradoResponse {
+  id: string;
+  folio: string;
+  estado: string;
+  uuid: string | null;
+  adoptado: boolean;
+  cotejo: CampoCotejado[];
 }
 
 /** Respuesta de POST /comprobantes/{id}/descartar ([Decisión 01-G] G3). */
@@ -1604,6 +1770,14 @@ export interface SolicitarCancelacionResponse {
   estadoComprobante: string;
   estadoSolicitud: string;
   estatusSat: string | null;
+  /** M18: motivo del rechazo del SAT (sin el texto en inglés del PAC); null si no hubo rechazo. */
+  mensajeError?: string | null;
+  /** M-235: firmas que pide la cancelación (1 o 2) y las ya dadas. */
+  firmasRequeridas?: number;
+  firmasDadas?: number;
+  primeraFirmaPor?: string | null;
+  /** M-235: versión de la solicitud que se autoriza (motivo, sustituto, importe). */
+  huella?: string | null;
 }
 
 /** Estatus de la cancelación de un comprobante (GET /comprobantes/{id}/cancelar). */
@@ -1674,6 +1848,23 @@ export interface CancelacionBandejaItem {
   decididaPor: string | null;
   decididaEn: string | null;
   motivoRechazo: string | null;
+  /** M-235: firmas por operación y monto. */
+  firmasRequeridas?: number;
+  firmasDadas?: number;
+  primeraFirmaPor?: string | null;
+  primeraFirmaPorId?: string | null;
+  primeraFirmaEn?: string | null;
+  /** M-235: la solicitud cambió después de la primera firma y esta se anuló. */
+  firmaAnuladaMotivo?: string | null;
+  /** M-235: versión vista; se manda al autorizar para bloquear si cambió. */
+  huella?: string | null;
+}
+
+/** M-235: regla de firmas de la cancelación (tipo null = cualquier operación). */
+export interface ReglaFirmaCancelacion {
+  tipoComprobante: string | null;
+  umbralMxn: number;
+  firmasRequeridas: number;
 }
 
 // ─── Cajas (CAJAS-PR5; backend CAJAS-PR1, 12-cajas.md §7/§10) ─────────
@@ -1687,6 +1878,8 @@ export interface CajaListadoItem {
   sucursales: number;
   canales: number;
   usuarios: number;
+  /** Sucursales donde opera la caja (alcance); limita la «sucursal de operación». */
+  sucursalIds?: string[];
 }
 
 export interface CajaSucursalItem {
@@ -2070,6 +2263,39 @@ export interface ProformaPedidoResponse {
   contenido: ProformaCfdi;
   /** Datos fiscales incompletos detectados al generar (no bloquean). */
   avisos: string[];
+  /** M-145: último día de vigencia (AAAA-MM-DD, días naturales); null en proformas anteriores. */
+  vigenteHasta?: string | null;
+  /** M-145: ya pasó su vigencia. */
+  vencida?: boolean;
+  /** M-234: conformidad del cliente con ESTA versión; null = sin conformidad. */
+  conformidad?: ProformaConformidadResponse | null;
+}
+
+/** M-234: medios por los que el cliente da su conformidad con la proforma. */
+export type MedioConformidadProforma = 'Correo' | 'Telefono' | 'Presencial' | 'Mensajeria' | 'Otro';
+
+export interface ProformaConformidadResponse {
+  id: string;
+  proformaId: string;
+  /** Persona del cliente que dio la conformidad. */
+  quien: string;
+  /** AAAA-MM-DD */
+  fecha: string;
+  medio: MedioConformidadProforma;
+  notas: string | null;
+  registradaPor: string | null;
+  registradaEn: string;
+  /** M-340: el pedido cambió después de aprobar la versión; ya no se puede facturar desde ella. */
+  invalidada?: boolean;
+  invalidadaMotivo?: string | null;
+}
+
+export interface RegistrarConformidadProformaBody {
+  quien: string;
+  medio: MedioConformidadProforma;
+  /** AAAA-MM-DD; vacío = hoy. */
+  fecha?: string;
+  notas?: string;
 }
 
 export interface DiferenciaProforma {
@@ -2090,19 +2316,11 @@ export interface ComparacionProformaResponse {
 
 /** Estado local del comprobante en el monitor de CFDI. */
 export type EstadoMonitorCfdi =
-  | 'Timbrado'
-  | 'Cancelación en trámite'
-  | 'Cancelado'
-  | 'Fallido'
-  | 'Sin timbrar';
+  'Timbrado' | 'Cancelación en trámite' | 'Cancelado' | 'Fallido' | 'Sin timbrar';
 
 /** Estatus del CFDI según la última consulta al SAT. */
 export type EstatusSatCfdi =
-  | 'Vigente'
-  | 'Cancelado'
-  | 'No encontrado'
-  | 'Sin verificar'
-  | 'No aplica';
+  'Vigente' | 'Cancelado' | 'No encontrado' | 'Sin verificar' | 'No aplica';
 
 export interface MonitorCfdiResumen {
   timbrados: number;

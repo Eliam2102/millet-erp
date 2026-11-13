@@ -14,6 +14,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types';
 import { useFactura } from '@/features/cxp/api/useFacturas';
+import { useCfdis } from '@/features/cxp/api/useCfdis';
 import {
   AreaSolicitudCancelacionLabels,
   EstadoSolicitudCancelacion,
@@ -35,9 +36,12 @@ import { EstadoPasivoChip } from '@/features/cxp/components/EstadoPasivoChip';
 export function SolicitudesCancelacionPanel({
   cfdiId,
   facturaId,
+  rfcEmisor,
 }: {
   cfdiId: string;
   facturaId?: string | null;
+  /** M-096: RFC del proveedor; acota el buzón al elegir el CFDI sustituto. */
+  rfcEmisor?: string | null;
 }) {
   const query = useSolicitudesCancelacion(cfdiId);
   const puedeRegistrar = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasCapturar);
@@ -65,7 +69,7 @@ export function SolicitudesCancelacionPanel({
           El proveedor no ha pedido cancelar este CFDI.
         </p>
       ) : (
-        items.map((s) => <SolicitudCard key={s.id} cfdiId={cfdiId} s={s} />)
+        items.map((s) => <SolicitudCard key={s.id} cfdiId={cfdiId} s={s} rfcEmisor={rfcEmisor ?? null} />)
       )}
       {facturaId && <EfectoFactura facturaId={facturaId} />}
     </section>
@@ -165,7 +169,7 @@ const ESTADO_VARIANTE = {
   [EstadoSolicitudCancelacion.Rechazada]: ['Rechazada', 'neutral'],
 } as const;
 
-function SolicitudCard({ cfdiId, s }: { cfdiId: string; s: SolicitudCancelacion }) {
+function SolicitudCard({ cfdiId, s, rfcEmisor }: { cfdiId: string; s: SolicitudCancelacion; rfcEmisor: string | null }) {
   const puedeDecidir = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasCancelar);
   const pendiente = s.estado === EstadoSolicitudCancelacion.Pendiente;
   const [etiqueta, variante] = ESTADO_VARIANTE[s.estado];
@@ -201,7 +205,7 @@ function SolicitudCard({ cfdiId, s }: { cfdiId: string; s: SolicitudCancelacion 
           </>
         )}
       </dl>
-      {pendiente && puedeDecidir && <DecidirForm cfdiId={cfdiId} solicitudId={s.id} />}
+      {pendiente && puedeDecidir && <DecidirForm cfdiId={cfdiId} solicitudId={s.id} rfcEmisor={rfcEmisor ?? null} />}
     </div>
   );
 }
@@ -215,26 +219,62 @@ function Dato({ label, valor }: { label: string; valor: React.ReactNode }) {
   );
 }
 
-function DecidirForm({ cfdiId, solicitudId }: { cfdiId: string; solicitudId: string }) {
+/** M-096: la factura ya tiene pagos; aceptar exige el CFDI sustituto del buzón y el permiso del Contador General. */
+const CODIGO_SIN_SUSTITUTO = 'CANCELACION_PAGADA_SIN_SUSTITUTO';
+
+function SustitutoSelect({
+  rfcEmisor, cfdiId, value, onChange,
+}: { rfcEmisor: string | null; cfdiId: string; value: string; onChange: (v: string) => void }) {
+  const { data } = useCfdis({ rfcEmisor: rfcEmisor ?? undefined, limit: 50 });
+  const opciones = (data?.items ?? []).filter((c) => c.id !== cfdiId);
+  return (
+    <div className="space-y-1 rounded-md border border-dashed p-2">
+      <p className="text-xs text-muted-foreground">
+        La factura de este CFDI ya tiene pagos: solo se acepta la cancelación cuando el proveedor ya mandó el CFDI que la
+        sustituye (relación 04) y con la autorización del Contador General.
+      </p>
+      <Label htmlFor="sc-sustituto">CFDI sustituto (del buzón ya ingresado)</Label>
+      <select
+        id="sc-sustituto"
+        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">Elige el CFDI sustituto…</option>
+        {opciones.map((c) => (
+          <option key={c.id} value={c.id}>
+            {[c.serie, c.folio].filter(Boolean).join('-') || 'Sin folio'} · {c.uuidCfdi.slice(0, 8)} · {c.total.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function DecidirForm({ cfdiId, solicitudId, rfcEmisor }: { cfdiId: string; solicitudId: string; rfcEmisor: string | null }) {
   const idempotencyKey = useFormIdempotencyKey();
   const decidir = useDecidirSolicitudCancelacion(cfdiId);
   const [comentario, setComentario] = useState('');
   const archivoRef = useRef<HTMLInputElement>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [intento, setIntento] = useState(false);
+  const [pidePagada, setPidePagada] = useState(false);
+  const [sustituto, setSustituto] = useState('');
   const falta = intento && comentario.trim() === '';
 
   function enviar(aceptar: boolean) {
     setIntento(true);
     if (comentario.trim() === '') return;
     decidir.mutate(
-      { solicitudId, aceptar, comentario: comentario.trim(), archivo, idempotencyKey },
+      { solicitudId, aceptar, comentario: comentario.trim(), archivo, sustitutoCfdiId: aceptar ? sustituto || null : null, idempotencyKey },
       {
         onSuccess: () => toast.success(aceptar ? 'Solicitud aceptada' : 'Solicitud rechazada'),
-        onError: (error) =>
-          esApiError(error)
+        onError: (error) => {
+          if (esApiError(error) && error.problem.code === CODIGO_SIN_SUSTITUTO) setPidePagada(true);
+          return esApiError(error)
             ? toast.error(errorUsuario(error), { description: codigoSoporte(error) })
-            : toast.error("Error inesperado al decidir la solicitud. Revisa los datos del registro; si continúa, avisa a soporte."),
+            : toast.error("Error inesperado al decidir la solicitud. Revisa los datos del registro; si continúa, avisa a soporte.");
+        },
       },
     );
   }
@@ -273,6 +313,9 @@ function DecidirForm({ cfdiId, solicitudId }: { cfdiId: string; solicitudId: str
           <span className="truncate text-xs text-ink-muted">{archivo?.name ?? 'Sin archivo'}</span>
         </div>
       </div>
+      {pidePagada && (
+        <SustitutoSelect rfcEmisor={rfcEmisor} cfdiId={cfdiId} value={sustituto} onChange={setSustituto} />
+      )}
       <p className="text-xs text-muted-foreground">
         Aceptar o rechazar solo guarda la decisión. Si aceptas y el SAT confirma la cancelación, la
         factura se cancela (Capturada) o pasa a revisión (Autorizada).

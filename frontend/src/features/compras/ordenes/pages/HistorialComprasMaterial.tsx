@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, PaginacionTabla } from '@/components/erp';
 import {
@@ -47,6 +48,7 @@ import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
  * </list>
  */
 export function HistorialComprasMaterial() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const { id: articuloId } = useParams({
     from: '/_app/compras/articulos/$id/historial-compras',
   });
@@ -68,7 +70,8 @@ export function HistorialComprasMaterial() {
 
   const query = useUltimas100ComprasMaterial(articuloId, filtros);
   const offset =
-    Math.min(pagina, Math.max(0, Math.ceil((query.data?.items.length ?? 0) / 10) - 1)) * 10;
+    Math.min(pagina, Math.max(0, Math.ceil((query.data?.items.length ?? 0) / limiteTabla) - 1)) *
+    limiteTabla;
   // Etiqueta legible del material del header (nunca GUID de cara al
   // usuario); mientras carga o si no resuelve, cae al id truncado.
   const articuloQuery = useArticulo(articuloId);
@@ -123,9 +126,8 @@ export function HistorialComprasMaterial() {
           <PaginacionTabla
             total={query.data?.items.length ?? 0}
             offset={offset}
-            limit={10}
-            tamanos={[]}
-            onChange={(next) => setPagina(next / 10)}
+            limit={limiteTabla}
+            onChange={(next) => setPagina(next / limiteTabla)}
           />
         }
         filtros={
@@ -195,7 +197,7 @@ export function HistorialComprasMaterial() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="[&_tr]:h-12">
-                  {query.data.items.slice(offset, offset + 10).map((c, i) => (
+                  {query.data.items.slice(offset, offset + limiteTabla).map((c, i) => (
                     <TableRow
                       key={c.lineaId}
                       className={cn(i % 2 === 1 ? 'bg-surface-muted/20' : undefined)}

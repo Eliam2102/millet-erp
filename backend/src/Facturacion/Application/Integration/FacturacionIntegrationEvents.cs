@@ -43,8 +43,13 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
     // TR-01: pedido A+W de la factura y su versión en el ERP al emitirla (null si el pedido
     // no viene de A+W). Con esto Integraciones.Aw deja la fila Documento en aw_retorno.
     string? NumeroPedidoAw = null,
-    long? VersionPedidoAw = null, Guid? ExpedienteCeId = null, int? VersionEmbarqueCe = null, string? UuidOriginal = null)
+    long? VersionPedidoAw = null, Guid? ExpedienteCeId = null, int? VersionEmbarqueCe = null, string? UuidOriginal = null,
+    // M-209 (aditivo): base e IVA trasladado por tratamiento (TASA16, TASA8, TASA0, EXENTO, NOOBJETO) de las líneas de la factura.
+    IReadOnlyList<ImpuestoTrasladoContablePayload>? Impuestos = null)
     : IntegrationEvent("facturacion.factura-venta.timbrada.v1", EmpresaId, OcurridoEn);
+
+/// <summary>M-209: base e IVA trasladado de un tratamiento de la factura de venta.</summary>
+public sealed record ImpuestoTrasladoContablePayload(string Tratamiento, decimal Base, decimal Iva);
 
 /// <summary>
 /// Retención del CFDI (U1.6, misma forma que <c>RetencionDetallePayload</c>
@@ -274,7 +279,6 @@ public sealed record VentaTerminalLiquidada(Guid CobroMostradorId, Guid Sucursal
 // pago por IvaComision; abono a «COBROS T/C, T/D» por Bruto.
 // Ojo (86e3zcbjx): la comisión y su IVA ya los registra la póliza de la factura del banco
 // (comisión + IVA pagado contra el banco); al conectar esta póliza no deben ir dos veces.
-// PLATFORM-TODO(<PolizaLiquidacionTerminal>): Contabilidad aún no consume este evento.
 // B13: si una venta del mismo folio se empareja después, se publica otro evento con el mismo LiquidacionId
 // y solo el incremento (Bruto, Comision, IvaComision, Neto y Ventas de lo agregado). El consumidor suma; no deduplica por LiquidacionId.
 public sealed record TerminalLiquidacionRegistradaIntegrationEvent(

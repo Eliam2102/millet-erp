@@ -57,6 +57,12 @@ public sealed class ParametroGlobal : BaseEntity, IAuditable
             ToleranciaFacturaContraOcParametro.LeerValor(valor);
         if (clave == ToleranciaTarjetasParametro.Clave)
             ToleranciaTarjetasParametro.LeerValor(valor);
+        if (clave == ToleranciaTipoCambioCfdiParametro.Clave)
+            ToleranciaTipoCambioCfdiParametro.LeerValor(valor);
+        if (clave == ToleranciaTipoCambioAbsolutaParametro.Clave)
+            ToleranciaTipoCambioAbsolutaParametro.LeerValor(valor);
+        if (clave == AvisoTipoCambioAwParametro.Clave)
+            AvisoTipoCambioAwParametro.LeerCorreos(valor);
         ValidarDescripcion(descripcion);
         ValidarModulo(modulo);
 
@@ -79,6 +85,12 @@ public sealed class ParametroGlobal : BaseEntity, IAuditable
             ToleranciaFacturaContraOcParametro.LeerValor(nuevoValor);
         if (Clave == ToleranciaTarjetasParametro.Clave)
             ToleranciaTarjetasParametro.LeerValor(nuevoValor);
+        if (Clave == ToleranciaTipoCambioCfdiParametro.Clave)
+            ToleranciaTipoCambioCfdiParametro.LeerValor(nuevoValor);
+        if (Clave == ToleranciaTipoCambioAbsolutaParametro.Clave)
+            ToleranciaTipoCambioAbsolutaParametro.LeerValor(nuevoValor);
+        if (Clave == AvisoTipoCambioAwParametro.Clave)
+            AvisoTipoCambioAwParametro.LeerCorreos(nuevoValor);
         Valor = nuevoValor;
     }
 

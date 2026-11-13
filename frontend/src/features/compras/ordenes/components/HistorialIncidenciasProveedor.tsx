@@ -36,7 +36,8 @@ export function HistorialIncidenciasProveedor({
         <h2 className="text-md font-semibold">Incidencias de {proveedorNombre}</h2>
         {r && r.total > 0 && (
           <p className="text-xs text-ink-muted">
-            {r.abiertas} abiertas ({r.vencidas} vencidas) · Cumplidas a tiempo {r.cumplidasATiempo} ·
+            {r.abiertas} abiertas ({r.vencidas} vencidas) · Cumplidas a tiempo {r.cumplidasATiempo}{' '}
+            ·
             Cumplidas tarde {r.cumplidasTarde} · Total {r.total}
           </p>
         )}
@@ -56,7 +57,7 @@ export function HistorialIncidenciasProveedor({
         />
       ) : (
         <div className="overflow-x-auto rounded-md border">
-          <Table className="w-full text-sm">
+          <Table paginada className="w-full text-sm">
             <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
               <TableRow>
                 <TableHead className="px-3 py-2 text-left font-medium">Folio</TableHead>

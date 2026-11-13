@@ -74,6 +74,7 @@ public static class FacturasEndpoints
             [FromQuery] string? alcance,
             [FromQuery] ClasePedidoManual? clase,
             [FromQuery] bool? ncPendiente,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -81,7 +82,7 @@ public static class FacturasEndpoints
             // U-1: ?ncPendiente=true deja solo las facturas con una NC pendiente de timbrar.
             var response = await mediator.Send(
                 new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase,
-                    ncPendiente == true),
+                    ncPendiente == true, q),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -109,9 +110,9 @@ public static class FacturasEndpoints
         // GET: borrador de la factura sustituta (FAC-08b): datos de la original para el
         // formulario de emisión. Quien sustituye emite la nueva y solicita la cancelación.
         group.MapGet("/{id:guid}/sustitucion", async (
-            Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+            Guid id, string? motivo, IMediator mediator, CancellationToken cancellationToken) =>
         {
-            var datos = await mediator.Send(new DatosSustitucionQuery(id), cancellationToken);
+            var datos = await mediator.Send(new DatosSustitucionQuery(id, motivo ?? "01"), cancellationToken);
             return Results.Ok(datos);
         })
         .RequireAuthorization(

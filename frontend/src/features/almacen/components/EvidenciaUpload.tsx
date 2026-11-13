@@ -36,6 +36,8 @@ export interface EvidenciaUploadProps {
   onChange: (value: EvidenciaUploadValue | null) => void;
   disabled?: boolean;
   error?: string;
+  /** Endpoint del upload; por omisión el de devoluciones a proveedor (Producto terminado usa el suyo para los traspasos). */
+  endpoint?: string;
 }
 
 /**
@@ -43,11 +45,11 @@ export interface EvidenciaUploadProps {
  * evidencias de devolución a proveedor (FE-F4-PR1). Endpoint backend
  * PR #260. Acepta evidencias amplias (fotos HEIC, video corto, .eml).
  */
-export function EvidenciaUpload({ value, onChange, disabled, error }: EvidenciaUploadProps) {
+export function EvidenciaUpload({ value, onChange, disabled, error, endpoint }: EvidenciaUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const idempotencyKey = useFormIdempotencyKey();
-  const subir = useSubirEvidenciaBlob();
+  const subir = useSubirEvidenciaBlob(endpoint);
 
   async function procesarArchivo(file: File) {
     if (file.size === 0) {

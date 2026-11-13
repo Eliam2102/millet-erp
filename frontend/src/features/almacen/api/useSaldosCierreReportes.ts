@@ -5,6 +5,7 @@ import {
   type AlfakHistorialFiltros,
   type TrazabilidadMpFiltros,
   type KardexFiltros,
+  type ConsumoInsumosLineaFiltros,
   type HijosJerarquiaParams,
   type ListarSaldosFiltros,
   type MpCnkFiltros,
@@ -13,6 +14,7 @@ import type {
   AlfakHistorialFila,
   TrazabilidadMpFila,
   KardexFila,
+  ConsumoInsumosLineaFila,
   CuadreInventarioFila,
   EjecutarCierreMensualCommand,
   EjecutarCierreMensualResponse,
@@ -233,6 +235,25 @@ export function useReporteTrazabilidadMp(filtros: TrazabilidadMpFiltros) {
   });
 }
 
+/** M-339: consumo de insumos por línea y artículo, a costo, en un periodo. */
+export function useReporteConsumoInsumosLinea(filtros: ConsumoInsumosLineaFiltros) {
+  return useQuery({
+    queryKey: almacenKeys.reporteConsumoInsumosLinea(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+      if (filtros.sucursalId) params.set('sucursalId', filtros.sucursalId);
+      if (filtros.centroCostoId) params.set('centroCostoId', filtros.centroCostoId);
+      if (filtros.articuloId) params.set('articuloId', filtros.articuloId);
+      const { data } = await apiRequest<ReporteResponse<ConsumoInsumosLineaFila>>(
+        `/api/v1/almacen/reportes/consumo-insumos-linea?${params}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!filtros.desde && !!filtros.hasta,
+  });
+}
+
 /** F1-ALM-15: kardex de un artículo por sub-almacén/ubicación y periodo. Sin artículo no consulta. */
 export function useReporteKardex(filtros: KardexFiltros) {
   return useQuery({
@@ -286,5 +307,44 @@ export function useReporteExistenciaMpCnk(filtros: MpCnkFiltros) {
       );
       return data;
     },
+  });
+}
+
+/**
+ * M-231: posiciones con existencia de un artículo, con `saldoId` y `version`. La versión es un long (UtcTicks, ~6e17) que
+ * JSON.parse redondea: se lee como texto para devolverla intacta al trasladar.
+ */
+export function usePosicionesTraslado(articuloId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...almacenKeys.saldos(), 'posiciones-traslado', articuloId ?? ''] as const,
+    enabled: !!articuloId,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<SaldoUbicacionItem[]>(`/api/v1/almacen/saldos/por-ubicacion?${buildQuery({ articuloId })}`, { signal });
+      return data;
+    },
+  });
+}
+
+export interface TrasladarPosicionCommand {
+  saldoId: string;
+  /** Marca del saldo que vio la pantalla (texto: el backend la manda como string). */
+  version: string;
+  cantidad: number;
+  ubicacionDestinoId: string;
+  motivo?: string | null;
+}
+
+export function useTrasladarPosicion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { command: TrasladarPosicionCommand; idempotencyKey: string }) => {
+      const body = JSON.stringify(args.command);
+      const { data } = await apiRequest<{ movimientoId: string; folio: string; folioEntrada: string | null }>(
+        '/api/v1/almacen/saldos/traslados-posicion',
+        { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: almacenKeys.all }),
   });
 }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Millet.CuentasPorCobrar.Application.Integration;
 using Millet.CuentasPorCobrar.Domain.Alertas;
 using Millet.CuentasPorCobrar.Domain.Cartera;
+using Millet.CuentasPorCobrar.Domain.Cobranza;
 using Millet.CuentasPorCobrar.Domain.LineaCredito;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -81,6 +82,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
                 f.Moneda,
                 f.FechaVencimiento,
                 f.FechaTimbrado,
+                f.PlazoCorregidoDias,
                 Saldo = f.Total - f.MontoPagado - f.MontoNc,
             })
             .ToListAsync(cancellationToken);
@@ -141,7 +143,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
             {
                 var tolerancia = Math.Max(0, _options.ToleranciaDiasVencido);
                 var rebasan = BloqueoPorVencimiento.FacturasQueRebasan(
-                    grupo.Select(f => f.FechaTimbrado), linea.PlazoDias, tolerancia, hoy);
+                    grupo.Select(f => (f.FechaTimbrado, f.PlazoCorregidoDias)), linea.PlazoDias, tolerancia, hoy);
                 if (BloqueoPorVencimiento.DebeBloquear(rebasan, linea.DesbloqueoManualEn))
                 {
                     var diasMax = grupo.Max(f => BloqueoPorVencimiento.DiasDesdeTimbrado(f.FechaTimbrado, hoy));
@@ -168,7 +170,7 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
         {
             var timbrados = cartera
                 .Where(f => f.ClienteId == linea.ClienteId && f.Moneda == linea.Moneda && f.Saldo > 0)
-                .Select(f => f.FechaTimbrado);
+                .Select(f => (f.FechaTimbrado, f.PlazoCorregidoDias));
             if (BloqueoPorVencimiento.FacturasQueRebasan(
                     timbrados, linea.PlazoDias, Math.Max(0, _options.ToleranciaDiasVencido), hoy).Count == 0
                 && linea.DesbloquearPorPago())
@@ -180,6 +182,11 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
             }
         }
 
+        // 5. M-241 (CXC-GESTION): toda factura vencida tiene su ficha de cobranza. Se abre una sola vez (idempotente: no se toca
+        // la que ya existe) con el último gestor del cliente como responsable por omisión; sin gestor previo queda «sin asignar».
+        // Supuesto a validar con Millet: la regla del responsable por omisión.
+        cambios |= await AbrirFichasDeVencidasAsync(ahora, cancellationToken);
+
         if (creadas > 0 || cambios)
         {
             await _db.SaveChangesAsync(cancellationToken);
@@ -187,6 +194,36 @@ public sealed class EvaluarAlertasCarteraHandler : IRequestHandler<EvaluarAlerta
         }
 
         return creadas;
+    }
+
+    private async Task<bool> AbrirFichasDeVencidasAsync(DateTimeOffset ahora, CancellationToken cancellationToken)
+    {
+        var sinFicha = await _db.FacturasCartera.AsNoTracking()
+            .Where(f => f.ClienteId != null
+                     && (f.Estado == EstadoFacturaCartera.Abierta || f.Estado == EstadoFacturaCartera.Parcial)
+                     && f.FechaVencimiento < ahora
+                     && !_db.FichasCobranza.Any(x => x.FacturaCarteraId == f.Id))
+            .Select(f => new { f.Id, f.EmpresaId, ClienteId = f.ClienteId!.Value })
+            .ToListAsync(cancellationToken);
+        if (sinFicha.Count == 0) return false;
+
+        var clientes = sinFicha.Select(f => f.ClienteId).Distinct().ToList();
+        var gestores = (await _db.SeguimientosCobranza.AsNoTracking()
+                .Where(s => clientes.Contains(s.ClienteId))
+                .Select(s => new { s.ClienteId, s.UsuarioId, s.Fecha })
+                .ToListAsync(cancellationToken))
+            .GroupBy(s => s.ClienteId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Fecha).First().UsuarioId);
+
+        foreach (var f in sinFicha)
+        {
+            Guid? responsable = gestores.TryGetValue(f.ClienteId, out var u) ? u : null;
+            var (ficha, evento) = FichaCobranza.AbrirAlVencer(f.EmpresaId, f.Id, f.ClienteId, responsable, null, ahora);
+            _db.FichasCobranza.Add(ficha);
+            _db.FichaCobranzaEventos.Add(evento);
+        }
+        _logger.LogInformation("[AlertasCartera] {N} ficha(s) de cobranza abierta(s) para facturas vencidas.", sinFicha.Count);
+        return true;
     }
 
     private async Task<int> CrearSiNoAbiertaAsync(

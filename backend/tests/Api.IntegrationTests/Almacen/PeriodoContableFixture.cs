@@ -25,14 +25,14 @@ internal sealed class PeriodoContableFixture(string connectionString, Guid empre
     /// <summary>Puerto público de Contabilidad sobre este calendario, para probar los adapters de otros módulos.</summary>
     public Millet.Contabilidad.Application.PublicPorts.IPeriodoContableConsultaPort Consulta => new PeriodoContableConsultaAdapter(_db);
 
-    public async Task SembrarAsync(int mesAbierto, bool cerrarAnteriores = false)
+    public async Task SembrarAsync(int mesAbierto, bool cerrarAnteriores = false, bool abrirTodos = false)
     {
         var ejercicio = new EjercicioContable(_ejercicioId, anio) { EmpresaId = empresaId };
         var periodos = ejercicio.GenerarPeriodos();
         foreach (var p in periodos)
         {
             p.EmpresaId = empresaId;
-            if (p.Numero == mesAbierto || (cerrarAnteriores && p.Numero < mesAbierto))
+            if ((abrirTodos && p.Numero <= 12) || p.Numero == mesAbierto || (cerrarAnteriores && p.Numero < mesAbierto))
                 p.Abrir(null, "FIX C1.2 apertura", null, "FIX C1.2", DateTimeOffset.UtcNow);
             if (cerrarAnteriores && p.Numero < mesAbierto)
                 p.Cerrar(periodos.Where(x => x.Numero < p.Numero), "FIX C1.2 cierre", null, "FIX C1.2", DateTimeOffset.UtcNow);

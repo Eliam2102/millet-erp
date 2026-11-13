@@ -73,6 +73,8 @@ public sealed class PlantaPinturaImportWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
+        // M-303: con el tramo detenido el worker no lee.
+        if (await Millet.SharedKernel.Application.Tramos.TramosGuard.DetenidoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwPinturas, cancellationToken)) return 0;
         var reader = sp.GetRequiredService<IPlantaPinturaPedidosReader>();
         var sender = sp.GetRequiredService<ISender>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
@@ -109,6 +111,8 @@ public sealed class PlantaPinturaImportWorker : BackgroundService
             }
         }
 
+        if (procesadas > 0)
+            await Millet.SharedKernel.Application.Tramos.TramosGuard.EventoCorrectoAsync(sp, Millet.SharedKernel.Application.Tramos.TramosOperativos.AwPinturas, $"{procesadas} pedidos de Pinturas importados", cancellationToken);
         if (pendientes.Count > 0)
             _logger.LogInformation("[PlantaPinturaImportWorker] Tick: {Total} pendientes, {Procesadas} procesadas.", pendientes.Count, procesadas);
 

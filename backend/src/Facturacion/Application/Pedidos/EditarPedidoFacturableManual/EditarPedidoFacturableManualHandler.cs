@@ -17,19 +17,22 @@ public sealed class EditarPedidoFacturableManualHandler
     private readonly IProductosReadPort _productos;
     private readonly IEmpresaFiscalReadPort _empresasFiscal;
     private readonly ICurrentUserPermissions _permisos;
+    private readonly IClientesReadPort? _clientes;
 
     public EditarPedidoFacturableManualHandler(
         FacturacionDbContext db,
         ICurrentEmpresaContext empresa,
         IProductosReadPort productos,
         IEmpresaFiscalReadPort empresasFiscal,
-        ICurrentUserPermissions permisos)
+        ICurrentUserPermissions permisos,
+        IClientesReadPort? clientes = null)
     {
         _db = db;
         _empresa = empresa;
         _productos = productos;
         _empresasFiscal = empresasFiscal;
         _permisos = permisos;
+        _clientes = clientes;
     }
 
     public async Task<PedidoFacturableResponse> Handle(
@@ -56,6 +59,10 @@ public sealed class EditarPedidoFacturableManualHandler
 
         // F6.1: si la clase resultante es Emergencia, exige su permiso (403).
         await PermisoEmergenciaPedido.VerificarAsync(command.ClaseManual, _permisos, cancellationToken);
+
+        // N-14: al cambiar de cliente, el nuevo no puede estar inactivo; editar el de siempre no se bloquea.
+        if (command.ClienteId != pedido.ClienteId)
+            await ClienteActivoPedido.VerificarAsync(_clientes, command.ClienteId, cancellationToken);
 
         pedido.EditarCabecera(
             clienteId: command.ClienteId,

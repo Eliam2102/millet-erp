@@ -38,11 +38,12 @@ public sealed class MatrizAwTests
     private static ProcesarSolicitudAwHandler Handler(
         FacturacionDbContext db, FakeAwWriteBackPort wb, DatosPedidoAw? datos, ClienteFiscalLectura? cliente,
         ClienteFiscalLectura? clienteProvisionado = null, LecturaPedidoAw? lectura = null,
-        int pospuestaMaxDias = 7, DateTimeOffset? ahora = null, Exception? errorProvision = null) =>
+        int pospuestaMaxDias = 7, DateTimeOffset? ahora = null, Exception? errorProvision = null, HistoricoSapOptions? historico = null) =>
         new(db, new FakeAwSolicitudesReader(datos, lectura: lectura), wb, new FakeClientesReadPort(cliente),
             new FakeProductosReadPort(), new FakeMasterProvisioningPort(clienteProvisionado, errorCliente: errorProvision),
             new FakeClock(ahora ?? Ahora),
-            Options.Create(new AwSolicitudesOptions { PospuestaMaxDias = pospuestaMaxDias }));
+            Options.Create(new AwSolicitudesOptions { PospuestaMaxDias = pospuestaMaxDias }),
+            historico is null ? null : Options.Create(historico));
 
     private static async Task<(PedidoFacturable, IngestaControl)> SembrarPedidoAsync(
         FacturacionDbContext db, Guid empresaId, EstadoPedidoFacturable estado)
@@ -63,6 +64,71 @@ public sealed class MatrizAwTests
     }
 
     // ---- Alta ----
+
+    // Diagnóstico OTR 10446260: origen en 115 (facturado en SAP) con 51 posiciones, 30 en cero porque salieron completas en el hijo.
+    private static DatosPedidoAw Pedido10446260(string estatus) => Datos(numero: "10446260") with
+    {
+        EstadoOrigen = estatus,
+        Lineas = Enumerable.Range(1, 51).Select(p => new LineaPedidoAw("PRD-" + p, "Vidrio pos " + p, "01010101", "H87", p <= 30 ? 0m : 3m, 100m, 0m, false)).ToArray(),
+    };
+
+    [Fact]
+    public async Task Alta_de_pedido_en_115_con_el_corte_encendido_no_crea_facturable_y_deja_el_motivo_en_la_bandeja()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var wb = new FakeAwWriteBackPort();
+
+        var resp = await Handler(db, wb, Pedido10446260("115"), Cliente(), historico: new HistoricoSapOptions { Habilitado = true })
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta, numero: "10446260")), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        resp.Motivo.Should().StartWith("HISTORICO_SAP");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+        var excepcion = await db.ExcepcionesImportacion.SingleAsync(e => !e.Resuelto);
+        excepcion.Motivo.Should().Be(MotivoExcepcion.HistoricoSap);
+        (await db.IngestaControles.SingleAsync()).Estado.Should().Be(EstadoIngesta.Excepcion);
+    }
+
+    [Fact]
+    public async Task Alta_con_posiciones_en_cero_las_omite_conserva_la_posicion_de_AW_y_deja_aviso()
+    {
+        // Corte apagado (por omisión): el pedido entra, sin tronar por las 30 posiciones en cero.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var wb = new FakeAwWriteBackPort();
+
+        var resp = await Handler(db, wb, Pedido10446260("115"), Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta, numero: "10446260")), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        var pedido = await db.PedidosFacturables.Include(p => p.Lineas).SingleAsync();
+        pedido.Lineas.Should().HaveCount(21);
+        pedido.Lineas.Select(l => l.Posicion).Should().BeEquivalentTo(Enumerable.Range(31, 21));
+        pedido.Lineas.Sum(l => l.Cantidad).Should().Be(63m);
+        var aviso = await db.ExcepcionesImportacion.SingleAsync();
+        aviso.Motivo.Should().Be(MotivoExcepcion.LineasEnCeroOmitidas);
+        aviso.Resuelto.Should().BeTrue();
+        aviso.Detalle.Should().StartWith("Se omitieron 30 posiciones");
+    }
+
+    [Fact]
+    public async Task Alta_con_dato_que_el_dominio_rechaza_va_a_la_bandeja_y_no_se_reintenta()
+    {
+        // 86e40b4mp: antes la excepción salía del handler, no había write-back y la solicitud se releía cada tick.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var wb = new FakeAwWriteBackPort();
+        var datos = Datos() with { Lineas = [new LineaPedidoAw("PRD-1", " ", "01010101", "H87", 2m, 100m, 0m, false)] };
+
+        var resp = await Handler(db, wb, datos, Cliente())
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta)), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        wb.Ultimo!.Resultado.Should().Be(ResultadoSolicitudAw.Rechazada);
+        (await db.ExcepcionesImportacion.SingleAsync()).Detalle.Should().StartWith("PEDIDO_LINEA_DESCRIPCION_VACIA");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+    }
 
     [Fact]
     public async Task Alta_con_cliente_crea_pedido_control_y_snapshot()

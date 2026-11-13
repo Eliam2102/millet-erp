@@ -75,6 +75,7 @@ param glassAgentSpnClientId = '990f1714-c0df-4dd8-aef8-429bc50b2f90'
 // procesa el AwSolicitudesWorker en dev = la empresa seed de Tiglass.
 // NO es secreto (GUID interno). En prod se setea al go-live (M3).
 param awSolicitudesEmpresaId = '00000003-0000-0000-0000-000000000001'
+param awNotasCreditoLecturaHabilitada = true
 
 // SDK FiscalAPI encendido en dev (FAC-DET): TenantKey SANDBOX en el KV dev
 // (secreto operator-managed `fiscalapi-tenant-key`); la ApiKey sk_test y la
@@ -82,3 +83,8 @@ param awSolicitudesEmpresaId = '00000003-0000-0000-0000-000000000001'
 // (ventana Integraciones Fiscal). Prod queda con el default true hasta
 // tener su propio tenant productivo en su propio KV.
 param integracionesFiscalSdkDisabled = false
+
+// M-185: el monitor del cierre del día consulta el estatus SAT real vía
+// FiscalAPI (sandbox en este ambiente). Requiere la consulta habilitada en la
+// cuenta de FiscalAPI; un error se cuenta «con error» y no cambia el estatus.
+param consultaEstatusSatProveedor = 'FiscalApi'

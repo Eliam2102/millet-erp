@@ -48,6 +48,7 @@ public sealed class ConfirmarEntregaHandler(ProductoTerminadoDbContext db, PtAcc
         if (hoja.Estado != EstadoSalida.Emitida) throw new BusinessRuleException("PT_ENTREGA_HOJA_NO_EMITIDA", "La hoja de salida aún no se emite: no hay nada que entregar.");
         var albaran = hoja.Albaranes.FirstOrDefault(a => a.Id == c.AlbaranId) ?? throw new EntityNotFoundException("PT_ALBARAN_NO_ENCONTRADO", "El albarán no es de esta hoja.");
         if (albaran.Piezas.Count == 0) throw new BusinessRuleException("PT_ENTREGA_ALBARAN_VACIO", "El albarán no llevó piezas.");
+        if (albaran.Cancelado) throw new BusinessRuleException("PT_ALBARAN_YA_CANCELADO", "El albarán está cancelado: no hay entrega que confirmar.");
         if (await db.Entregas.AnyAsync(e => e.AlbaranPtId == albaran.Id, cancellationToken))
             throw new BusinessRuleException("PT_ENTREGA_YA_CONFIRMADA", "La entrega de este albarán ya está confirmada.");
 
@@ -74,6 +75,8 @@ public sealed class ConfirmarEntregaHandler(ProductoTerminadoDbContext db, PtAcc
         db.Entregas.Add(entrega);
 
         var pedido = await db.PedidosPt.Include(p => p.Posiciones).FirstAsync(p => p.Id == albaran.PedidoPtId, cancellationToken);
+        if (pedido.Confirmar72(ahora))
+            await eventos.PublishAsync(new PedidoEnRutaEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, hoja.Folio, albaran.Folio, hoja.CartaPorteFolio), cancellationToken);
         var entregadasAntes = await db.Piezas.CountAsync(p => p.PedidoPtId == pedido.Id && p.Estado == EstadoPieza.Entregada, cancellationToken);
         var completo = pedido.Posiciones.Sum(p => p.PiezasEsperadas) is var esperadas && esperadas > 0 && entregadasAntes + entrega.Entregadas >= esperadas;
         var porPosicion = piezas.Where(p => !rechazadas.Contains(p.Etiqueta)).GroupBy(p => p.Posicion).OrderBy(g => g.Key).Select(g => new PosicionEntregada(g.Key, g.Count())).ToList();
@@ -86,6 +89,69 @@ public sealed class ConfirmarEntregaHandler(ProductoTerminadoDbContext db, PtAcc
             if (pedido.FacturadoAt is null && (await pedidosPort.ObtenerPorNumeroAsync(empresaId, pedido.NumeroPedido, cancellationToken))?.Estado == "Facturado") pedido.MarcarFacturado(ahora);
             if (pedido.Cerrar115(ahora)) await eventos.PublishAsync(new PedidoFacturadoEntregadoEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, "115"), cancellationToken);
         }
+        await db.SaveChangesAsync(cancellationToken);
+        var s = await SalidaMapeo.Completa(db).AsNoTracking().FirstAsync(x => x.Id == hoja.Id, cancellationToken);
+        return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresaId, s, true, false, cancellationToken);
+    }
+}
+
+public sealed class CorregirEntregaHandler(ProductoTerminadoDbContext db, PtAcceso acceso, IPedidosPtReadPort pedidosPort, IIntegrationEventPublisher eventos, ICurrentEmpresaContext empresa, IClock clock)
+    : IRequestHandler<CorregirEntregaCommand, HojaSalidaDto>
+{
+    public async Task<HojaSalidaDto> Handle(CorregirEntregaCommand c, CancellationToken cancellationToken)
+    {
+        await acceso.ExigirPermisoAsync(PermisosCanonicos.ProductoTerminadoExcepcionesGestionar, cancellationToken);
+        var hoja = await SalidaMapeo.Completa(db).FirstOrDefaultAsync(x => x.Id == c.HojaId, cancellationToken)
+            ?? throw new EntityNotFoundException("PT_SALIDA_NO_ENCONTRADA", "No existe la hoja de salida.");
+        await acceso.VerificarSucursalAsync(hoja.SucursalId, PermisosCanonicos.ProductoTerminadoExcepcionesGestionarTodasSucursales, cancellationToken);
+        var empresaId = empresa.Current ?? throw new UnauthorizedAccessException();
+        var albaran = hoja.Albaranes.FirstOrDefault(a => a.Id == c.AlbaranId) ?? throw new EntityNotFoundException("PT_ALBARAN_NO_ENCONTRADO", "El albarán no es de esta hoja.");
+        var entrega = await db.Entregas.FirstOrDefaultAsync(e => e.AlbaranPtId == albaran.Id, cancellationToken)
+            ?? throw new BusinessRuleException("PT_ENTREGA_NO_CONFIRMADA", "La entrega de este albarán aún no se confirma: no hay nada que corregir.");
+        if (albaran.Liquidado || await db.Liquidaciones.AnyAsync(l => l.SalidaPtId == hoja.Id && l.Estado == EstadoLiquidacion.Cerrada, cancellationToken))
+            throw new BusinessRuleException("PT_LIQUIDACION_CERRADA", "La liquidación de la ruta ya está cerrada: la entrega ya no se corrige.");
+        var pedido = await db.PedidosPt.Include(p => p.Posiciones).FirstAsync(p => p.Id == albaran.PedidoPtId, cancellationToken);
+        if (pedido.Estado115At is not null)
+            throw new BusinessRuleException("PT_ENTREGA_CON_115", "El pedido ya se informó a A+W en 115 (no se revierte): registre la devolución como caso de daño.");
+
+        var piezaIds = albaran.Piezas.Select(x => x.PiezaId).ToList();
+        var piezas = await db.Piezas.Where(p => piezaIds.Contains(p.Id)).ToListAsync(cancellationToken);
+        var rechazadas = (c.Rechazadas ?? []).Select(e => e.Trim()).Distinct().ToList();
+        var ajenas = rechazadas.Except(piezas.Select(p => p.Etiqueta)).ToList();
+        if (ajenas.Count > 0) throw new BusinessRuleException("PT_ENTREGA_PIEZA_AJENA", $"Piezas que no son de este albarán: {string.Join(", ", ajenas)}");
+        if (entrega.CobroMonto is not null && rechazadas.Count == piezas.Count)
+            throw new BusinessRuleException("PT_ENTREGA_COBRO_SIN_ENTREGA", "La entrega tiene cobro: no puede quedar rechazada por completo.");
+        var cambian = piezas.Where(p => rechazadas.Contains(p.Etiqueta) != (p.Estado == EstadoPieza.EnRevision)).ToList();
+        var cambianIds = cambian.Select(p => p.Id).ToList();
+        if (await db.CasoDanoPiezas.AnyAsync(x => cambianIds.Contains(x.PiezaId), cancellationToken))
+            throw new BusinessRuleException("PT_ENTREGA_PIEZA_EN_CASO", "Alguna pieza ya tiene un caso de daño: el resultado se resuelve en el caso, no en la entrega.");
+
+        var firma = EntregaImagen.Decodificar(c.Firma, false, EntregaPt.MaxFirmaBytes, "firma");
+        var foto = EntregaImagen.Decodificar(c.Foto, true, EntregaPt.MaxFotoBytes, "foto");
+        var ahora = clock.UtcNow;
+        var anterior = entrega.Corregir(piezas.Count - rechazadas.Count, rechazadas.Count, c.MotivoRechazo, c.Receptor, firma, foto, c.MotivoCorreccion, ahora, acceso.Actor.ToString());
+        db.EntregaVersiones.Add(anterior);
+        foreach (var pz in cambian)
+        {
+            var antes = pz.Estado;
+            pz.CorregirEntrega(rechazadas.Contains(pz.Etiqueta));
+            db.Movimientos.Add(MovimientoPieza.Hecho(pz, TipoMovimientoPieza.EntregaCorregida, antes, $"{entrega.Id}/v{entrega.Correcciones + 1}", ahora, acceso.Actor));
+        }
+
+        // El pedido completo se vuelve a evaluar con lo entregado vigente (antes del 115 se puede desmarcar).
+        var otras = await db.Piezas.CountAsync(p => p.PedidoPtId == pedido.Id && p.Estado == EstadoPieza.Entregada && !piezaIds.Contains(p.Id), cancellationToken);
+        var esperadas = pedido.Posiciones.Sum(p => p.PiezasEsperadas);
+        if (esperadas > 0 && otras + entrega.Entregadas >= esperadas)
+        {
+            pedido.MarcarEntregado(ahora);
+            if (pedido.FacturadoAt is null && (await pedidosPort.ObtenerPorNumeroAsync(empresaId, pedido.NumeroPedido, cancellationToken))?.Estado == "Facturado") pedido.MarcarFacturado(ahora);
+            if (pedido.Cerrar115(ahora)) await eventos.PublishAsync(new PedidoFacturadoEntregadoEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, "115"), cancellationToken);
+        }
+        else pedido.DesmarcarEntregado();
+
+        var porPosicion = piezas.Where(p => !rechazadas.Contains(p.Etiqueta)).GroupBy(p => p.Posicion).OrderBy(g => g.Key).Select(g => new PosicionEntregada(g.Key, g.Count())).ToList();
+        await eventos.PublishAsync(new EntregaCorregidaEvent(empresaId, ahora, pedido.Id, pedido.NumeroPedido, albaran.Folio, entrega.Correcciones + 1, porPosicion, entrega.Rechazadas,
+            anterior.MotivoCorreccion), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         var s = await SalidaMapeo.Completa(db).AsNoTracking().FirstAsync(x => x.Id == hoja.Id, cancellationToken);
         return await SalidaMapeo.ADtoAsync(db, pedidosPort, empresaId, s, true, false, cancellationToken);
@@ -106,7 +172,8 @@ public sealed class ObtenerEvidenciaEntregaHandler(ProductoTerminadoDbContext db
     }
 }
 
-public sealed class AplicarFacturaPedidoHandler(ProductoTerminadoDbContext db, IIntegrationEventPublisher eventos, IClock clock) : IRequestHandler<AplicarFacturaPedidoCommand, bool>
+public sealed class AplicarFacturaPedidoHandler(ProductoTerminadoDbContext db, IFacturacionSalidaPort facturacion, IIntegrationEventPublisher eventos, IClock clock)
+    : IRequestHandler<AplicarFacturaPedidoCommand, bool>
 {
     public async Task<bool> Handle(AplicarFacturaPedidoCommand c, CancellationToken cancellationToken)
     {
@@ -114,9 +181,26 @@ public sealed class AplicarFacturaPedidoHandler(ProductoTerminadoDbContext db, I
         if (pedido is null) return false;
         var ahora = clock.UtcNow;
         var cambio = pedido.MarcarFacturado(ahora);
+        var con72 = false;
+        // El 72 viaja solo si la factura dejó sin vuelta atrás un albarán emitido y vigente del pedido (candado de CancelarAlbaranSalida).
+        if (pedido.Estado72At is null && pedido.EnRutaAt is not null)
+        {
+            var emitidos = await (from a in db.Albaranes
+                                  join s in db.Salidas on a.SalidaPtId equals s.Id
+                                  where a.PedidoPtId == pedido.Id && a.CanceladoAt == null && s.Estado == EstadoSalida.Emitida
+                                  orderby a.EmitidoAt
+                                  select new { a.Folio, Hoja = s.Folio, s.CartaPorteFolio }).ToListAsync(cancellationToken);
+            var facturados = emitidos.Count == 0
+                ? new Dictionary<string, FacturaAlbaranRuta>()
+                : await facturacion.FacturasDeAlbaranesAsync(emitidos.Select(a => a.Folio).ToList(), cancellationToken);
+            var bloqueado = emitidos.FirstOrDefault(a => facturados.ContainsKey(a.Folio));
+            con72 = bloqueado is not null && pedido.Confirmar72(ahora);
+            if (con72)
+                await eventos.PublishAsync(new PedidoEnRutaEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido, bloqueado!.Hoja, bloqueado.Folio, bloqueado.CartaPorteFolio), cancellationToken);
+        }
         var cerro = pedido.Cerrar115(ahora);
         if (cerro) await eventos.PublishAsync(new PedidoFacturadoEntregadoEvent(pedido.EmpresaId, ahora, pedido.Id, pedido.NumeroPedido, "115"), cancellationToken);
-        if (cambio || cerro) await db.SaveChangesAsync(cancellationToken);
+        if (cambio || con72 || cerro) await db.SaveChangesAsync(cancellationToken);
         return cerro;
     }
 }
