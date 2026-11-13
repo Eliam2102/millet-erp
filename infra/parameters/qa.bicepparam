@@ -15,7 +15,8 @@
 // infra/modules/keyvault-secrets.bicep: aw-integracion-connection-string,
 // aw-clientes-connection-string, aw-productos-connection-string,
 // aw-cambios-connection-string, almacenes-app-connection-string, aw-sql-connection-string,
-// aw-sql-server-certificate (PEM público de SER-DATA).
+// aw-sql-server-certificate (PEM público de SER-DATA),
+// mail-entra-facturas-client-secret (buzón facturas@millet.com.mx; vence ~9-feb-2027).
 // Todas las connection strings: Server=aw-sql-onprem,1433;...;Encrypt=True;TrustServerCertificate=False
 //
 // BOOTSTRAP: igual que dev (ver dev.bicepparam y infra/README.md).
@@ -108,7 +109,16 @@ param appSettingsExtra = {
   CuentasPorPagar__AvisosRevision__Compras__0: 'compras@millet.com.mx'
   CuentasPorPagar__AvisosRevision__ContadorGeneral__0: 'contadorgeneral@millet.com.mx'
   CuentasPorPagar__AvisosRevision__Proveedor: 'Graph'
+  CuentasPorPagar__Mailbox__ClientId: '298417fb-31e9-4489-b8b8-364f74f1baea'
+  CuentasPorPagar__Mailbox__ClientSecret: '@Microsoft.KeyVault(VaultName=kv-millet-qa-mxc-01;SecretName=mail-entra-facturas-client-secret)'
+  CuentasPorPagar__Mailbox__FailedFolderName: 'Con error'
+  CuentasPorPagar__Mailbox__MailboxUpn: 'facturas@millet.com.mx'
+  CuentasPorPagar__Mailbox__ProcessedFolderName: 'Procesadas'
+  CuentasPorPagar__Mailbox__TenantId: '@Microsoft.KeyVault(VaultName=kv-millet-qa-mxc-01;SecretName=auth-entra-tenant-id)'
   CuentasPorPagar__PortalProveedores__Proveedor: 'Graph'
+  // RFC receptor del CFDI del proveedor → empresa. MIN120224147 es el RFC vigente en qa
+  // (el mismo de Auth__ServicePrincipalsJson). `empresaInicialRfc` quedó solo como bootstrap.
+  CuentasPorPagar__Workers__RfcsReceptores__MIN120224147: '00000003-0000-0000-0000-000000000001'
   Facturacion__Avisos__Contingencias__Fiscal__0: 'mcolin@millet.com.mx'
   Facturacion__Workers__AwSolicitudes__Disabled: 'true'
   Integraciones__AlmCompra__Habilitado: 'true'
