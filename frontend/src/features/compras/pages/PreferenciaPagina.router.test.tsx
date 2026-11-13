@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createBrowserHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router';
 import { http, HttpResponse } from 'msw';
@@ -41,7 +41,7 @@ beforeEach(() => {
     return HttpResponse.json({ items: Array.from({ length: Math.min(pageSize, 43 - (page-1)*pageSize) }, (_, i) => ({ id: `oc-${i}`, folio: `OC-MUESTRA-${i}`, folioAnio: 2026, estado: 0, subEstadoRecepcion: 0, subEstadoFacturacion: 0, subEstadoPago: 0, proveedorId: 'p', compradorTitularId: 'u', moneda: 'MXN', fechaDocumento: '2026-11-13', referenciaProveedor: null })), page, pageSize, totalCount: 43 });
   }));
 });
-afterEach(() => { cleanup(); cerrar?.(); localStorage.clear(); window.history.replaceState({}, '', '/'); useAuthStore.setState({ user: null, status: 'idle', accessToken: null, permisos: [] }); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); cerrar?.(); localStorage.clear(); window.history.replaceState({}, '', '/'); useAuthStore.setState({ user: null, status: 'idle', accessToken: null, permisos: [] }); });
 async function iniciar() {
   const history = createBrowserHistory(); cerrar = () => history.destroy();
   const router = createRouter({ routeTree: tree, history, defaultPreload: false, defaultPendingMinMs: 0 });
@@ -73,4 +73,23 @@ it('recuerda20 en RQ y OC al navegar por SPA sin cantidad y conserva el enlace e
   await act(async () => { await router.navigate({ to: '/compras/requisiciones', search: { offset: 10, limit: 10 } }); });
   await screen.findByText('11–20 de 43');
   expect(peticiones.at(-1)).toMatchObject({ tipo: 'rq', cantidad: 10, posicion: 10 });
+});
+
+it.each(['requisiciones', 'ordenes'] as const)('activa Automático con una sola elección desde20 guardado sin cantidad URL en %s', async (ruta) => {
+  window.history.replaceState({}, '', `/compras/${ruta}`);
+  localStorage.setItem(`millet:tabla:v1:router-real:/compras/${ruta}:principal`, '20');
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
+    return this.hasAttribute('data-table-viewport') ? 260 : 0;
+  });
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const height = this.tagName === 'THEAD' ? 36 : this.tagName === 'TR' ? 44 : 0;
+    return { top: 0, left: 0, right: 0, bottom: height, width: 0, height, x: 0, y: 0, toJSON: () => ({}) };
+  });
+  await iniciar();
+  await screen.findByText('1–20 de 43');
+  expect(new URLSearchParams(window.location.search).has(ruta === 'ordenes' ? 'pageSize' : 'limit')).toBe(false);
+  fireEvent.change(screen.getByLabelText('Filas por página'), { target: { value: 'auto' } });
+  await waitFor(() => expect(screen.getByLabelText('Filas por página')).toHaveValue('auto'));
+  await screen.findByText('1–5 de 43');
+  expect(localStorage.getItem(`millet:tabla:v1:router-real:/compras/${ruta}:principal`)).toBe('auto');
 });

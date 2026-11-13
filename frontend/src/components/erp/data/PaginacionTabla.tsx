@@ -108,7 +108,8 @@ export function PaginacionTabla({
               onChange={(e) => {
                 setEnlace(prev => ({ ...prev, respetarUrl: false }));
                 const valor = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
-                onChange(0, valor === 'auto' ? preferencia.limit : valor);
+                if (valor !== 'auto' || cantidadUrl !== null)
+                  onChange(0, valor === 'auto' ? preferencia.limit : valor);
                 preferencia.elegir(valor);
               }}
             >
