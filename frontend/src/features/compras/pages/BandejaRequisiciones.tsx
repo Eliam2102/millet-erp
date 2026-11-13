@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { EstadoRequisicion, estadoToString } from '@/features/compras/api/types';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -58,7 +59,14 @@ const BANDEJA_FROM = '/_app/compras/requisiciones/' as const;
  * Etiqueta de dato faltante si el backend no resolvió el nombre.</para>
  */
 export function BandejaRequisiciones() {
-  const search = useSearch({ from: BANDEJA_FROM });
+  const ruta = useSearch({ from: BANDEJA_FROM });
+  const tamano = useTamanoPagina();
+  const search = {
+    ...ruta,
+    limit: new URLSearchParams(window.location.search).has('limit')
+      ? ruta.limit
+      : tamano.limit,
+  };
   const nuevaRequisicion = useNuevaRequisicion();
   // useNavigate sin `from`: con `from` el typing pide ParamsReducerFn
   // (function form), confuso para escribir. Usando `to` explícito en

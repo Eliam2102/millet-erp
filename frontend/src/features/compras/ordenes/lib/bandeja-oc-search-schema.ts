@@ -84,8 +84,8 @@ export const BandejaOcSearchSchema = z.object({
   q: z.string().min(1).optional(),
   /** Default backend = 1. */
   page: z.coerce.number().int().min(1).optional().default(1),
-  /** Default UI = 10 (backend 50). Mín 10, máx 200. */
-  pageSize: z.coerce.number().int().min(10).max(200).optional().default(10),
+  /** Default UI = 10 (backend 50). Mín 1, máx 200. */
+  pageSize: z.coerce.number().int().min(1).max(200).optional().default(10),
 });
 
 export type BandejaOcSearch = z.infer<typeof BandejaOcSearchSchema>;
