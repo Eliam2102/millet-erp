@@ -3,8 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { ActivoDetallePage } from './ActivoDetallePage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
+import { ApiError } from '@/lib/api';
 const state = vi.hoisted(() => ({
   mutate: vi.fn(),
+  error: null as Error | null,
   activo: {
     id: 'a',
     ordenCompraId: 'oc-origen',
@@ -57,7 +59,7 @@ vi.mock('../api/hooks', () => ({
   useActivo: () => ({ data: { data: state.activo } }),
   useActivos: () => ({ data: { items: [] } }),
   useClasesActivo: () => ({ data: [] }),
-  useGuardarActivo: () => ({ mutate: state.mutate, isPending: false }),
+  useGuardarActivo: () => ({ mutate: state.mutate, isPending: false, error: state.error }),
 }));
 vi.mock('../api/libro', () => ({ useLibroQuery: () => ({ data: { operaciones: [] } }) }));
 vi.mock('../components/HistorialActivo', () => ({ HistorialActivo: () => null }));
@@ -89,7 +91,28 @@ vi.mock('../components/ActivoForm', () => ({
 }));
 beforeEach(() => {
   state.mutate.mockClear();
+  state.error = null;
+  state.activo.estado = 1;
   useAuthStore.setState({ permisos: [P.ActivosFijosActivosVer, P.ActivosFijosTrasladosGestionar] });
+});
+it('muestra la causa y la acción de una capitalización rechazada sin nombres internos de campos', () => {
+  const motivo = 'Partida 1: La ubicación 101 del centro ADCON01 no está ligada a ninguna sucursal; pida a Contabilidad que la configure.';
+  state.activo.estado = 0;
+  state.error = new ApiError({
+    type: 'about:blank', status: 400, title: 'Errores de validación', code: 'VALIDATION_ERROR',
+    detail: `Errores de validación: partidas[0].dim3Id: ${motivo}`,
+    errores: [{ campo: 'partidas[0].dim3Id', codigo: 'CONTAB_DIM_UBICACION_SIN_SUCURSAL', mensaje: motivo }],
+  }, 400);
+  render(<ActivoDetallePage />);
+  expect(screen.getByRole('alert')).toHaveTextContent(motivo);
+  expect(screen.getByRole('alert')).not.toHaveTextContent('dim3Id');
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+it('conserva un mensaje de soporte y no expone el detalle interno de un fallo del servidor', () => {
+  state.error = new ApiError({ type: 'about:blank', status: 500, title: 'Error del servidor', detail: 'SQL exception: dato interno' }, 500);
+  render(<ActivoDetallePage />);
+  expect(screen.getByRole('alert')).not.toHaveTextContent('dato interno');
+  expect(screen.getByRole('alert')).toHaveTextContent('avisa a soporte');
 });
 async function historial() {
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'Traslados' }), {

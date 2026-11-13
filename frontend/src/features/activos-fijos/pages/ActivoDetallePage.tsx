@@ -24,6 +24,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { esApiError } from '@/lib/api';
+import { errorUsuario } from '@/lib/error-usuario';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useActivo, useActivos, useGuardarActivo, useClasesActivo } from '../api/hooks';
 import { ActivoForm, CustodiaFields } from '../components/ActivoForm';
@@ -44,6 +46,10 @@ export function ActivoDetallePage() {
   const trasladar = useHasPermission(P.ActivosFijosTrasladosGestionar);
   const permisos = useAuthStore((s) => s.permisos);
   const a = query.data?.data;
+  const erroresValidacion = esApiError(guardar.error) && guardar.error.status === 400
+    ? guardar.error.problem.errores?.map((e) => e.mensaje).filter(Boolean).join(' ')
+    : undefined;
+  const mensajeError = erroresValidacion || errorUsuario(guardar.error);
   if (!a)
     return (
       <p role={query.error ? 'alert' : undefined}>{query.error?.message ?? 'Cargando activo…'}</p>
@@ -111,7 +117,7 @@ export function ActivoDetallePage() {
         <h2 className="text-lg font-semibold">{a.descripcion}</h2>
         {guardar.error && (
           <p role="alert" className="text-danger-fg">
-            {guardar.error.message}
+            {mensajeError}
           </p>
         )}
         <ReversaActivo activo={a} />
@@ -397,7 +403,7 @@ export function ActivoDetallePage() {
                         </fieldset>
                         {guardar.error && (
                           <p role="alert" className="text-danger-fg">
-                            {guardar.error.message}
+                            {mensajeError}
                           </p>
                         )}
                       </SheetBody>
