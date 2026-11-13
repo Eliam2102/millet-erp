@@ -11,6 +11,8 @@ export interface SucursalSelectorProps {
   onChange: (id: string | null) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Si se indica, solo ofrece estas sucursales (p. ej. el alcance de una caja). */
+  permitidas?: readonly string[] | null;
   className?: string;
   /** Props extra del trigger (id y aria-* que entrega `Field`). */
   triggerProps?: ComponentProps<'button'>;
@@ -21,11 +23,13 @@ export function SucursalSelector({
   onChange,
   placeholder = 'Selecciona sucursal',
   disabled,
+  permitidas,
   className,
   triggerProps,
 }: SucursalSelectorProps) {
   const query = useSucursales();
-  const items = query.data?.items ?? [];
+  const todas = query.data?.items ?? [];
+  const items = permitidas ? todas.filter((s) => permitidas.includes(s.id)) : todas;
 
   return (
     <CatalogoEagerCombobox

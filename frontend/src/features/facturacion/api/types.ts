@@ -1871,6 +1871,8 @@ export interface CajaListadoItem {
   sucursales: number;
   canales: number;
   usuarios: number;
+  /** Sucursales donde opera la caja (alcance); limita la «sucursal de operación». */
+  sucursalIds?: string[];
 }
 
 export interface CajaSucursalItem {
