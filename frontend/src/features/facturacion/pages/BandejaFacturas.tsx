@@ -34,6 +34,10 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { estadoUi } from '../lib/estados-ui';
 import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
+import {
+  polizaPrincipal,
+  usePolizasPorDocumentos,
+} from '@/features/contabilidad/api/polizas-por-documento';
 
 const FROM = '/_app/facturacion/facturas/' as const;
 
@@ -66,6 +70,12 @@ export function BandejaFacturas() {
   }
 
   const items = query.data?.items ?? [];
+  // P19: póliza de cada factura de la página, en una sola llamada; sin permiso de pólizas no hay columna.
+  const polizas = usePolizasPorDocumentos(
+    'facturacion',
+    'comprobante',
+    items.map((f) => f.id),
+  );
   return (
     <div className="space-y-5">
       <PageHeader
@@ -191,6 +201,7 @@ export function BandejaFacturas() {
                   <TableHead className="px-3 py-2 text-left">UUID</TableHead>
                   <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
                   <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+                  {polizas.puedeLeer && <TableHead className="px-3 py-2 text-left">Póliza</TableHead>}
                   <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
                 </TableRow>
               </TableHeader>
@@ -219,6 +230,14 @@ export function BandejaFacturas() {
                         </Badge>
                       )}
                     </TableCell>
+                    {polizas.puedeLeer && (
+                      <TableCell className="px-3 py-2">
+                        <CeldaPoliza
+                          poliza={polizaPrincipal(polizas.porDocumento[f.id])}
+                          cargando={polizas.isLoading}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="px-3 py-2 text-right tabular-nums">
                       <Link
                         to="/facturacion/facturas/$id"
@@ -236,6 +255,26 @@ export function BandejaFacturas() {
         )}
       </ListadoModulo>
     </div>
+  );
+}
+
+function CeldaPoliza({
+  poliza,
+  cargando,
+}: {
+  poliza: ReturnType<typeof polizaPrincipal>;
+  cargando: boolean;
+}) {
+  if (cargando) return <span className="text-xs text-ink-muted">…</span>;
+  if (!poliza) return <span className="text-xs text-ink-muted">—</span>;
+  return (
+    <Link
+      to="/contabilidad/polizas/$id"
+      params={{ id: poliza.id }}
+      className="font-mono text-xs text-brand hover:underline"
+    >
+      {poliza.folio ?? 'Borrador'}
+    </Link>
   );
 }
 

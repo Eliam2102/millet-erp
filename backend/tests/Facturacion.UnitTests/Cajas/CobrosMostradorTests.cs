@@ -307,6 +307,38 @@ public sealed class CobrosMostradorTests
     }
 
     [Fact]
+    public async Task Cobrables_omite_facturas_de_anticipo_ya_vinculadas_o_amortizadas()
+    {
+        // H-U51: el anticipo PUE nace cobrado al timbrar; si ya se vinculó o amortizó a una factura de venta,
+        // su factura de anticipo no debe aparecer «por cobrar» en la caja. Una sin aplicar sigue en la cola.
+        using var db = NewDb();
+        FacturaAnticipo Fant(string folio, out Anticipo anticipo)
+        {
+            var anticipoId = Guid.NewGuid();
+            var f = FacturaAnticipo.CrearBorrador(Empresa, folio, 1, SucursalId, null, null,
+                Receptor(), Emisor(), "01", "MXN", null, 2026, 7, TipoAnticipo.ClientesMxp,
+                null, anticipoId, 1000m, 0.16m, canalVentaId: 1);
+            f.MarcarTimbradoEnProceso();
+            f.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
+            anticipo = Anticipo.Crear(Empresa, Guid.NewGuid(), Receptor().Rfc, TipoAnticipo.ClientesMxp,
+                "MXN", f.Total, f.Id, id: anticipoId);
+            return f;
+        }
+        var libre = Fant("A-LIBRE", out var anticipoLibre);
+        var vinculada = Fant("A-VINC", out var anticipoVinculado);
+        anticipoVinculado.Vincular(Guid.NewGuid(), 500m, Ahora);
+        db.FacturasAnticipo.AddRange(libre, vinculada);
+        db.Anticipos.AddRange(anticipoLibre, anticipoVinculado);
+        await db.SaveChangesAsync();
+
+        var items = await new ListarComprobantesCobrablesHandler(db, new FakeAlcanceCajaEvaluator())
+            .Handle(new ListarComprobantesCobrablesQuery(), CancellationToken.None);
+
+        items.Should().Contain(i => i.ComprobanteId == libre.Id);
+        items.Should().NotContain(i => i.ComprobanteId == vinculada.Id);
+    }
+
+    [Fact]
     public async Task Cobrables_desglosa_la_ranura_del_resto_de_NC()
     {
         // RANURA-PR3: una factura con NC de ranura (motivo Ranura) + NC de

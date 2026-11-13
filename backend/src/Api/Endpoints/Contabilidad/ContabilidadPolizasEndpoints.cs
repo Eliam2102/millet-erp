@@ -52,6 +52,15 @@ public static class ContabilidadPolizasEndpoints
         .Produces<PagedResponse<PolizaPorDocumentoResponse>>().ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        // P19: columna «Póliza» de las bandejas (lote de documentos; repite ?documentoIds= por cada uno).
+        g.MapGet("/por-documentos", async (
+            [FromQuery] string modulo, [FromQuery] string tipo, [FromQuery] Guid[] documentoIds, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new PolizasPorDocumentosQuery(modulo, tipo, documentoIds), ct)))
+        .RequireAuthorization(leer).WithName("ListarPolizasPorDocumentos")
+        .WithSummary("Pólizas de varios documentos (máx. 100) por módulo, tipo e identidad exactos")
+        .Produces<IReadOnlyList<PolizasDeDocumentoResponse>>().ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         g.MapGet("/saldos", async ([FromQuery] int anio, [FromQuery] int numero, [FromQuery] Guid? cuentaId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new SaldosPeriodoQuery(anio, numero, cuentaId), ct)))
         .RequireAuthorization(leer).WithName("SaldosPeriodoPolizas")

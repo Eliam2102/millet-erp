@@ -1465,6 +1465,9 @@ export interface ComprobanteDetalleResponse {
   uuid: string | null;
   receptorRfc: string;
   clienteClave?: string | null;
+  /** P19/P23: quién capturó el comprobante y cuándo. */
+  creadoPor?: string | null;
+  creadoEn?: string | null;
   receptorNombre: string;
   moneda: string;
   subtotal: number;

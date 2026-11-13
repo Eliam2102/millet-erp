@@ -69,7 +69,9 @@ public sealed record ComprobanteDetalleResponse(
     // M-216: por qué sigue retenida en PendientePedimento (falta expediente o pedimento).
     string? MotivoPedimento = null,
     // M-340: versión de la proforma aprobada de la que viene la factura (el folio PF va en Proforma).
-    Guid? ProformaPedidoId = null, string? ClienteClave = null);
+    Guid? ProformaPedidoId = null, string? ClienteClave = null,
+    // P19/P23: quién capturó el comprobante y cuándo (metadatos de creación).
+    string? CreadoPor = null, DateTimeOffset? CreadoEn = null);
 
 /// <summary>U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC.</summary>
 public sealed record NotaCreditoPendienteDetalle(
@@ -286,6 +288,7 @@ public sealed class ComprobanteDetalleHandler
             ClienteId: clienteId, ClienteClave: cliente?.Clave,
             SustituidaPor: sustituidaPor, SustituyeA: sustituyeA, SustitucionRechazadaMotivo: sustitucionRechazada,
             NotasCreditoPendientes: ncPendientes,
+            CreadoPor: f.CreatedBy, CreadoEn: f.CreatedAt,
             MotivoPedimento: await PedimentoDesdeExpediente.MotivoAsync(_db, _embarques, f, cancellationToken));
     }
 
