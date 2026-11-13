@@ -96,6 +96,23 @@ public static class ComprobantesEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // H-U31: el SAT respondió 205 (aún no refleja el CFDI): se reenvía la MISMA solicitud, sin crear otra.
+        group.MapPost("/{id:guid}/cancelar/reintentar", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new ReintentarCancelacionCommand(id), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCancelacionesAutorizar)
+        .WithName("ReintentarCancelacion")
+        .WithSummary("Reenvía al PAC una cancelación pendiente de reintento porque el SAT aún no reflejaba el CFDI (205)")
+        .Produces<SolicitarCancelacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // F6.5: el Contador General no autoriza la cancelación (con motivo); el comprobante sigue vigente.
         group.MapPost("/{id:guid}/cancelar/rechazar", async (
             Guid id,

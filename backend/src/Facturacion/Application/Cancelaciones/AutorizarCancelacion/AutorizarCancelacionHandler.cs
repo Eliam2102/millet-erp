@@ -8,6 +8,7 @@ using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Microsoft.Extensions.Options;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -23,10 +24,39 @@ namespace Millet.Facturacion.Application.Cancelaciones.AutorizarCancelacion;
 /// <param name="Huella">M-235: huella de la solicitud que vio quien autoriza; si cambió, se bloquea.</param>
 public sealed record AutorizarCancelacionCommand(Guid ComprobanteId, string? Huella = null) : IRequest<SolicitarCancelacionResponse>;
 
+/// <summary>
+/// H-U31: reenvía al PAC la MISMA solicitud que quedó pendiente porque el SAT aún no reflejaba el CFDI (205). No crea otra
+/// solicitud ni otro folio; si el SAT ya lo refleja y acepta, el comprobante queda Cancelado como siempre.
+/// </summary>
+public sealed record ReintentarCancelacionCommand(Guid ComprobanteId) : IRequest<SolicitarCancelacionResponse>;
+
 public sealed class AutorizarCancelacionHandler(
-    FacturacionDbContext db, ICfdiTimbradoPort fiscal, IIntegrationEventPublisher eventos, ICurrentUserContext user, IClock clock)
-    : IRequestHandler<AutorizarCancelacionCommand, SolicitarCancelacionResponse>
+    FacturacionDbContext db, ICfdiTimbradoPort fiscal, IIntegrationEventPublisher eventos, ICurrentUserContext user, IClock clock,
+    IOptions<CancelacionSatOpciones>? opcionesSat = null)
+    : IRequestHandler<AutorizarCancelacionCommand, SolicitarCancelacionResponse>,
+      IRequestHandler<ReintentarCancelacionCommand, SolicitarCancelacionResponse>
 {
+    public async Task<SolicitarCancelacionResponse> Handle(
+        ReintentarCancelacionCommand command, CancellationToken cancellationToken)
+    {
+        if (user.UserId is null)
+            throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se identificó al usuario que reintenta.");
+
+        var solicitud = await db.SolicitudesCancelacion
+            .Where(s => s.ComprobanteId == command.ComprobanteId && s.Estado == Domain.Cancelaciones.EstadoSolicitudCancelacion.Solicitada)
+            .OrderByDescending(s => s.SolicitadaEn)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (solicitud is null || !solicitud.PendienteReintentoSat(CancelacionSat205.PrefijoAviso))
+            throw new BusinessRuleException("CANCELACION_SIN_REINTENTO",
+                "El comprobante no tiene una cancelación pendiente de reintento ante el SAT.");
+
+        var comprobante = await CadenaCancelacion.CargarCancelableAsync(db, command.ComprobanteId, cancellationToken);
+        solicitud.LimpiarAvisoReintento();
+        await EnviarAlPacAsync(comprobante, solicitud, clock.UtcNow, esReintento: true, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return SolicitarCancelacionResponse.De(comprobante, solicitud);
+    }
+
     public async Task<SolicitarCancelacionResponse> Handle(
         AutorizarCancelacionCommand command, CancellationToken cancellationToken)
     {
@@ -54,6 +84,15 @@ public sealed class AutorizarCancelacionHandler(
             return SolicitarCancelacionResponse.De(comprobante, solicitud);
         }
 
+        await EnviarAlPacAsync(comprobante, solicitud, ahora, esReintento: false, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return SolicitarCancelacionResponse.De(comprobante, solicitud);
+    }
+
+    private async Task EnviarAlPacAsync(
+        Comprobante comprobante, Domain.Cancelaciones.SolicitudCancelacion solicitud, DateTimeOffset ahora, bool esReintento,
+        CancellationToken cancellationToken)
+    {
         var resultado = await fiscal.CancelarAsync(
             new CancelacionSolicitud(comprobante.EmpresaId, comprobante.Uuid ?? string.Empty, comprobante.RfcEmisor, solicitud.MotivoSat, solicitud.UuidSustituto),
             cancellationToken);
@@ -77,15 +116,19 @@ public sealed class AutorizarCancelacionHandler(
                 solicitud.MarcarEnProceso(resultado.EstatusSat);
                 break;
 
+            // H-U31: el SAT aún no refleja el CFDI (205): la factura sigue vigente y la misma solicitud queda pendiente de reintento.
+            case CancelacionEstado.Rechazada or CancelacionEstado.Error when CancelacionSat205.EsNoReflejadoAun(resultado):
+                comprobante.RevertirCancelacion();
+                solicitud.MarcarPendienteReintentoSat(CancelacionSat205.Aviso(CancelacionSat205.ReintentoSugerido(
+                    comprobante.FechaTimbrado, ahora, (opcionesSat?.Value ?? new CancelacionSatOpciones()).Intervalo, esReintento)));
+                break;
+
             case CancelacionEstado.Rechazada:
             case CancelacionEstado.Error:
                 comprobante.RevertirCancelacion();
                 solicitud.MarcarRechazada(resultado.ErrorMensaje ?? resultado.EstatusSat, ahora);
                 break;
         }
-
-        await db.SaveChangesAsync(cancellationToken);
-        return SolicitarCancelacionResponse.De(comprobante, solicitud);
     }
 
     private async Task<PedidoFacturable?> PedidoDeAsync(Comprobante c, CancellationToken ct) =>

@@ -1778,6 +1778,8 @@ export interface SolicitarCancelacionResponse {
   primeraFirmaPor?: string | null;
   /** M-235: versión de la solicitud que se autoriza (motivo, sustituto, importe). */
   huella?: string | null;
+  /** H-U31: el SAT aún no refleja el CFDI (205); la misma solicitud espera un reintento. */
+  pendienteReintentoSat?: boolean;
 }
 
 /** Estatus de la cancelación de un comprobante (GET /comprobantes/{id}/cancelar). */
@@ -1798,6 +1800,8 @@ export interface ConsultarCancelacionResponse {
   decididaEn?: string | null;
   /** Motivo por el que el Contador General no autorizó la cancelación. */
   motivoRechazo?: string | null;
+  /** H-U31: el SAT aún no refleja el CFDI (205); se puede reintentar. */
+  pendienteReintentoSat?: boolean;
 }
 
 /**

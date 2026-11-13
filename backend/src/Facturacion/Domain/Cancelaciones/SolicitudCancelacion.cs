@@ -248,6 +248,25 @@ public sealed class SolicitudCancelacion : BaseEntity, IPerteneceAEmpresa, IAudi
         EstatusSat = estatusSat;
     }
 
+    /// <summary>
+    /// H-U31: el SAT aún no refleja el CFDI (205). La solicitud sigue <c>Solicitada</c> (misma solicitud, sin otra ni otro
+    /// folio) con el aviso de cuándo reintentar; el reintento la envía de nuevo al PAC.
+    /// </summary>
+    public void MarcarPendienteReintentoSat(string aviso)
+    {
+        if (Estado != EstadoSolicitudCancelacion.Solicitada)
+            throw new BusinessRuleException("CANCELACION_TRANSICION_INVALIDA", $"No se puede dejar pendiente de reintento desde {Estado}.");
+        MensajeError = aviso;
+    }
+
+    /// <summary>H-U31: solicitada y en espera de que el SAT refleje el CFDI.</summary>
+    public bool PendienteReintentoSat(string prefijoAviso) =>
+        Estado == EstadoSolicitudCancelacion.Solicitada
+        && MensajeError is not null && MensajeError.StartsWith(prefijoAviso, StringComparison.Ordinal);
+
+    /// <summary>H-U31: al reenviar, el aviso anterior deja de aplicar.</summary>
+    public void LimpiarAvisoReintento() => MensajeError = null;
+
     /// <summary>{Solicitada|EnProceso} → Aceptada: el SAT aceptó la cancelación.</summary>
     public void MarcarAceptada(string? estatusSat, DateTimeOffset ahora)
     {

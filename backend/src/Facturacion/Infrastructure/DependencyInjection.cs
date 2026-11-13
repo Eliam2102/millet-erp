@@ -44,6 +44,10 @@ public static class DependencyInjection
         services.Configure<Millet.Facturacion.Application.Proformas.ProformaOpciones>(
             configuration.GetSection(Millet.Facturacion.Application.Proformas.ProformaOpciones.Seccion));
 
+        // H-U31: reintento sugerido cuando el SAT aún no refleja el CFDI (205); 60 min por omisión.
+        services.Configure<Millet.Facturacion.Application.Cancelaciones.CancelacionSatOpciones>(
+            configuration.GetSection(Millet.Facturacion.Application.Cancelaciones.CancelacionSatOpciones.Seccion));
+
         // --- Catálogos SAT: adapter REAL sobre Compartido (no stub) ---
         // Scoped porque consume CompartidoDbContext (scoped).
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
