@@ -88,6 +88,8 @@ function makeOrdenResumen(overrides: Partial<Record<string, unknown>> = {}) {
 
 beforeEach(() => {
   setupCatalogos();
+  window.history.replaceState({}, "", "/compras/ordenes?pageSize=50");
+  localStorage.clear();
   useAuthStore.setState({
     status: 'authenticated',
     accessToken: 'test-token',
@@ -101,6 +103,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  window.history.replaceState({}, "", "/");
+  localStorage.clear();
   useAuthStore.setState({
     status: 'idle',
     accessToken: null,
@@ -114,6 +118,34 @@ afterEach(() => {
 });
 
 describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
+  it('restaura 20 filas al volver sin cantidad en URL aunque el schema entregue default 10', async () => {
+    window.history.replaceState({}, '', '/compras/ordenes');
+    localStorage.setItem('millet:tabla:v1:u-test:/compras/ordenes:principal', '20');
+    mockSearch = { page: 1, pageSize: 10 };
+    let recibido: URL | undefined;
+    mswServer.use(http.get('*/api/v1/compras/ordenes', ({ request }) => {
+      recibido = new URL(request.url);
+      return HttpResponse.json({ items: [], page: 1, pageSize: 20, totalCount: 0 });
+    }));
+    renderConProvider(<BandejaOrdenesCompra />);
+    await waitFor(() => expect(recibido?.searchParams.get('pageSize')).toBe('20'));
+    expect(screen.getByLabelText('Filas por página')).toHaveValue('20');
+  });
+
+  it('una cantidad explícita en el enlace prevalece sobre las 20 filas guardadas', async () => {
+    window.history.replaceState({}, '', '/compras/ordenes?page=2&pageSize=10');
+    localStorage.setItem('millet:tabla:v1:u-test:/compras/ordenes:principal', '20');
+    mockSearch = { page: 2, pageSize: 10 };
+    let recibido: URL | undefined;
+    mswServer.use(http.get('*/api/v1/compras/ordenes', ({ request }) => {
+      recibido = new URL(request.url);
+      return HttpResponse.json({ items: [], page: 2, pageSize: 10, totalCount: 0 });
+    }));
+    renderConProvider(<BandejaOrdenesCompra />);
+    await waitFor(() => expect(recibido?.searchParams.get('pageSize')).toBe('10'));
+    expect(recibido?.searchParams.get('page')).toBe('2');
+  });
+
   it('búsqueda: manda q al servidor y no descarta las filas que devuelve', async () => {
     mockSearch = { page: 1, pageSize: 50, q: '000042' };
     let recibido: URL | null = null;

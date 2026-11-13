@@ -12,7 +12,7 @@ import { BandejaPendientesOc } from '@/features/compras/ordenes/pages/BandejaPen
  */
 const PendientesOcSearchSchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(10).max(200).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 export const Route = createFileRoute(

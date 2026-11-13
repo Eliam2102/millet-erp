@@ -66,3 +66,12 @@ Puede ir al principio/final y a una página concreta, conocer rango y total, y u
 - Cantidades máximas siguen el contrato de cada consulta; no se añade opción ilimitada.
 - Móvil permite scroll interno para columnas que no caben legiblemente; no se reduce todo a texto diminuto.
 - Implementación local autorizada. Este pedido no concede un nuevo pase QA ni despliegue durante ventanas ajenas.
+
+
+## Ampliación de validación QA · 13-nov-2026
+Fuente: prueba del lote PR736 publicado en QA y solicitud de Eliam de evitar peticiones desproporcionadas en Expedientes. La autorización posterior de integrar/publicar todo develop supera la restricción de implementación sólo local, conservada arriba como corte inicial. Correcciones de preferencia y estabilidad automática pertenecen al mismo alcance; no añaden reglas de negocio.
+
+- **FR-008**: La medición automática debe ignorar placeholders de carga y estados sin filas reales. El paso carga→datos no debe alternar repetidamente la cantidad ni cancelar/reabrir consultas.
+- **SC-006**: Con viewport/filtros/datos estables, una primera consulta y, si hace falta, un único ajuste de cantidad son suficientes; después de la respuesta no aparecen nuevas consultas sin interacción o actualización legítima de datos. Cero bucles de abortos.
+- **US1/AC4**: Una cantidad guardada prevalece sobre el default del schema al volver sin cantidad en el enlace; un enlace nuevo explícito conserva cantidad y página también por navegación SPA sin desmontar.
+- **US2/AC4**: Un ensayo de Expedientes con loading/filas reales de alturas distintas reproduce el problema antes de corregirlo y demuestra consultas acotadas después. Repetir en QA sin inducir ráfagas, conservando captura y cantidades manuales.
