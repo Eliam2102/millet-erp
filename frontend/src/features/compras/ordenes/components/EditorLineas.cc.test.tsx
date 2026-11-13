@@ -94,6 +94,17 @@ afterEach(() => {
 });
 
 describe('<EditorLineas> (OC) — columna CC-Máquina (Fase E PR3)', () => {
+  it('distingue el activo fijo del consumible y del legado sin permisos de edición', () => {
+    render(<EditorLineas oc={makeOc([
+      makeLinea({ id: 'af', articuloClave: 'AF-TEST', esActivoFijo: true }),
+      makeLinea({ id: 'consumible', articuloClave: 'CON-TEST', esActivoFijo: false }),
+      makeLinea({ id: 'legado', articuloClave: 'LEG-TEST' }),
+    ])} />, { wrapper: createQueryWrapper() });
+    expect(within(screen.getByText('AF-TEST').closest('tr')!).getByText('Activo fijo')).toBeVisible();
+    expect(within(screen.getByText('CON-TEST').closest('tr')!).queryByText('Activo fijo')).not.toBeInTheDocument();
+    expect(within(screen.getByText('LEG-TEST').closest('tr')!).queryByText('Activo fijo')).not.toBeInTheDocument();
+  });
+
   it('una orden directa en borrador permite agregar, editar y eliminar partidas', () => {
     useAuthStore.setState({ permisos: [PermisosCanonicos.ComprasOrdenesCrear] });
     const { rerender } = render(<EditorLineas oc={makeOc([])} />, { wrapper: createQueryWrapper() });

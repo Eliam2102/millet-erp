@@ -297,6 +297,7 @@ public sealed class CajasTests
         var carla = await new ListarCajasHandler(db, permisos)
             .Handle(new ListarCajasQuery { SucursalesPermitidas = [Conkal] }, CancellationToken.None);
         carla.Select(c => c.Nombre).Should().Equal("Caja Conkal");
+        carla.Single().SucursalIds.Should().Equal(Conkal);
 
         // Corporativo (leer-todas): el behavior deja SucursalesPermitidas en null.
         var corporativo = await new ListarCajasHandler(db, permisos)

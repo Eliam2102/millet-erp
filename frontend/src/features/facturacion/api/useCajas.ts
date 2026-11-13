@@ -18,14 +18,18 @@ interface CachedCaja {
   etag: string | undefined;
 }
 
-/** <c>useListarCajas(soloActivas)</c> — bandeja de cajas (CAJAS-PR5). */
-export function useListarCajas(soloActivas = false) {
+/**
+ * <c>useListarCajas(soloActivas, sucursalId)</c> — bandeja de cajas (CAJAS-PR5).
+ * Con <c>sucursalId</c> manda <c>X-Inicio-Sucursal-Id</c>: el servidor deja solo las
+ * cajas de esa sucursal (también para perfiles con alcance total, ADR-0051).
+ */
+export function useListarCajas(soloActivas = false, sucursalId?: string | null) {
   return useQuery<CajaListadoItem[]>({
-    queryKey: facturacionKeys.cajasList({ soloActivas }),
+    queryKey: facturacionKeys.cajasList({ soloActivas, sucursalId: sucursalId ?? null }),
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<CajaListadoItem[]>(
         soloActivas ? `${BASE}?soloActivas=true` : `${BASE}/`,
-        { signal },
+        { signal, headers: sucursalId ? { 'X-Inicio-Sucursal-Id': sucursalId } : undefined },
       );
       return data;
     },

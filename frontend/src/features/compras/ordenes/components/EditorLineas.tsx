@@ -380,6 +380,7 @@ function FilaLinea({
           {linea.requisicionId != null && (
             <LineaDesdeRqBadge requisicionId={linea.requisicionId} folio={linea.requisicionFolio} />
           )}
+          {linea.esActivoFijo && <Badge variant="info">Activo fijo</Badge>}
         </div>
         {articuloNombre && (
           <p className="mt-0.5 text-xs text-ink/80 line-clamp-1">{articuloNombre}</p>
