@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PaginacionTabla } from './PaginacionTabla';
+import { usePaginacionLocal } from './usePaginacionLocal';
 
 beforeEach(() => {
   localStorage.clear();
@@ -11,6 +12,7 @@ beforeEach(() => {
   localStorage.setItem('millet:tabla:v1:local:/prueba-paginacion:principal', '20');
 });
 afterEach(() => {
+  vi.unstubAllGlobals();
   localStorage.clear();
   window.history.replaceState({}, '', '/');
 });
@@ -50,4 +52,44 @@ it('mantiene Automático cuando sus propios ajustes cambian la URL', async () =>
   act(() => window.dispatchEvent(new Event('resize')));
   await waitFor(() => expect(window.location.search).toBe('?pageSize=20'));
   expect(screen.getByLabelText('Filas por página')).toHaveValue('auto');
+});
+
+
+it('no convierte Automático en un número cuando el observador del pie se adelanta al del listado', () => {
+  localStorage.setItem('millet:tabla:v1:local:/prueba-paginacion:principal', 'auto');
+  let alto = 480;
+  const observadores: { callback: ResizeObserverCallback; target?: Element; activo: boolean }[] = [];
+  vi.stubGlobal('ResizeObserver', class {
+    registro: typeof observadores[number];
+    constructor(callback: ResizeObserverCallback) {
+      this.registro = { callback, activo: true };
+      observadores.push(this.registro);
+    }
+    observe(target: Element) { this.registro.target = target; }
+    disconnect() { this.registro.activo = false; }
+  });
+  const datos = Array.from({ length: 60 }, (_, i) => i);
+  function Listado() {
+    const pagina = usePaginacionLocal(datos);
+    return <>
+      <div id={pagina.regionId} data-table-viewport ref={el => {
+        if (el) Object.defineProperty(el, 'clientHeight', { configurable: true, get: () => alto });
+      }}>
+        {pagina.visibles.map(id => <div data-testid="fila" data-fila-registro key={id}>{id}</div>)}
+      </div>
+      <PaginacionTabla regionId={pagina.regionId} total={datos.length} offset={pagina.offset}
+        limit={pagina.limit} onChange={pagina.onChange} />
+    </>;
+  }
+  render(<Listado />);
+  const activos = observadores.filter(o => o.activo && o.target?.hasAttribute('data-table-viewport'));
+  expect(activos).toHaveLength(2);
+  alto = 920;
+  act(() => activos[0].callback([], {} as ResizeObserver));
+  expect(screen.getByLabelText('Filas por página')).toHaveValue('auto');
+  expect(activos[1].activo).toBe(true);
+  act(() => activos[1].callback([], {} as ResizeObserver));
+  expect(screen.getAllByTestId('fila')).toHaveLength(20);
+  expect(screen.getByLabelText('Filas por página')).toHaveValue('auto');
+  expect(localStorage.getItem('millet:tabla:v1:local:/prueba-paginacion:principal')).toBe('auto');
 });
