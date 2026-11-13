@@ -29,7 +29,7 @@ function suscribir(listener: () => void) {
 }
 
 /** Sólo guarda presentación; nunca filtros, tokens ni registros del ERP. */
-export function useTamanoPagina(tabla = 'principal', maximo = 100, inicial = 10, regionId?: string, contexto = '') {
+export function useTamanoPagina(tabla = 'principal', maximo = 100, inicial = 10, regionId?: string) {
   const usuario = useAuthStore((s) => s.user?.id ?? 'local');
   const clave = `millet:tabla:v1:${usuario}:${window.location.pathname}:${tabla}`;
   const modo = useSyncExternalStore(
@@ -41,6 +41,7 @@ export function useTamanoPagina(tabla = 'principal', maximo = 100, inicial = 10,
   const actual = modo;
   const [limiteEdicion, setLimiteEdicion] = useState<number | null>(null);
 
+  // La región puede aparecer después de una carga o cambiar al abrir una bitácora.
   useEffect(() => {
     const region = (regionId ? document.getElementById(regionId) : null) ?? Array.from(document.querySelectorAll<HTMLElement>('[data-table-viewport]')).find((r) => !r.querySelector('[data-table-viewport]') && r.clientHeight > 0);
     if (!region) return;
@@ -69,7 +70,7 @@ export function useTamanoPagina(tabla = 'principal', maximo = 100, inicial = 10,
       cambios.disconnect();
       window.removeEventListener('resize', medir);
     };
-  }, [actual, automatico, clave, maximo, regionId, contexto]);
+  });
 
   const elegir = (valor: TamanoPagina) => {
     const valido = valor === 'auto' ? valor : Math.max(1, Math.min(maximo, Math.trunc(valor)));

@@ -51,6 +51,19 @@ describe('cantidad de registros', () => {
     expect(h.result.current.limit).toBe(50);
     region.remove();
   });
+  it('mide la región cuando aparece después de cargar datos sin perder modo automático', () => {
+    const region = document.createElement('div');
+    region.id = 'region-carga-asincrona';
+    region.setAttribute('data-table-viewport', '');
+    Object.defineProperty(region, 'clientHeight', { value: 920 });
+    const h = renderHook(() => useTamanoPagina('carga-asincrona', 100, 10, region.id));
+    expect(h.result.current.limit).toBe(10);
+    document.body.append(region);
+    h.rerender();
+    expect(h.result.current.limit).toBe(20);
+    expect(h.result.current.modo).toBe('auto');
+    region.remove();
+  });
   it('permite elegir aunque el almacenamiento esté bloqueado', () => {
     const stub = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('denegado');

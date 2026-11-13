@@ -4,7 +4,7 @@ import { useTamanoPagina } from './useTamanoPagina';
 /** Colección ya recibida; el total remoto y la carga incremental pertenecen al llamador. */
 export function usePaginacionLocal<T>(items: readonly T[], filtros = '', inicial = 10) {
   const regionId = `tabla-${useId()}`;
-  const tamano = useTamanoPagina('principal', 100, inicial, regionId, filtros);
+  const tamano = useTamanoPagina('principal', 100, inicial, regionId);
   const { limit } = tamano;
   const [pagina, setPagina] = useState({ filtros, offset: 0, limit });
   if (pagina.filtros !== filtros || pagina.limit !== limit) {
