@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { crearSonidoAvisos } from './sonidoAvisos';
 const start = vi.fn();
+const stop = vi.fn();
 class AudioFicticio {
   state = 'running'; currentTime = 0; destination = {};
   resume = vi.fn(async () => undefined); close = vi.fn(async () => undefined);
-  createOscillator() { return { frequency: { value: 0 }, connect: vi.fn(), start, stop: vi.fn() }; }
+  createOscillator() { return { frequency: { value: 0 }, connect: vi.fn(), start, stop }; }
   createGain() { return { gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() }, connect: vi.fn() }; }
 }
 const sanas = [{ id: 'compras', estado: 'Complete' }];
 beforeEach(() => {
-  localStorage.clear(); start.mockClear(); vi.stubGlobal('AudioContext', AudioFicticio);
+  localStorage.clear(); start.mockClear(); stop.mockClear(); vi.stubGlobal('AudioContext', AudioFicticio);
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
   Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
   let cola = Promise.resolve();
@@ -18,6 +19,7 @@ beforeEach(() => {
 describe('Sonido opcional coordinado', () => {
   it('primera carga silenciosa y novedades fuera de página una sola vez con bigint', async () => {
     const s = crearSonidoAvisos('uno'); await s.probar(); s.establecerHabilitado(true); start.mockClear();
+    expect(stop).toHaveBeenLastCalledWith(1.5);
     await s.sincronizar('9007199254740993', true, sanas); expect(start).not.toHaveBeenCalled();
     await s.sincronizar('9007199254740994', true, sanas); await s.sincronizar('9007199254740994', true, sanas);
     expect(start).toHaveBeenCalledTimes(1);
@@ -68,14 +70,22 @@ describe('Sonido opcional coordinado', () => {
     const s = crearSonidoAvisos('probar-sin-consumir'); await s.probar();
     expect(localStorage.getItem(key)).toBe('7'); expect(localStorage.getItem(`${key}:prueba`)).toBeNull();
   });
+  it('volver a probar no silencia la primera novedad de una sesión ya sincronizada', async () => {
+    const s = crearSonidoAvisos('reprobar'); await s.probar(); s.establecerHabilitado(true);
+    await s.sincronizar('10', false, sanas);
+    await s.probar(); start.mockClear();
+    await s.sincronizar('11', true, sanas); await s.sincronizar('11', true, sanas);
+    expect(start).toHaveBeenCalledTimes(1);
+  });
   it('una falla de audio se informa una vez y no reintenta hasta probarlo', async () => {
     const s = crearSonidoAvisos('bloqueo-audio'); await s.probar(); s.establecerHabilitado(true); await s.sincronizar('1', false, sanas); start.mockClear();
     start.mockImplementationOnce(() => { throw new Error('Audio bloqueado'); });
     await expect(s.sincronizar('2', true, sanas)).rejects.toThrow('Audio bloqueado');
     await s.sincronizar('2', true, sanas); await s.sincronizar('3', true, sanas);
     expect(start).toHaveBeenCalledTimes(1);
-    await s.probar(); start.mockClear(); await s.sincronizar('4', true, sanas); await s.sincronizar('5', true, sanas);
+    await s.probar(); start.mockClear(); await s.sincronizar('4', true, sanas); await s.sincronizar('4', true, sanas);
     expect(start).toHaveBeenCalledTimes(1);
+    await s.sincronizar('5', true, sanas); expect(start).toHaveBeenCalledTimes(2);
   });
   it('reconexión y fuente recuperada no alarman backlog', async () => {
     const s = crearSonidoAvisos('recovery'); await s.probar(); s.establecerHabilitado(true); await s.sincronizar('1', true, sanas); start.mockClear();

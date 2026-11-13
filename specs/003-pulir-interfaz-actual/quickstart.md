@@ -1,0 +1,2 @@
+# Validación
+Desdefrontend ejecutar npm test -- src/components/layout src/components/erp/forms src/lib/nav.test.ts src/features/compras/pages/NuevaRequisicion.smoke.test.tsx, npm run build y npm run lint. Comparar vista local antes/después usando componentes reales con sesión/catálogos ficticios,1366/1920/390; probar filtro/limpiar/contraer, selección, errores/captura y móvil. No sustituyeAPI/QA/aceptación. Evidencias fuera delrepo.
