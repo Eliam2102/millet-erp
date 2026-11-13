@@ -1,5 +1,7 @@
-import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { TAMANOS_PAGINA, useTamanoPagina } from './useTamanoPagina';
 
 export interface PaginacionTablaProps {
   total: number;
@@ -10,42 +12,108 @@ export interface PaginacionTablaProps {
   tamanos?: number[];
   /** Agrega «Ir al inicio» / «Ir al final» junto a Anterior/Siguiente. */
   extremos?: boolean;
+  regionId?: string;
 }
 
-const TAMANOS_DEFAULT = [10, 25, 50];
-
-/** Footer de tabla DS 4.4: «1–25 de 214» + selector de tamaño + Anterior/Siguiente. */
 export function PaginacionTabla({
   total,
   offset,
   limit,
-  onChange,
-  tamanos = TAMANOS_DEFAULT,
-  extremos = false,
+  onChange: cambiar,
+  tamanos = TAMANOS_PAGINA,
+  extremos = true,
+  regionId,
 }: PaginacionTablaProps) {
-  const desde = total === 0 ? 0 : offset + 1;
-  const hasta = Math.min(offset + limit, total);
+  const preferencia = useTamanoPagina('principal', 100, 10, regionId);
+  const aplicado = useRef<number | null>(null);
+  const limiteAnterior = useRef(limit);
+  const salto = useRef<HTMLInputElement>(null);
+  const parametros = new URLSearchParams(window.location.search);
+  const cantidadUrl = parametros.get('pageSize') ?? parametros.get('limit');
+  const [enlace, setEnlace] = useState({
+    cantidadUrl, offset, limit, respetarUrl: cantidadUrl !== null,
+    solicitud: null as { offset: number; limit: number } | null,
+  });
+  const onChange = useCallback((siguiente: number, cantidad: number) => {
+    setEnlace(prev => ({ ...prev, solicitud: { offset: siguiente, limit: cantidad } }));
+    cambiar(siguiente, cantidad);
+  }, [cambiar]);
+  // Un enlace nuevo prevalece; actualizar la URL desde Automático conserva ese modo.
+  if (cantidadUrl !== enlace.cantidadUrl || offset !== enlace.offset || limit !== enlace.limit) {
+    const propio = enlace.solicitud?.offset === offset && enlace.solicitud.limit === limit;
+    setEnlace({
+      cantidadUrl, offset, limit,
+      solicitud: cantidadUrl === enlace.cantidadUrl && limit !== enlace.limit && offset > 0 && !enlace.respetarUrl
+        ? { offset: 0, limit } : null,
+      respetarUrl: cantidadUrl !== enlace.cantidadUrl && !propio
+        ? cantidadUrl !== null : enlace.respetarUrl,
+    });
+  }
+  const respetarUrl = enlace.respetarUrl;
+  const cantidad = Math.max(1, limit);
+  const ultima = Math.max(0, Math.ceil(total / cantidad) - 1) * cantidad;
+  const posicion = Math.max(0, Math.min(offset, ultima));
+  const paginas = Math.max(1, Math.ceil(total / cantidad));
+  const pagina = Math.floor(posicion / cantidad) + 1;
   const opciones = tamanos.includes(limit) ? tamanos : [...tamanos, limit].sort((a, b) => a - b);
-  const enPrimera = offset <= 0;
-  const enUltima = offset + limit >= total;
+  useEffect(() => {
+    aplicado.current = null;
+  }, [cantidadUrl]);
+  useEffect(() => {
+    if (limiteAnterior.current === limit) return;
+    limiteAnterior.current = limit;
+    if (offset > 0 && !respetarUrl) cambiar(0, limit);
+  }, [limit, offset, respetarUrl, cambiar]);
+  useEffect(() => {
+    if (tamanos.length === 0 || respetarUrl || preferencia.editando) return;
+    // El controlador ya mide Auto; el pie no debe guardarlo como una cantidad manual.
+    if (preferencia.modo === 'auto' && cantidadUrl === null) return;
+    if (limit !== preferencia.limit && aplicado.current !== preferencia.limit) {
+      aplicado.current = preferencia.limit;
+      onChange(0, preferencia.limit);
+    }
+  }, [limit, preferencia.limit, preferencia.editando, preferencia.modo, cantidadUrl, tamanos.length, respetarUrl, onChange]);
+  useEffect(() => {
+    if (total > 0 && offset > ultima) cambiar(ultima, cantidad);
+  }, [total, offset, ultima, cantidad, cambiar]);
+  const ir = () => {
+    const destino = Number(salto.current?.value);
+    if (Number.isInteger(destino) && destino >= 1 && destino <= paginas)
+      onChange((destino - 1) * cantidad, cantidad);
+  };
+  const control = 'min-h-11 min-w-11 px-2 md:min-h-8 md:min-w-8';
 
   return (
     <nav
       aria-label="Paginación"
-      className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-line-divider px-4 py-1.5 text-xs text-ink-muted"
+      data-print="hidden"
+      className="flex min-w-0 shrink-0 flex-col gap-2 border-t border-line-divider bg-surface-card px-3 py-2 text-xs text-ink-muted md:flex-row md:flex-wrap md:items-center md:justify-between"
     >
-      <span className="tabular-nums">
-        {total === 0 ? '0 de 0' : `${desde}–${hasta} de ${total}`}
-      </span>
-      <div className="flex flex-wrap items-center gap-2">
+      <fieldset disabled={preferencia.editando} className="contents">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="shrink-0 tabular-nums">
+          {total === 0
+            ? '0 de 0'
+            : `${posicion + 1}–${Math.min(posicion + cantidad, total)} de ${total}`}
+        </span>
         {tamanos.length > 0 && (
           <label className="flex items-center gap-1.5">
-            Filas por página
+            <span>
+              Filas<span className="hidden md:inline"> por página</span>
+            </span>
             <select
-              value={limit}
-              onChange={(e) => onChange(0, Number(e.target.value))}
-              className="h-ctl-sm rounded-md border border-line-control bg-surface-card px-1.5 text-xs text-ink"
+              aria-label="Filas por página"
+              value={!respetarUrl && preferencia.modo === 'auto' ? 'auto' : limit}
+              className="min-h-11 max-w-32 rounded-md border border-line-control bg-surface-card px-1.5 text-xs text-ink md:min-h-8"
+              onChange={(e) => {
+                setEnlace(prev => ({ ...prev, respetarUrl: false }));
+                const valor = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
+                if (valor !== 'auto' || cantidadUrl !== null)
+                  onChange(0, valor === 'auto' ? preferencia.limit : valor);
+                preferencia.elegir(valor);
+              }}
             >
+              <option value="auto">Automático</option>
               {opciones.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -54,53 +122,97 @@ export function PaginacionTabla({
             </select>
           </label>
         )}
+      </div>
+      <div className="flex min-w-0 items-center justify-between gap-1 md:justify-end md:gap-2">
         {extremos && (
           <Button
             type="button"
             variant="secondary"
             size="sm"
-            disabled={enPrimera}
+            className={`${control} hidden sm:inline-flex`}
+            disabled={posicion === 0}
             aria-label="Ir al inicio"
             title="Ir al inicio"
-            onClick={() => onChange(0, limit)}
+            onClick={() => onChange(0, cantidad)}
           >
-            <ChevronsLeft aria-hidden className="h-3.5 w-3.5" />
+            <ChevronsLeft aria-hidden className="size-3.5" />
           </Button>
         )}
         <Button
           type="button"
           variant="secondary"
           size="sm"
-          disabled={enPrimera}
+          className={control}
+          disabled={posicion === 0}
           aria-label="Página anterior"
-          onClick={() => onChange(Math.max(0, offset - limit), limit)}
+          title="Página anterior"
+          onClick={() => onChange(Math.max(0, posicion - cantidad), cantidad)}
         >
-          Anterior
+          <ChevronLeft aria-hidden className="size-3.5 md:hidden" />
+          <span className="hidden md:inline">Anterior</span>
         </Button>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <label className="flex items-center gap-1.5">
+            <span className="sr-only md:not-sr-only">Página</span>
+            <input
+              ref={salto}
+              key={pagina}
+              aria-label="Ir a página"
+              type="number"
+              min={1}
+              max={paginas}
+              defaultValue={pagina}
+              className="min-h-11 w-12 rounded-md border border-line-control bg-surface-card px-1 text-center tabular-nums text-ink md:min-h-8 md:w-14"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  ir();
+                }
+              }}
+            />
+          </label>
+          <span className="shrink-0 tabular-nums">de {paginas}</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className={control}
+            disabled={total === 0}
+            onClick={ir}
+          >
+            Ir
+          </Button>
+        </div>
         <Button
           type="button"
           variant="secondary"
           size="sm"
-          disabled={enUltima}
+          className={control}
+          disabled={posicion >= ultima}
           aria-label="Página siguiente"
-          onClick={() => onChange(offset + limit, limit)}
+          title="Página siguiente"
+          onClick={() => onChange(Math.min(ultima, posicion + cantidad), cantidad)}
         >
-          Siguiente
+          <span className="hidden md:inline">Siguiente</span>
+          <ChevronRight aria-hidden className="size-3.5 md:hidden" />
         </Button>
         {extremos && (
           <Button
             type="button"
             variant="secondary"
             size="sm"
-            disabled={enUltima}
+            className={`${control} hidden sm:inline-flex`}
+            disabled={posicion >= ultima}
             aria-label="Ir al final"
             title="Ir al final"
-            onClick={() => onChange(Math.floor((total - 1) / limit) * limit, limit)}
+            onClick={() => onChange(ultima, cantidad)}
           >
-            <ChevronsRight aria-hidden className="h-3.5 w-3.5" />
+            <ChevronsRight aria-hidden className="size-3.5" />
           </Button>
         )}
       </div>
+      </fieldset>
+      {preferencia.editando && <span className="text-xs text-ink-muted">Finaliza o cancela la edición para cambiar de página.</span>}
     </nav>
   );
 }

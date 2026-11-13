@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -23,15 +24,14 @@ import {
   useConteosPorEstado,
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { cxpKeys } from '@/features/cxp/api/keys';
 import { useNotasCargo } from '@/features/cxp/api/useNotasYAnticipos';
 import { AplicarNotaCargoAccion } from '@/features/cxp/components/AplicarNotaCargoAccion';
 import {
   EstadoNotaCargo,
-  type NotaCargoListItem,
-} from '@/features/cxp/api/types';
+  type NotaCargoListItem } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -63,20 +63,19 @@ const TABS_ESTADO = [
  */
 export function NotasCargoPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeCrear = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarNotasCargoCrear,
-  );
+    PermisosCanonicos.CuentasPorPagarNotasCargoCrear);
   const puedeAplicar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarNotasCargoAplicar,
-  );
+    PermisosCanonicos.CuentasPorPagarNotasCargoAplicar);
   const [sheetAbierto, setSheetAbierto] = useState(false);
 
   const query = useNotasCargo({
     estado: search.estado,
     proveedorId: search.proveedorId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(
@@ -181,7 +180,7 @@ export function NotasCargoPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         </div>
@@ -254,4 +253,3 @@ function Tabla({ items, puedeAplicar }: TablaProps) {
 function truncar(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
-

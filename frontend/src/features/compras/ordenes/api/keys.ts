@@ -38,6 +38,7 @@ export interface ListarOrdenesCompraFiltros {
    * OCs ya recibidas al 100%.
    */
   soloConPendienteRecepcion?: boolean;
+  paraCapturaFactura?: boolean;
   subEstadoFacturacion?: SubEstadoFacturacion;
   subEstadoPago?: SubEstadoPago;
   /** F1-COM-11: estado comercial de la respuesta del proveedor. */

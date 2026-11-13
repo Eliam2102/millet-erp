@@ -1,6 +1,7 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { ListaCompacta } from '@/components/erp/MasterDetail';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
-import { paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import {} from '@/components/erp/data/paginacion';
 import { useFacturas } from '@/features/cxp/api/useFacturas';
 import { useNotasCargo, useNotasCredito } from '@/features/cxp/api/useNotasYAnticipos';
 import { useViaticos } from '@/features/cxp/api/useViaticos';
@@ -38,12 +39,13 @@ interface ListaProps<S> {
 }
 
 export function ListaFacturasCompacta({ idActivo, search }: ListaProps<FacturasSearch>) {
+  const paginaTabla = usePaginacionRuta(search);
   const query = useFacturas({
     estado: search.estado,
     proveedorId: search.proveedorId,
     sucursalId: search.sucursalId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
   return (
     <ListaCompacta
@@ -58,7 +60,9 @@ export function ListaFacturasCompacta({ idActivo, search }: ListaProps<FacturasS
         badge: <EstadoPasivoChip estado={f.estado} />,
         secundario: (
           <>
-            <span className="truncate">{f.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}</span>
+            <span className="truncate">
+              {f.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}
+            </span>
             <MoneyDisplay amount={f.total} currency={f.moneda} />
           </>
         ),
@@ -68,11 +72,12 @@ export function ListaFacturasCompacta({ idActivo, search }: ListaProps<FacturasS
 }
 
 export function ListaNotasCargoCompacta({ idActivo, search }: ListaProps<NotasCargoSearch>) {
+  const paginaTabla = usePaginacionRuta(search);
   const query = useNotasCargo({
     estado: search.estado,
     proveedorId: search.proveedorId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
   return (
     <ListaCompacta
@@ -87,7 +92,9 @@ export function ListaNotasCargoCompacta({ idActivo, search }: ListaProps<NotasCa
         badge: <EstadoNotaCargoChip estado={n.estado} />,
         secundario: (
           <>
-            <span className="truncate">{n.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}</span>
+            <span className="truncate">
+              {n.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}
+            </span>
             <MoneyDisplay amount={n.monto} currency={n.moneda} />
           </>
         ),
@@ -97,11 +104,12 @@ export function ListaNotasCargoCompacta({ idActivo, search }: ListaProps<NotasCa
 }
 
 export function ListaNotasCreditoCompacta({ idActivo, search }: ListaProps<NotasCreditoSearch>) {
+  const paginaTabla = usePaginacionRuta(search);
   const query = useNotasCredito({
     estado: search.estado,
     proveedorId: search.proveedorId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
   return (
     <ListaCompacta
@@ -118,7 +126,9 @@ export function ListaNotasCreditoCompacta({ idActivo, search }: ListaProps<Notas
         badge: <EstadoNotaCreditoChip estado={n.estado} />,
         secundario: (
           <>
-            <span className="truncate">{n.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}</span>
+            <span className="truncate">
+              {n.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}
+            </span>
             <MoneyDisplay amount={n.total} currency={n.moneda} />
           </>
         ),
@@ -128,12 +138,13 @@ export function ListaNotasCreditoCompacta({ idActivo, search }: ListaProps<Notas
 }
 
 export function ListaViaticosCompacta({ idActivo, search }: ListaProps<ViaticosSearch>) {
+  const paginaTabla = usePaginacionRuta(search);
   const query = useViaticos({
     estado: search.estado,
     empleadoId: search.empleadoId,
     jefeDirectoId: search.jefeDirectoId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
   return (
     <ListaCompacta
@@ -157,13 +168,17 @@ export function ListaViaticosCompacta({ idActivo, search }: ListaProps<ViaticosS
   );
 }
 
-export function ListaComprobacionesCompacta({ idActivo, search }: ListaProps<ComprobacionesSearch>) {
+export function ListaComprobacionesCompacta({
+  idActivo,
+  search,
+}: ListaProps<ComprobacionesSearch>) {
+  const paginaTabla = usePaginacionRuta(search);
   const query = useComprobaciones({
     tipo: search.tipo,
     estado: search.estado,
     sucursalId: search.sucursalId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
   return (
     <ListaCompacta

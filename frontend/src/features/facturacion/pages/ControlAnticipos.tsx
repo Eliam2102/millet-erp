@@ -136,11 +136,10 @@ export function ControlAnticipos() {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={paginacion.regionId}
             total={items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={paginacion.limit}
             onChange={paginacion.onChange}
           />
         }

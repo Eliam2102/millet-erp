@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { TabsEstado } from '@/components/erp/data/TabsEstado';
@@ -72,7 +73,12 @@ const BANDEJA_FROM = '/_app/compras/ordenes/' as const;
  * o <c>useUsuarios</c> con cache 1h.</para>
  */
 export function BandejaOrdenesCompra() {
-  const search = useSearch({ from: BANDEJA_FROM });
+  const ruta = useSearch({ from: BANDEJA_FROM });
+  const tamano = useTamanoPagina();
+  const search = {
+    ...ruta,
+    pageSize: ruta.pageSize ?? tamano.limit,
+  };
   const navigate = useNavigate();
   const nuevaOC = useNuevaOrdenCompra();
   const canCrear = useHasPermission(PermisosCanonicos.ComprasOrdenesCrear);
@@ -299,7 +305,7 @@ function RenderTabla({
                 </TableCell>
                 <TableCell className="px-3 py-2">
                   <div className="flex flex-col items-start gap-1">
-                    <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+                    <EstadoBadge tipo="orden-compra" estado={oc.estado} servicioCe={oc.esServicioComercioExterior} />
                     {oc.estadoComercialProveedor != null &&
                       (oc.estadoComercialProveedor !== EstadoComercialProveedorOc.SinRespuesta ||
                         oc.estado === EstadoOrdenCompra.Autorizada) && (

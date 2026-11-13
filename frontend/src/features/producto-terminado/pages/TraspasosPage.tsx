@@ -11,12 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Table, TableContainer, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableContainer, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { useSucursales } from '@/features/catalogos/api';
 import { errorUsuario as mensajeErrorAccion } from '@/lib/error-usuario';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
-import { useAutorizarTraspaso, useCrearTraspaso, useRecibirTraspaso, useTraspasos } from '../api/hooks';
+import { useAutorizarTraspaso, useCrearTraspaso, useRecibirTraspaso, useTraspasos,
+} from '../api/hooks';
 import type { EstadoTraspaso } from '../api/types';
 import { TraspasoDetallePanel } from './TraspasoDetallePanel';
 import { TramoDetenidoBanner } from './TramoDetenidoBanner';
@@ -57,7 +59,8 @@ export function TraspasosPage() {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // «Por recibir» = lo que salió hacia la sucursal elegida y aún no se cierra.
-  const lista = useTraspasos(vista === 'porRecibir' ? { estado: 'EnTransito,ConDiferencia', destinoId: destinoVista ?? undefined, pageSize: 50 } : { pageSize: 50 });
+  const lista = useTraspasos(vista === 'porRecibir' ? { estado: 'EnTransito,ConDiferencia', destinoId: destinoVista ?? undefined, pageSize: 50 } : { pageSize: 50 },
+  );
 
   const lineas = etiquetas.split('\n').map((l) => l.trim()).filter(Boolean);
   const datosCartaPorte = !foranea || (destinoTexto.trim() !== '' && !!vehiculo && !!operador && Number(distancia) > 0 && Number(peso) > 0 && /^\d{5}$/.test(cpOrigen) && /^[A-Za-z]{3}$/.test(estadoOrigen) && /^\d{5}$/.test(cpDestino) && /^[A-Za-z]{3}$/.test(estadoDestino));
@@ -101,7 +104,7 @@ export function TraspasosPage() {
   return (
     <main className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-auto text-sm">
       <div data-print="hidden" className="flex flex-col gap-5">
-        <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Traspasos' }]} />
+        <Breadcrumbs items={[{ label: 'Producto terminado' }, { label: 'Traspasos' }]} />
         <PageHeader
           titulo="Traspasos entre sucursales"
           descripcion="Prepara el traspaso, que lo autorice otra persona, recíbelo en destino y aclara las diferencias hasta cerrarlo."
@@ -180,7 +183,7 @@ export function TraspasosPage() {
           <EmptyState title={vista === 'porRecibir' ? 'No hay traspasos por recibir.' : 'No hay traspasos.'} />
         ) : (
           <TableContainer maxHeightClassName="" className="min-w-0 print:overflow-visible" role="region" aria-label="Traspasos entre sucursales" tabIndex={0}>
-          <Table>
+          <Table paginada>
             <TableHeader>
               <TableRow>
                 <TableHead>Folio</TableHead>
@@ -222,7 +225,9 @@ export function TraspasosPage() {
           </TableContainer>
         )}
       </div>
-      {abierto && <TraspasoDetallePanel key={abierto} id={abierto} nombre={nombre} operar={operar} />}
+      {abierto && (
+        <TraspasoDetallePanel key={abierto} id={abierto} nombre={nombre} operar={operar} />
+      )}
     </main>
   );
 }

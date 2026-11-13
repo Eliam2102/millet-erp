@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { TabsEstado } from '@/components/erp/data/TabsEstado';
 import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
@@ -49,7 +50,12 @@ const FROM = '/_app/compras/ordenes/partidas-abiertas' as const;
  * activas seed (backend indexado por <c>ix_oc_partidas_abiertas</c>).</para>
  */
 export function PartidasAbiertas() {
-  const search = useSearch({ from: FROM });
+  const ruta = useSearch({ from: FROM });
+  const tamano = useTamanoPagina();
+  const search = {
+    ...ruta,
+    pageSize: ruta.pageSize ?? tamano.limit,
+  };
   const navigate = useNavigate();
 
   const itemsQuery = usePartidasAbiertas(search);

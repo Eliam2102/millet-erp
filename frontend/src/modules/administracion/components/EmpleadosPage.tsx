@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { problemaConsulta } from '@/components/erp/feedback/problema-consulta';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import {
@@ -123,6 +124,7 @@ const TAB_SIN_EMPLEADO = 5;
 const TAB_TECNICAS = 6;
 
 export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: VistaEmpleados }) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [offset, setOffset] = useState(0);
   const [cuentaParaLigar, setCuentaParaLigar] = useState<CuentaSinEmpleado | null>(null);
   const filtrosAcceso: Exclude<FiltroAcceso, 'todos'>[] = [
@@ -317,7 +319,8 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
     setFiltroAnterior(filtroPagina);
     setOffset(0);
   }
-  const offsetVisible = Math.min(offset, Math.max(0, Math.ceil(registros.length / 10) - 1) * 10);
+  const offsetVisible = Math.min(offset, Math.max(0, Math.ceil(registros.length / limiteTabla) - 1) * limiteTabla,
+  );
   function seleccionarFiltro(filtro: FiltroAcceso) {
     setVista('empleados');
     setFiltroAcceso(filtro);
@@ -551,8 +554,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
             <PaginacionTabla
               total={registros.length}
               offset={offsetVisible}
-              limit={10}
-              tamanos={[]}
+              limit={limiteTabla}
               onChange={setOffset}
             />
           )
@@ -692,7 +694,7 @@ export function EmpleadosPage({ vistaInicial = 'empleados' }: { vistaInicial?: V
                 </TableRow>
               </TableHeader>
               <TableBody className="block">
-                {registros.slice(offsetVisible, offsetVisible + 10).map((registro) => {
+                {registros.slice(offsetVisible, offsetVisible + limiteTabla).map((registro) => {
                   if (registro.tipo !== 'empleado') {
                     const c = registro.dato;
                     const tecnica = registro.tipo === 'tecnica' ? registro.dato : null;

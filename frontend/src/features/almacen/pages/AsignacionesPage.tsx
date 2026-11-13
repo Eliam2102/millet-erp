@@ -403,11 +403,10 @@ function TablaAsignaciones({
           </TableBody>
         </Table>
       </div>
-      <PaginacionTabla
+      <PaginacionTabla regionId={paginacion.regionId}
         total={ordenados.length}
         offset={paginacion.offset}
-        limit={10}
-        tamanos={[]}
+        limit={paginacion.limit}
         onChange={paginacion.onChange}
       />
     </>

@@ -51,7 +51,7 @@ public sealed record ProductoAwBusquedaItem(
     decimal? TasaRetencionIsr,
     string? FraccionArancelaria,
     string? UnidadAduana,
-    decimal? PesoUnitarioKg);
+    decimal? PesoUnitarioKg, Guid? UnidadMedidaId = null, int? DecimalesCantidad = null);
 
 /// <summary>
 /// Snapshot de los datos fiscales del producto/servicio. <c>requiere_pedimento</c>
@@ -72,4 +72,5 @@ public sealed record ProductoFiscalLectura(
     string? Tipo = null, string? EstadoFiscal = null, decimal? PesoUnitarioKg = null,
     bool EsServicioRecubrimiento = false, bool Activo = true,
     // B12: datos de aduana del artículo (CCE) para precargar la factura de exportación.
-    string? FraccionArancelaria = null, string? UnidadAduana = null);
+    string? FraccionArancelaria = null, string? UnidadAduana = null,
+    Guid? UnidadMedidaId = null, string? UnidadMedida = null, int? DecimalesCantidad = null);

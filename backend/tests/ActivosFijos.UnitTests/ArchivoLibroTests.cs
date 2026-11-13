@@ -1,4 +1,6 @@
 using ClosedXML.Excel;
+using System.IO.Compression;
+using System.Xml.Linq;
 using Millet.ActivosFijos.Application;
 using Millet.ActivosFijos.Domain;
 using Millet.SharedKernel.Application.Exceptions;
@@ -10,6 +12,38 @@ public sealed class ArchivoLibroTests
     {
         using var libro = new XLWorkbook(); configurar(libro);
         using var stream = new MemoryStream(); libro.SaveAs(stream); return stream.ToArray();
+    }
+    [Theory] [InlineData(false)] [InlineData(true)]
+    public void Lee_Base_con_cache_dinamica_inconsistente_sin_cambiar_original_ni_admitir_formulas(bool formula)
+    {
+        var bytes = Excel(w =>
+        {
+            var s = w.AddWorksheet("Base");
+            string[] encabezados = ["numero", "clase", "descripcion", "fechaAdquisicion", "valorOriginal"];
+            for (var i = 0; i < encabezados.Length; i++) s.Cell(1, i + 1).Value = encabezados[i];
+            s.Cell(2, 1).Value = "ENSAYO-1"; s.Cell(2, 2).Value = "153"; s.Cell(2, 3).Value = "Equipo ficticio";
+            s.Cell(2, 4).Value = new DateTime(2024, 1, 1); s.Cell(2, 5).Value = 1000;
+            if (formula) s.Cell(2, 5).FormulaA1 = "600+400";
+            var resumen = w.AddWorksheet("Resumen");
+            var pivot = resumen.PivotTables.Add("Resumen", resumen.Cell(1, 1), s.Range("A1:E2"));
+            pivot.RowLabels.Add("clase"); pivot.Values.Add("valorOriginal");
+        });
+        using var copia = new MemoryStream(); copia.Write(bytes);
+        using (var zip = new ZipArchive(copia, ZipArchiveMode.Update, true))
+        {
+            var entry = zip.Entries.Single(e => e.FullName.Contains("pivotCacheRecords", StringComparison.Ordinal) && e.FullName.EndsWith(".xml", StringComparison.Ordinal));
+            XDocument xml; using (var stream = entry.Open()) xml = XDocument.Load(stream);
+            var fila = xml.Root!.Elements().First();
+            fila.Add(new XElement(fila.Name.Namespace + "n", new XAttribute("v", 999)));
+            var nombre = entry.FullName; entry.Delete();
+            using var destino = zip.CreateEntry(nombre).Open(); xml.Save(destino);
+        }
+        var original = copia.ToArray(); var antes = original.ToArray();
+        var tabla = ArchivoLibro.Leer(original, "ensayo.xlsx");
+        Assert.Equal("Base", tabla.Hoja); Assert.Equal("ENSAYO-1", Assert.Single(tabla.Filas).Valores[0]);
+        if (formula) Assert.Contains(tabla.Errores, e => e.Codigo == "AF_FORMULA_NO_ADMITIDA");
+        else { Assert.Empty(tabla.Errores); Assert.Equal(1000, ArchivoLibro.Monto(tabla.Filas[0].Valores[5])); }
+        Assert.Equal(antes, original);
     }
     [Fact] public void Excel_lee_primera_hoja_con_datos_alias_fechas_importes_y_fila_real()
     {

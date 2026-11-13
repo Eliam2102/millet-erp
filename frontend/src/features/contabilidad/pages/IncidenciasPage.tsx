@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { CheckCircle2, Plus, TriangleAlert } from 'lucide-react';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { BarraFiltros, PaginacionTabla, EmptyState, ErrorState, TableSkeleton,
+} from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -77,11 +79,10 @@ export function IncidenciasPage({ search, onSearch }: Props) {
         }
         filtros={<BarraFiltros total={`${items.length} incidencias`} />}
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={items.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.onChange}
           />
         }
@@ -123,7 +124,9 @@ export function IncidenciasPage({ search, onSearch }: Props) {
               <TableBody>
                 {pagina.visibles.map((i) => (
                   <TableRow key={i.id} className="border-b border-line-row align-top">
-                    <TableCell className="whitespace-nowrap px-3 py-2.5 font-mono text-xs">{i.periodo}</TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-2.5 font-mono text-xs">
+                      {i.periodo}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2.5">
                       {i.polizaId ? (
                         <Link
@@ -137,13 +140,19 @@ export function IncidenciasPage({ search, onSearch }: Props) {
                         <span className="text-ink-muted">Periodo cerrado</span>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-72 whitespace-normal px-3 py-2.5">{i.hallazgo}</TableCell>
-                    <TableCell className="max-w-60 whitespace-normal px-3 py-2.5 text-ink-secondary">{i.impacto}</TableCell>
+                    <TableCell className="max-w-72 whitespace-normal px-3 py-2.5">
+                      {i.hallazgo}
+                    </TableCell>
+                    <TableCell className="max-w-60 whitespace-normal px-3 py-2.5 text-ink-secondary">
+                      {i.impacto}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">
                       {i.importeImpacto === null ? '—' : monto(i.importeImpacto)}
                     </TableCell>
                     <TableCell className="px-3 py-2.5">
-                      <Badge variant={ESTADOS_INCIDENCIA[i.estado].tono}>{ESTADOS_INCIDENCIA[i.estado].texto}</Badge>
+                      <Badge variant={ESTADOS_INCIDENCIA[i.estado].tono}>
+                        {ESTADOS_INCIDENCIA[i.estado].texto}
+                      </Badge>
                     </TableCell>
                     <TableCell className="px-3 py-2.5 text-xs text-ink-secondary">
                       {i.registradaPor}
@@ -182,7 +191,10 @@ export function IncidenciasPage({ search, onSearch }: Props) {
       </ListadoModulo>
 
       <RegistrarIncidenciaSheet open={nueva} onOpenChange={setNueva} />
-      <ResolverIncidenciaSheet incidencia={resolviendo} onOpenChange={(o) => !o && setResolviendo(null)} />
+      <ResolverIncidenciaSheet
+        incidencia={resolviendo}
+        onOpenChange={(o) => !o && setResolviendo(null)}
+      />
     </div>
   );
 }

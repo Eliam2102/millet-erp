@@ -108,11 +108,10 @@ export function BandejaReppPendientes() {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={paginacion.regionId}
             total={items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={paginacion.limit}
             onChange={paginacion.onChange}
           />
         }
@@ -162,9 +161,7 @@ export function BandejaReppPendientes() {
                 {paginacion.visibles.map((r) => (
                   <TableRow key={r.pagoId} className="hover:bg-surface-muted/30">
                     <TableCell className="max-w-64 px-3 py-2">
-                      <p className="truncate">
-                        {r.proveedorRazonSocial ?? '—'}
-                      </p>
+                      <p className="truncate">{r.proveedorRazonSocial ?? '—'}</p>
                       <p className="font-mono text-xs text-ink-muted">{r.proveedorClave ?? ''}</p>
                     </TableCell>
                     <TableCell className="px-3 py-2 font-mono text-xs">

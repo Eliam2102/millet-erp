@@ -47,6 +47,14 @@ public static class FacturacionCatalogosEndpoints
         .Produces<TipoCambioDofResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        // Lee sólo la etiqueta del ID ya seleccionado, incluso si ahora está inactivo.
+        group.MapGet("/catalogos/clientes/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ClienteEtiquetaQuery(id), ct)))
+        .WithName("FacturacionClienteEtiqueta")
+        .WithSummary("Etiqueta de un cliente seleccionado por identidad")
+        .Produces<ClienteEtiquetaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // GET: lookup de clientes para el selector de receptor (ADR-0045:
         // filtros excluyentes, RFC tiene precedencia).
         group.MapGet("/catalogos/clientes", async (

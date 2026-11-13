@@ -29,7 +29,7 @@ public sealed record ProductoAwLookupItem(
     string? FraccionArancelaria,
     string? UnidadAduana,
     decimal? PesoUnitarioKg,
-    bool DatosFiscalesCompletos);
+    bool DatosFiscalesCompletos, Guid? UnidadMedidaId = null, int? DecimalesCantidad = null);
 
 public sealed class ProductosAwLookupHandler
     : IRequestHandler<ProductosAwLookupQuery, IReadOnlyList<ProductoAwLookupItem>>
@@ -51,7 +51,8 @@ public sealed class ProductosAwLookupHandler
                 p.ClaveProdServSat, p.ClaveUnidadSat, p.ObjetoImp,
                 p.TasaIvaTraslado, p.TasaRetencionIva, p.TasaRetencionIsr,
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg,
-                p.ClaveProdServSat != null && p.ClaveUnidadSat != null && p.ObjetoImp != null))
+                p.ClaveProdServSat != null && p.ClaveUnidadSat != null && p.ObjetoImp != null,
+                p.UnidadMedidaId, p.DecimalesCantidad))
             .ToList();
     }
 }

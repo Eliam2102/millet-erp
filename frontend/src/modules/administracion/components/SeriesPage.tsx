@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { DialogBody } from '@/components/ui/dialog';
 import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -53,7 +54,6 @@ import {
 } from '@/modules/administracion/components/series-labels';
 import { cn } from '@/lib/utils';
 
-const PAGE_LIMIT = 50;
 const TODOS = '__todos__';
 
 const TIPO_DOC_VALUES = TIPOS_DOCUMENTO_SERIE;
@@ -72,6 +72,7 @@ const TIPO_DOC_VALUES = TIPOS_DOCUMENTO_SERIE;
  * <c>useNuevaSerie().abrir()</c> — el Provider se monta a nivel ruta.</para>
  */
 export function SeriesPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const canGestionar = useHasPermission(PermisosCanonicos.AdminSeriesGestionar);
   const nueva = useNuevaSerie();
   const empresasQuery = useEmpresas({ limit: 200 });
@@ -88,7 +89,7 @@ export function SeriesPage() {
     sucursalId: sucursalId ?? undefined,
     tipoDocumento: tipoDoc ?? undefined,
     offset,
-    limit: PAGE_LIMIT,
+    limit: limiteTabla,
   });
 
   const items = useMemo(() => seriesQuery.data?.items ?? [], [seriesQuery.data]);
@@ -224,8 +225,7 @@ export function SeriesPage() {
           <PaginacionTabla
             total={total}
             offset={offset}
-            limit={PAGE_LIMIT}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={setOffset}
           />
         }

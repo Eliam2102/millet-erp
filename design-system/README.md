@@ -32,8 +32,7 @@ ser usuario de un módulo o tener sólo lectura de parámetros no permite entrar
    de crear componentes. El AppShell ya aporta los márgenes de página.
 2. **PageHeader:** título, descripción de una oración y una acción primaria por
    zona; `mono` para folios.
-3. **ListadoModulo o detalle 5.2:** integra tabs, filtros, tabla y paginación de
-   10 filas; diseña vacío, carga y error. En detalle separa datos, validación,
+3. **ListadoModulo o detalle 5.2:** integra tabs, filtros, tabla y paginación adaptable con preferencia persistida; diseña vacío, carga y error. En detalle separa datos, validación,
    partidas, ResumenImportes y actividad.
 4. **FormGrid y tamaños de modal:** declara spans 3/4/6/12 y usa FormSeccion para
    alinear secciones. DialogContent: sm/md/lg; SheetContent: form/md/lg.

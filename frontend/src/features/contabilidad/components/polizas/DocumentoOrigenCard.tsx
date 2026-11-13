@@ -3,6 +3,8 @@ import { Link } from '@tanstack/react-router';
 import { Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { tipoDocumentoDetalleRoute, type TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
+import { useArbolDocumentosFacturacion } from '@/features/facturacion/api/useTrazabilidad';
 import { useFactura } from '@/features/cxp/api/useFacturas';
 import { descargarPdfCfdi, descargarXmlCfdi } from '@/features/cxp/lib/cfdi-archivos';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -29,9 +31,16 @@ const TEXTO_TIPO: Record<string, string> = {
  */
 export function DocumentoOrigenCard({ documento: d }: { documento: DocumentoOrigen }) {
   const esFacturaCxp = d.modulo === 'cuentas_por_pagar' && d.tipo === 'factura_proveedor';
+  const esComprobante = d.modulo === 'facturacion' && d.tipo === 'comprobante';
+  const puedeFacturacion = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const puedeFacturas = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasLeer);
   const puedeCfdis = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisLeer);
   const factura = useFactura(esFacturaCxp && puedeFacturas ? d.id : undefined);
+  const arbol = useArbolDocumentosFacturacion('comprobante', esComprobante && puedeFacturacion ? d.id : null);
+  const actual = arbol.data?.actual;
+  const rutaComprobante = esComprobante && puedeFacturacion && !arbol.isError && actual?.id === d.id
+    ? tipoDocumentoDetalleRoute(actual.tipo as TipoDocumentoTrazabilidad, d.id)
+    : null;
   const cfdiId = factura.data?.cfdiRecibidoId ?? null;
   const uuid = d.uuid ?? factura.data?.uuidCfdi ?? null;
   const [descargando, setDescargando] = useState<'xml' | 'pdf' | null>(null);
@@ -73,6 +82,12 @@ export function DocumentoOrigenCard({ documento: d }: { documento: DocumentoOrig
           <dd className="break-all font-mono text-xs">{uuid ?? 'Sin UUID'}</dd>
         </div>
       </dl>
+
+      {rutaComprobante && (
+        <Link to={rutaComprobante.to} params={rutaComprobante.params} className="mt-3 inline-block text-sm font-medium text-brand hover:underline">
+          Ver documento en Facturación
+        </Link>
+      )}
 
       {esFacturaCxp && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-divider pt-3" data-print="hidden">

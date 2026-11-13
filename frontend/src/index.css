@@ -241,3 +241,17 @@
     text-decoration: none !important;
   }
 }
+
+/* Listados: un solo scroll para filas y columnas; el pie queda fuera. */
+.erp-listado [data-table-viewport] > div,
+.erp-listado [data-table-viewport] [data-table-container] {
+  max-height: none;
+  overflow: visible;
+}
+.erp-listado table { width: 100%; }
+.erp-listado thead { position: sticky; top: 0; z-index: 10; }
+@media print {
+  .erp-listado { height: auto !important; overflow: visible !important; }
+  .erp-listado [data-table-viewport] { overflow: visible !important; }
+  .erp-listado thead { position: static; }
+}

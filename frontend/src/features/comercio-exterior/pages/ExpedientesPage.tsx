@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { TabsEstado, BarraFiltros, PaginacionTabla } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -24,6 +25,7 @@ import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
 import { useExpedientes } from '../api/hooks';
 import type { Filtros } from '../api/types';
 export function ExpedientesPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: '/_app/comercio-exterior/expedientes/' });
   const navigate = useNavigate();
   const currentSucursalId = useAuthStore((s) => s.currentSucursalId) ?? undefined;
@@ -35,7 +37,7 @@ export function ExpedientesPage() {
     : currentSucursalId;
   const nuevoExpediente = useNuevoExpediente();
   const canCrear = useHasPermission(P.ComercioExteriorExpedientesCrear);
-  const query = useExpedientes({ ...search, sucursalId });
+  const query = useExpedientes({ ...search, sucursalId, limit: limiteTabla });
   const pagina = query.data;
   function filtrar(patch: Filtros) {
     void navigate({
@@ -143,8 +145,7 @@ export function ExpedientesPage() {
           <PaginacionTabla
             total={pagina?.total ?? 0}
             offset={search.offset ?? 0}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={(offset) => filtrar({ offset })}
           />
         }
@@ -169,7 +170,7 @@ export function ExpedientesPage() {
           />
         ) : (
           <div className="flex h-full min-h-0 flex-col overflow-auto">
-            <Table className="h-full w-full text-left text-sm">
+            <Table className="w-full text-left text-sm">
               <TableHeader className="h-9 bg-surface-subtle text-2xs uppercase tracking-wide text-ink-muted">
                 <TableRow>
                   {[

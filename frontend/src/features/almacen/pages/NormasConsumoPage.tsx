@@ -5,7 +5,8 @@ import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { useNormasConsumo, type NormaConsumo } from '@/features/almacen/api/useConsumoComponentes';
 import { NormaConsumoSheet } from '@/features/almacen/components/NormaConsumoSheet';
 import { esM3 } from '@/features/almacen/lib/consumo-componentes';
@@ -61,7 +62,7 @@ export function NormasConsumoPage() {
           />
         ) : (
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Componente</TableHead>
@@ -81,17 +82,30 @@ export function NormasConsumoPage() {
                       {n.articuloDescripcion ? ` · ${n.articuloDescripcion}` : ''}
                     </TableCell>
                     <TableCell>{n.unidadMedida ?? '—'}</TableCell>
-                    <TableCell className="text-right tabular-nums">{num(n.consumoPorUnidad)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{num(n.porcentajeMerma)}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {n.factorM3PorM2 != null ? num(n.factorM3PorM2) : esM3(n.unidadMedida) ? 'Falta' : '—'}
+                      {num(n.consumoPorUnidad)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {num(n.porcentajeMerma)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {n.factorM3PorM2 != null
+                        ? num(n.factorM3PorM2)
+                        : esM3(n.unidadMedida)
+                          ? 'Falta'
+                          : '—'}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <DateTimeDisplay value={n.updatedAt} variant="corta" />
                     </TableCell>
                     <TableCell>
                       {puedeEditar && (
-                        <Button size="sm" variant="outline" onClick={() => abrir(n)} aria-label={`Editar norma de ${n.articuloClave ?? n.articuloId}`}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => abrir(n)}
+                          aria-label={`Editar norma de ${n.articuloClave ?? n.articuloId}`}
+                        >
                           <Pencil className="size-4" aria-hidden /> Editar
                         </Button>
                       )}

@@ -43,7 +43,7 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
   const esInactiva = item.estatus === EstatusCatalogo.Inactivo;
 
   return (
-    <li>
+    <li data-fila-registro>
       <Link
         to="/admin/sucursales/$id"
         params={{ id: item.id }}

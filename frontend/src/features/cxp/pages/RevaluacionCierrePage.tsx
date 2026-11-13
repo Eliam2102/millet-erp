@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { errorDeReporte } from '@/lib/error-usuario';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { errorUsuario } from '@/lib/error-usuario';
@@ -41,7 +42,8 @@ const MESES = [
 /** Saldos con 2 decimales y tipos de cambio con 4 (pantalla, PDF y Excel). */
 function conDecimales(shape: ReturnType<typeof backendToShellShape>) {
   const decimales: Record<string, number> = { saldo: 2, tc_factura: 4, tc_cierre: 4 };
-  return { ...shape, columnas: shape.columnas.map((c) => ({ ...c, decimales: decimales[c.clave] ?? null })) };
+  return { ...shape, columnas: shape.columnas.map((c) => ({ ...c, decimales: decimales[c.clave] ?? null })),
+  };
 }
 
 /** Mes anterior al de hoy: el que normalmente se cierra. */
@@ -83,8 +85,7 @@ export function RevaluacionCierrePage() {
         onError: (error) => {
           setResumen(null);
           toast.error(
-            errorUsuario(error, 'No se pudo correr la revaluación.'),
-          );
+            errorUsuario(error, 'No se pudo correr la revaluación.'));
         },
       },
     );
@@ -141,10 +142,7 @@ export function RevaluacionCierrePage() {
             <div role="status" className="space-y-1 rounded-md bg-success-bg p-3 text-sm text-success-fg">
               <p>
                 {MESES[resumen.mes - 1]} {resumen.anio}: {resumen.documentos} documento
-                {resumen.documentos === 1 ? '' : 's'} revaluado{resumen.documentos === 1 ? '' : 's'}. Pérdida{' '}
-                <MoneyDisplay amount={resumen.totalPerdida} currency="MXN" strong /> · utilidad{' '}
-                <MoneyDisplay amount={resumen.totalUtilidad} currency="MXN" strong />. La reversa queda para el{' '}
-                {fecha(resumen.fechaReversa)}.
+                {resumen.documentos === 1 ? '' : 's'} revaluado{resumen.documentos === 1 ? '' : 's'}. Pérdida <MoneyDisplay amount={resumen.totalPerdida} currency="MXN" strong /> · utilidad <MoneyDisplay amount={resumen.totalUtilidad} currency="MXN" strong />. La reversa queda para el {fecha(resumen.fechaReversa)}.
               </p>
               {resumen.omitidas.length > 0 && (
                 <p>
@@ -173,7 +171,7 @@ export function RevaluacionCierrePage() {
           <EmptyState title="Aún no hay revaluaciones" description="Corre la revaluación del mes que cerraste para verla aquí." />
         ) : (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
+            <Table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
                   <th className="px-3 py-2 text-left">Mes</th>
@@ -210,7 +208,7 @@ export function RevaluacionCierrePage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         )}
       </section>

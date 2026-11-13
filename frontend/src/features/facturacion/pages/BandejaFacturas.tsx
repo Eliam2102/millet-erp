@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import {
   BarraFiltros,
   EmptyState,
@@ -35,7 +36,6 @@ import { estadoUi } from '../lib/estados-ui';
 import { usePaginacionServidor } from '../lib/use-paginacion-servidor';
 
 const FROM = '/_app/facturacion/facturas/' as const;
-const TAMANO_PAGINA = 50;
 
 /**
  * <c>Bandeja de comprobantes emitidos</c> (FE-F1-PR2). Tabla filtrada
@@ -44,6 +44,7 @@ const TAMANO_PAGINA = 50;
  * factura" navega al form de emisión con pestañas (FAC-UX-PR2).
  */
 export function BandejaFacturas() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
@@ -56,7 +57,7 @@ export function BandejaFacturas() {
     ncPendiente: search.ncPendiente,
     q: q || undefined,
     offset: paginacion.offset,
-    limit: TAMANO_PAGINA,
+    limit: limiteTabla,
     alcance: search.alcance,
   });
 
@@ -124,7 +125,8 @@ export function BandejaFacturas() {
                   <Button
                     variant="ghost"
                     onClick={() =>
-                      actualizarSearch({ estado: undefined, clase: undefined, ncPendiente: undefined })
+                      actualizarSearch({ estado: undefined, clase: undefined, ncPendiente: undefined,
+                      })
                     }
                   >
                     Limpiar
@@ -147,8 +149,7 @@ export function BandejaFacturas() {
           <PaginacionTabla
             total={query.data?.total ?? items.length}
             offset={paginacion.offset}
-            limit={TAMANO_PAGINA}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={paginacion.onChange}
           />
         }

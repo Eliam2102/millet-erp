@@ -199,6 +199,7 @@ export interface AvisoHito {
   motivoCierre?: string | null;
 }
 export interface Filtros {
+  limit?: number;
   atraso?: boolean;
   tipo?: number;
   estado?: number;

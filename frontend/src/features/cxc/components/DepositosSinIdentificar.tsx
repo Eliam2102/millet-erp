@@ -51,7 +51,8 @@ export function DepositosSinIdentificar({ query, q, onIdentificar }: DepositosSi
     return (
       <TableSkeleton
         rows={4}
-        columns={[{ width: 'w-28' }, { width: 'w-40' }, { width: 'w-32' }, { width: 'w-28' }, { width: 'w-20' }]}
+        columns={[{ width: 'w-28' }, { width: 'w-40' }, { width: 'w-32' }, { width: 'w-28' }, { width: 'w-20' },
+        ]}
       />
     );
   }
@@ -77,7 +78,7 @@ export function DepositosSinIdentificar({ query, q, onIdentificar }: DepositosSi
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <Table className="w-full text-sm">
+      <Table paginada className="w-full text-sm">
         <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
           <TableRow>
             <TableHead className="px-3 py-2 font-medium">Fecha valor</TableHead>
@@ -98,38 +99,40 @@ export function DepositosSinIdentificar({ query, q, onIdentificar }: DepositosSi
               <TableCell className="px-3 py-2 font-mono text-xs">{d.fechaValor.slice(0, 10)}</TableCell>
               <TableCell className="px-3 py-2 text-right tabular-nums">
                 <span
-                  className={cn(atrasado && 'rounded bg-warning-bg px-1.5 py-0.5 font-medium text-warning-fg')}
-                  title={atrasado ? `Más de ${DIAS_ESPERA_ALERTA} días sin identificar` : undefined}
-                >
-                  {dias}
-                </span>
-              </TableCell>
-              <TableCell className="px-3 py-2">
-                <p className="font-mono text-xs">{d.referencia ?? 'Sin referencia'}</p>
-                <p className="text-2xs text-ink-muted">{d.cuenta}</p>
-              </TableCell>
-              <TableCell className="max-w-56 truncate px-3 py-2">
-                {d.clienteNombre ?? <span className="text-ink-muted">Sin identificar</span>}
-              </TableCell>
-              <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                {formatoMonto(d.monto, d.moneda)}
-              </TableCell>
-              <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                {formatoMonto(d.disponible, d.moneda)}
-              </TableCell>
-              <TableCell className="px-3 py-2 text-right">
-                {onIdentificar && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onIdentificar(d)}
-                    aria-label={`Identificar depósito ${d.referencia ?? d.movimientoBancarioId}`}
+                  className={cn(atrasado && 'rounded bg-warning-bg px-1.5 py-0.5 font-medium text-warning-fg',
+                    )}
+                  title={atrasado ? `Más de ${DIAS_ESPERA_ALERTA} días sin identificar` : undefined
+                    }
                   >
-                    Identificar
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
+                    {dias}
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <p className="font-mono text-xs">{d.referencia ?? 'Sin referencia'}</p>
+                  <p className="text-2xs text-ink-muted">{d.cuenta}</p>
+                </TableCell>
+                <TableCell className="max-w-56 truncate px-3 py-2">
+                  {d.clienteNombre ?? <span className="text-ink-muted">Sin identificar</span>}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                  {formatoMonto(d.monto, d.moneda)}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                  {formatoMonto(d.disponible, d.moneda)}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right">
+                  {onIdentificar && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onIdentificar(d)}
+                      aria-label={`Identificar depósito ${d.referencia ?? d.movimientoBancarioId}`}
+                    >
+                      Identificar
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
             );
           })}
         </TableBody>

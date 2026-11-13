@@ -1362,3 +1362,41 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
     expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '' }));
   });
 });
+
+
+describe('FB48 paso de piezas', () => {
+  it('retira el error de cantidad al corregir una fracción a entero sin cambiar producto ni emitir', async () => {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    const { container } = render(
+      <EmitirFacturaForm
+        prefill={{ lineas: [{ productoId: null, claveProdServSat: '01010101', descripcion: 'Piezas de prueba',
+          claveUnidadSat: 'H87', cantidad: 4.5, valorUnitario: 10, descuento: 0, requierePedimento: false }] }}
+        onSuccess={vi.fn()} onCancel={vi.fn()}
+      />, { wrapper: createQueryWrapper() },
+    );
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /Partidas/i }), { button: 0, ctrlKey: false });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar', hidden: true }));
+    await waitFor(() => expect(container.querySelector('input[name="lineas.0.cantidad"]')).not.toBeNull());
+    const cantidad = container.querySelector('input[name="lineas.0.cantidad"]') as HTMLInputElement;
+    await waitFor(() => expect(cantidad).toHaveAttribute('aria-invalid', 'true'));
+    expect(screen.getByText('Captura una cantidad entera de piezas.')).toBeVisible();
+
+    fireEvent.change(cantidad, { target: { value: '4' } });
+
+    await waitFor(() => expect(cantidad).toHaveAttribute('aria-invalid', 'false'));
+    expect(screen.queryByText('Captura una cantidad entera de piezas.')).toBeNull();
+    expect(cantidad).toHaveValue(4);
+  });
+
+  it('disminuye cinco piezas a cuatro en vez de 4.9999', async () => {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    const { container } = render(<EmitirFacturaForm onSuccess={vi.fn()} onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(container.querySelector('input[name="lineas.0.cantidad"]')).not.toBeNull());
+    const cantidad = container.querySelector('input[name="lineas.0.cantidad"]') as HTMLInputElement;
+    expect(cantidad).toHaveAttribute('step', '1');
+    fireEvent.change(cantidad, { target: { value: '5' } });
+    cantidad.stepDown();
+    fireEvent.input(cantidad);
+    expect(cantidad.value).toBe('4');
+  });
+});

@@ -17,7 +17,7 @@ export function useExpedientes(filtros: Filtros) {
   Object.entries(filtros).forEach(([k, v]) => {
     if (v !== undefined && v !== '') params.set(k, String(v));
   });
-  params.set('limit', '10');
+  params.set('limit', String(filtros.limit ?? 10));
   return useQuery({
     queryKey: [...ceKeys.all, 'lista', filtros],
     queryFn: async ({ signal }) =>

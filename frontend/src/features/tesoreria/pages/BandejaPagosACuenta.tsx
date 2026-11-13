@@ -19,7 +19,8 @@ import { useState } from 'react';
 import { HandCoins, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { useAutorizarPagoACuenta, usePagosACuentaAbiertos } from '@/features/tesoreria/api/useTesoreria';
+import { useAutorizarPagoACuenta, usePagosACuentaAbiertos,
+} from '@/features/tesoreria/api/useTesoreria';
 import type { PagoACuentaAbiertoResponse } from '@/features/tesoreria/api/types';
 import { EstadoAplicacionBadge } from '@/features/tesoreria/components/Badges';
 import { LigarPagoACuentaDialog } from '@/features/tesoreria/components/LigarPagoACuentaDialog';
@@ -47,7 +48,8 @@ export function BandejaPagosACuenta() {
 
   function firmar(p: PagoACuentaAbiertoResponse) {
     autorizar.mutate(
-      { movimientoId: p.movimientoId, idempotencyKey: keyFor({ accion: 'autorizar', id: p.movimientoId }) },
+      { movimientoId: p.movimientoId, idempotencyKey: keyFor({ accion: 'autorizar', id: p.movimientoId }),
+      },
       {
         onSuccess: () => toast.success('Pago a cuenta autorizado'),
         onError: (e) =>
@@ -102,11 +104,10 @@ export function BandejaPagosACuenta() {
         }
         filtros={<BarraFiltros total={`${items.length} pagos en la consulta`} />}
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={paginacion.regionId}
             total={items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={paginacion.limit}
             onChange={paginacion.onChange}
           />
         }
@@ -154,10 +155,7 @@ export function BandejaPagosACuenta() {
                 {paginacion.visibles.map((p) => (
                   <TableRow key={p.movimientoId} className="hover:bg-surface-muted/30">
                     <TableCell className="max-w-64 px-3 py-2">
-                      <p className="truncate">
-                        {p.proveedorRazonSocial ??
-                          'Sin proveedor'}
-                      </p>
+                      <p className="truncate">{p.proveedorRazonSocial ?? 'Sin proveedor'}</p>
                       <p className="font-mono text-xs text-ink-muted">{p.proveedorClave ?? ''}</p>
                     </TableCell>
                     <TableCell className="px-3 py-2 text-xs">

@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -21,8 +22,7 @@ import {
   EmptyState,
   ErrorState,
   TableSkeleton,
-  UsuarioSelector,
-} from '@/components/erp';
+  UsuarioSelector } from '@/components/erp';
 import { TarjetaSelector } from '@/features/cxp/components/TarjetaSelector';
 import { useMovimientosTc } from '@/features/cxp/api/useTarjetasCredito';
 import {
@@ -60,11 +60,9 @@ export function MovimientosTcPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const puedeRegistrar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento,
-  );
+    PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento);
   const puedeDisputar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarTcDisputar,
-  );
+    PermisosCanonicos.CuentasPorPagarTcDisputar);
   const [sheetAbierto, setSheetAbierto] = useState(false);
   const [refundTarget, setRefundTarget] = useState<MovimientoTc | null>(null);
   const [disputarTarget, setDisputarTarget] =
@@ -144,7 +142,7 @@ export function MovimientosTcPage() {
         />
       ) : (
         <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
+          <Table paginada className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-3 py-2 text-left">Fecha</th>
@@ -212,9 +210,7 @@ export function MovimientosTcPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {puedeRefund && (
-                            <DropdownMenuItem
-                              onSelect={() => setRefundTarget(m)}
-                            >
+                            <DropdownMenuItem onSelect={() => setRefundTarget(m)}>
                               <Undo2 className="mr-2 size-3.5" />
                               Registrar refund
                             </DropdownMenuItem>
@@ -235,18 +231,12 @@ export function MovimientosTcPage() {
                 );
               })}
             </tbody>
-          </table>
+          </Table>
         </div>
       )}
 
-      <NuevoMovimientoTcSheet
-        open={sheetAbierto}
-        onOpenChange={setSheetAbierto}
-      />
-      <RegistrarMovimientoEspecialSheet
-        open={especialAbierto}
-        onOpenChange={setEspecialAbierto}
-      />
+      <NuevoMovimientoTcSheet open={sheetAbierto} onOpenChange={setSheetAbierto} />
+      <RegistrarMovimientoEspecialSheet open={especialAbierto} onOpenChange={setEspecialAbierto} />
       <RegistrarRefundTcSheet
         open={refundTarget !== null}
         onOpenChange={(open) => !open && setRefundTarget(null)}
@@ -302,35 +292,21 @@ function Filtros({
           value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoMovimientoTc),
+              estado: v === SENTINEL_ALL ? undefined : (Number(v) as EstadoMovimientoTc),
             })
           }
         >
-          <SelectTrigger
-            aria-label="Filtrar por estado movimiento"
-            className="w-44"
-          >
+          <SelectTrigger aria-label="Filtrar por estado movimiento" className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstadoMovimientoTc.Registrado)}>
-              Registrado
-            </SelectItem>
-            <SelectItem
-              value={String(EstadoMovimientoTc.ConciliadoConEstadoCuenta)}
-            >
+            <SelectItem value={String(EstadoMovimientoTc.Registrado)}>Registrado</SelectItem>
+            <SelectItem value={String(EstadoMovimientoTc.ConciliadoConEstadoCuenta)}>
               Conciliado
             </SelectItem>
-            <SelectItem value={String(EstadoMovimientoTc.EnDisputa)}>
-              En disputa
-            </SelectItem>
-            <SelectItem value={String(EstadoMovimientoTc.Reversado)}>
-              Reversado
-            </SelectItem>
+            <SelectItem value={String(EstadoMovimientoTc.EnDisputa)}>En disputa</SelectItem>
+            <SelectItem value={String(EstadoMovimientoTc.Reversado)}>Reversado</SelectItem>
             <SelectItem value={String(EstadoMovimientoTc.PagadoAlBanco)}>
               Pagado al banco
             </SelectItem>
@@ -343,37 +319,23 @@ function Filtros({
           value={search.tipo != null ? String(search.tipo) : SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({
-              tipo:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as TipoMovimientoTc),
+              tipo: v === SENTINEL_ALL ? undefined : (Number(v) as TipoMovimientoTc),
             })
           }
         >
-          <SelectTrigger
-            aria-label="Filtrar por tipo movimiento"
-            className="w-44"
-          >
+          <SelectTrigger aria-label="Filtrar por tipo movimiento" className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(TipoMovimientoTc.CompraConCfdi)}>
-              Compra con CFDI
-            </SelectItem>
-            <SelectItem value={String(TipoMovimientoTc.CompraSinCfdi)}>
-              Compra sin CFDI
-            </SelectItem>
+            <SelectItem value={String(TipoMovimientoTc.CompraConCfdi)}>Compra con CFDI</SelectItem>
+            <SelectItem value={String(TipoMovimientoTc.CompraSinCfdi)}>Compra sin CFDI</SelectItem>
             <SelectItem value={String(TipoMovimientoTc.Refund)}>Refund</SelectItem>
             <SelectItem value={String(TipoMovimientoTc.GastoFinanciero)}>
               Gasto financiero
             </SelectItem>
-            <SelectItem value={String(TipoMovimientoTc.Anualidad)}>
-              Anualidad
-            </SelectItem>
-            <SelectItem value={String(TipoMovimientoTc.ComisionDivisa)}>
-              Comisión divisa
-            </SelectItem>
+            <SelectItem value={String(TipoMovimientoTc.Anualidad)}>Anualidad</SelectItem>
+            <SelectItem value={String(TipoMovimientoTc.ComisionDivisa)}>Comisión divisa</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -382,9 +344,7 @@ function Filtros({
         <Input
           type="date"
           value={search.fechaDesde ?? ''}
-          onChange={(e) =>
-            onChange({ fechaDesde: e.target.value || undefined })
-          }
+          onChange={(e) => onChange({ fechaDesde: e.target.value || undefined })}
           className="w-40"
         />
       </div>
@@ -393,9 +353,7 @@ function Filtros({
         <Input
           type="date"
           value={search.fechaHasta ?? ''}
-          onChange={(e) =>
-            onChange({ fechaHasta: e.target.value || undefined })
-          }
+          onChange={(e) => onChange({ fechaHasta: e.target.value || undefined })}
           className="w-40"
         />
       </div>
@@ -423,4 +381,3 @@ function Filtros({
 function abreviar(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }
-

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { ListaLineas } from '@/features/compras/components/ListaLineas';
 import type { LineaResponse } from '@/features/compras/api/types';
 
@@ -31,6 +31,17 @@ function makeLinea(overrides: Partial<LineaResponse> = {}): LineaResponse {
 }
 
 describe('<ListaLineas>', () => {
+  it('distingue el activo fijo del consumible y del legado al consultar una compra mixta', () => {
+    render(<ListaLineas lineas={[
+      makeLinea({ id: 'af', articuloClave: 'AF-TEST', esActivoFijo: true }),
+      makeLinea({ id: 'consumible', articuloClave: 'CON-TEST', esActivoFijo: false }),
+      makeLinea({ id: 'legado', articuloClave: 'LEG-TEST' }),
+    ]} />);
+    expect(within(screen.getByText('AF-TEST').closest('tr')!).getByText('Activo fijo')).toBeVisible();
+    expect(within(screen.getByText('CON-TEST').closest('tr')!).queryByText('Activo fijo')).not.toBeInTheDocument();
+    expect(within(screen.getByText('LEG-TEST').closest('tr')!).queryByText('Activo fijo')).not.toBeInTheDocument();
+  });
+
   it('muestra empty state cuando no hay partidas', () => {
     render(<ListaLineas lineas={[]} />);
     expect(screen.getByText(/sin partidas registradas/i)).toBeInTheDocument();

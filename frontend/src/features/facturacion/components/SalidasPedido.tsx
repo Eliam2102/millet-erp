@@ -146,7 +146,8 @@ function Totales({ datos, moneda }: { datos: PedidoSalidasResponse; moneda: stri
       etiquetaTotal="Subtotal del pedido (sin IVA)"
       estadoPago={[
         { etiqueta: 'Facturado en parcialidades (sin IVA)', monto: datos.totalFacturado },
-        { etiqueta: 'Por facturar (sin IVA)', monto: Math.max(0, datos.totalPedido - datos.totalFacturado), destacado: true },
+        { etiqueta: 'Por facturar (sin IVA)', monto: Math.max(0, datos.totalPedido - datos.totalFacturado), destacado: true,
+        },
       ]}
     />
   );
@@ -155,7 +156,7 @@ function Totales({ datos, moneda }: { datos: PedidoSalidasResponse; moneda: stri
 function AvancePorPartida({ datos }: { datos: PedidoSalidasResponse }) {
   return (
     <div className="overflow-x-auto rounded-md border border-line">
-      <Table className="w-full text-sm" aria-label="Avance por partida">
+      <Table paginada className="w-full text-sm" aria-label="Avance por partida">
         <TableHeader className="bg-surface-subtle">
           <TableRow>
             <TableHead className="px-3 py-2 text-left">Partida</TableHead>
@@ -206,7 +207,7 @@ function TablaSalidas({
 }) {
   return (
     <div className="overflow-x-auto rounded-md border border-line">
-      <Table className="w-full text-sm" aria-label="Parcialidades del pedido">
+      <Table paginada className="w-full text-sm" aria-label="Parcialidades del pedido">
         <TableHeader className="bg-surface-subtle">
           <TableRow>
             <TableHead className="px-3 py-2 text-left">Parcialidad</TableHead>
@@ -223,7 +224,8 @@ function TablaSalidas({
         </TableHeader>
         <TableBody>
           {salidas.map((s) => (
-            <TableRow key={s.id} className="border-t border-line-row" data-testid={`salida-${s.numeroParcialidad}`}>
+            <TableRow key={s.id} className="border-t border-line-row" data-testid={`salida-${s.numeroParcialidad}`}
+            >
               <TableCell className="px-3 py-2 tabular-nums">{s.numeroParcialidad}</TableCell>
               <TableCell className="px-3 py-2 font-mono text-xs">{s.referencia}</TableCell>
               <TableCell className="px-3 py-2 text-ink-secondary">

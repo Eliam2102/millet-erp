@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { useState } from 'react';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -27,6 +28,7 @@ const registros = Array.from({ length: 23 }, (_, i) => ({
   estado: (i % 2) + 1,
 }));
 export function Plantillas() {
+  const { limit } = useTamanoPagina();
   const [estado, setEstado] = useState<number>();
   const [q, setQ] = useState('');
   const [offset, setOffset] = useState(0);
@@ -65,6 +67,7 @@ export function Plantillas() {
         <label>
           Estado del ejemplo
           <select
+            aria-label="Estado del ejemplo"
             className="ml-3 rounded-md border border-line-control p-2"
             value={vista}
             onChange={(e) => setVista(e.target.value)}
@@ -128,8 +131,7 @@ export function Plantillas() {
                 <PaginacionTabla
                   total={filtrados.length}
                   offset={offset}
-                  limit={10}
-                  tamanos={[]}
+                  limit={limit}
                   onChange={setOffset}
                 />
               )
@@ -164,7 +166,7 @@ export function Plantillas() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtrados.slice(offset, offset + 10).map((r) => (
+                  {filtrados.slice(offset, offset + limit).map((r) => (
                     <TableRow key={r.folio}>
                       <TableCell>
                         <a
@@ -231,7 +233,13 @@ export function Plantillas() {
             {['Cliente', 'Sucursal', 'Moneda', 'Fecha'].map((v, i) => (
               <div key={v}>
                 <dt className="text-xs text-ink-muted">{v}</dt>
-                <dd>{['Vidrios y Aluminios del Sureste', 'Sucursal Circuito', 'MXN', '21 sep 2026'][i]}</dd>
+                <dd>
+                  {
+                    ['Vidrios y Aluminios del Sureste', 'Sucursal Circuito', 'MXN', '21 sep 2026'][
+                      i
+                    ]
+                  }
+                </dd>
               </div>
             ))}
           </dl>

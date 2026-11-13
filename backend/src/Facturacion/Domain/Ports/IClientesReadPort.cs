@@ -94,4 +94,5 @@ public sealed record ClienteFiscalLectura(
     string? PaisResidencia = null,
     string? DomicilioExtranjeroCalle = null,
     string? DomicilioExtranjeroEstado = null,
-    string? DomicilioExtranjeroCodigoPostal = null);
+    string? DomicilioExtranjeroCodigoPostal = null,
+    string? Clave = null);

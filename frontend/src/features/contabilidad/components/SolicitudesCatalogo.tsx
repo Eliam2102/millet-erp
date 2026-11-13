@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { TabsContabilidad } from './TabsContabilidad';
 import { ESTADOS_SOLICITUD } from '../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -32,9 +33,10 @@ import type { SolicitudCatalogo } from '../api/types';
 import { diferenciasCatalogo, valorDiferencia } from '../lib/diferencias-catalogo';
 
 export function SolicitudesCatalogo() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [estado, setEstado] = useState('Pendiente');
   const [offset, setOffset] = useState(0);
-  const consulta = useSolicitudesCatalogo(estado, offset);
+  const consulta = useSolicitudesCatalogo(estado, offset, limiteTabla);
   return (
     <section
       aria-label="Solicitudes del catálogo"
@@ -65,8 +67,7 @@ export function SolicitudesCatalogo() {
           <PaginacionTabla
             total={consulta.data?.total ?? 0}
             offset={offset}
-            limit={10}
-            tamanos={[]}
+            limit={limiteTabla}
             onChange={setOffset}
           />
         }

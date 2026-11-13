@@ -1,5 +1,7 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { useState } from 'react';
-import { Breadcrumbs, EmptyState, ErrorState, PaginacionTabla, TableSkeleton } from '@/components/erp';
+import { Breadcrumbs, EmptyState, ErrorState, PaginacionTabla, TableSkeleton,
+} from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { TramoDetenidoBanner } from './TramoDetenidoBanner';
@@ -23,7 +25,6 @@ import { useEscaneoAccion, useEscaneos } from '../api/hooks';
 import type { EscaneoDto, ResultadoEscaneo } from '../api/types';
 import { textoMotivo } from '../lib/motivos-ui';
 
-const PAGE_SIZE = 25;
 const columnas =
   'grid grid-cols-[minmax(0,1.2fr)_100px_80px_90px_80px_90px_150px_minmax(0,1.6fr)_70px_minmax(0,1.4fr)] items-center';
 const tabs: { valor: ResultadoEscaneo; label: string }[] = [
@@ -33,13 +34,15 @@ const tabs: { valor: ResultadoEscaneo; label: string }[] = [
 ];
 
 export function ExcepcionesPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [resultado, setResultado] = useState<ResultadoEscaneo>('Excepcion');
   const [offset, setOffset] = useState(0);
   const [descartando, setDescartando] = useState<EscaneoDto | null>(null);
   const [errorDialogo, setErrorDialogo] = useState<string | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
-  const gestionar = useAuthStore((s) => s.permisos.includes(P.ProductoTerminadoExcepcionesGestionar));
-  const q = useEscaneos({ resultado, page: offset / PAGE_SIZE + 1, pageSize: PAGE_SIZE });
+  const gestionar = useAuthStore((s) => s.permisos.includes(P.ProductoTerminadoExcepcionesGestionar),
+  );
+  const q = useEscaneos({ resultado, page: offset / limiteTabla + 1, pageSize: limiteTabla });
   const accion = useEscaneoAccion();
   const items = q.data?.items ?? [];
 
@@ -93,8 +96,7 @@ export function ExcepcionesPage() {
               <PaginacionTabla
                 total={q.data?.total ?? 0}
                 offset={offset}
-                limit={PAGE_SIZE}
-                tamanos={[]}
+                limit={limiteTabla}
                 onChange={(o) => setOffset(o)}
               />
             }
@@ -107,19 +109,33 @@ export function ExcepcionesPage() {
               <Table className="grid min-w-[1100px] text-sm">
                 <TableHeader className="h-auto min-h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
                   <TableRow className={`${columnas} min-h-9`}>
-                    {['Etiqueta', 'Pedido', 'Posición', 'N.º de pieza', 'Estación', 'Área', 'Registrado', 'Motivo', 'Intentos', 'Acciones'].map(
-                      (x) => (
-                        <TableHead key={x} className="px-3">
-                          {x}
-                        </TableHead>
-                      ),
-                    )}
+                    {[
+                      'Etiqueta',
+                      'Pedido',
+                      'Posición',
+                      'N.º de pieza',
+                      'Estación',
+                      'Área',
+                      'Registrado',
+                      'Motivo',
+                      'Intentos',
+                      'Acciones',
+                    ].map((x) => (
+                      <TableHead key={x} className="px-3">
+                        {x}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody className="grid">
                   {items.map((e) => (
-                    <TableRow key={e.id} className={`${columnas} min-h-12 border-b border-line-row`}>
-                      <TableCell className="min-w-0 truncate px-3 font-mono text-xs">{e.etiqueta}</TableCell>
+                    <TableRow
+                      key={e.id}
+                      className={`${columnas} min-h-12 border-b border-line-row`}
+                    >
+                      <TableCell className="min-w-0 truncate px-3 font-mono text-xs">
+                        {e.etiqueta}
+                      </TableCell>
                       <TableCell className="px-3">{e.numeroPedido}</TableCell>
                       <TableCell className="px-3 tabular-nums">{e.posicion ?? '—'}</TableCell>
                       <TableCell className="px-3 tabular-nums">{e.numeroPieza ?? '—'}</TableCell>
@@ -128,7 +144,9 @@ export function ExcepcionesPage() {
                       <TableCell className="px-3 tabular-nums">
                         <DateTimeDisplay value={e.registradoAt} variant="datetime" />
                       </TableCell>
-                      <TableCell className="min-w-0 whitespace-normal break-words px-3">{textoMotivo(e.motivo)}</TableCell>
+                      <TableCell className="min-w-0 whitespace-normal break-words px-3">
+                        {textoMotivo(e.motivo)}
+                      </TableCell>
                       <TableCell className="px-3 tabular-nums">{e.intentos}</TableCell>
                       <TableCell className="flex flex-wrap gap-1 px-3 py-1">
                         {gestionar && (
@@ -188,7 +206,11 @@ export function ExcepcionesPage() {
           onConfirmar={async (motivo) => {
             setErrorDialogo(null);
             try {
-              await accion.mutateAsync({ escaneo: descartando, ruta: 'descartar', body: { motivo } });
+              await accion.mutateAsync({
+                escaneo: descartando,
+                ruta: 'descartar',
+                body: { motivo },
+              });
               setDescartando(null);
             } catch (err) {
               setErrorDialogo(mensajeErrorAccion(err));

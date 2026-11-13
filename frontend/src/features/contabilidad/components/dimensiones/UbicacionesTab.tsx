@@ -66,11 +66,10 @@ function Ubicaciones({ puedeAdministrar }: { puedeAdministrar: boolean }) {
       <ListadoModulo
         filtros={<BarraFiltros total={`${ubicaciones.data?.length ?? 0} registros`} />}
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={ubicaciones.data?.length ?? 0}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.onChange}
           />
         }
@@ -198,11 +197,10 @@ function Corporativos({ puedeAdministrar }: { puedeAdministrar: boolean }) {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={centros.data?.length ?? 0}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.onChange}
           />
         }

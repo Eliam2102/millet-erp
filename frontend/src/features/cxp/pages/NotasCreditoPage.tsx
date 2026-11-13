@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -23,14 +24,13 @@ import {
   TableSkeleton,
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { cxpKeys } from '@/features/cxp/api/keys';
 import { useNotasCredito } from '@/features/cxp/api/useNotasYAnticipos';
 import {
   EstadoNotaCredito,
-  TipoNotaCreditoLabels,
-} from '@/features/cxp/api/types';
+  TipoNotaCreditoLabels } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -54,17 +54,17 @@ const TABS_ESTADO = [
  */
 export function NotasCreditoPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const puedeCapturar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarNotasCreditoCapturar,
-  );
+    PermisosCanonicos.CuentasPorPagarNotasCreditoCapturar);
   const [sheetAbierto, setSheetAbierto] = useState(false);
 
   const query = useNotasCredito({
     estado: search.estado,
     proveedorId: search.proveedorId,
     q: search.q,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   const conteos = useConteosPorEstado(
@@ -211,7 +211,8 @@ export function NotasCreditoPage() {
                         <ProveedorCelda nombre={n.proveedorNombre} rfc={n.proveedorRfc} />
                       </TableCell>
                       <TableCell className="text-xs">
-                        {(TipoNotaCreditoLabels as Record<number, string>)[n.tipo] ?? `Tipo ${n.tipo}`}
+                        {(TipoNotaCreditoLabels as Record<number, string>)[n.tipo] ??
+                          `Tipo ${n.tipo}`}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         <MoneyDisplay amount={n.total} currency={n.moneda} strong />
@@ -231,16 +232,13 @@ export function NotasCreditoPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         </div>
       )}
 
-      <NuevaNotaCreditoSheet
-        open={sheetAbierto}
-        onOpenChange={setSheetAbierto}
-      />
+      <NuevaNotaCreditoSheet open={sheetAbierto} onOpenChange={setSheetAbierto} />
     </div>
   );
 }
@@ -248,4 +246,3 @@ export function NotasCreditoPage() {
 function abreviar(uuid: string): string {
   return uuid.length > 12 ? `${uuid.slice(0, 8)}…${uuid.slice(-4)}` : uuid;
 }
-

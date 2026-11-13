@@ -43,9 +43,9 @@ describe('Catálogo del sistema de diseño', () => {
     fireEvent.change(plantilla.getByRole('textbox'), { target: { value: '999' } });
     expect(plantilla.getByText('Sin ejemplos')).toBeInTheDocument();
     fireEvent.click(plantilla.getByRole('button', { name: 'Limpiar filtros' }));
-    fireEvent.change(plantilla.getByRole('combobox'), { target: { value: 'cargando' } });
+    fireEvent.change(plantilla.getByRole('combobox', { name: 'Estado del ejemplo' }), { target: { value: 'cargando' } });
     expect(plantilla.getByLabelText('Cargando tabla')).toBeInTheDocument();
-    fireEvent.change(plantilla.getByRole('combobox'), { target: { value: 'error' } });
+    fireEvent.change(plantilla.getByRole('combobox', { name: 'Estado del ejemplo' }), { target: { value: 'error' } });
     fireEvent.click(plantilla.getByRole('button', { name: 'Reintentar' }));
     expect(plantilla.getAllByRole('row')).toHaveLength(11);
   });
