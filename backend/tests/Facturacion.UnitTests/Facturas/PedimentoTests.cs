@@ -141,7 +141,7 @@ public sealed class PedimentoTests
             new FakeEmpresaContext(empresaId));
 
         var cce = new EmitirFacturaVentaCce("2", "DDP", 0m, "123456789", "USA", // 0: TipoCambioUSD del catálogo (CCE121)
-            [new EmitirFacturaVentaCceLinea("7005299901", "06", 1m, 100m, 100m, AplicaIva0: true)],
+            [new EmitirFacturaVentaCceLinea("7005299901", "01", 1m, 100m, 100m, AplicaIva0: true)],
             ClaveDePedimento: "A1", ReceptorDomicilioCalle: "123 Main St", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
         using (var emisionDb = Db())
         {

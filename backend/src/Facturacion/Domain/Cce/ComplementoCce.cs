@@ -118,8 +118,8 @@ public sealed class ComplementoCce
     /// <item>Servicio / sin unidad aduanera (unidad <c>99</c>): la fracción NO debe
     /// registrarse (SAT CCE159).</item>
     /// </list>
-    /// La pertenencia a catálogos (<c>c_FraccionArancelaria</c>, <c>c_UnidadAduana</c>)
-    /// la valida el PAC.
+    /// La unidad debe ser la UMT de la fracción (H-U22, catálogo SAT embebido); el resto
+    /// de la pertenencia a catálogos (<c>c_FraccionArancelaria</c>, <c>c_UnidadAduana</c>) la valida el PAC.
     /// </summary>
     public ComplementoCceLinea AgregarLinea(
         string fraccionArancelaria, string unidadAduana, decimal cantidadAduana,
@@ -145,6 +145,9 @@ public sealed class ComplementoCce
                     Millet.SharedKernel.Domain.FraccionArancelariaExportacion.Mensaje);
             if (string.IsNullOrWhiteSpace(unidadAduana))
                 throw new BusinessRuleException("CCE_UNIDAD_ADUANA_INVALIDA", "La unidad aduanera es obligatoria (c_UnidadAduana).");
+            if (Millet.SharedKernel.Domain.UmtFraccionArancelaria.UmtEsperadaSiNoCoincide(fraccionArancelaria, unidadAduana) is { } umt)
+                throw new BusinessRuleException(Millet.SharedKernel.Domain.UmtFraccionArancelaria.Codigo,
+                    Millet.SharedKernel.Domain.UmtFraccionArancelaria.Mensaje(fraccionArancelaria, unidadAduana, umt));
             if (cantidadAduana <= 0)
                 throw new BusinessRuleException("CCE_CANTIDAD_INVALIDA", "La cantidad aduanera debe ser mayor que cero.");
             if (valorUnitarioAduana <= 0)
