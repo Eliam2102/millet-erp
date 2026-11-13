@@ -73,6 +73,7 @@ import {
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { cn } from '@/lib/utils';
@@ -184,15 +185,22 @@ export function MiCaja() {
 
 function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId: string } | null }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
-  const cajas = useListarCajas(true);
   const abrir = useAbrirSesion();
   const idempotencyKey = useFormIdempotencyKey();
+  // H-U28: la sucursal del encabezado se preselecciona y filtra las cajas ofrecidas.
+  const sucursalEncabezado = useAuthStore((s) => s.currentSucursalId);
 
   const [cajaId, setCajaId] = useState<string | null>(ultima?.cajaId ?? null);
   // Aviso [12-C]: los ajustes pendientes de la caja elegida se drenan
   // automáticamente al abrir — el cajero debe saberlo antes de declarar.
   const ajustes = useAjustesCaja(cajaId);
-  const [sucursalId, setSucursalId] = useState<string | null>(ultima?.sucursalId ?? null);
+  const [sucursalId, setSucursalId] = useState<string | null>(
+    ultima?.sucursalId ?? sucursalEncabezado ?? null,
+  );
+  // Corporativo (leer-todas): puede listar las cajas de todas las sucursales.
+  const puedeTodas = useHasPermission(PermisosCanonicos.FacturacionCajaLeerTodas);
+  const [todasLasSucursales, setTodasLasSucursales] = useState(false);
+  const cajas = useListarCajas(true, todasLasSucursales ? null : sucursalId);
   const [fondo, setFondo] = useState('');
   const [autorizacionId, setAutorizacionId] = useState('');
   const [pideAutorizacion, setPideAutorizacion] = useState(false);
@@ -240,12 +248,28 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
+        {puedeTodas && (
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={todasLasSucursales}
+              onChange={(e) => {
+                setTodasLasSucursales(e.target.checked);
+                setCajaId(null);
+              }}
+            />
+            Ver cajas de todas las sucursales
+          </label>
+        )}
         <div className="space-y-1">
           <Label>Caja</Label>
           {cajas.isLoading ? (
             <p className="text-xs text-ink-muted">Cargando cajas…</p>
           ) : (
-            <Select value={cajaId ?? undefined} onValueChange={setCajaId}>
+            <Select
+              value={cajaId ?? undefined}
+              onValueChange={setCajaId}
+            >
               <SelectTrigger aria-label="Caja">
                 <SelectValue placeholder="Selecciona una caja" />
               </SelectTrigger>
