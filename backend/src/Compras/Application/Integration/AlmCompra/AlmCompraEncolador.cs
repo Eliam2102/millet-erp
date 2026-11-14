@@ -191,7 +191,7 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
                 var entranM2 = Math.Max(0m, l.Cantidad - l.CantidadRecibida);
                 var medioMxn = await costoMedio.EstimarTrasCompraAsync(oc.SucursalDestinoId, null, l.ArticuloId, l.ProductoAwVarianteId,
                     entranM2, cm2, tc, ct);
-                costoMedioM2 = Math.Round(medioMxn / tc, 4);
+                costoMedioM2 = Math.Round(medioMxn / tc, 4, MidpointRounding.AwayFromZero);
             }
             // Jorge 30-oct: artículo A+W + medida; no amarrarse a articuloAlmacenAw (no se manda).
             lineas.Add(new AlmCompraLinea(

@@ -133,6 +133,42 @@ public class SalidaAppAlmacenesTests
     }
 
     [Fact]
+    public async Task La_venta_por_albaran_sin_existencia_queda_en_revision_y_no_mueve_saldo()
+    {
+        var (db, _, _, _, _) = Db();
+        // v11: si el ERP no puede aplicar un mensaje contesta ERROR, no RECIBIDO; la venta no se acepta en silencio.
+        var venta = Salida(11, tipo: TipoMovimiento.SalidaPorVenta) with { Motivo = "App Almacenes VENTA_ALBARAN MV-0006455 pedido 90064863" };
+
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, new Eventos(), EmpresaId, Usuario, [venta], default);
+        await db.SaveChangesAsync();
+
+        estado.Should().Be(SalidaAppAlmacenes.EnRevision);
+        folio.Should().BeNull();
+        error.Should().Contain("disponible 10").And.Contain("solicitada 11");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task La_venta_por_albaran_con_existencia_sale_al_promedio_del_ERP_y_publica_costo_de_ventas()
+    {
+        var (db, _, _, _, _) = Db();
+        var eventos = new Eventos();
+        // El mensaje de la venta no trae costo: la salida se valúa con el promedio del saldo (100).
+        var venta = Salida(2, tipo: TipoMovimiento.SalidaPorVenta) with { Motivo = "App Almacenes VENTA_ALBARAN MV-0006455 pedido 90064863" };
+
+        var (estado, folio, error) = await SalidaAppAlmacenes.RegistrarAsync(db, eventos, EmpresaId, Usuario, [venta], default);
+        await db.SaveChangesAsync();
+
+        (estado, error).Should().Be((SalidaAppAlmacenes.Recibido, (string?)null));
+        folio.Should().StartWith("M-VTA");
+        var mov = await db.Movimientos.Include(m => m.Lineas).SingleAsync();
+        mov.Tipo.Should().Be(TipoMovimiento.SalidaPorVenta);
+        mov.Lineas.Single().CostoUnitarioMxn.Should().Be(100m);
+        // La póliza la arma Contabilidad con esta causa: cargo a costo de ventas, no a consumo.
+        eventos.Publicados.OfType<SalidaInventarioRegistradaIntegrationEvent>().Single().Causa.Should().Be("venta");
+    }
+
+    [Fact]
     public async Task Sin_lote_en_el_mensaje_sale_primero_lo_heredado_sin_lote_y_luego_el_lote_mas_antiguo()
     {
         var (db, subA, ubiA, _, _) = Db(); // 10 sin lote, el saldo más viejo

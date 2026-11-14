@@ -66,6 +66,12 @@ public enum TipoMovimiento : short
 
     /// <summary>Entrada del traslado interno al almacén destino, con el costo, la medida y el lote de la salida. Folio TRE.</summary>
     EntradaTrasladoInterno = 15,
+
+    /// <summary>
+    /// Salida de materia prima por la venta de un pedido de A+W (VENTA_ALBARAN, contrato v10-v11): A+W pasa el pedido a 71 y la app
+    /// dice de qué división, línea y lote salió cada hoja. Sale al costo promedio del ERP; el mensaje no trae costo. Folio VTA.
+    /// </summary>
+    SalidaPorVenta = 16,
 }
 
 internal static class TipoMovimientoExtensions
@@ -96,6 +102,7 @@ internal static class TipoMovimientoExtensions
         TipoMovimiento.SalidaPorRotura => "ROT",
         TipoMovimiento.TrasladoInterno => "TRA",
         TipoMovimiento.EntradaTrasladoInterno => "TRE",
+        TipoMovimiento.SalidaPorVenta => "VTA",
         _ => "MOV",
     };
 
