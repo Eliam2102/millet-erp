@@ -51,6 +51,7 @@ import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarC
 import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
 import { leerImporte, limpiarImporte } from '@/features/facturacion/lib/importe-caja';
 import { TerminalTarjetaCard } from '@/features/facturacion/components/TerminalTarjetaCard';
+import { CatalogoTerminalesCard } from '@/features/facturacion/components/CatalogoTerminalesCard';
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
@@ -178,6 +179,8 @@ export function MiCaja() {
       {puedeSupervisar && <AutorizarAperturaCard />}
       {/* 86e3vr1tf: archivo diario de la terminal de tarjetas. */}
       {puedeSupervisar && <TerminalTarjetaCard />}
+      {/* M-111: catálogo afiliación + terminal → sucursal. */}
+      {puedeSupervisar && <CatalogoTerminalesCard />}
     </div>
   );
 }
