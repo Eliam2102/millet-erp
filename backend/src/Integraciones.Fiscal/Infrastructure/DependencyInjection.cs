@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.Integraciones.Fiscal.Infrastructure.Cliente;
 using Millet.Integraciones.Fiscal.Infrastructure.SdkAdapter;
@@ -63,7 +64,15 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(FiscalApiSdkAdapterOptions.SectionName));
         services.AddOptions<TimeoutPacOptions>().Bind(configuration.GetSection(TimeoutPacOptions.SectionName));
         services.AddSingleton<IFiscalApiSdkClientFactory, FiscalApiSdkClientFactory>();
-        services.AddScoped<IFiscalApiSdkClient, FiscalApiSdkAdapter>();
+        // M-293b: el SDK simulado solo existe en Development; fuera de ahí el validador impide el arranque.
+        services.AddSingleton<IValidateOptions<FiscalApiSdkAdapterOptions>, SdkSimuladoSoloDevelopmentValidator>();
+        services.AddOptions<FiscalApiSdkAdapterOptions>().ValidateOnStart();
+        services.AddScoped<FiscalApiSdkAdapter>();
+        services.AddSingleton<FiscalApiSdkSimulado>();
+        services.AddScoped<IFiscalApiSdkClient>(sp =>
+            sp.GetRequiredService<IOptions<FiscalApiSdkAdapterOptions>>().Value.EsSimulado
+                ? sp.GetRequiredService<FiscalApiSdkSimulado>()
+                : sp.GetRequiredService<FiscalApiSdkAdapter>());
         services.AddScoped<IPacCandidatoProbe, PacCandidatoProbe>();
 
         // Búsqueda de catálogos SAT en vivo (typeahead de claves
