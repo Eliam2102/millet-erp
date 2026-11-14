@@ -42,3 +42,22 @@ it('M-284: ofrece adoptar el CFDI solo cuando el PAC no confirmó el timbrado', 
   );
   expect(screen.queryByRole('button', { name: 'Adoptar CFDI timbrado' })).toBeNull();
 });
+
+it('H-U34: muestra el código y el mensaje con que el PAC rechazó el timbrado', () => {
+  render(
+    <TimbradoFallidoBanner
+      comprobanteId="prueba"
+      estado="TimbradoFallido"
+      errorCodigo="CP103"
+      errorMensaje="El valor del campo Moneda debe ser XXX para el tipo de comprobante T."
+    />,
+  );
+  expect(screen.getByText('Motivo del PAC:')).toBeInTheDocument();
+  expect(screen.getByText('CP103')).toBeInTheDocument();
+  expect(screen.getByText(/El valor del campo Moneda debe ser XXX/)).toBeInTheDocument();
+});
+
+it('H-U34: sin mensaje del PAC no muestra el renglón de motivo', () => {
+  render(<TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_SIN_SALDO" errorMensaje={null} />);
+  expect(screen.queryByText('Motivo del PAC:')).toBeNull();
+});

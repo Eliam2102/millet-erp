@@ -115,6 +115,8 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
             ?? throw new EntityNotFoundException("VEHICULO_NO_ENCONTRADO", $"No existe el vehículo {vehiculoId}.");
         var operador = await _db.Operadores.FirstOrDefaultAsync(o => o.Id == operadorId, cancellationToken)
             ?? throw new EntityNotFoundException("OPERADOR_NO_ENCONTRADO", $"No existe el operador {operadorId}.");
+        // H-U33: una configuración que exige remolque se rechaza aquí, antes de reservar folio (el PAC la rechaza con CP184).
+        Dominio.ConfigVehicularRemolque.Validar(vehiculo.ConfigVehicular, vehiculo.Placa);
         return (vehiculo, operador);
     }
 }

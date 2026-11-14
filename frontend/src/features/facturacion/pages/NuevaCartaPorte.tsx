@@ -16,6 +16,7 @@ import {
 } from '@/features/facturacion/components/ReceptorFiscalInfo';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
 import { VehiculoPicker } from '@/features/facturacion/components/VehiculoPicker';
+import { useVehiculosAdmin } from '@/features/facturacion/api/cartaPorteCatalogos';
 import {
   CartaPorteSchema,
   type CartaPorteValues,
@@ -28,6 +29,7 @@ import { hoyLocalISO } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Building2, Plus, Trash2 } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -71,7 +73,8 @@ const VALORES_INICIALES: CartaPorteValues = {
   receptorPais: 'MEX',
   rfcEmisor: '',
   regimenFiscalEmisor: '',
-  moneda: 'MXN',
+  // H-U32: tipo T (inicial) lleva moneda XXX por regla del SAT; con I se propone MXN.
+  moneda: 'XXX',
   origen: '',
   destino: '',
   origenCodigoPostal: '',
@@ -128,6 +131,7 @@ function FormInner({
 }: NuevaCartaPorteProps & { emisor: EmisorDefaultsResponse }) {
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirCartaPorte();
+  const navigate = useNavigate();
   // El receptor es de solo lectura; el permiso solo controla el CTA al
   // catálogo de clientes (mismo patrón que la emisión de factura).
   const puedeCorregirEnCatalogo = useHasPermission(
@@ -175,6 +179,18 @@ function FormInner({
   const receptorBloqueado = [receptorRfc, receptorNombre, receptorRegimen, receptorCp].some(
     (v) => (v ?? '').trim() === '',
   );
+
+  // H-U32: el CFDI tipo T va en moneda XXX (el PAC rechaza otra con CP103); al pasar a I se propone MXN.
+  const [tipoCfdi, vehiculoId] = useWatch({ control: form.control, name: ['tipoCfdi', 'vehiculoId'] });
+  useEffect(() => {
+    const actual = form.getValues('moneda');
+    if (tipoCfdi === 'T' && actual !== 'XXX') form.setValue('moneda', 'XXX', { shouldDirty: true });
+    if (tipoCfdi === 'I' && actual === 'XXX') form.setValue('moneda', 'MXN', { shouldDirty: true });
+  }, [tipoCfdi, form]);
+
+  // H-U33: la configuración del vehículo exige remolque y la Carta Porte aún no lo captura → el servidor la rechaza.
+  const vehiculos = useVehiculosAdmin(false);
+  const vehiculoConRemolque = (vehiculos.data ?? []).find((v) => v.id === vehiculoId && v.exigeRemolque);
 
   /** Traslado propio (tipo T): receptor = el mismo emisor. */
   function usarDatosDelEmisor() {
@@ -225,6 +241,13 @@ function FormInner({
       },
       {
         onSuccess: (res) => {
+          if (res.estado === 'TimbradoFallido') {
+            // H-U34: el PAC la rechazó; su detalle muestra el código y el mensaje del PAC para corregir y reintentar.
+            toast.error(`El PAC rechazó la Carta Porte ${res.folio}. Revisa el motivo en su detalle.`);
+            onClose({ force: true });
+            navigate({ to: '/facturacion/carta-porte/$id', params: { id: res.id } });
+            return;
+          }
           toast.success(
             res.uuid
               ? `Carta Porte ${res.folio} timbrada (${res.tipoCfdi})`
@@ -329,8 +352,19 @@ function FormInner({
           <Campo label="Uso CFDI" required error={form.formState.errors.receptorUsoCfdi?.message}>
             <Input className="uppercase" maxLength={5} {...form.register('receptorUsoCfdi')} />
           </Campo>
-          <Campo label="Moneda" required error={form.formState.errors.moneda?.message}>
-            <Input className="uppercase" maxLength={3} {...form.register('moneda')} />
+          <Campo
+            label="Moneda"
+            required
+            error={form.formState.errors.moneda?.message}
+            hint={tipoCfdi === 'T' ? 'Traslado: el SAT exige XXX (sin operación monetaria).' : undefined}
+          >
+            <Input
+              className="uppercase"
+              maxLength={3}
+              readOnly={tipoCfdi === 'T'}
+              aria-readonly={tipoCfdi === 'T'}
+              {...form.register('moneda')}
+            />
           </Campo>
         </Seccion>
 
@@ -400,6 +434,12 @@ function FormInner({
                 />
               )}
             />
+            {vehiculoConRemolque && (
+              <p role="note" className="mt-1 text-xs text-warning-note-fg">
+                La configuración {vehiculoConRemolque.configVehicular} exige remolque y la Carta Porte todavía no lo
+                captura: elige un vehículo sin remolque (por ejemplo C2 o C3).
+              </p>
+            )}
           </Campo>
           <Campo label="Operador" required error={form.formState.errors.operadorId?.message}>
             <Controller

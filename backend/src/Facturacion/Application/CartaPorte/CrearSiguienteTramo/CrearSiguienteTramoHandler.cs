@@ -66,6 +66,8 @@ public sealed class CrearSiguienteTramoHandler : IRequestHandler<CrearSiguienteT
             ?? throw new EntityNotFoundException("VEHICULO_NO_ENCONTRADO", $"No existe el vehículo {command.VehiculoId}.");
         var operador = await _db.Operadores.FirstOrDefaultAsync(o => o.Id == command.OperadorId, cancellationToken)
             ?? throw new EntityNotFoundException("OPERADOR_NO_ENCONTRADO", $"No existe el operador {command.OperadorId}.");
+        // H-U33: configuración que exige remolque → rechazo antes del PAC (CP184).
+        Millet.Facturacion.Domain.CartaPorte.ConfigVehicularRemolque.Validar(vehiculo.ConfigVehicular, vehiculo.Placa);
 
         var tipoCfdi = command.TipoCfdi == "T" ? TipoComprobante.Traslado : TipoComprobante.Ingreso;
 

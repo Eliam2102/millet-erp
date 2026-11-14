@@ -56,6 +56,7 @@ export function TimbradoFallidoBanner({
   comprobanteId,
   estado,
   errorCodigo,
+  errorMensaje,
   esNotaCreditoPendiente = false,
 }: TimbradoFallidoBannerProps) {
   const puedeReintentar = useHasPermission(
@@ -145,6 +146,15 @@ export function TimbradoFallidoBanner({
             ? TEXTO_PAC_SIN_SALDO
             : 'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.'}
       </p>
+      {/* H-U34: el motivo que dio el PAC (código y mensaje) para corregir el dato antes de reintentar. */}
+      {errorMensaje?.trim() && (
+        <p className="text-xs text-danger-fg [overflow-wrap:anywhere]">
+          <span className="font-medium">Motivo del PAC:</span>{' '}
+          {errorCodigo && <span className="font-mono">{errorCodigo}</span>}
+          {errorCodigo && ' — '}
+          {errorMensaje.trim()}
+        </p>
+      )}
 
       <ErrorTimbradoAviso error={reintentar.error} />
       {puedeReintentar && (

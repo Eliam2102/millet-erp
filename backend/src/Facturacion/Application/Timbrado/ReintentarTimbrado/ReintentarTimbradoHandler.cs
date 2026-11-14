@@ -281,6 +281,8 @@ public sealed class ReintentarTimbradoHandler
             ?? throw new EntityNotFoundException("VEHICULO_NO_ENCONTRADO", $"No existe el vehículo {cp.VehiculoId}.");
         var operador = await _db.Operadores.FirstOrDefaultAsync(o => o.Id == cp.OperadorId, ct)
             ?? throw new EntityNotFoundException("OPERADOR_NO_ENCONTRADO", $"No existe el operador {cp.OperadorId}.");
+        // H-U33: configuración que exige remolque → rechazo antes del PAC (CP184).
+        Millet.Facturacion.Domain.CartaPorte.ConfigVehicularRemolque.Validar(vehiculo.ConfigVehicular, vehiculo.Placa);
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             cp, CfdiEmisionBuilder.DesdeCartaPorte(cp, vehiculo, operador, ahora),
