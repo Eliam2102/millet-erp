@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
@@ -18,6 +17,8 @@ import { useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useResolverIncidencia, type Incidencia, type ResolverIncidenciaBody } from '../../api/incidencias';
 import { SELECT_CLASS } from '../../lib/estilos';
 import { mensajePoliza } from '../../lib/polizas';
+import { PolizaAutorizadaSelector } from './PolizaAutorizadaSelector';
+import { ReaperturaSelector } from './ReaperturaSelector';
 
 interface Props {
   incidencia: Incidencia | null;
@@ -65,7 +66,7 @@ function Formulario({
   const resolver = useResolverIncidencia();
   const keyFor = useBodyScopedIdempotencyKey();
   const [tipo, setTipo] = useState<'ajuste' | 'reapertura'>('ajuste');
-  const [referencia, setReferencia] = useState('');
+  const [referencia, setReferencia] = useState<string | null>(null);
   const [nota, setNota] = useState('');
   const [mensaje, setMensaje] = useState('');
 
@@ -73,8 +74,8 @@ function Formulario({
     e.preventDefault();
     setMensaje('');
     const body: ResolverIncidenciaBody = {
-      polizaAjusteId: tipo === 'ajuste' ? referencia.trim() : null,
-      reaperturaId: tipo === 'reapertura' ? referencia.trim() : null,
+      polizaAjusteId: tipo === 'ajuste' ? referencia : null,
+      reaperturaId: tipo === 'reapertura' ? referencia : null,
       nota: nota.trim() === '' ? null : nota.trim(),
     };
     resolver.mutate(
@@ -99,6 +100,7 @@ function Formulario({
               onChange={(e) => {
                 onDirty(true);
                 setTipo(e.target.value as 'ajuste' | 'reapertura');
+                setReferencia(null);
               }}
             >
               <option value="ajuste">Póliza de ajuste autorizada</option>
@@ -107,20 +109,34 @@ function Formulario({
           </FormCampo>
           <FormCampo span={12}>
             <Label htmlFor="res-ref">
-              {tipo === 'ajuste' ? 'Identificador de la póliza de ajuste' : 'Identificador de la reapertura'}
+              {tipo === 'ajuste' ? 'Póliza de ajuste' : 'Reapertura del periodo'}
             </Label>
-            <Input
-              id="res-ref"
-              value={referencia}
-              onChange={(e) => {
-                onDirty(true);
-                setReferencia(e.target.value);
-              }}
-            />
+            {tipo === 'ajuste' ? (
+              <PolizaAutorizadaSelector
+                id="res-ref"
+                value={referencia}
+                excluirId={incidencia.polizaId}
+                onChange={(id) => {
+                  onDirty(true);
+                  setReferencia(id);
+                }}
+              />
+            ) : (
+              <ReaperturaSelector
+                id="res-ref"
+                anio={incidencia.periodoAnio}
+                numero={incidencia.periodoNumero}
+                value={referencia}
+                onChange={(id) => {
+                  onDirty(true);
+                  setReferencia(id);
+                }}
+              />
+            )}
             <p className="mt-1 text-xs text-ink-muted">
               {tipo === 'ajuste'
-                ? 'Se copia de la dirección del detalle de la póliza.'
-                : `Debe ser una reapertura del periodo ${incidencia.periodo}.`}
+                ? 'Busca por folio; solo aparecen pólizas autorizadas.'
+                : `Reaperturas del periodo ${incidencia.periodo}, la más reciente primero.`}
             </p>
           </FormCampo>
           <FormCampo span={12}>
@@ -146,7 +162,7 @@ function Formulario({
         <Button type="button" variant="outline" onClick={onCancelar}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={resolver.isPending || referencia.trim() === ''}>
+        <Button type="submit" disabled={resolver.isPending || !referencia}>
           {resolver.isPending ? 'Resolviendo…' : 'Resolver incidencia'}
         </Button>
       </SheetFooter>

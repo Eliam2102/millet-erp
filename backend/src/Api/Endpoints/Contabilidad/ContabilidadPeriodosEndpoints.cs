@@ -115,6 +115,12 @@ public static class ContabilidadPeriodosEndpoints
         .WithSummary("Estado del periodo de una fecha (1–12) o por año y número (1–13); mismo contrato que IPeriodoContableConsultaPort")
         .Produces<EstadoPeriodoContable>().ProducesValidationProblem();
 
+        g.MapGet("/reaperturas", async ([FromQuery] int anio, [FromQuery] int numero, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarReaperturasPeriodoQuery(anio, numero), ct)))
+        .RequireAuthorization(leer).WithName("ListarReaperturasPeriodoContable")
+        .WithSummary("Reaperturas acotadas de un periodo (más reciente primero), para elegirlas sin pegar su identificador")
+        .Produces<IReadOnlyList<ReaperturaPeriodoResponse>>().ProducesValidationProblem();
+
         g.MapGet("/{periodoId:guid}/bitacora", async (Guid periodoId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerBitacoraPeriodoQuery(periodoId), ct)))
         .RequireAuthorization(leer).WithName("BitacoraPeriodoContable")
