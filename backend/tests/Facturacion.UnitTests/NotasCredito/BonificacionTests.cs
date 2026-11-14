@@ -92,6 +92,51 @@ public sealed class BonificacionTests
         nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "01" && r.UuidRelacionado == factura.Uuid);
     }
 
+    // ---- P53: tipo de NC elegido en pantalla ----
+
+    [Theory]
+    [InlineData("Devolucion", MotivoNotaCredito.Devolucion, "03")]
+    [InlineData("Bonificacion", MotivoNotaCredito.Bonificacion, "01")]
+    public async Task Emitir_con_tipo_fija_motivo_y_relacion(string tipo, MotivoNotaCredito motivo, string relacion)
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var factura = await SembrarFacturaAsync(db, empresaId);
+
+        await Handler(db, empresaId).Handle(
+            new EmitirNotaCreditoBonificacionCommand(factura.Id, 116m, 0.16m, null, Tipo: tipo), CancellationToken.None);
+
+        var nc = await db.NotasCredito.Include(n => n.Relaciones).SingleAsync();
+        nc.Motivo.Should().Be(motivo);
+        nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == relacion);
+    }
+
+    [Fact]
+    public async Task Cancelacion_parcial_es_rechazada_y_por_el_saldo_completo_se_emite_con_relacion_01()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var factura = await SembrarFacturaAsync(db, empresaId);
+
+        var parcial = () => Handler(db, empresaId).Handle(
+            new EmitirNotaCreditoBonificacionCommand(factura.Id, 100m, 0.16m, null, Tipo: "Cancelacion"), CancellationToken.None);
+        (await parcial.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("NC_CANCELACION_SALDO_COMPLETO");
+
+        await Handler(db, empresaId).Handle(
+            new EmitirNotaCreditoBonificacionCommand(factura.Id, factura.Total, 0.16m, null, Tipo: "Cancelacion"), CancellationToken.None);
+        var nc = await db.NotasCredito.Include(n => n.Relaciones).SingleAsync();
+        nc.Motivo.Should().Be(MotivoNotaCredito.Cancelacion);
+        nc.Relaciones.Should().ContainSingle(r => r.TipoRelacion == "01");
+    }
+
+    [Fact]
+    public void Validador_rechaza_tipo_desconocido()
+    {
+        var r = new EmitirNotaCreditoBonificacionValidator().Validate(
+            new EmitirNotaCreditoBonificacionCommand(Guid.NewGuid(), 10m, null, null, Tipo: "Otro"));
+        r.IsValid.Should().BeFalse();
+    }
+
     [Fact]
     public async Task Emitir_sobre_factura_no_timbrada_es_rechazado()
     {

@@ -154,7 +154,8 @@ public static class CartaPorteEndpoints
         .WithName("CrearVehiculo")
         .WithSummary("Da de alta un vehículo para Carta Porte")
         .Produces<CatalogoCreadoResponse>(StatusCodes.Status201Created)
-        .ProducesValidationProblem();
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         // POST: alta de operador en el catálogo.
         group.MapPost("/operadores", async (CrearOperadorCommand command, IMediator mediator, CancellationToken ct) =>
@@ -167,7 +168,8 @@ public static class CartaPorteEndpoints
         .WithName("CrearOperador")
         .WithSummary("Da de alta un operador para Carta Porte")
         .Produces<CatalogoCreadoResponse>(StatusCodes.Status201Created)
-        .ProducesValidationProblem();
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         // PATCH: edición / activación de un vehículo del catálogo.
         group.MapPatch("/vehiculos/{id:guid}", async (Guid id, ActualizarVehiculoRequest body, IMediator mediator, CancellationToken ct) =>

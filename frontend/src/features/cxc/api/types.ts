@@ -583,6 +583,9 @@ export interface PropuestaAplicacionResponse {
   /** Diferencia depósito − Σ importes; solo ≤ 0 y dentro de tolerancia. */
   ajusteNoFiscal: number;
   propuestoPor?: string | null;
+  /** H-U41: nombre de quien propuso y de quien resolvió (solo en el detalle). */
+  propuestoPorNombre?: string | null;
+  resueltaPorNombre?: string | null;
   saldoAFavorPorIdentificar?: number;
   estado: EstadoPropuestaAplicacion;
   motivoRechazo: string | null;
