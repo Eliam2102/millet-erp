@@ -2181,6 +2181,8 @@ export interface ComprobanteCobrableItem {
    * ranura del pedido A+W (motivo Ranura). 0 si no hay ranura.
    */
   montoRanura: number;
+  /** H-U41: importe ya comprometido en propuestas de aplicación de CxC abiertas; `total` ya lo descuenta. */
+  montoReservadoCxc?: number;
 }
 
 /** Ajuste de caja ([Decisión 12-C]); aplicadoEnSesionId null = pendiente. */
