@@ -618,12 +618,15 @@ function ArticuloFiscalResumen({
       {puedeCorregirArticulo && linea.productoId != null && (
         <Link
           to="/admin/datos-maestros/productos-aw/$id"
+          target="_blank"
+          rel="noopener noreferrer"
           params={{ id: linea.productoId }}
           className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand hover:underline"
           title="Corregir los datos fiscales en el catálogo de productos A+W"
         >
           <SquarePen className="size-3.5" aria-hidden />
           Corregir en catálogo
+          <span className="sr-only"> (se abre en otra pestaña; tu captura se conserva)</span>
         </Link>
       )}
     </div>
@@ -746,11 +749,14 @@ function ConceptoFilaCompacta({
               {puedeCorregirArticulo && linea.productoId != null && (
                 <Link
                   to="/admin/datos-maestros/productos-aw/$id"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   params={{ id: linea.productoId }}
                   className="inline-flex items-center gap-1 font-medium underline underline-offset-2"
                 >
                   <SquarePen className="size-3.5" aria-hidden />
                   Corregir en catálogo
+                  <span className="sr-only"> (se abre en otra pestaña; tu captura se conserva)</span>
                 </Link>
               )}
             </>
