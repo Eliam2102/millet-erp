@@ -228,11 +228,19 @@ function FormInner({
       },
       {
         onSuccess: (res) => {
-          toast.success(
-            res.uuid
-              ? `Carta Porte ${res.folio} timbrada (${res.tipoCfdi})`
-              : `Carta Porte ${res.folio} emitida (${res.estado})`,
-          );
+          if (!res.uuid && res.estado === 'TimbradoEnProceso') {
+            // El PAC no respondió a tiempo: el resultado es incierto. No es un error y no debe re-emitirse.
+            toast.info(
+              `Emisión en proceso: el PAC no respondió a tiempo. Vuelve a consultar la Carta Porte ${res.folio} en unos minutos; no la emitas de nuevo.`,
+              { duration: 12_000 },
+            );
+          } else {
+            toast.success(
+              res.uuid
+                ? `Carta Porte ${res.folio} timbrada (${res.tipoCfdi})`
+                : `Carta Porte ${res.folio} emitida (${res.estado})`,
+            );
+          }
           onClose({ force: true });
         },
         onError: (error) => {

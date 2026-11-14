@@ -211,3 +211,75 @@ export function useLigarFacturaBanco() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
   });
 }
+
+/** M-111: espejo de <c>TerminalAfiliacionResponse</c> (catálogo afiliación + terminal → sucursal). */
+export interface TerminalAfiliacion {
+  id: string;
+  afiliacion: string;
+  codTerminal: string;
+  sucursalId: string;
+  descripcion: string | null;
+  activa: boolean;
+}
+
+/** M-111: terminal que traen los archivos cargados y aún no tiene sucursal. */
+export interface TerminalSinCatalogar {
+  afiliacion: string;
+  codTerminal: string;
+  ventas: number;
+}
+
+const clavesCatalogo = {
+  lista: () => [...keys.all, 'catalogo'] as const,
+  sinCatalogar: () => [...keys.all, 'sin-catalogar'] as const,
+};
+
+export function useTerminalesAfiliacion() {
+  return useQuery<TerminalAfiliacion[]>({
+    queryKey: clavesCatalogo.lista(),
+    queryFn: async ({ signal }) => (await apiRequest<TerminalAfiliacion[]>(`${BASE}/terminales`, { signal })).data,
+  });
+}
+
+export function useTerminalesSinCatalogar() {
+  return useQuery<TerminalSinCatalogar[]>({
+    queryKey: clavesCatalogo.sinCatalogar(),
+    queryFn: async ({ signal }) =>
+      (await apiRequest<TerminalSinCatalogar[]>(`${BASE}/terminales/sin-catalogar`, { signal })).data,
+  });
+}
+
+/** Alta o reasignación de la terminal de una afiliación en una sucursal. */
+export function useGuardarTerminalAfiliacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      afiliacion: string;
+      codTerminal: string;
+      sucursalId: string;
+      descripcion: string | null;
+    }) =>
+      (
+        await apiRequest<TerminalAfiliacion>(`${BASE}/terminales`, {
+          method: 'PUT',
+          body: JSON.stringify(args),
+          idempotencyKey: crypto.randomUUID(),
+        })
+      ).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
+  });
+}
+
+export function useDesactivarTerminalAfiliacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (
+        await apiRequest<TerminalAfiliacion>(`${BASE}/terminales/${id}/desactivar`, {
+          method: 'POST',
+          idempotencyKey: crypto.randomUUID(),
+        })
+      ).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
+  });
+}

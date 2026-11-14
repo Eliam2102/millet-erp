@@ -77,6 +77,7 @@ public sealed class RegistrarCobroMostradorHandler
     private readonly IIntegrationEventPublisher _eventos;
     private readonly ICatalogosSatReadPort _catalogos;
     private readonly IFolioTransferenciaReadPort? _foliosTransferencia;
+    private readonly IReservaCobroCxcReadPort? _reservasCxc;
 
     public RegistrarCobroMostradorHandler(
         FacturacionDbContext db,
@@ -86,9 +87,11 @@ public sealed class RegistrarCobroMostradorHandler
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
         IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos,
-        IFolioTransferenciaReadPort? foliosTransferencia = null)
+        IFolioTransferenciaReadPort? foliosTransferencia = null,
+        IReservaCobroCxcReadPort? reservasCxc = null)
     {
         _foliosTransferencia = foliosTransferencia;
+        _reservasCxc = reservasCxc;
         _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
@@ -126,7 +129,7 @@ public sealed class RegistrarCobroMostradorHandler
 
         var cobro = await CobroMostradorRegistrador.RegistrarAsync(
             _db, _eventos, empresaId, usuarioId, sesion, comprobante,
-            command.FormasPago, command.Origen, ahora, _foliosTransferencia, cancellationToken);
+            command.FormasPago, command.Origen, ahora, _foliosTransferencia, _reservasCxc, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return new CobroMostradorResponse(cobro.Id, comprobante.Id, sesion.Id, cobro.Estado.ToString(), cobro.Total);
@@ -174,6 +177,7 @@ internal static class CobroMostradorRegistrador
         OrigenCobroMostrador origen,
         DateTimeOffset ahora,
         IFolioTransferenciaReadPort? foliosTransferencia,
+        IReservaCobroCxcReadPort? reservasCxc,
         CancellationToken cancellationToken)
     {
         if (comprobante.Estado != EstadoTimbrado.Timbrado)
@@ -258,6 +262,19 @@ internal static class CobroMostradorRegistrador
                     "COBRO_SIN_SALDO",
                     $"El comprobante '{comprobante.Folio}' no tiene monto por cobrar: las notas de " +
                     $"crédito acreditan {acreditado} de un total de {comprobante.Total}.");
+
+            // H-U41: un pago por banco ya propuesto o confirmado en CxC (REP pendiente) no se cobra otra vez en caja.
+            var reservado = reservasCxc is null ? 0m
+                : (await reservasCxc.ReservadoPorFacturaAsync([comprobante.Id], cancellationToken)).GetValueOrDefault(comprobante.Id);
+            if (reservado > 0)
+            {
+                if (totalEsperado - reservado <= 0)
+                    throw new BusinessRuleException(
+                        "COBRO_RESERVADO_POR_PROPUESTA",
+                        $"El comprobante '{comprobante.Folio}' ya tiene una propuesta de aplicación de pago en Cuentas por Cobrar " +
+                        $"por {reservado:N2}: no se cobra en caja. Si el pago no procede, se rechaza la propuesta en CxC.");
+                totalEsperado -= reservado;
+            }
         }
 
         var totalCobro = formasPago.Sum(f => f.Importe);
@@ -437,6 +454,7 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
     private readonly IIntegrationEventPublisher _eventos;
     private readonly ICatalogosSatReadPort _catalogos;
     private readonly IFolioTransferenciaReadPort? _foliosTransferencia;
+    private readonly IReservaCobroCxcReadPort? _reservasCxc;
 
     public LiquidarRutaHandler(
         FacturacionDbContext db,
@@ -446,9 +464,11 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
         IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos,
-        IFolioTransferenciaReadPort? foliosTransferencia = null)
+        IFolioTransferenciaReadPort? foliosTransferencia = null,
+        IReservaCobroCxcReadPort? reservasCxc = null)
     {
         _foliosTransferencia = foliosTransferencia;
+        _reservasCxc = reservasCxc;
         _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
@@ -496,7 +516,7 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
             var comprobante = comprobantes[item.ComprobanteId];
             var cobro = await CobroMostradorRegistrador.RegistrarAsync(
                 _db, _eventos, empresaId, usuarioId, sesion, comprobante,
-                item.FormasPago, OrigenCobroMostrador.LiquidacionRuta, ahora, _foliosTransferencia, cancellationToken);
+                item.FormasPago, OrigenCobroMostrador.LiquidacionRuta, ahora, _foliosTransferencia, _reservasCxc, cancellationToken);
             cobros.Add(new CobroMostradorResponse(
                 cobro.Id, comprobante.Id, sesion.Id, cobro.Estado.ToString(), cobro.Total));
         }

@@ -1123,6 +1123,7 @@ builder.Services.AddScoped<Millet.Contabilidad.Application.CuentaPuente.IOrdenCo
 // FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Administracion.IUsuarioNombreReadPort, Millet.Api.Infrastructure.Adapters.CxpUsuarioNombreReadAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Administracion.IUsuarioNombreReadPort, Millet.Api.Infrastructure.Adapters.CxcUsuarioNombreReadAdapter>();
 // 86e3tfdve: cuenta beneficiaria del complemento de pago desde la cuenta bancaria de Millet (dueño: Tesorería).
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaBancariaMilletReadPort, Millet.Api.Infrastructure.Adapters.CuentaBancariaMilletReadAdapter>();
 builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.ICuentaOrdenanteMovimientoReadPort, Millet.Api.Infrastructure.Adapters.CuentaOrdenanteMovimientoReadAdapter>();
@@ -2138,6 +2139,7 @@ Millet.Api.Endpoints.Facturacion.ActivosEndpoints.MapFacturacionActivosEndpoints
 
 // === Facturación — Reportes: liquidación caja + anticipos + CFDIs por obra (F11) ===
 Millet.Api.Endpoints.Facturacion.ReportesEndpoints.MapFacturacionReportesEndpoints(app);
+Millet.Api.Endpoints.Facturacion.ConciliacionFiscalEndpoints.MapFacturacionConciliacionFiscalEndpoints(app);
 
 // === Facturación — Emisor-defaults + lookups de catálogo para emisión (FAC-UX-PR1) ===
 Millet.Api.Endpoints.Facturacion.FacturacionCatalogosEndpoints.MapFacturacionCatalogosEndpoints(app);
