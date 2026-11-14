@@ -210,6 +210,115 @@ describe('<CapturarFacturaSheet> — OcSelector deriva proveedor/sucursal', () =
   });
 });
 
+describe('<CapturarFacturaSheet> — las partidas se traen del CFDI (M-292)', () => {
+  const CFDI_ID = '55555555-5555-4555-8555-555555555555';
+  const cfdi = {
+    id: CFDI_ID,
+    uuidCfdi: 'BCFF2641-F126-46F0-A87C-6EA129883419',
+    rfcEmisor: 'SES010101AAA',
+    folio: '11132111',
+    serie: 'A',
+    fechaCfdi: '2026-11-14T00:00:00Z',
+    total: 14500,
+    subtotal: 12500,
+    impuestosTrasladados: 2000,
+    retenciones: 0,
+    moneda: 'MXN',
+    tipoCambio: null,
+  };
+
+  function mockParseado(lineas: unknown[]) {
+    mswServer.use(
+      http.get('*/api/v1/cuentas-por-pagar/cfdis/:id/parseado', () =>
+        HttpResponse.json({
+          ...cfdi,
+          descuentos: 0,
+          retencionesDetalle: null,
+          cfdiRelacionados: null,
+          lineas,
+        }),
+      ),
+    );
+  }
+
+  it('al abrir con un CFDI vinculado llena las partidas sin que el auxiliar las importe', async () => {
+    mockParseado([
+      {
+        posicion: 1,
+        claveProdServ: '31162800',
+        cantidad: 50,
+        claveUnidad: 'H87',
+        unidad: 'Pieza',
+        descripcion: 'Refacciones criticas para linea de produccion',
+        valorUnitario: 250,
+        importe: 12500,
+        descuento: null,
+      },
+    ]);
+
+    render(
+      <CapturarFacturaSheet open onOpenChange={() => {}} cfdiPreseleccionado={cfdi} />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    // La descripción, la cantidad y el precio salen del XML, no de la línea vacía.
+    await waitFor(() => {
+      expect(
+        screen.getByDisplayValue('Refacciones criticas para linea de produccion'),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByDisplayValue('50')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('H87')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('250')).toBeInTheDocument();
+  });
+
+  it('trae una partida por concepto del CFDI', async () => {
+    mockParseado([
+      {
+        posicion: 1,
+        claveProdServ: '31162800',
+        cantidad: 50,
+        claveUnidad: 'H87',
+        unidad: 'Pieza',
+        descripcion: 'Refacciones criticas',
+        valorUnitario: 250,
+        importe: 12500,
+        descuento: null,
+      },
+      {
+        posicion: 2,
+        claveProdServ: '31201610',
+        cantidad: 10,
+        claveUnidad: 'H87',
+        unidad: 'Pieza',
+        descripcion: 'Silicon estructural',
+        valorUnitario: 300,
+        importe: 3000,
+        descuento: null,
+      },
+    ]);
+
+    render(
+      <CapturarFacturaSheet open onOpenChange={() => {}} cfdiPreseleccionado={cfdi} />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Refacciones criticas')).toBeInTheDocument();
+    });
+    expect(screen.getByDisplayValue('Silicon estructural')).toBeInTheDocument();
+    expect(screen.getByText(/Partidas \(2\)/)).toBeInTheDocument();
+  });
+
+  it('sin CFDI vinculado la partida sigue vacía para capturarla a mano', () => {
+    render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    expect(screen.getByPlaceholderText('Concepto del producto/servicio')).toHaveValue('');
+  });
+});
+
 describe('<CapturarFacturaSheet> — tipo de cambio (C1.2)', () => {
   const aviso = /Sugerido del CFDI y editable/i;
 
