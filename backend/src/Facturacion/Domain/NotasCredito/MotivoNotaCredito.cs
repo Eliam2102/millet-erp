@@ -29,6 +29,12 @@ public enum MotivoNotaCredito : short
     /// del anticipo y siempre pide el reembolso a Tesorería. No afecta inventario.
     /// </summary>
     DevolucionAnticipo = 5,
+
+    /// <summary>
+    /// P53: anula por nota de crédito el saldo pendiente completo de una factura que ya no se cancela ante el SAT
+    /// (relación 01). No afecta inventario. Póliza: misma cuenta que la bonificación (a validar con Contabilidad).
+    /// </summary>
+    Cancelacion = 6,
 }
 
 /// <summary>Mapea el motivo a la clave SAT del tipo de relación CFDI (<c>c_TipoRelacion</c>).</summary>
@@ -41,6 +47,7 @@ public static class MotivoNotaCreditoExtensions
         MotivoNotaCredito.Devolucion => "03",
         MotivoNotaCredito.Ranura => "01",
         MotivoNotaCredito.DevolucionAnticipo => "01",
+        MotivoNotaCredito.Cancelacion => "01",
         _ => "01",
     };
 }

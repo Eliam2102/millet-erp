@@ -97,11 +97,18 @@ export function TabEncabezado({
   const datosCliente = { ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones };
   const moneda = useWatch({ control: form.control, name: 'moneda' });
   // CCE121: el TipoCambioUSD sale del catálogo (DOF del día hábil anterior a la emisión), no se captura.
-  const tcDof = useTipoCambioDof(esCce);
+  // H-U40: en USD el tipo de cambio del encabezado se precarga con el mismo DOF del día si viene vacío (editable).
+  const esUsd = (moneda ?? '').toUpperCase() === 'USD';
+  const tcDof = useTipoCambioDof(esCce || esUsd);
   const tcDofValor = tcDof.data?.valor ?? null;
   useEffect(() => {
     if (esCce && form.getValues('cceTcDof') !== tcDofValor) form.setValue('cceTcDof', tcDofValor);
   }, [esCce, tcDofValor, form]);
+  useEffect(() => {
+    const actual = form.getValues('tipoCambio');
+    const vacio = actual === null || actual === undefined || Number.isNaN(actual);
+    if (esUsd && vacio && tcDofValor !== null) form.setValue('tipoCambio', tcDofValor, { shouldValidate: true });
+  }, [esUsd, tcDofValor, form]);
   const metodoPago = useWatch({ control: form.control, name: 'metodoPago' });
   const comportamientoFiscal = useWatch({ control: form.control, name: 'comportamientoFiscal' });
   const [receptorRfc, receptorNombre, receptorRegimen, receptorCp] = useWatch({
@@ -271,7 +278,11 @@ export function TabEncabezado({
           <Campo
             label="Tipo de cambio"
             error={form.formState.errors.tipoCambio?.message}
-            hint="Requerido cuando la moneda no es MXN."
+            hint={
+              esUsd && tcDofValor !== null && tcDof.data
+                ? `Se precarga con el DOF del ${tcDof.data.fecha} (${tcDofValor}); puede ajustarse.`
+                : 'Requerido cuando la moneda no es MXN.'
+            }
           >
             <Input
               type="number"

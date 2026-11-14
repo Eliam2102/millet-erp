@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Domain.CartaPorte;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -59,8 +60,19 @@ public sealed class CrearVehiculoHandler : IRequestHandler<CrearVehiculoCommand,
         var vehiculo = Vehiculo.Crear(empresaId, command.Placa, command.ConfigVehicular, command.AnioModelo,
             command.TipoPermisoSct, command.NumPermisoSct, command.Aseguradora, command.PolizaSeguro,
             command.PesoBrutoVehicular);
+        // H-U35: la placa es única por empresa (ix_vehiculo_placa). Se avisa con 409 antes de guardar y, si otra alta
+        // gana la carrera, la violación del índice también se traduce a 409 (antes salía 500).
+        if (await _db.Vehiculos.AnyAsync(v => v.Placa == vehiculo.Placa, cancellationToken))
+            throw CatalogosCartaPorteErrores.PlacaDuplicada(vehiculo.Placa);
         _db.Vehiculos.Add(vehiculo);
-        await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (CatalogosCartaPorteErrores.EsUnica(ex, "ix_vehiculo_placa"))
+        {
+            throw CatalogosCartaPorteErrores.PlacaDuplicada(vehiculo.Placa);
+        }
         return new CatalogoCreadoResponse(vehiculo.Id);
     }
 }
@@ -98,10 +110,34 @@ public sealed class CrearOperadorHandler : IRequestHandler<CrearOperadorCommand,
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
 
         var operador = Operador.Crear(empresaId, command.Rfc, command.Nombre, command.NumLicencia);
+        // H-U35: el RFC del operador es único por empresa (ix_operador_rfc): 409 en lugar de 500.
+        if (await _db.Operadores.AnyAsync(o => o.Rfc == operador.Rfc, cancellationToken))
+            throw CatalogosCartaPorteErrores.RfcDuplicado(operador.Rfc);
         _db.Operadores.Add(operador);
-        await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (CatalogosCartaPorteErrores.EsUnica(ex, "ix_operador_rfc"))
+        {
+            throw CatalogosCartaPorteErrores.RfcDuplicado(operador.Rfc);
+        }
         return new CatalogoCreadoResponse(operador.Id);
     }
 }
 
 public sealed record CatalogoCreadoResponse(Guid Id);
+
+/// <summary>H-U35: duplicados del catálogo de Carta Porte como 409 con mensaje claro (no 500 del índice único).</summary>
+internal static class CatalogosCartaPorteErrores
+{
+    public static ConflictException PlacaDuplicada(string placa) =>
+        new("FAC_CP_VEHICULO_PLACA_DUPLICADA", $"Ya existe un vehículo con la placa {placa}. Búsquelo en el catálogo o capture otra placa.");
+
+    public static ConflictException RfcDuplicado(string rfc) =>
+        new("FAC_CP_OPERADOR_RFC_DUPLICADO", $"Ya existe un operador con el RFC {rfc}. Búsquelo en el catálogo o capture otro RFC.");
+
+    public static bool EsUnica(DbUpdateException ex, string indice) =>
+        ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation } pg
+        && string.Equals(pg.ConstraintName, indice, StringComparison.Ordinal);
+}
