@@ -31,9 +31,16 @@ public sealed class FiscalApiTimbradoAdapterTests
         public ApiResponse<SdkModels.InvoiceStatusResponse>? StatusResponse { get; init; }
         public ApiResponse<FileResponse>? XmlResponse { get; init; }
 
+        /// <summary>Simula un PAC colgado: la llamada nunca termina.</summary>
+        public bool CreateCuelga { get; init; }
+        public bool XmlCuelga { get; init; }
+        public int LlamadasCreate { get; private set; }
+
         public Task<ApiResponse<SdkModels.Invoice>> CreateAsync(SdkModels.Invoice model)
         {
             UltimoCreado = model;
+            LlamadasCreate++;
+            if (CreateCuelga) return new TaskCompletionSource<ApiResponse<SdkModels.Invoice>>().Task;
             if (OnCreate is null) throw new NotImplementedException();
             var result = OnCreate(model);
             if (result is null) throw new HttpRequestException("simulated network failure");
@@ -52,8 +59,9 @@ public sealed class FiscalApiTimbradoAdapterTests
             return Task.FromResult(StatusResponse ?? throw new NotImplementedException());
         }
 
-        public Task<ApiResponse<FileResponse>> GetXmlAsync(string id) =>
-            Task.FromResult(XmlResponse ?? new ApiResponse<FileResponse> { Succeeded = false, Message = "sin xml" });
+        public Task<ApiResponse<FileResponse>> GetXmlAsync(string id) => XmlCuelga
+            ? new TaskCompletionSource<ApiResponse<FileResponse>>().Task
+            : Task.FromResult(XmlResponse ?? new ApiResponse<FileResponse> { Succeeded = false, Message = "sin xml" });
 
         public Task<ApiResponse<FileResponse>> GetPdfAsync(SdkModels.CreatePdfRequest requestModel) => throw new NotImplementedException();
         public Task<ApiResponse<bool>> SendAsync(SdkModels.SendInvoiceRequest requestModel) => throw new NotImplementedException();
@@ -94,9 +102,10 @@ public sealed class FiscalApiTimbradoAdapterTests
     }
 
     private static FiscalApiTimbradoAdapter Adapter(
-        FakeInvoiceService invoices, ConfiguracionPacResuelta? config = null) =>
+        FakeInvoiceService invoices, ConfiguracionPacResuelta? config = null, TimeoutPacOptions? timeout = null) =>
         new(new FakeFactory(invoices), new FakeConfigResolver(config),
-            NullLogger<FiscalApiTimbradoAdapter>.Instance);
+            NullLogger<FiscalApiTimbradoAdapter>.Instance,
+            timeoutPac: timeout is null ? null : Microsoft.Extensions.Options.Options.Create(timeout));
 
     /// <summary>CSD de prueba resuelto — TimbrarAsync lo exige (emisión por valores).</summary>
     private static readonly CsdResuelto CsdPrueba = new("CER_B64", "KEY_B64", "12345678a");
@@ -981,5 +990,73 @@ public sealed class FiscalApiTimbradoAdapterTests
 
         invoices.UltimoCreado!.GlobalInformation.Should().NotBeNull();
         invoices.UltimoCreado.GlobalInformation!.PeriodicityCode.Should().Be("01");
+    }
+
+    // ───────────────────────── Plazo de espera al PAC (Carta Porte) ─────────────────────────
+
+    /// <summary>Plazo de prueba de 100 ms (en producción 45 s).</summary>
+    private static readonly TimeoutPacOptions PlazoCorto = new() { TimeoutPacSegundos = 0.1 };
+
+    private static CfdiEmision EmisionCartaPorte() => EmisionIngreso() with
+    {
+        Tipo = TipoCfdi.Traslado,
+        Conceptos = [new ConceptoCfdi("43211508", "H87", 10m, "Vidrio laminado", 0m, 0m, 0m, "01", [])],
+        Relaciones = [],
+        ComplementoCartaPorte = new ComplementoCartaPorteCfdi(
+            Origen: new UbicacionCartaPorteCfdi("Querétaro", "76120", "QUE", "MEX"),
+            Destino: new UbicacionCartaPorteCfdi("CDMX", "06600", "CMX", "MEX"),
+            RfcRemitente: "AAA010101AAA", NombreRemitente: "Remitente ficticio",
+            RfcDestinatario: "BBB010101BBB", NombreDestinatario: "Destinatario ficticio",
+            DistanciaKm: 220m,
+            FechaSalida: new DateTimeOffset(2026, 7, 9, 8, 0, 0, TimeSpan.FromHours(-6)),
+            FechaLlegadaEstimada: new DateTimeOffset(2026, 7, 9, 12, 0, 0, TimeSpan.FromHours(-6)),
+            Vehiculo: new VehiculoCartaPorteCfdi("ABC1234", "C2R2", 2022, 17.5m, "TPAF01", "PERM-1", "Seguros X", "POL-1"),
+            Operador: new OperadorCartaPorteCfdi("CCC010101CC1", "Operador ficticio", "LIC-99"),
+            IdCcpRelacionado: null,
+            Mercancias: [new MercanciaCartaPorteCfdi("43211508", "Vidrio laminado", "H87", 10m, 850m, MaterialPeligroso: false)]),
+    };
+
+    [Fact]
+    public async Task Carta_porte_con_el_PAC_colgado_queda_en_proceso_al_vencer_el_plazo_sin_reintentar()
+    {
+        var invoices = new FakeInvoiceService { CreateCuelga = true };
+        var reloj = System.Diagnostics.Stopwatch.StartNew();
+
+        var r = await Adapter(invoices, ConfigSandbox(), PlazoCorto).TimbrarAsync(EmisionCartaPorte(), CancellationToken.None);
+
+        reloj.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+        r.Estado.Should().Be(TimbradoEstado.EnProceso); // resultado ambiguo: no es error ni se re-emite
+        r.ErrorCodigo.Should().Be("PAC_SIN_RESPUESTA");
+        r.ErrorMensaje.Should().Contain("no respondió");
+        r.Uuid.Should().BeNull();
+        invoices.LlamadasCreate.Should().Be(1); // una sola solicitud al PAC: no gasta otro folio ni duplica el CFDI
+    }
+
+    [Fact]
+    public async Task Carta_porte_timbrada_con_la_descarga_del_xml_colgada_queda_timbrada_sin_xml()
+    {
+        var respuesta = RespuestaTimbrada();
+        respuesta.Data!.Responses![0].InvoiceBase64 = null; // obliga a bajar el XML con GetXmlAsync
+        var invoices = new FakeInvoiceService { OnCreate = _ => respuesta, XmlCuelga = true };
+
+        var r = await Adapter(invoices, ConfigSandbox(), PlazoCorto).TimbrarAsync(EmisionCartaPorte(), CancellationToken.None);
+
+        r.Estado.Should().Be(TimbradoEstado.Timbrado);
+        r.Uuid.Should().Be("AAAAAAAA-1111-2222-3333-444444444444");
+        r.XmlTimbrado.Should().BeNull();
+    }
+
+    [Fact]
+    public void El_plazo_aplica_solo_a_carta_porte_salvo_que_se_generalice()
+    {
+        var adapter = Adapter(new FakeInvoiceService(), ConfigSandbox(), new TimeoutPacOptions { TimeoutPacSegundos = 45 });
+        adapter.PlazoPac(EmisionCartaPorte()).Should().Be(TimeSpan.FromSeconds(45));
+        adapter.PlazoPac(EmisionIngreso()).Should().BeNull();
+
+        var todos = Adapter(new FakeInvoiceService(), ConfigSandbox(), new TimeoutPacOptions { TimeoutPacSegundos = 45, AplicaATodos = true });
+        todos.PlazoPac(EmisionIngreso()).Should().Be(TimeSpan.FromSeconds(45));
+
+        var sinPlazo = Adapter(new FakeInvoiceService(), ConfigSandbox(), new TimeoutPacOptions { TimeoutPacSegundos = 0 });
+        sinPlazo.PlazoPac(EmisionCartaPorte()).Should().BeNull();
     }
 }
