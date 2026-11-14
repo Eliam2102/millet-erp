@@ -214,4 +214,32 @@ public sealed class CorridaPagoDominioTests
         c.EnviarAAutorizacion(1, null);
         ((Action)(() => c.AgregarLinea(Pasivo(null, 10m)))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_ESTADO_INVALIDO");
     }
+
+    // ---- M-147: saldo del portal bancario ----
+
+    [Fact]
+    public void M147_saldo_portal_suficiente_se_guarda_redondeado_y_el_menor_al_total_bloquea()
+    {
+        var hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+        var c = Corrida(500_000m);
+        c.RegistrarSaldoPortal(650_000.005m, hoy, "  Captura portal BBVA 13-nov  ", hoy);
+        (c.SaldoPortal, c.FechaConsultaPortal, c.EvidenciaSaldoPortal).Should().Be((650_000.01m, hoy, "Captura portal BBVA 13-nov"));
+
+        ((Action)(() => c.RegistrarSaldoPortal(499_999.99m, hoy, "Captura", hoy)))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_SALDO_PORTAL_INSUFICIENTE");
+        c.RegistrarSaldoPortal(500_000m, hoy, "Captura", hoy);   // igual al total alcanza
+    }
+
+    [Theory]
+    [InlineData(-0.01, 0, "Captura", "CORRIDA_SALDO_PORTAL_INVALIDO")]
+    [InlineData(1_000_000, 1, "Captura", "CORRIDA_FECHA_PORTAL_FUTURA")]
+    [InlineData(1_000_000, 0, " ", "CORRIDA_EVIDENCIA_PORTAL_VACIA")]
+    public void M147_saldo_portal_invalido_lanza_codigo(double saldo, int diasDespues, string evidencia, string codigo)
+    {
+        var hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+        var c = Corrida(100m);
+        ((Action)(() => c.RegistrarSaldoPortal((decimal)saldo, hoy.AddDays(diasDespues), evidencia, hoy)))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == codigo);
+        c.SaldoPortal.Should().BeNull();
+    }
 }

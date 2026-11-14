@@ -85,16 +85,19 @@ public static class CorridasEndpoints
             .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasCrear)
             .WithName("AjustarImporteCorridaPago").Produces<CorridaResponse>();
 
+        // M-147: el cuerpo es opcional; con saldo del portal la corrida se bloquea contra él y no contra el saldo en libros.
         corridas.MapPost("/{id:guid}/enviar-autorizacion", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? v,
-            IMediator mediator, CancellationToken ct) =>
-            v is not int version ? SinVersion() : Results.Ok(await mediator.Send(new EnviarCorridaAAutorizacionCommand(id, version), ct)))
+            [FromBody] SaldoPortalBody? body, IMediator mediator, CancellationToken ct) =>
+            v is not int version ? SinVersion() : Results.Ok(await mediator.Send(new EnviarCorridaAAutorizacionCommand(id, version,
+                body?.SaldoPortal, body?.FechaConsultaPortal, body?.EvidenciaSaldoPortal), ct)))
             .WithMetadata(new RequireIdempotencyKeyAttribute())
             .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasCrear)
             .WithName("EnviarCorridaPagoAAutorizacion").Produces<CorridaResponse>();
 
         corridas.MapPost("/{id:guid}/autorizar", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? v,
-            IMediator mediator, CancellationToken ct) =>
-            v is not int version ? SinVersion() : Results.Ok(await mediator.Send(new AutorizarCorridaCommand(id, version), ct)))
+            [FromBody] SaldoPortalBody? body, IMediator mediator, CancellationToken ct) =>
+            v is not int version ? SinVersion() : Results.Ok(await mediator.Send(new AutorizarCorridaCommand(id, version,
+                body?.SaldoPortal, body?.FechaConsultaPortal, body?.EvidenciaSaldoPortal), ct)))
             .WithMetadata(new RequireIdempotencyKeyAttribute())
             .RequireAuthorization(P + PermisosCanonicos.TesoreriaCorridasAutorizar)
             .WithName("AutorizarCorridaPago").Produces<CorridaResponse>()
@@ -193,3 +196,6 @@ public static class CorridasEndpoints
 }
 
 public sealed record ImporteCorridaBody(decimal Importe);
+
+/// <summary>M-147: saldo del portal bancario consultado al enviar o firmar la corrida (los tres datos van juntos).</summary>
+public sealed record SaldoPortalBody(decimal? SaldoPortal, DateOnly? FechaConsultaPortal, string? EvidenciaSaldoPortal);

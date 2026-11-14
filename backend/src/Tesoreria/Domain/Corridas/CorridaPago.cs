@@ -41,6 +41,15 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// <summary>Avisos acumulados (p. ej. pasivo retirado por CxP), uno por línea.</summary>
     public string? Avisos { get; private set; }
 
+    /// <summary>
+    /// M-147 (Javier Canché, 13-nov): saldo que el portal bancario muestra, capturado al enviar o firmar. Si existe, la corrida
+    /// se bloquea contra este saldo y no contra el saldo en libros del ERP.
+    /// </summary>
+    public decimal? SaldoPortal { get; private set; }
+    public DateOnly? FechaConsultaPortal { get; private set; }
+    /// <summary>Referencia de la evidencia del saldo (folio o nombre de la captura del portal).</summary>
+    public string? EvidenciaSaldoPortal { get; private set; }
+
     private readonly List<CorridaPagoLinea> _lineas = [];
     public IReadOnlyCollection<CorridaPagoLinea> Lineas => _lineas.AsReadOnly();
 
@@ -133,6 +142,31 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
             Estado = EstadoCorridaPago.Autorizada; AutorizadaPor = usuarioId; AutorizadaEn = ahora;
         }
         return firma;
+    }
+
+    /// <summary>M-147: registra el saldo del portal bancario consultado por quien envía o firma y exige que alcance.</summary>
+    public void RegistrarSaldoPortal(decimal saldo, DateOnly fechaConsulta, string evidencia, DateOnly hoy)
+    {
+        if (Estado is not (EstadoCorridaPago.Borrador or EstadoCorridaPago.EnAutorizacion))
+            throw new BusinessRuleException("CORRIDA_ESTADO_INVALIDO", $"No se puede registrar el saldo del portal de una corrida en estado {Estado}.");
+        if (saldo < 0)
+            throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_INVALIDO", "El saldo del portal no puede ser negativo.");
+        if (fechaConsulta > hoy)
+            throw new BusinessRuleException("CORRIDA_FECHA_PORTAL_FUTURA", "La fecha de consulta del portal no puede ser futura.");
+        if (string.IsNullOrWhiteSpace(evidencia))
+            throw new BusinessRuleException("CORRIDA_EVIDENCIA_PORTAL_VACIA", "Indica la referencia de la evidencia del saldo del portal.");
+        SaldoPortal = decimal.Round(saldo, 2, MidpointRounding.AwayFromZero);
+        FechaConsultaPortal = fechaConsulta;
+        EvidenciaSaldoPortal = evidencia.Trim();
+        ExigirSaldoPortalAlcanza();
+    }
+
+    /// <summary>M-147: con saldo del portal capturado, lo pendiente de la corrida no puede excederlo.</summary>
+    public void ExigirSaldoPortalAlcanza()
+    {
+        if (SaldoPortal is decimal saldo && Pendiente > saldo)
+            throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_INSUFICIENTE",
+                $"El portal bancario muestra {saldo:N2} {Moneda} y la corrida suma {Pendiente:N2}; no alcanza para pagarla.");
     }
 
     public void Rechazar(string motivo, Guid usuarioId)

@@ -1071,6 +1071,15 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<string>("EvidenciaSaldoPortal")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("evidencia_saldo_portal");
+
+                    b.Property<DateOnly?>("FechaConsultaPortal")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_consulta_portal");
+
                     b.Property<int>("FirmasRecibidas")
                         .HasColumnType("integer")
                         .HasColumnName("firmas_recibidas");
@@ -1104,6 +1113,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("rol_requerido");
+
+                    b.Property<decimal?>("SaldoPortal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldo_portal");
 
                     b.Property<Guid>("SolicitadaPor")
                         .HasColumnType("uuid")
@@ -1139,6 +1153,8 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.ToTable("corrida_pago", "tesoreria", t =>
                         {
                             t.HasCheckConstraint("ck_corrida_pago_estado", "estado IN (1, 2, 3, 4, 5, 6, 7)");
+
+                            t.HasCheckConstraint("ck_corrida_pago_saldo_portal_no_negativo", "saldo_portal IS NULL OR saldo_portal >= 0");
 
                             t.HasCheckConstraint("ck_corrida_pago_total_no_negativo", "total >= 0");
                         });

@@ -13,6 +13,7 @@ public sealed class CorridaPagoConfiguration : IEntityTypeConfiguration<CorridaP
         {
             t.HasCheckConstraint("ck_corrida_pago_estado", "estado IN (1, 2, 3, 4, 5, 6, 7)");
             t.HasCheckConstraint("ck_corrida_pago_total_no_negativo", "total >= 0");
+            t.HasCheckConstraint("ck_corrida_pago_saldo_portal_no_negativo", "saldo_portal IS NULL OR saldo_portal >= 0");
         });
 
         builder.HasKey(e => e.Id);
@@ -34,6 +35,9 @@ public sealed class CorridaPagoConfiguration : IEntityTypeConfiguration<CorridaP
         builder.Property(e => e.FirmasRecibidas).IsRequired();
         builder.Property(e => e.MotivoCierre).HasMaxLength(400);
         builder.Property(e => e.Avisos);
+        builder.Property(e => e.SaldoPortal).HasPrecision(18, 2);
+        builder.Property(e => e.FechaConsultaPortal);
+        builder.Property(e => e.EvidenciaSaldoPortal).HasMaxLength(300);
 
         builder.HasMany(e => e.Firmas)
             .WithOne()

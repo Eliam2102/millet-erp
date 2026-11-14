@@ -41,7 +41,7 @@ public sealed class CorridasHandlersTests
         new(db, new EmpresaContext(), new User(usuario), new Roles(), new Proveedores(), new Clock());
 
     private static async Task<CorridaResponse> Enviar(TesoreriaDbContext db, CorridaResponse c) =>
-        await new EnviarCorridaAAutorizacionHandler(db, new Proveedores()).Handle(new(c.Id, c.Version), default);
+        await new EnviarCorridaAAutorizacionHandler(db, new Proveedores(), new Clock()).Handle(new(c.Id, c.Version), default);
 
     [Fact]
     public async Task CA1_cinco_pasivos_de_tres_proveedores_se_arman_y_el_jefe_autoriza_cuatro()
@@ -334,5 +334,57 @@ public sealed class CorridasHandlersTests
             [new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180001234567897", true, null, "MXN", "Titular", true,
                 sinCuentaValidada.Contains(id) ? "PorValidar" : "Activa")], SinOpinionCumplimiento: SinOpinion.Contains(id),
             Bloqueado: Bloqueados.Contains(id), MotivoBloqueo: Bloqueados.Contains(id) ? "Fraude" : null);
+    }
+
+    // M-147 (Javier Canché, 13-nov): libros 400,000, portal 650,000, corrida 500,000 → pasa con el saldo del portal.
+    [Fact]
+    public async Task M147_con_saldo_del_portal_capturado_la_corrida_no_se_bloquea_por_el_saldo_en_libros()
+    {
+        await using var db = Db();
+        var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
+        cuenta.RegistrarSaldoInicial(400_000m, new DateOnly(2000, 1, 1), "Saldo en libros menor que el del portal");
+        var p = CorridaPagoDominioTests.Pasivo(Guid.NewGuid(), 500_000m, empresa: Empresa);
+        db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.Add(p); await db.SaveChangesAsync();
+        var r = await Crear(db, Armador).Handle(new(cuenta.Id, [p.FacturaProveedorId]), default);
+        var enviar = new EnviarCorridaAAutorizacionHandler(db, new Proveedores(), new Clock());
+
+        var sinPortal = () => enviar.Handle(new(r.Id, r.Version), default);
+        await sinPortal.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_SALDO_INSUFICIENTE");
+
+        var hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+        r = await enviar.Handle(new(r.Id, r.Version, 650_000m, hoy, "Captura portal BBVA"), default);
+        (r.Estado, r.SaldoPortal, r.FechaConsultaPortal, r.EvidenciaSaldoPortal).Should().Be(("EnAutorizacion", 650_000m, hoy, "Captura portal BBVA"));
+
+        // La firma reusa el saldo del portal capturado al enviar (no vuelve al saldo en libros).
+        r = await Autorizar(db, Gerente).Handle(new(r.Id, r.Version), default);
+        r.FirmasRecibidas.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task M147_saldo_del_portal_menor_al_total_al_firmar_bloquea_con_codigo_y_no_firma()
+    {
+        await using var db = Db();
+        var (cuenta, p) = await Escenario(db, (Guid.NewGuid(), 500_000m));
+        var r = await Enviar(db, await Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default));
+
+        var act = () => Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version, 499_999.99m, DateOnly.FromDateTime(Ahora.UtcDateTime), "Portal"), default);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_SALDO_PORTAL_INSUFICIENTE");
+        (await db.Set<CorridaPagoFirma>().CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public void M147_validador_exige_fecha_y_evidencia_con_el_saldo_y_rechaza_negativo_o_fecha_futura()
+    {
+        var v = new AutorizarCorridaValidator();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1)).IsValid.Should().BeTrue();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, hoy, "Portal")).IsValid.Should().BeTrue();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, -1m, hoy, "Portal")).IsValid.Should().BeFalse();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, hoy.AddDays(2), "Portal")).IsValid.Should().BeFalse();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, null, "Portal")).IsValid.Should().BeFalse();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, hoy, null)).IsValid.Should().BeFalse();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, null, hoy, null)).IsValid.Should().BeFalse();
+        new EnviarCorridaAAutorizacionValidator().Validate(new EnviarCorridaAAutorizacionCommand(Guid.NewGuid(), 1, -1m, hoy, "x")).IsValid.Should().BeFalse();
     }
 }
