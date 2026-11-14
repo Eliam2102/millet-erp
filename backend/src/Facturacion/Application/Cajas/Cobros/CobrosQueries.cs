@@ -6,6 +6,7 @@ using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.NotasCredito;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Infrastructure.Persistence;
 
@@ -74,7 +75,9 @@ public sealed record ComprobanteCobrableItem(
     decimal MontoAcreditado = 0m,
     // RANURA-PR3: porción de MontoAcreditado que corresponde a la NC de la
     // ranura del pedido A+W (motivo Ranura) — el cajero la ve desglosada.
-    decimal MontoRanura = 0m);
+    decimal MontoRanura = 0m,
+    // H-U41 (aditivo): importe ya comprometido en propuestas de aplicación de CxC abiertas; Total ya lo descuenta.
+    decimal MontoReservadoCxc = 0m);
 
 /// <summary>
 /// Comprobantes timbrados sin cobro vigente dentro del alcance del cajero:
@@ -93,11 +96,14 @@ public sealed class ListarComprobantesCobrablesHandler
 {
     private readonly FacturacionDbContext _db;
     private readonly IAlcanceCajaEvaluator _alcance;
+    private readonly IReservaCobroCxcReadPort? _reservas;
 
-    public ListarComprobantesCobrablesHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance)
+    public ListarComprobantesCobrablesHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance,
+        IReservaCobroCxcReadPort? reservas = null)
     {
         _db = db;
         _alcance = alcance;
+        _reservas = reservas;
     }
 
     public async Task<IReadOnlyList<ComprobanteCobrableItem>> Handle(
@@ -150,6 +156,10 @@ public sealed class ListarComprobantesCobrablesHandler
         var facturaIds = items.Where(i => i.Tipo == TipoComprobante.Ingreso).Select(i => i.Id).ToList();
         var acreditados = await SaldoPorCobrar.AcreditadoPorFacturaAsync(
             _db, facturaIds, cancellationToken);
+        // H-U41: lo que CxC ya comprometió en propuestas de aplicación abiertas no se vuelve a cobrar en caja.
+        var reservados = _reservas is null || facturaIds.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : await _reservas.ReservadoPorFacturaAsync(facturaIds, cancellationToken);
 
         // RANURA-PR3: de lo acreditado, cuánto es la NC de la ranura del
         // pedido A+W (motivo Ranura) — el cajero la ve desglosada en la cola.
@@ -170,11 +180,12 @@ public sealed class ListarComprobantesCobrablesHandler
                 var acreditado = i.Tipo == TipoComprobante.Ingreso ? acreditados.GetValueOrDefault(i.Id) : 0m;
                 var porCobrar = i.Tipo == TipoComprobante.Pago
                     ? importesRepp.GetValueOrDefault(i.Id)
-                    : i.Total - acreditado;
+                    : i.Total - acreditado - reservados.GetValueOrDefault(i.Id);
                 return new ComprobanteCobrableItem(
                     i.Id, i.Folio, i.Tipo.ToString(), i.ReceptorNombre,
                     porCobrar, i.Moneda, i.FechaTimbrado, acreditado,
-                    ranuras.GetValueOrDefault(i.Id));
+                    ranuras.GetValueOrDefault(i.Id),
+                    i.Tipo == TipoComprobante.Ingreso ? reservados.GetValueOrDefault(i.Id) : 0m);
             })
             .Where(i => i.Total > 0)
             .ToList();

@@ -56,7 +56,8 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Info, Mail, Receipt, RefreshCw, TriangleAlert, X } from 'lucide-react';
 import { useState } from 'react';
-import type { AnticipoEstadoCuenta } from '@/features/facturacion/api/types';
+import type { AnticipoEstadoCuenta, TipoNotaCredito } from '@/features/facturacion/api/types';
+import { TIPOS_NOTA_CREDITO } from '@/features/facturacion/api/types';
 import { useAplicarAnticipoAFactura } from '@/features/facturacion/api/useAnticipos';
 import { toast } from 'sonner';
 
@@ -218,7 +219,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
                       onClick={() => setAccion((a) => (a === 'nc' ? null : 'nc'))}
                     >
                       <Receipt className="mr-1 h-4 w-4" />
-                      NC bonificación
+                      Nota de crédito
                     </Button>
                   )}
                   {puedeEmitir && puedeCancelar && vigente && !cancelacionPendiente && !f.sustituidaPor && (
@@ -281,6 +282,7 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         <NcBonificacionForm
           facturaId={f.id}
           totalFactura={f.total}
+          porCobrar={f.totalPorCobrar ?? f.total}
           moneda={f.moneda}
           puedeReembolsar={puedeReembolsar}
           onDone={() => setAccion(null)}
@@ -866,17 +868,22 @@ function AplicarAnticipoForm({
 function NcBonificacionForm({
   facturaId,
   totalFactura,
+  porCobrar,
   moneda,
   puedeReembolsar,
   onDone,
 }: {
   facturaId: string;
   totalFactura: number;
+  /** Saldo pendiente: la NC de cancelación va por este importe completo (P53). */
+  porCobrar: number;
   moneda: string;
   puedeReembolsar: boolean;
   onDone: () => void;
 }) {
+  const [tipo, setTipo] = useState<TipoNotaCredito>('Bonificacion');
   const [montoTotal, setMontoTotal] = useState('');
+  const esCancelacion = tipo === 'Cancelacion';
   const [tasaIva, setTasaIva] = useState('0.16');
   const [descripcion, setDescripcion] = useState('');
   const [comentarios, setComentarios] = useState<string | null>(null);
@@ -889,7 +896,7 @@ function NcBonificacionForm({
   const emitir = useEmitirNcBonificacion();
 
   function enviar() {
-    const monto = Number(montoTotal);
+    const monto = esCancelacion ? porCobrar : Number(montoTotal);
     if (!(monto > 0) || monto > totalFactura) {
       toast.error('El monto debe ser mayor a 0 y no exceder el total de la factura.');
       return;
@@ -902,6 +909,7 @@ function NcBonificacionForm({
       {
         command: {
           facturaVentaId: facturaId,
+          tipo,
           montoTotal: monto,
           tasaIva: tasaIva.trim() === '' ? null : Number(tasaIva),
           descripcion: descripcion.trim() || null,
@@ -930,8 +938,24 @@ function NcBonificacionForm({
       className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 @xl:grid-cols-2 @4xl:grid-cols-4 border-line"
       data-print="hidden"
     >
-      <div className="col-span-full text-sm font-medium">
-        Nota de crédito por bonificación (relación 01)
+      <div className="col-span-full text-sm font-medium">Nota de crédito</div>
+      <div className="@xl:col-span-2">
+        <Label htmlFor="nc-tipo" className="text-xs">Tipo *</Label>
+        <select
+          id="nc-tipo"
+          className="block h-9 w-full rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink"
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value as TipoNotaCredito)}
+        >
+          {TIPOS_NOTA_CREDITO.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-ink-muted">
+          {TIPOS_NOTA_CREDITO.find((t) => t.value === tipo)?.ayuda}
+        </p>
       </div>
       <div className="col-span-full">
         <ErrorTimbradoAviso error={emitir.error} />
@@ -942,7 +966,9 @@ function NcBonificacionForm({
           type="number"
           step="0.01"
           min="0"
-          id="nc-monto" value={montoTotal}
+          id="nc-monto"
+          value={esCancelacion ? porCobrar.toFixed(2) : montoTotal}
+          disabled={esCancelacion}
           onChange={(e) => setMontoTotal(e.target.value)}
         />
       </div>

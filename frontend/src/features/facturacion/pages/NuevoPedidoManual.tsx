@@ -561,8 +561,9 @@ function LineaInline({ index, form, onRemove, puedeQuitar }: LineaInlineProps) {
             <Label className="text-xs">Cant. *</Label>
             <Input
               type="number"
-              step="0.0001"
+              step="any"
               min="0"
+              aria-label="Cantidad"
               {...form.register(`lineas.${index}.cantidad` as const, {
                 valueAsNumber: true,
               })}

@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<IClientesReadPort, DatosMaestros.ClientesReadAdapter>();
         services.AddScoped<IPlazoCreditoClienteReadPort, CuentasPorCobrar.PlazoCreditoClienteReadAdapter>();
         services.AddScoped<ISaldoFacturaReadPort, CuentasPorCobrar.SaldoFacturaReadAdapter>();
+        services.AddScoped<IReservaCobroCxcReadPort, CuentasPorCobrar.ReservaCobroCxcReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
         services.AddScoped<IEmpleadosReadPort, DatosMaestros.EmpleadosReadAdapter>();
         services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();

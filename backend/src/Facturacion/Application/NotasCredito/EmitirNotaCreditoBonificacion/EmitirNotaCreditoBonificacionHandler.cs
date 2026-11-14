@@ -94,6 +94,11 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         if (command.MontoTotal > saldo)
             throw new BusinessRuleException("NC_IMPORTE_MAYOR_SALDO",
                 $"El importe de la nota ({command.MontoTotal:N2}) es mayor que el saldo pendiente de la factura ({saldo:N2}).");
+        var motivo = command.MotivoResuelto;
+        // P53: la NC de cancelación anula todo lo pendiente; una parcial es bonificación o devolución.
+        if (motivo == MotivoNotaCredito.Cancelacion && command.MontoTotal != saldo)
+            throw new BusinessRuleException("NC_CANCELACION_SALDO_COMPLETO",
+                $"La nota de crédito de cancelación debe ser por el saldo pendiente completo ({saldo:N2}).");
 
         var ahora = _clock.UtcNow;
         // Período en la fecha fiscal de México: después de las 18:00 del último día, UTC ya es el mes siguiente.
@@ -144,11 +149,11 @@ public sealed class EmitirNotaCreditoBonificacionHandler
             montoTotal: command.MontoTotal,
             tasaIva: command.TasaIva,
             descripcion: command.Descripcion,
-            motivo: command.Devolucion ? MotivoNotaCredito.Devolucion : MotivoNotaCredito.Bonificacion);
+            motivo: motivo);
 
         nc.FijarComentarios(command.Comentarios);
         if (!string.IsNullOrWhiteSpace(factura.Uuid))
-            nc.AgregarRelacion(factura.Uuid!, command.Devolucion ? "03" : "01");
+            nc.AgregarRelacion(factura.Uuid!, motivo.ClaveTipoRelacion());
         if (command.Reembolso is { } reembolso)
             nc.ProgramarReembolso(reembolso.Banco, reembolso.Clabe, reembolso.Titular);
 
