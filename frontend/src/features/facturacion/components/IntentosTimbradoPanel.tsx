@@ -1,3 +1,5 @@
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
+import { usePaginacionLocal } from '@/components/erp/data/usePaginacionLocal';
 import {
   Table,
   TableBody,
@@ -17,6 +19,7 @@ import { cn } from '@/lib/utils';
  */
 export function IntentosTimbradoPanel({ comprobanteId }: { comprobanteId: string }) {
   const intentos = useIntentosTimbrado(comprobanteId);
+  const pagina = usePaginacionLocal(intentos.data ?? [], comprobanteId);
 
   if (intentos.isLoading || (intentos.data ?? []).length === 0) return null;
 
@@ -35,7 +38,7 @@ export function IntentosTimbradoPanel({ comprobanteId }: { comprobanteId: string
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(intentos.data ?? []).map((i) => (
+            {pagina.visibles.map((i) => (
               <TableRow key={i.id} className="border-t border-line">
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                   {i.intentoNumero}
@@ -66,6 +69,12 @@ export function IntentosTimbradoPanel({ comprobanteId }: { comprobanteId: string
           </TableBody>
         </Table>
       </div>
+      <PaginacionTabla regionId={pagina.regionId}
+        total={intentos.data?.length ?? 0}
+        offset={pagina.offset}
+        limit={pagina.limit}
+        onChange={pagina.onChange}
+      />
     </section>
   );
 }

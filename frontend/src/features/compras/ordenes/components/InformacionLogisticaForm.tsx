@@ -20,6 +20,7 @@ import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-con
 import { useTransportistas } from '@/features/catalogos/api';
 import { cn } from '@/lib/utils';
 import { useForm, Controller } from 'react-hook-form';
+import { DireccionEntregaSelector } from './DireccionEntregaSelector';
 
 /**
  * <c>&lt;InformacionLogisticaForm/&gt;</c> — sub-tab "Logística" del
@@ -141,6 +142,7 @@ function EditView({
   const mutation = useActualizarInformacionLogistica();
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
+  const [otraExplicita, setOtraExplicita] = useState(false);
 
   const form = useForm<LogisticaValues>({
     defaultValues: {
@@ -198,7 +200,7 @@ function EditView({
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
       onKeyDown={(e) => {
-        if (e.key === 'Escape' && !mutation.isPending) {
+        if (e.key === 'Escape' && !e.defaultPrevented && e.currentTarget.contains(e.target as Node) && !mutation.isPending) {
           e.preventDefault();
           onCancel();
         }
@@ -236,15 +238,16 @@ function EditView({
         <Controller
           name="direccionEntrega"
           control={form.control}
+          rules={{ validate: value => !otraExplicita || Boolean(value.trim()) || 'Escribe la dirección de entrega.' }}
           render={({ field }) => (
-            <TextAreaField
+            <DireccionEntregaSelector
               value={field.value || null}
               onChange={(v) => field.onChange(v ?? '')}
-              maxLength={500}
-              minRows={2}
-              textareaProps={{
-                placeholder: 'Calle, número, colonia, ciudad, CP…',
+              onOtraChange={otra => {
+                setOtraExplicita(otra);
+                if (!otra) form.clearErrors('direccionEntrega');
               }}
+              error={form.formState.errors.direccionEntrega?.message}
             />
           )}
         />

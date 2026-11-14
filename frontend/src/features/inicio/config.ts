@@ -228,15 +228,15 @@ export const piezasInicio: readonly PiezaInicio[] = [
     fuente('almacen/inicio/recepciones', P.AlmacenEntradasLeer),
     { ...fuente('compras/inicio/recepciones', P.ComprasOrdenesLeer), excluirSi: P.AlmacenEntradasLeer },
   ] },
-  { id: 'conteos', tipo: 'indicador', titulo: 'Conteos abiertos', to: '/almacen/conteos', prioridad: 70, fuentes: [fuente('almacen/inicio/conteos', P.AlmacenInventariosLeer)] },
+  { id: 'conteos', tipo: 'indicador', titulo: 'Conteos abiertos', to: '/almacen/inventarios', prioridad: 70, fuentes: [fuente('almacen/inicio/conteos', P.AlmacenInventariosLeer)] },
   { id: 'vales', tipo: 'indicador', titulo: 'Vales por regularizar', to: '/almacen/salidas', prioridad: 90, fuentes: [fuente('almacen/inicio/vales', P.AlmacenSalidasLeerTodas)] },
   { id: 'facturas', tipo: 'indicador', titulo: 'Facturas de proveedor en revisión', to: '/cxp/facturas', prioridad: 85, fuentes: [fuente('cuentas-por-pagar/inicio/facturas', P.CuentasPorPagarFacturasLeer)] },
-  { id: 'pagos', tipo: 'indicador', titulo: 'Por pagar esta semana', to: '/tesoreria/pasivos', prioridad: 95, moneda: true, fuentes: [fuente('tesoreria/inicio/pagos', P.TesoreriaPasivosVer)] },
+  { id: 'pagos', tipo: 'indicador', titulo: 'Por pagar esta semana', to: '/tesoreria/pagos', prioridad: 95, moneda: true, fuentes: [fuente('tesoreria/inicio/pagos', P.TesoreriaPasivosVer)] },
   { id: 'bancos', tipo: 'indicador', titulo: 'Saldo en bancos', to: '/tesoreria/cuentas', prioridad: 65, moneda: true, fuentes: [fuente('tesoreria/inicio/bancos', P.TesoreriaCuentasVer)] },
   { id: 'cartera', tipo: 'indicador', titulo: 'Por cobrar vencido', to: '/cxc/cartera', prioridad: 95, moneda: true, fuentes: [fuente('cuentas-por-cobrar/inicio/vencido', P.CuentasPorCobrarCarteraLeer)] },
   // No hay pedidos.leer/comprobantes.leer canónicos: facturas.leer es la lectura fiscal más cercana.
   { id: 'pedidos', tipo: 'indicador', titulo: 'Pedidos por facturar', to: '/facturacion/pedidos', prioridad: 75, fuentes: [fuente('facturacion/inicio/pedidos', P.FacturacionFacturasLeer)] },
-  { id: 'timbrado', tipo: 'indicador', titulo: 'Timbrado con problema', to: '/facturacion/comprobantes', prioridad: 100, fuentes: [fuente('facturacion/inicio/timbrado', P.FacturacionFacturasLeer)] },
+  { id: 'timbrado', tipo: 'indicador', titulo: 'Timbrado con problema', to: '/facturacion/facturas', prioridad: 100, fuentes: [fuente('facturacion/inicio/timbrado', P.FacturacionFacturasLeer)] },
   // El recurso no tiene un permiso de lectura separado; coincide con la bandeja de depósitos.
   // eslint-disable-next-line ds/no-texto-interno -- Estado de negocio: depósitos pendientes de conciliación.
   { id: 'depositos', tipo: 'indicador', titulo: 'Depósitos por confirmar', to: '/tesoreria/depositos', prioridad: 80, fuentes: [fuente('tesoreria/inicio/depositos', P.TesoreriaDepositosConfirmar)] },

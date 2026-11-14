@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { opcionesEstado } from '../lib/estados-ui';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -28,7 +29,7 @@ import {
   useConteosPorEstado,
 } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { tesoreriaKeys } from '@/features/tesoreria/api/keys';
@@ -53,8 +54,9 @@ const TABS_ESTADO = opcionesEstado('devolucion');
  */
 export function BandejaDevoluciones() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta({ ...search, pageSize: search.pageSize });
   const navigate = useNavigate();
-  const { offset, limit } = paginaAOffsetLimit({ ...search, pageSize: search.pageSize ?? 10 });
+  const { offset, limit } = paginaTabla;
 
   const query = useDevoluciones({ estado: search.estado, origen: search.origen, offset, limit });
   const conteos = useConteosPorEstado(

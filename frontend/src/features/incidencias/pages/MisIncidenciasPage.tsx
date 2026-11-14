@@ -1,7 +1,9 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { PageHeader } from '@/components/erp/PageHeader';
-import { BarraFiltros, EmptyState, ErrorState, PaginacionTabla, TableSkeleton } from '@/components/erp';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { BarraFiltros, EmptyState, ErrorState, PaginacionTabla, TableSkeleton,
+} from '@/components/erp';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -21,10 +23,12 @@ import {
 } from '@/components/ui/table';
 import { esApiError } from '@/lib/api';
 import { formatDate } from '@/lib/datetime';
-import { useMisIncidencias, usePasosIncidencia, useResumenMisIncidencias } from '@/features/incidencias/api/useIncidencias';
+import { useMisIncidencias, usePasosIncidencia, useResumenMisIncidencias,
+} from '@/features/incidencias/api/useIncidencias';
 import type { IncidenciaFila } from '@/features/incidencias/api/types';
 import { EstadoIncidenciaBadge } from '@/features/incidencias/lib/estado';
-import { fechaCompromisoTexto, folioIncidencia, origenIncidencia, vencida } from '@/features/incidencias/lib/formato';
+import { fechaCompromisoTexto, folioIncidencia, origenIncidencia, vencida,
+} from '@/features/incidencias/lib/formato';
 import {
   VistaIncidencias,
   estadosDeVista,
@@ -50,12 +54,13 @@ const VISTAS: { valor: VistaIncidencias; label: string }[] = [
  */
 export function MisIncidenciasPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const resumen = useResumenMisIncidencias(true);
   const query = useMisIncidencias({
     estado: estadosDeVista(search.vista),
     modulo: search.modulo,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
 
   function actualizar(parcial: Partial<IncidenciasSearch>) {
@@ -80,7 +85,8 @@ export function MisIncidenciasPage() {
       />
 
       <div className="flex flex-col overflow-hidden rounded-t-lg bg-surface-card shadow-card-flat">
-        <Tabs value={vista} onValueChange={(v) => actualizar({ vista: v === VistaIncidencias.Pendientes ? undefined : (v as VistaIncidencias) })}>
+        <Tabs value={vista} onValueChange={(v) => actualizar({ vista: v === VistaIncidencias.Pendientes ? undefined : (v as VistaIncidencias),
+            })}>
           <TabsList aria-label="Filtrar por estado" className="gap-3 px-4">
             {VISTAS.map((v) => (
               <TabsTrigger key={v.valor} value={v.valor} count={conteos[v.valor]} aria-controls={undefined}>
@@ -92,7 +98,9 @@ export function MisIncidenciasPage() {
 
         <BarraFiltros
           filtros={<FiltroModulo valor={search.modulo} onChange={(modulo) => actualizar({ modulo })} />}
-          total={query.data ? `${query.data.total} ${query.data.total === 1 ? 'incidencia' : 'incidencias'}` : undefined}
+          total={query.data ? `${query.data.total} ${query.data.total === 1 ? 'incidencia' : 'incidencias'}`
+              : undefined
+          }
           onLimpiar={search.modulo ? () => actualizar({ modulo: undefined }) : undefined}
         />
 
@@ -103,10 +111,23 @@ export function MisIncidenciasPage() {
             onRetry={() => query.refetch()}
           />
         ) : query.isLoading ? (
-          <TableSkeleton rows={6} columns={[{ width: 'w-20' }, { width: 'w-48' }, { width: 'w-40' }, { width: 'w-24' }, { width: 'w-24' }]} />
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-20' },
+              { width: 'w-48' },
+              { width: 'w-40' },
+              { width: 'w-24' },
+              { width: 'w-24' },
+            ]}
+          />
         ) : items.length === 0 ? (
           <EmptyState
-            title={vista === VistaIncidencias.Pendientes ? 'No tienes incidencias pendientes' : 'Sin incidencias'}
+            title={
+              vista === VistaIncidencias.Pendientes
+                ? 'No tienes incidencias pendientes'
+                : 'Sin incidencias'
+            }
             description={
               search.modulo || vista !== VistaIncidencias.Pendientes
                 ? 'No hay incidencias asignadas a ti con estos filtros.'
@@ -119,7 +140,7 @@ export function MisIncidenciasPage() {
             <PaginacionTabla
               total={query.data?.total ?? 0}
               offset={query.data?.offset ?? 0}
-              limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+              limit={query.data?.limit ?? paginaTabla.limit}
               onChange={(offset, limit) => actualizar(offsetLimitAPagina(offset, limit))}
             />
           </>
@@ -129,11 +150,20 @@ export function MisIncidenciasPage() {
   );
 }
 
-function FiltroModulo({ valor, onChange }: { valor?: string; onChange: (modulo: string | undefined) => void }) {
+function FiltroModulo({
+  valor,
+  onChange,
+}: {
+  valor?: string;
+  onChange: (modulo: string | undefined) => void;
+}) {
   const pasos = usePasosIncidencia();
   const modulos = [...new Set((pasos.data ?? []).map((p) => p.modulo))].sort();
   return (
-    <Select value={valor ?? TODOS_MODULOS} onValueChange={(v) => onChange(v === TODOS_MODULOS ? undefined : v)}>
+    <Select
+      value={valor ?? TODOS_MODULOS}
+      onValueChange={(v) => onChange(v === TODOS_MODULOS ? undefined : v)}
+    >
       <SelectTrigger className="h-ctl-md w-48 text-xs" aria-label="Módulo">
         <SelectValue placeholder="Módulo" />
       </SelectTrigger>
@@ -149,7 +179,13 @@ function FiltroModulo({ valor, onChange }: { valor?: string; onChange: (modulo: 
   );
 }
 
-function TablaIncidencias({ items, search }: { items: IncidenciaFila[]; search: IncidenciasSearch }) {
+function TablaIncidencias({
+  items,
+  search,
+}: {
+  items: IncidenciaFila[];
+  search: IncidenciasSearch;
+}) {
   return (
     <TableContainer>
       <Table>
@@ -184,10 +220,14 @@ function TablaIncidencias({ items, search }: { items: IncidenciaFila[]; search: 
               </TableCell>
               <TableCell>
                 <p className="text-sm text-ink-secondary">{i.documentoEtiqueta}</p>
-                <p className="text-2xs text-ink-muted">{nombreModulo(i.modulo)} · {origenIncidencia(i)}</p>
+                <p className="text-2xs text-ink-muted">
+                  {nombreModulo(i.modulo)} · {origenIncidencia(i)}
+                </p>
               </TableCell>
               <TableCell className="text-ink-secondary">{formatDate(i.abiertaEn)}</TableCell>
-              <TableCell className={vencida(i) ? 'font-medium text-danger-fg' : 'text-ink-secondary'}>
+              <TableCell
+                className={vencida(i) ? 'font-medium text-danger-fg' : 'text-ink-secondary'}
+              >
                 {fechaCompromisoTexto(i.fechaCompromiso)}
               </TableCell>
               <TableCell>

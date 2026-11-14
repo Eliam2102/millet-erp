@@ -1,5 +1,6 @@
 using MediatR;
 using Millet.Facturacion.Domain.Ports;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Catalogos;
 
@@ -63,5 +64,19 @@ public sealed class ClientesLookupHandler
                 c.DomicilioExtranjeroEstado, c.DomicilioExtranjeroCodigoPostal,
                 c.Rfc != null && c.RegimenFiscal != null && c.CodigoPostalFiscal != null))
             .ToList();
+    }
+}
+
+/// <summary>Etiqueta por identidad para un valor ya elegido; no ofrece al cliente como nueva opción activa.</summary>
+public sealed record ClienteEtiquetaQuery(Guid Id) : IRequest<ClienteEtiquetaResponse>;
+public sealed record ClienteEtiquetaResponse(Guid Id, string? Clave, string RazonSocial);
+
+public sealed class ClienteEtiquetaHandler(IClientesReadPort clientes) : IRequestHandler<ClienteEtiquetaQuery, ClienteEtiquetaResponse>
+{
+    public async Task<ClienteEtiquetaResponse> Handle(ClienteEtiquetaQuery query, CancellationToken cancellationToken)
+    {
+        var cliente = await clientes.ObtenerAsync(query.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("CLIENTE_NO_ENCONTRADO", "No se encontró el cliente seleccionado.");
+        return new(cliente.ClienteId, cliente.Clave, cliente.RazonSocial);
     }
 }

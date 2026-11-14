@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -112,6 +112,18 @@ afterEach(() => {
 });
 
 describe('<EditorLineas> — smoke', () => {
+  it('identifica la partida de activo al revisar una requisición mixta sin editarla', () => {
+    useAuthStore.setState({ permisos: [] });
+    render(<EditorLineas rq={makeRq({ estado: EstadoRequisicion.EnAutorizacion, lineas: [
+      makeLinea({ id: 'af', articuloClave: 'AF-TEST', esActivoFijo: true }),
+      makeLinea({ id: 'consumible', articuloClave: 'CON-TEST', esActivoFijo: false }),
+      makeLinea({ id: 'legado', articuloClave: 'LEG-TEST' }),
+    ] })} />, { wrapper: createQueryWrapper() });
+    expect(within(screen.getByText('AF-TEST').closest('tr')!).getByText('Activo fijo')).toBeVisible();
+    expect(within(screen.getByText('CON-TEST').closest('tr')!).queryByText('Activo fijo')).not.toBeInTheDocument();
+    expect(within(screen.getByText('LEG-TEST').closest('tr')!).queryByText('Activo fijo')).not.toBeInTheDocument();
+  });
+
   it('Borrador con partidas: muestra tabla + botón Agregar partida', () => {
     render(<EditorLineas rq={makeRq()} />, { wrapper: createQueryWrapper() });
     expect(

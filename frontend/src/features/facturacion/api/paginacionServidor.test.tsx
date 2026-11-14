@@ -9,6 +9,7 @@ import { useListarRepp } from '@/features/facturacion/api/useRepp';
 import { useReppPendientes } from '@/features/facturacion/api/useReppPendientes';
 import { useListarCartaPorte } from '@/features/facturacion/api/useCartaPorte';
 import { useExcepciones } from '@/features/facturacion/api/usePedidos';
+import { useSolicitudesCatalogo } from '@/features/contabilidad/api/hooks';
 import { useNotasCreditoPorAutorizar } from '@/features/facturacion/api/useNotasCreditoAw';
 
 /** 86e401dz2 — cada bandeja de Facturación manda q, offset y limit y expone el total real del servidor. */
@@ -99,5 +100,28 @@ describe('bandejas de Facturación paginadas en el servidor', () => {
     expect(url.searchParams.get('offset')).toBe('20');
     expect(url.searchParams.get('limit')).toBe('10');
     expect(data?.total).toBe(450);
+  });
+});
+
+
+describe('cantidad elegida enviada al servidor', () => {
+  it.each([20, 50, 100])('notas de crédito: %i filas', async (limit) => {
+    const { url } = await capturaUrl('*/api/v1/facturacion/notas-credito', envelope,
+      () => useNotasCreditoPorAutorizar(0, limit));
+    expect(url.searchParams.get('limit')).toBe(String(limit));
+  });
+  it('REP pendientes conserva filtros con 20 filas', async () => {
+    const { url } = await capturaUrl('*/api/v1/facturacion/repp/pendientes', envelope,
+      () => useReppPendientes('Pendiente', '', 20, 'cliente', 20));
+    expect(url.searchParams.get('limit')).toBe('20');
+    expect(url.searchParams.get('offset')).toBe('20');
+    expect(url.searchParams.get('q')).toBe('cliente');
+  });
+  it('solicitudes de catálogo: 50 filas', async () => {
+    const { url } = await capturaUrl('*/api/v1/contabilidad/solicitudes', envelope,
+      () => useSolicitudesCatalogo('Pendiente', 50, 50));
+    expect(url.searchParams.get('limit')).toBe('50');
+    expect(url.searchParams.get('offset')).toBe('50');
+    expect(url.searchParams.get('estado')).toBe('Pendiente');
   });
 });

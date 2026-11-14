@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import {
   Table,
@@ -92,7 +93,8 @@ export function BandejaPendientesOc() {
   // strict:false: la ruta valida page/pageSize; defensa si se monta sin search.
   const rawSearch = useSearch({ strict: false }) as { page?: number; pageSize?: number };
   const page = rawSearch.page ?? 1;
-  const pageSize = rawSearch.pageSize ?? 25;
+  const tamano = useTamanoPagina();
+  const pageSize = rawSearch.pageSize ?? tamano.limit;
   const navigate = useNavigate();
   function setPagina(nextPage: number, nextPageSize: number) {
     void navigate({
@@ -212,7 +214,7 @@ export function BandejaPendientesOc() {
     >
       <PageHeader
         titulo="OC por autorizar"
-        descripcion={`Órdenes esperando firma ${nivelActivo === 'Nivel1' ? 'Nivel 1 (Jefe Compras)' : 'Nivel 2 (Dirección)'}, las más viejas primero.`}
+        descripcion={`Órdenes esperando firma ${nivelActivo === 'Nivel1' ? 'Nivel 1 (Compras o Comercio Exterior)' : 'Nivel 2 (Dirección o Dirección Comercial)'}, las más viejas primero.`}
         acciones={
           tieneAmbos && (
             <TabsList aria-label="Nivel de autorización" className="flex gap-1 border-b">
@@ -454,7 +456,7 @@ function FilaOc({
         <IndicadoresOc oc={oc} />
       </TableCell>
       <TableCell className="px-3 py-2">
-        <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+        <EstadoBadge tipo="orden-compra" estado={oc.estado} servicioCe={oc.esServicioComercioExterior} />
       </TableCell>
       <TableCell className="px-3 py-2 text-right">
         <div className="flex flex-wrap items-center justify-end gap-2">

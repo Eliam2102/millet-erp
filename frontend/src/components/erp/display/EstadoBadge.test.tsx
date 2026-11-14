@@ -264,3 +264,13 @@ describe('<EnAlmacenBadge>', () => {
     expect(c.innerHTML).toBe('');
   });
 });
+
+
+it.each([
+  [EstadoOrdenCompra.EnAutorizacionJefeCompras, 'En autorización Comercio Exterior', 'EnAutorizacionJefeCompras'],
+  [EstadoOrdenCompra.EnAutorizacionDireccion, 'En autorización Dirección Comercial', 'EnAutorizacionDireccion'],
+  [EstadoOrdenCompra.Autorizada, 'Autorizada', 'Autorizada'],
+] as const)('nombra al firmante CE sin alterar el estado %s', (estado, label, key) => {
+  render(<EstadoBadge tipo="orden-compra" estado={estado} servicioCe />);
+  expect(screen.getByText(label)).toHaveAttribute('data-estado', key);
+});

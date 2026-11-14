@@ -76,6 +76,7 @@ export const facturacionKeys = {
   // Lookups de catálogo para pickers de emisión (FAC-UX-PR4)
   clientesLookup: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.all, 'catalogos', 'clientes', filtros] as const,
+  clienteEtiqueta: (id: string) => [...facturacionKeys.all, 'catalogos', 'clientes', 'etiqueta', id] as const,
   productosAwLookup: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.all, 'catalogos', 'productos-aw', filtros] as const,
   // Catálogo administrable de canales de venta (FAC-ING-PR3). Las
@@ -169,7 +170,7 @@ export const facturacionKeys = {
 
   // Cajas (CAJAS-PR5)
   cajas: () => [...facturacionKeys.all, 'cajas'] as const,
-  cajasList: (filtros: { soloActivas?: boolean }) =>
+  cajasList: (filtros: { soloActivas?: boolean; sucursalId?: string | null }) =>
     [...facturacionKeys.cajas(), 'list', filtros] as const,
   cajaById: (id: string) => [...facturacionKeys.cajas(), 'byId', id] as const,
   usuarioAlcances: () => [...facturacionKeys.cajas(), 'usuario-alcances'] as const,

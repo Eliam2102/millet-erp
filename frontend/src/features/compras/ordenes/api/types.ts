@@ -162,8 +162,11 @@ const ESTADO_OC_LABELS: Record<EstadoOrdenCompra, string> = {
   [EstadoOrdenCompra.Rechazada]: 'Rechazada',
   [EstadoOrdenCompra.CancelacionSolicitada]: 'Cancelación solicitada',
 };
-export const estadoOcToString = (e: EstadoOrdenCompra): string =>
-  ESTADO_OC_LABELS[e];
+export const estadoOcToString = (e: EstadoOrdenCompra, servicioCe = false): string => {
+  if (servicioCe && e === EstadoOrdenCompra.EnAutorizacionJefeCompras) return 'En autorización Comercio Exterior';
+  if (servicioCe && e === EstadoOrdenCompra.EnAutorizacionDireccion) return 'En autorización Dirección Comercial';
+  return ESTADO_OC_LABELS[e];
+};
 
 /**
  * Devuelve la clave del enum (no el label humano). Útil para alimentar
@@ -242,6 +245,7 @@ export interface OrdenCompraResumen {
   folio: string;
   folioAnio: number;
   estado: EstadoOrdenCompra;
+  esServicioComercioExterior?: boolean;
   subEstadoRecepcion: SubEstadoRecepcion;
   subEstadoFacturacion: SubEstadoFacturacion;
   subEstadoPago: SubEstadoPago;

@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -22,8 +23,7 @@ import {
   EmptyState,
   ErrorState,
   PaginacionTabla,
-  TableSkeleton,
-} from '@/components/erp';
+  TableSkeleton } from '@/components/erp';
 import {
   useFacturasEnRevision,
   useMotivosRevision,
@@ -33,7 +33,7 @@ import { esApiError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { etiquetaAviso, tonoPlazo } from '@/features/cxp/lib/sla-revision';
 import type { RevisionSearch } from '@/features/cxp/lib/revision-search-schema';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 import { folioFactura } from '@/features/cxp/lib/formato';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -54,13 +54,14 @@ const SENTINEL_ALL = '__all__';
  */
 export function RevisionPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
   const motivos = useMotivosRevision();
   const dependencias = useDependenciasRevisoras();
   const query = useFacturasEnRevision(
     search.dependenciaRevisoraId,
     search.motivoRevisionId,
-    paginaAOffsetLimit(search),
+    paginaTabla,
   );
 
   function actualizarSearch(parcial: Partial<RevisionSearch>) {
@@ -89,11 +90,14 @@ export function RevisionPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <label htmlFor="filtro-area" className="text-xs text-muted-foreground">Área revisora</label>
-          <Select value={search.dependenciaRevisoraId ?? SENTINEL_ALL} onValueChange={v => actualizarSearch({ dependenciaRevisoraId: v === SENTINEL_ALL ? undefined : v })}>
+          <Select value={search.dependenciaRevisoraId ?? SENTINEL_ALL} onValueChange={(v) => actualizarSearch({ dependenciaRevisoraId: v === SENTINEL_ALL ? undefined : v })}>
             <SelectTrigger id="filtro-area" aria-label="Filtrar por dependencia revisora" className="w-72"><SelectValue placeholder="Selecciona un área" /></SelectTrigger>
-            <SelectContent><SelectItem value={SENTINEL_ALL}>Selecciona un área</SelectItem>{dependencias.data?.map(d => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent>
+            <SelectContent><SelectItem value={SENTINEL_ALL}>Selecciona un área</SelectItem>{dependencias.data?.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>))}</SelectContent>
           </Select>
-          {dependencias.isError && <p role="alert" className="text-danger-fg">No se pudo cargar el catálogo de áreas.</p>}
+          {dependencias.isError && (
+            <p role="alert" className="text-danger-fg">No se pudo cargar el catálogo de áreas.</p>
+          )}
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Motivo</label>
@@ -209,7 +213,7 @@ export function RevisionPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(o, l) => actualizarSearch({ ...offsetLimitAPagina(o, l) })}
           />
         </div>
@@ -234,5 +238,9 @@ function SlaBadge({ dias, slaDias }: { dias: number; slaDias: number | null }) {
 /** Último aviso emitido en el episodio vigente, o guion si no hay. */
 function aviso(nivel: 1 | 2 | 3 | null) {
   const x = etiquetaAviso(nivel);
-  return x ? <Badge variant={x.tono}>{x.texto}</Badge> : <span className="text-muted-foreground">—</span>;
+  return x ? (
+    <Badge variant={x.tono}>{x.texto}</Badge>
+  ) : (
+    <span className="text-muted-foreground">—</span>
+  );
 }

@@ -4,8 +4,10 @@ import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useTamboresLinea, type LineaTambores, type TamborLinea } from '@/features/almacen/api/useTamboresLinea';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { useTamboresLinea, type LineaTambores, type TamborLinea,
+} from '@/features/almacen/api/useTamboresLinea';
 import { esApiError } from '@/lib/api';
 
 const ESTADO: Record<TamborLinea['estado'], { variant: 'success' | 'neutral'; texto: string }> = {
@@ -45,7 +47,10 @@ export function TamboresLineaPage() {
         </ListadoModulo>
       ) : query.isLoading ? (
         <ListadoModulo>
-          <TableSkeleton rows={4} columns={[{ width: 'w-32' }, { width: 'w-20' }, { width: 'w-24' }, { width: 'w-24' }]} />
+          <TableSkeleton
+            rows={4}
+            columns={[{ width: 'w-32' }, { width: 'w-20' }, { width: 'w-24' }, { width: 'w-24' }]}
+          />
         </ListadoModulo>
       ) : lineas.length === 0 ? (
         <ListadoModulo>
@@ -66,7 +71,10 @@ function SeccionLinea({ linea }: { linea: LineaTambores }) {
   return (
     <section aria-labelledby={`linea-${linea.id}`} className="space-y-2">
       <h2 id={`linea-${linea.id}`} className="text-sm font-semibold">
-        {linea.nombre} <span className="font-mono text-xs font-normal text-ink-muted">{linea.clave} · {linea.proceso}</span>
+        {linea.nombre}{' '}
+        <span className="font-mono text-xs font-normal text-ink-muted">
+          {linea.clave} · {linea.proceso}
+        </span>
       </h2>
       <ListadoModulo
         filtros={
@@ -88,10 +96,13 @@ function SeccionLinea({ linea }: { linea: LineaTambores }) {
         }
       >
         {linea.tambores.length === 0 ? (
-          <EmptyState title="Aún no hay tambores" description="Aparecen al surtir un tambor o cubeta a esta línea." />
+          <EmptyState
+            title="Aún no hay tambores"
+            description="Aparecen al surtir un tambor o cubeta a esta línea."
+          />
         ) : (
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Material</TableHead>
@@ -110,7 +121,9 @@ function SeccionLinea({ linea }: { linea: LineaTambores }) {
                     <TableCell>
                       <Badge variant={ESTADO[t.estado].variant}>{ESTADO[t.estado].texto}</Badge>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{t.kgPresentacion ?? '—'}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {t.kgPresentacion ?? '—'}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <DateTimeDisplay value={t.fechaInicio} variant="corta" />
                     </TableCell>

@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import { apiRequest, esApiError } from '@/lib/api';
 import { ceKeys } from '../api/hooks';
 import { tiposIncidencia, estadosIncidencia, type IncidenciasReporte } from '../api/types';
 export function IncidenciasPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const configurar = useHasPermission(P.AdminParametrosEditar);
   const actual = useAuthStore((s) => s.currentSucursalId);
   const [sucursal, setSucursal] = useState<string | undefined>(actual ?? undefined);
@@ -66,7 +68,10 @@ export function IncidenciasPage() {
       )}
       <ReporteShell
         reporte={reporte}
-        filasVisibles={reporte?.filas.slice(pagina * 10, pagina * 10 + 10)}
+        filasVisibles={reporte?.filas.slice(
+          pagina * limiteTabla,
+          pagina * limiteTabla + limiteTabla,
+        )}
         isLoading={query.isLoading}
         error={esApiError(query.error) ? query.error : undefined}
         onRetry={() => void query.refetch()}
@@ -172,10 +177,9 @@ export function IncidenciasPage() {
       />
       <PaginacionTabla
         total={reporte?.filas.length ?? 0}
-        offset={pagina * 10}
-        limit={10}
-        tamanos={[]}
-        onChange={(offset) => setPagina(offset / 10)}
+        offset={pagina * limiteTabla}
+        limit={limiteTabla}
+        onChange={(offset) => setPagina(offset / limiteTabla)}
       />
     </main>
   );

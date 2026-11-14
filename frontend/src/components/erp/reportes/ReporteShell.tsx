@@ -1,3 +1,4 @@
+import { Table } from '@/components/ui/table';
 import { ImprimirReporteButton } from '@/components/erp/reportes/ImprimirPdfButton';
 import { renderCelda } from '@/components/erp/reportes/render-celda';
 import { type ReactNode, useState } from 'react';
@@ -133,7 +134,8 @@ export function ReporteShell<TFila>({
     try {
       const { descargarReporteExcel } =
         await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
-      await descargarReporteExcel(paraExport, nombreArchivo ?? slugify(paraExport.titulo), getCelda);
+      await descargarReporteExcel(paraExport, nombreArchivo ?? slugify(paraExport.titulo), getCelda,
+      );
     } catch (err) {
       toast.error('No se pudo generar el Excel', {
         description: err instanceof Error ? err.message : String(err),
@@ -213,12 +215,18 @@ export function ReporteShell<TFila>({
                 )}
                 PDF
               </Button>
-              <ImprimirReporteButton type="button" variant="outline" size="sm" reporte={paraExport ?? reporte} obtenerCelda={getCelda} />
+              <ImprimirReporteButton
+                type="button"
+                variant="outline"
+                size="sm"
+                reporte={paraExport ?? reporte}
+                obtenerCelda={getCelda}
+              />
             </div>
           </header>
 
           <div className="relative overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
+            <Table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
                   {reporte.columnas.map((c) => (
@@ -299,7 +307,7 @@ export function ReporteShell<TFila>({
                   </tr>
                 </tfoot>
               )}
-            </table>
+            </Table>
           </div>
         </>
       )}

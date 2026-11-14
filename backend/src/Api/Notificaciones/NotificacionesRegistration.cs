@@ -25,6 +25,7 @@ public static class NotificacionesRegistration
             sp.GetRequiredService<IDestinatariosAvisoReadPort>(), sp.GetRequiredService<IAlmacenSucursalReadPort>(),
             sp.GetRequiredService<DocumentoSucursalScope>().VerificarSucursalAsync, sp.GetRequiredService<IClock>()));
         services.AddScoped<IFuenteAvisosUsuario, IncidenciasFuenteAvisos>();
+        services.AddScoped<IFuenteAvisosUsuario, Millet.Contabilidad.Infrastructure.Notificaciones.CatalogoFuenteAvisos>();
         return services;
     }
 }

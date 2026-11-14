@@ -89,7 +89,8 @@ export function CanalesVentaPage() {
         descripcion={
           <>
             Eje organizacional de la facturación (de dónde viene la venta). La clave A+W es el
-            GRUPPE con el que A+W refiere el canal en la importación de pedidos. Total: {canales.length}
+            GRUPPE con el que A+W refiere el canal en la importación de pedidos. Total: {' '}
+            {canales.length}
             .
           </>
         }
@@ -140,7 +141,7 @@ export function CanalesVentaPage() {
         >
           {(visibles) => (
             <TableContainer maxHeightClassName="">
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
@@ -204,45 +205,45 @@ export function CanalesVentaPage() {
                                     setAgregando(false);
                                   }}
                                   aria-label={`Editar canal ${c.nombre}`}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                {activo ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setConfirmDesactivar(c)}
-                                    aria-label={`Desactivar canal ${c.nombre}`}
                                   >
-                                    <PowerOff className="h-3.5 w-3.5" />
+                                    <Pencil className="h-3.5 w-3.5" />
                                   </Button>
-                                ) : (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={actualizar.isPending}
-                                    onClick={() =>
-                                      cambiarEstatus(
-                                        c,
-                                        EstatusCatalogo.Activo,
-                                        `Canal "${c.nombre}" reactivado`,
-                                      )
-                                    }
-                                    aria-label={`Reactivar canal ${c.nombre}`}
-                                  >
-                                    <Power className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
-                              </div>
-                            )}
-                          </TableCell>
-                        </>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                                  {activo ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setConfirmDesactivar(c)}
+                                      aria-label={`Desactivar canal ${c.nombre}`}
+                                    >
+                                      <PowerOff className="h-3.5 w-3.5" />
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={actualizar.isPending}
+                                      onClick={() =>
+                                        cambiarEstatus(
+                                          c,
+                                          EstatusCatalogo.Activo,
+                                          `Canal "${c.nombre}" reactivado`,
+                                        )
+                                      }
+                                      aria-label={`Reactivar canal ${c.nombre}`}
+                                    >
+                                      <Power className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </TableContainer>
           )}
         </ListadoCatalogo>

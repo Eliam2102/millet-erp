@@ -25,6 +25,21 @@ const detalle = {
 };
 
 describe('useListarCajas / useCaja', () => {
+  it('con sucursal manda X-Inicio-Sucursal-Id para filtrar en el servidor (H-U28)', async () => {
+    let encabezado: string | null = null;
+    mswServer.use(
+      http.get(BASE, ({ request }) => {
+        encabezado = request.headers.get('X-Inicio-Sucursal-Id');
+        return HttpResponse.json([]);
+      }),
+    );
+    const { result } = renderHook(() => useListarCajas(true, 's-1'), {
+      wrapper: createQueryWrapper(),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(encabezado).toBe('s-1');
+  });
+
   it('bandeja: lista cajas', async () => {
     mswServer.use(
       http.get(BASE, () =>

@@ -49,7 +49,9 @@ import {
 } from '@/features/facturacion/api/useCajaSesiones';
 import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
 import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
+import { leerImporte, limpiarImporte } from '@/features/facturacion/lib/importe-caja';
 import { TerminalTarjetaCard } from '@/features/facturacion/components/TerminalTarjetaCard';
+import { CatalogoTerminalesCard } from '@/features/facturacion/components/CatalogoTerminalesCard';
 import {
   autorizacionVoucherInvalida,
   esFormaTarjeta,
@@ -73,6 +75,7 @@ import {
   errorDescripcionMovimiento,
 } from '@/features/facturacion/schemas/movimiento-caja';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { cn } from '@/lib/utils';
@@ -176,6 +179,8 @@ export function MiCaja() {
       {puedeSupervisar && <AutorizarAperturaCard />}
       {/* 86e3vr1tf: archivo diario de la terminal de tarjetas. */}
       {puedeSupervisar && <TerminalTarjetaCard />}
+      {/* M-111: catálogo afiliación + terminal → sucursal. */}
+      {puedeSupervisar && <CatalogoTerminalesCard />}
     </div>
   );
 }
@@ -184,15 +189,22 @@ export function MiCaja() {
 
 function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId: string } | null }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
-  const cajas = useListarCajas(true);
   const abrir = useAbrirSesion();
   const idempotencyKey = useFormIdempotencyKey();
+  // H-U28: la sucursal del encabezado se preselecciona y filtra las cajas ofrecidas.
+  const sucursalEncabezado = useAuthStore((s) => s.currentSucursalId);
 
   const [cajaId, setCajaId] = useState<string | null>(ultima?.cajaId ?? null);
   // Aviso [12-C]: los ajustes pendientes de la caja elegida se drenan
   // automáticamente al abrir — el cajero debe saberlo antes de declarar.
   const ajustes = useAjustesCaja(cajaId);
-  const [sucursalId, setSucursalId] = useState<string | null>(ultima?.sucursalId ?? null);
+  const [sucursalId, setSucursalId] = useState<string | null>(
+    ultima?.sucursalId ?? sucursalEncabezado ?? null,
+  );
+  // Corporativo (leer-todas): puede listar las cajas de todas las sucursales.
+  const puedeTodas = useHasPermission(PermisosCanonicos.FacturacionCajaLeerTodas);
+  const [todasLasSucursales, setTodasLasSucursales] = useState(false);
+  const cajas = useListarCajas(true, todasLasSucursales ? null : sucursalId);
   const [fondo, setFondo] = useState('');
   const [autorizacionId, setAutorizacionId] = useState('');
   const [pideAutorizacion, setPideAutorizacion] = useState(false);
@@ -202,9 +214,9 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
       toast.error('Selecciona la caja y la sucursal de operación.');
       return;
     }
-    const fondoNum = Number(fondo);
-    if (Number.isNaN(fondoNum) || fondoNum < 0) {
-      toast.error('El fondo de apertura debe ser un monto válido (≥ 0).');
+    const fondoNum = leerImporte(fondo);
+    if (fondoNum == null) {
+      toast.error('El fondo de apertura debe ser un monto en números (ej. 3000 o 3000.50).');
       return;
     }
     abrir.mutate(
@@ -240,12 +252,28 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
+        {puedeTodas && (
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={todasLasSucursales}
+              onChange={(e) => {
+                setTodasLasSucursales(e.target.checked);
+                setCajaId(null);
+              }}
+            />
+            Ver cajas de todas las sucursales
+          </label>
+        )}
         <div className="space-y-1">
           <Label>Caja</Label>
           {cajas.isLoading ? (
             <p className="text-xs text-ink-muted">Cargando cajas…</p>
           ) : (
-            <Select value={cajaId ?? undefined} onValueChange={setCajaId}>
+            <Select
+              value={cajaId ?? undefined}
+              onValueChange={setCajaId}
+            >
               <SelectTrigger aria-label="Caja">
                 <SelectValue placeholder="Selecciona una caja" />
               </SelectTrigger>
@@ -269,7 +297,7 @@ function AperturaSesionCard({ ultima }: { ultima?: { cajaId: string; sucursalId:
             id="fondo"
             inputMode="decimal"
             value={fondo}
-            onChange={(e) => setFondo(e.target.value)}
+            onChange={(e) => setFondo(limpiarImporte(e.target.value))}
             placeholder="0.00"
           />
         </div>
@@ -883,7 +911,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
           id="mov-importe"
           inputMode="decimal"
           value={importe}
-          onChange={(e) => setImporte(e.target.value)}
+          onChange={(e) => setImporte(limpiarImporte(e.target.value))}
           placeholder="0.00"
         />
       </div>
@@ -942,9 +970,9 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
   const esperadoEfectivo = props.sesion.cortes.find((c) => c.formaPago === '01')?.montoSistema ?? 0;
 
   function onCerrar() {
-    const monto = Number(declarado);
-    if (Number.isNaN(monto) || monto < 0) {
-      toast.error('Captura el efectivo contado (≥ 0).');
+    const monto = leerImporte(declarado);
+    if (monto == null) {
+      toast.error('Captura el efectivo contado en números (ej. 3000 o 3000.50).');
       return;
     }
     cerrar.mutate(
@@ -998,7 +1026,7 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
             id="declarado"
             inputMode="decimal"
             value={declarado}
-            onChange={(e) => setDeclarado(e.target.value)}
+            onChange={(e) => setDeclarado(limpiarImporte(e.target.value))}
             placeholder={String(esperadoEfectivo)}
           />
           {declarado !== '' && !Number.isNaN(Number(declarado)) && (

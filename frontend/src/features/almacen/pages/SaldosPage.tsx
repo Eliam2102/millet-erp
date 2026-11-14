@@ -1,3 +1,4 @@
+import { usePaginacionRuta } from '@/components/erp/data/usePaginacionRuta';
 import { textoMedida } from '@/features/almacen/lib/medida-hoja';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -39,7 +40,7 @@ import { esApiError } from '@/lib/api';
 import type { SaldosSearch } from '@/features/almacen/lib/saldos-search-schema';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { offsetLimitAPagina } from '@/components/erp/data/paginacion';
 
 const FROM = '/_app/almacen/saldos' as const;
 const SENTINEL_ALL = '__all__';
@@ -60,6 +61,7 @@ type SortKey =
  */
 export function SaldosPage() {
   const search = useSearch({ from: FROM });
+  const paginaTabla = usePaginacionRuta(search);
   const navigate = useNavigate();
 
   const subAlmacenesQuery = useSubAlmacenes({ limit: 500 });
@@ -72,7 +74,7 @@ export function SaldosPage() {
     subAlmacenId: search.subAlmacenId,
     articuloId: search.articuloId,
     soloConStock: search.soloConStock,
-    ...paginaAOffsetLimit(search),
+    ...paginaTabla,
   });
   // Totales del servidor sobre TODO el conjunto filtrado (no solo la página).
   const totalesQuery = useSaldosTotales({
@@ -122,7 +124,7 @@ export function SaldosPage() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
-            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            limit={query.data?.limit ?? paginaTabla.limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
         }
@@ -343,7 +345,9 @@ function TablaSaldos({
         </TableHeader>
         <TableBody>
           {ordenados.map((s) => (
-            <TableRow key={`${s.subAlmacenId}-${s.articuloId}-${s.productoAwVarianteId ?? ''}-${s.lote ?? ''}`}>
+            <TableRow
+              key={`${s.subAlmacenId}-${s.articuloId}-${s.productoAwVarianteId ?? ''}-${s.lote ?? ''}`}
+            >
               <TableCell className="font-mono text-xs">{s.subAlmacen}</TableCell>
               <TableCell className="max-w-0 truncate text-xs">
                 {s.articuloClave ? (

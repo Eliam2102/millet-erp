@@ -42,6 +42,14 @@ import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/te
 import { CONCEPTO_PAGO_PROVEEDOR_ID } from '@/features/tesoreria/api/types';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { useRedondeosDeFacturas, useSolicitarRedondeoPago } from '@/features/tesoreria/api/useRedondeoPago';
+import {
+  clasificarImporte,
+  redondeoDePago,
+  situacionRedondeo,
+  type SituacionRedondeo,
+} from '@/features/tesoreria/lib/redondeo-pago';
+import { RedondeoPagoAviso } from './RedondeoPagoAviso';
 
 export interface RegistrarPagoSheetProps {
   /** Pasivos seleccionados en la bandeja (mismo proveedor y moneda — validado aquí y en backend). */
@@ -75,6 +83,9 @@ export function RegistrarPagoSheet({
   // TES-09: TC del pago capturado (null = el del catálogo a la fecha valor).
   const [tipoCambio, setTipoCambio] = useState<string | null>(null);
   const [motivoTipoCambio, setMotivoTipoCambio] = useState('');
+  // M-326: motivo capturado por factura para la solicitud de redondeo.
+  const [motivosRedondeo, setMotivosRedondeo] = useState<Record<string, string>>({});
+  const solicitarRedondeo = useSolicitarRedondeoPago();
   const [cuentaProvOverride, setCuentaProvOverride] = useState<string | null>(null);
   // Rechazo 422 de cuenta del proveedor: visible y persistente (no solo toast).
   const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
@@ -118,10 +129,24 @@ export function RegistrarPagoSheet({
     [pasivos, importes],
   );
 
-  const importesValidos = pasivos.every((p) => {
-    const v = Number(importes[p.facturaProveedorId]);
-    return Number.isFinite(v) && v > 0 && v <= p.saldoPendiente;
-  });
+  // M-326: solo facturas de proveedor en MXN admiten redondeo (±0.99) con autorización del Gerente de Área.
+  const admiteRedondeo = !esInterno && moneda === 'MXN';
+  const clases = pasivos.map((p) =>
+    clasificarImporte(p.saldoPendiente, Number(importes[p.facturaProveedorId]), admiteRedondeo),
+  );
+  const conRedondeo = pasivos.filter((_, i) => clases[i] === 'redondeo');
+  const solicitudes = useRedondeosDeFacturas(open ? conRedondeo.map((p) => p.facturaProveedorId) : []);
+  const situaciones = new Map<string, { redondeo: number; situacion: SituacionRedondeo }>(
+    conRedondeo.map((p) => {
+      const redondeo = redondeoDePago(p.saldoPendiente, Number(importes[p.facturaProveedorId]));
+      return [
+        p.facturaProveedorId,
+        { redondeo, situacion: situacionRedondeo(solicitudes[p.facturaProveedorId] ?? [], redondeo) },
+      ];
+    }),
+  );
+  const importesValidos = clases.every((c) => c !== 'invalido');
+  const redondeoSinAutorizar = [...situaciones.values()].some((s) => !s.situacion.autorizado);
 
   const motivoDeshabilitado =
     !esInterno && cuentasQuery.isLoading
@@ -136,10 +161,12 @@ export function RegistrarPagoSheet({
               ? 'Selecciona la cuenta de egreso'
               : !importesValidos
                 ? 'Revisa los importes a pagar'
-                : referencia.trim() === ''
-                  ? 'Captura la referencia que dio el banco'
-                  : (errorTipoCambioPago(moneda, tipoCambio) ??
-                    errorMotivoTipoCambio(moneda, tipoCambio, motivoTipoCambio));
+                : redondeoSinAutorizar
+                  ? 'El redondeo necesita la autorización del Gerente de Área'
+                  : referencia.trim() === ''
+                    ? 'Captura la referencia que dio el banco'
+                    : (errorTipoCambioPago(moneda, tipoCambio) ??
+                      errorMotivoTipoCambio(moneda, tipoCambio, motivoTipoCambio));
 
   function confirmar() {
     if (
@@ -160,6 +187,10 @@ export function RegistrarPagoSheet({
       aplicaciones: pasivos.map((p) => ({
         facturaProveedorId: p.facturaProveedorId,
         importe: Number(importes[p.facturaProveedorId]),
+        // M-326: con redondeo autorizado el pago por el efectivo + la diferencia liquida exactamente el saldo.
+        ...(situaciones.has(p.facturaProveedorId)
+          ? { redondeo: situaciones.get(p.facturaProveedorId)?.redondeo }
+          : {}),
       })),
     };
     registrar.mutate(
@@ -208,6 +239,7 @@ export function RegistrarPagoSheet({
       // del pago anterior persistían al reabrir para otro proveedor →
       // referencia SPEI equivocada / cuenta de moneda inválida enviable.
       setOverrides({});
+      setMotivosRedondeo({});
       setCuentaId(null);
       setReferencia('');
       setCuentaProvOverride(null);
@@ -244,9 +276,8 @@ export function RegistrarPagoSheet({
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y">
-                {pasivos.map((p) => {
-                  const v = Number(importes[p.facturaProveedorId]);
-                  const invalido = !Number.isFinite(v) || v <= 0 || v > p.saldoPendiente;
+                {pasivos.map((p, i) => {
+                  const invalido = clases[i] === 'invalido';
                   return (
                     <TableRow key={p.facturaProveedorId}>
                       <TableCell className="px-3 py-2">
@@ -265,7 +296,7 @@ export function RegistrarPagoSheet({
                           type="number"
                           inputMode="decimal"
                           min={0.01}
-                          max={p.saldoPendiente}
+                          max={admiteRedondeo ? p.saldoPendiente + 0.99 : p.saldoPendiente}
                           step="0.01"
                           className={`ml-auto w-36 text-right font-mono ${invalido ? 'border-danger' : ''}`}
                           aria-label={`Importe para ${p.folioProveedor ?? 'factura'}`}
@@ -284,6 +315,37 @@ export function RegistrarPagoSheet({
               </TableBody>
             </Table>
           </div>
+
+          {conRedondeo.map((p) => {
+            const info = situaciones.get(p.facturaProveedorId);
+            if (!info) return null;
+            return (
+              <RedondeoPagoAviso
+                key={p.facturaProveedorId}
+                folio={p.folioProveedor}
+                moneda={p.moneda}
+                redondeo={info.redondeo}
+                situacion={info.situacion}
+                motivo={motivosRedondeo[p.facturaProveedorId] ?? ''}
+                onMotivoChange={(m) => setMotivosRedondeo((prev) => ({ ...prev, [p.facturaProveedorId]: m }))}
+                enviando={solicitarRedondeo.isPending}
+                onSolicitar={() => {
+                  const body = {
+                    facturaProveedorId: p.facturaProveedorId,
+                    redondeo: info.redondeo,
+                    motivo: (motivosRedondeo[p.facturaProveedorId] ?? '').trim(),
+                  };
+                  solicitarRedondeo.mutate(
+                    { ...body, idempotencyKey: keyFor(body) },
+                    {
+                      onSuccess: () => toast.success('Redondeo solicitado al Gerente de Área'),
+                      onError: (error) => toast.error(errorUsuario(error, 'No se pudo solicitar el redondeo')),
+                    },
+                  );
+                }}
+              />
+            );
+          })}
 
           <fieldset className="space-y-2">
             <legend className="text-xs text-ink-muted">Cuenta del proveedor *</legend>

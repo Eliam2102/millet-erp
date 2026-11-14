@@ -1,3 +1,4 @@
+import { RevisionReppContexto } from './RevisionReppContexto';
 import { useEffect } from 'react';
 import { folioFactura } from '@/features/cxp/lib/formato';
 import { useForm } from 'react-hook-form';
@@ -63,7 +64,7 @@ export function LiberarRevisionSheet({
   }, [open, factura?.id]);
 
   function onSubmit(values: LiberarRevisionValues) {
-    if (!factura) return;
+    if (!factura || factura.revisionRepp?.pendiente) return;
     liberar.mutate(
       {
         id: factura.id,
@@ -112,6 +113,7 @@ export function LiberarRevisionSheet({
         </SheetHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
+          <RevisionReppContexto contexto={factura?.revisionRepp} />
           <div className="space-y-1">
             <Label htmlFor="accionTomada">Acción tomada</Label>
             <Textarea
@@ -134,6 +136,7 @@ export function LiberarRevisionSheet({
             )}
           </div>
 
+          {factura?.revisionRepp?.pendiente && <p id="bloqueo-repp" className="text-sm text-ink-muted">No se puede liberar mientras el complemento de pago esté pendiente de validación en Tesorería.</p>}
           <SheetFooter className="sticky bottom-0 -mx-4 border-t bg-surface-card px-4 py-3">
             <Button
               type="button"
@@ -143,7 +146,8 @@ export function LiberarRevisionSheet({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={liberar.isPending || !factura}>
+            <Button type="submit" disabled={liberar.isPending || !factura || factura.revisionRepp?.pendiente === true}
+              aria-describedby={factura?.revisionRepp?.pendiente ? 'bloqueo-repp' : undefined}>
               {liberar.isPending ? 'Liberando…' : 'Liberar revisión'}
             </Button>
           </SheetFooter>

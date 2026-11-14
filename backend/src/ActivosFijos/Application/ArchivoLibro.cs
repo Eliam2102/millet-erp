@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
 using Microsoft.VisualBasic.FileIO;
 using Millet.ActivosFijos.Domain;
 using Millet.SharedKernel.Application.Exceptions;
@@ -76,11 +77,21 @@ public static class ArchivoLibro
         if (extension != ".xlsx") throw Invalido("Seleccione un archivo .xlsx o .csv.");
         try
         {
-            using var stream = new MemoryStream(contenido);
+            using var stream = new MemoryStream(contenido.Length);
+            stream.Write(contenido);
+            stream.Position = 0;
             using (var zip = new ZipArchive(stream, ZipArchiveMode.Read, true))
             {
                 if (zip.Entries.Sum(e => e.Length) > 50 * 1024 * 1024 || zip.Entries.Count > 2000)
                     throw Invalido("El contenido descomprimido del Excel excede el límite permitido.");
+            }
+            stream.Position = 0;
+            // La carga lee las celdas de Base; las cachés de tablas dinámicas no forman parte del libro de activos.
+            using (var paquete = SpreadsheetDocument.Open(stream, true, new OpenSettings { AutoSave = false }))
+            {
+                var datos = paquete.WorkbookPart ?? throw Invalido("El archivo no contiene un libro Excel.");
+                foreach (var cache in datos.GetPartsOfType<PivotTableCacheDefinitionPart>())
+                    if (cache.PivotTableCacheRecordsPart is { } records) cache.DeletePart(records);
             }
             stream.Position = 0;
             using var libro = new XLWorkbook(stream);
@@ -104,7 +115,7 @@ public static class ArchivoLibro
             }
             return Mapear(filas) with { Hoja = sheet.Name };
         }
-        catch (Exception e) when (e is InvalidDataException or ArgumentException or IOException or FormatException or System.Xml.XmlException)
+        catch (Exception e) when (e is InvalidDataException or ArgumentException or IOException or FormatException or System.Xml.XmlException or OpenXmlPackageException)
         { throw Invalido("No se puede leer el archivo Excel. Revise que sea un .xlsx válido y no esté protegido."); }
     }
 

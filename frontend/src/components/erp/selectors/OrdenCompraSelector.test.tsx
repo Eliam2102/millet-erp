@@ -77,3 +77,17 @@ describe('<OrdenCompraSelector>', () => {
     expect(await screen.findByText(/Mostrando 1 de 57\. Escribe el folio para\s+acotar\./)).toBeInTheDocument();
   });
 });
+
+
+it('en captura CxP pide al servidor autorizadas y servicios CE con N1, sin limitar al estado Autorizada', async () => {
+  const qs: URLSearchParams[] = [];
+  mswServer.use(http.get('*/api/v1/compras/ordenes', ({ request }) => {
+    qs.push(new URL(request.url).searchParams);
+    return HttpResponse.json({ items: [{ ...oc('oc-ce', 'OC-CE-N1'), estado: 2, esServicioComercioExterior: true }], page: 1, pageSize: 20, totalCount: 1 });
+  }));
+  render(<OrdenCompraSelector value={null} onChange={() => {}} paraCapturaFactura />, { wrapper: createQueryWrapper() });
+  fireEvent.click(screen.getByRole('combobox', { name: 'Seleccionar orden de compra' }));
+  expect(await screen.findByText('OC-CE-N1')).toBeInTheDocument();
+  expect(qs[0].get('paraCapturaFactura')).toBe('true');
+  expect(qs[0].has('estado')).toBe(false);
+});

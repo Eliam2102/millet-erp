@@ -74,7 +74,10 @@ public sealed record PropuestaAplicacionResponse(
     DateTimeOffset? AjusteRevertidoEn = null,
     string? MotivoReversaAjuste = null,
     Guid? PolizaReversaAjusteId = null,
-    bool ReppTimbrado = false);
+    bool ReppTimbrado = false,
+    // H-U41 (aditivo): nombres de quién propuso y quién resolvió; solo en el detalle.
+    string? PropuestoPorNombre = null,
+    string? ResueltaPorNombre = null);
 
 internal static class PropuestaAplicacionMapper
 {
@@ -156,13 +159,21 @@ internal static class PropuestaAplicacionMapper
         var abiertas = await db.PropuestasAplicacionPago.AsNoTracking()
             .Where(x => x.Estado == EstadoPropuestaAplicacion.Propuesta
                 || (x.Estado == EstadoPropuestaAplicacion.Confirmada && !x.ReppTimbrado))
-            .SelectMany(x => x.Facturas.Select(f => new { x.Id, x.CreatedAt, f.FacturaCarteraId, f.ImporteAplicado }))
+            .SelectMany(x => x.Facturas.Select(f => new { x.Id, x.CreatedAt, f.FacturaCarteraId, f.ImporteAplicado, f.NumParcialidad }))
             .Where(x => ids.Contains(x.FacturaCarteraId))
             .ToListAsync(ct);
-        return ids.Where(saldos.ContainsKey).ToDictionary(id => id, id => saldos[id] - abiertas
-            .Where(x => x.FacturaCarteraId == id
-                && (x.CreatedAt < p.CreatedAt || (x.CreatedAt == p.CreatedAt && x.Id.CompareTo(p.Id) <= 0)))
-            .Sum(x => x.ImporteAplicado));
+        return ids.Where(saldos.ContainsKey).ToDictionary(id => id, id =>
+        {
+            var numero = p.Facturas.First(f => f.FacturaCarteraId == id).NumParcialidad;
+            // Con fechas iguales, la parcialidad fija la secuencia antes que el identificador.
+            return saldos[id] - abiertas
+                .Where(x => x.FacturaCarteraId == id
+                    && (x.CreatedAt < p.CreatedAt || (x.CreatedAt == p.CreatedAt
+                        && (x.NumParcialidad is int n && numero is int actual && n != actual
+                            ? n < actual
+                            : x.Id.CompareTo(p.Id) <= 0))))
+                .Sum(x => x.ImporteAplicado);
+        });
     }
 
     public static bool EsAbierta(EstadoPropuestaAplicacion estado, bool reppTimbrado) =>
@@ -454,9 +465,11 @@ public sealed class ObtenerPropuestaAplicacionHandler
 {
     private readonly CuentasPorCobrarDbContext _db;
     private readonly Domain.Ports.Facturacion.IReppPendientesReadPort? _facturacion;
+    private readonly Domain.Ports.Administracion.IUsuarioNombreReadPort? _usuarios;
     public ObtenerPropuestaAplicacionHandler(CuentasPorCobrarDbContext db,
-        Domain.Ports.Facturacion.IReppPendientesReadPort? facturacion = null)
-    { _db = db; _facturacion = facturacion; }
+        Domain.Ports.Facturacion.IReppPendientesReadPort? facturacion = null,
+        Domain.Ports.Administracion.IUsuarioNombreReadPort? usuarios = null)
+    { _db = db; _facturacion = facturacion; _usuarios = usuarios; }
 
     public async Task<PropuestaAplicacionResponse> Handle(
         ObtenerPropuestaAplicacionQuery query, CancellationToken cancellationToken)
@@ -464,6 +477,14 @@ public sealed class ObtenerPropuestaAplicacionHandler
         var p = await _db.PropuestasAplicacionPago.Include(p => p.Facturas)
             .FirstOrDefaultAsync(p => p.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException("PAP_NO_ENCONTRADA", "No se encontró la propuesta.");
-        return await PropuestaAplicacionMapper.ToResponseAsync(_db, p, cancellationToken, _facturacion);
+        var respuesta = await PropuestaAplicacionMapper.ToResponseAsync(_db, p, cancellationToken, _facturacion);
+        if (_usuarios is null) return respuesta;
+        var ids = new[] { p.PropuestoPor, p.ResueltaPor }.OfType<Guid>().Where(id => id != Guid.Empty).Distinct().ToList();
+        var nombres = await _usuarios.ObtenerNombresAsync(ids, cancellationToken);
+        return respuesta with
+        {
+            PropuestoPorNombre = p.PropuestoPor is Guid propuso ? nombres.GetValueOrDefault(propuso) : null,
+            ResueltaPorNombre = p.ResueltaPor is Guid resolvio ? nombres.GetValueOrDefault(resolvio) : null,
+        };
     }
 }

@@ -134,11 +134,10 @@ export function CobranzaPage() {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={items.length}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
         }

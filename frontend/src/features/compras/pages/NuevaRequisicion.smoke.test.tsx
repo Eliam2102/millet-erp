@@ -82,16 +82,12 @@ describe('<NuevaRequisicion> — smoke', () => {
     render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
     // design/frontend-polish: ya no hay breadcrumbs.
     expect(screen.getByText('Nueva requisición')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /crear requisición/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /crear requisición/i })).toBeInTheDocument();
   });
 
   it('NO muestra UsuarioSelector cuando el usuario carece de seleccionar-requisitante', () => {
     render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
-    expect(
-      screen.queryByText(/requisitante \(delegación\)/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/requisitante \(delegación\)/i)).not.toBeInTheDocument();
   });
 
   it('SÍ muestra UsuarioSelector cuando puede delegar y leer usuarios', () => {
@@ -100,9 +96,7 @@ describe('<NuevaRequisicion> — smoke', () => {
       permisos: ['compras.requisiciones.seleccionar-requisitante', 'identidad.usuarios.leer'],
     });
     render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
-    expect(
-      screen.getByText(/requisitante \(delegación\)/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/requisitante \(delegación\)/i)).toBeInTheDocument();
   });
 
   it('NO muestra delegación cuando puede delegar pero no leer usuarios', () => {
@@ -128,12 +122,8 @@ describe('<NuevaRequisicion> — smoke', () => {
     );
 
     render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
-    expect(
-      screen.getByText('Tienes un borrador guardado'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /recuperar borrador/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Tienes un borrador guardado')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /recuperar borrador/i })).toBeInTheDocument();
   });
 
   it('Esc en "Recuperar borrador" solo cierra: el borrador se conserva', () => {
@@ -141,7 +131,13 @@ describe('<NuevaRequisicion> — smoke', () => {
     window.localStorage.setItem(
       key,
       JSON.stringify({
-        values: { sucursalId: '', departamentoId: '', clasificacion: 0, prioridad: 1, fechaSolicitud: new Date().toISOString() },
+        values: {
+          sucursalId: '',
+          departamentoId: '',
+          clasificacion: 0,
+          prioridad: 1,
+          fechaSolicitud: new Date().toISOString(),
+        },
         meta: { savedAt: '2026-05-09T10:00:00Z' },
       }),
     );
@@ -153,7 +149,14 @@ describe('<NuevaRequisicion> — smoke', () => {
 
   it('los campos tienen label asociado (getByLabelText)', () => {
     render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
-    for (const nombre of [/^Sucursal/, /^Departamento/, /^Clasificación/, /^Prioridad/, /^Proveedor sugerido/, /^Descripción/]) {
+    for (const nombre of [
+      /^Sucursal/,
+      /^Departamento/,
+      /^Clasificación/,
+      /^Prioridad/,
+      /^Proveedor sugerido/,
+      /^Descripción/,
+    ]) {
       expect(screen.getByLabelText(nombre)).toBeInTheDocument();
     }
   });
@@ -173,7 +176,13 @@ describe('<NuevaRequisicion> — smoke', () => {
     window.localStorage.setItem(
       key,
       JSON.stringify({
-        values: { sucursalId: '', departamentoId: '', clasificacion: 0, prioridad: 1, fechaSolicitud: new Date().toISOString() },
+        values: {
+          sucursalId: '',
+          departamentoId: '',
+          clasificacion: 0,
+          prioridad: 1,
+          fechaSolicitud: new Date().toISOString(),
+        },
         meta: { savedAt: '2026-05-09T10:00:00Z' },
       }),
     );
@@ -181,4 +190,16 @@ describe('<NuevaRequisicion> — smoke', () => {
     fireEvent.click(screen.getByRole('button', { name: /recuperar borrador/i }));
     expect(screen.getByRole('radio', { name: /^Parcial/ })).toBeChecked();
   });
+});
+
+it('organiza tres grupos y conserva captura al mostrar errores obligatorios', async () => {
+  render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+  for (const name of ['1. Datos del solicitante', '2. Detalle de la solicitud', '3. Condiciones de surtido']) {
+    expect(screen.getByRole('group', { name })).toBeInTheDocument();
+  }
+  const descripcion = screen.getByLabelText(/^Descripción/);
+  fireEvent.change(descripcion, { target: { value: 'Solicitud de muestra' } });
+  fireEvent.click(screen.getByRole('button', { name: /crear requisición/i }));
+  await screen.findByText('Sucursal requerida');
+  expect(descripcion).toHaveValue('Solicitud de muestra');
 });

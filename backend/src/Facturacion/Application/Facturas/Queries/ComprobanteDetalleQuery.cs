@@ -5,6 +5,7 @@ using Millet.Facturacion.Application.Cajas.Cobros;
 using Millet.Facturacion.Application.Facturas.AplicarPedimento;
 using Millet.ComercioExterior.Application.PublicPorts;
 using Millet.Facturacion.Domain.Cajas;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
@@ -68,7 +69,9 @@ public sealed record ComprobanteDetalleResponse(
     // M-216: por qué sigue retenida en PendientePedimento (falta expediente o pedimento).
     string? MotivoPedimento = null,
     // M-340: versión de la proforma aprobada de la que viene la factura (el folio PF va en Proforma).
-    Guid? ProformaPedidoId = null);
+    Guid? ProformaPedidoId = null, string? ClienteClave = null,
+    // H-U40: tipo de cambio del CFDI (null en MXN), para mostrarlo en el detalle de una factura en moneda extranjera.
+    decimal? TipoCambio = null);
 
 /// <summary>U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC.</summary>
 public sealed record NotaCreditoPendienteDetalle(
@@ -126,13 +129,15 @@ public sealed class ComprobanteDetalleHandler
     private readonly FacturacionDbContext _db;
     private readonly IAlcanceCajaEvaluator _alcance;
     private readonly IEmbarqueExportacionReadPort? _embarques;
+    private readonly IClientesReadPort? _clientes;
 
     public ComprobanteDetalleHandler(FacturacionDbContext db, IAlcanceCajaEvaluator alcance,
-        IEmbarqueExportacionReadPort? embarques = null)
+        IEmbarqueExportacionReadPort? embarques = null, IClientesReadPort? clientes = null)
     {
         _db = db;
         _alcance = alcance;
         _embarques = embarques;
+        _clientes = clientes;
     }
 
     public async Task<ComprobanteDetalleResponse> Handle(
@@ -260,6 +265,10 @@ public sealed class ComprobanteDetalleHandler
             }
         }
 
+        var clienteId = await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken);
+        var cliente = clienteId is Guid id && _clientes is not null
+            ? await _clientes.ObtenerAsync(id, cancellationToken) : null;
+
         return new ComprobanteDetalleResponse(
             f.Id, f.Tipo.ToString(), f.Folio, f.Estado.ToString(), f.Uuid,
             f.ReceptorRfc, f.ReceptorNombre, f.Moneda,
@@ -276,7 +285,7 @@ public sealed class ComprobanteDetalleHandler
             CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones, ProformaPedidoId: f.ProformaPedidoId,
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
             NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
-            ClienteId: await Integration.ClienteContableFacturacion.ResolverAsync(_db, f, cancellationToken),
+            ClienteId: clienteId, ClienteClave: cliente?.Clave, TipoCambio: f.TipoCambio,
             SustituidaPor: sustituidaPor, SustituyeA: sustituyeA, SustitucionRechazadaMotivo: sustitucionRechazada,
             NotasCreditoPendientes: ncPendientes,
             MotivoPedimento: await PedimentoDesdeExpediente.MotivoAsync(_db, _embarques, f, cancellationToken));

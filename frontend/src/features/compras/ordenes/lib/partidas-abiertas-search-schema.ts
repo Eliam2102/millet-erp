@@ -56,7 +56,7 @@ export const PartidasAbiertasSearchSchema = z.object({
   /** F1-COM-07: solo OC con incidencias del proveedor abiertas. */
   conIncidenciasAbiertas: z.boolean().optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
-  pageSize: z.coerce.number().int().min(10).max(200).optional().default(10),
+  pageSize: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 export type PartidasAbiertasSearch = z.infer<
@@ -65,5 +65,4 @@ export type PartidasAbiertasSearch = z.infer<
 
 export const DEFAULT_PARTIDAS_ABIERTAS_SEARCH: PartidasAbiertasSearch = {
   page: 1,
-  pageSize: 10,
 };

@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { errorUsuario } from '@/lib/error-usuario';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -28,6 +29,7 @@ import {
 import type { PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { RegistrarPagoSheet } from '@/features/tesoreria/components/RegistrarPagoSheet';
+import { RedondeosPorAutorizarPanel } from '@/features/tesoreria/components/RedondeosPorAutorizarPanel';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esPasivoSeleccionable } from '@/features/tesoreria/lib/pagos';
 import type { PagosSearch } from '@/features/tesoreria/lib/pagos-search-schema';
@@ -44,6 +46,7 @@ const FROM = '/_app/tesoreria/pagos/' as const;
  * solicitar cancelación hacia CxP (con motivo).
  */
 export function BandejaPagos() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const puedePagar = useHasPermission(PermisosCanonicos.TesoreriaPagosAplicar);
@@ -53,7 +56,7 @@ export function BandejaPagos() {
     moneda: search.moneda,
     venceDesde: search.venceDesde,
     venceHasta: search.venceHasta,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? limiteTabla,
     offset: search.offset ?? 0,
   });
 
@@ -143,6 +146,8 @@ export function BandejaPagos() {
         }
       />
 
+      <RedondeosPorAutorizarPanel />
+
       <ListadoModulo
         tabs={
           <TabsEstado opciones={[]} valor={undefined} onChange={() => {}} conteos={undefined} />
@@ -203,8 +208,7 @@ export function BandejaPagos() {
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={search.offset ?? 0}
-            limit={search.limit ?? 10}
-            tamanos={[]}
+            limit={search.limit ?? limiteTabla}
             onChange={(offset, limit) => actualizarSearch({ offset, limit })}
           />
         }
@@ -269,9 +273,7 @@ export function BandejaPagos() {
                         )}
                       </TableCell>
                       <TableCell className="max-w-72 px-3 py-2">
-                        <p className="truncate">
-                          {p.proveedorRazonSocial ?? '—'}
-                        </p>
+                        <p className="truncate">{p.proveedorRazonSocial ?? '—'}</p>
                         <p className="font-mono text-xs text-ink-muted">{p.proveedorClave ?? ''}</p>
                         {p.proveedorBloqueado === true && (
                           <Badge variant="danger" title={p.proveedorMotivoBloqueo ?? undefined}>
@@ -280,9 +282,7 @@ export function BandejaPagos() {
                         )}
                       </TableCell>
                       <TableCell className="px-3 py-2">
-                        <p className="font-mono text-xs">
-                          {p.folioProveedor ?? '—'}
-                        </p>
+                        <p className="font-mono text-xs">{p.folioProveedor ?? '—'}</p>
                         {p.pagoACuentaAbiertoMovimientoId != null && (
                           <Link
                             to="/tesoreria/pagos-cuenta"

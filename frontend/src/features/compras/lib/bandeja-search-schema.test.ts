@@ -6,10 +6,10 @@ import {
 import { EstadoRequisicion } from '@/features/compras/api/types';
 
 describe('BandejaSearchSchema', () => {
-  it('aplica defaults a offset y limit cuando vienen vacíos', () => {
+  it('aplica offset inicial sin inventar cantidad ausente en la URL', () => {
     const result = BandejaSearchSchema.parse({});
     expect(result.offset).toBe(0);
-    expect(result.limit).toBe(10);
+    expect(result.limit).toBeUndefined();
     expect(result.estado).toBeUndefined();
   });
 

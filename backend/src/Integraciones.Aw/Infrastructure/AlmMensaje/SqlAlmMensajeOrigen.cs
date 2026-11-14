@@ -29,6 +29,7 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
           FROM dbo.alm_mensaje m
           JOIN u ON u.mensaje_id = m.mensaje_id AND u.ultimo = m.intento
          WHERE m.acuse_estado IS NULL
+           AND (@prefijo IS NULL OR m.mensaje_id LIKE @prefijo + '%')
            AND (m.referencia IS NULL OR NOT EXISTS (
                  SELECT 1 FROM dbo.alm_mensaje e
                    JOIN u ue ON ue.mensaje_id = e.mensaje_id AND ue.ultimo = e.intento
@@ -49,6 +50,7 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
         await using var cmd = cn.CreateCommand();
         cmd.CommandText = SqlPendientes;
         P(cmd, "@max", DbType.Int32, max);
+        P(cmd, "@prefijo", DbType.String, Prefijo());
         var r = new List<AlmMensajeEntrante>();
         await using var rd = await cmd.ExecuteReaderAsync(ct);
         while (await rd.ReadAsync(ct))
@@ -63,7 +65,8 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
         SELECT COUNT(*), ISNULL(MAX(DATEDIFF(SECOND, m.fecha_escrito, SYSDATETIME())), 0)
           FROM dbo.alm_mensaje m
           JOIN u ON u.mensaje_id = m.mensaje_id AND u.ultimo = m.intento
-         WHERE m.acuse_estado IS NULL AND DATEDIFF(SECOND, m.fecha_escrito, SYSDATETIME()) > @segundos
+         WHERE m.acuse_estado IS NULL AND (@prefijo IS NULL OR m.mensaje_id LIKE @prefijo + '%')
+           AND DATEDIFF(SECOND, m.fecha_escrito, SYSDATETIME()) > @segundos
         """;
 
     public async Task<AlmMensajeSinAcuse> ContarSinAcuseAntiguosAsync(int segundos, CancellationToken ct)
@@ -72,6 +75,7 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
         await using var cmd = cn.CreateCommand();
         cmd.CommandText = SqlSinAcuseAntiguos;
         P(cmd, "@segundos", DbType.Int32, segundos);
+        P(cmd, "@prefijo", DbType.String, Prefijo());
         await using var rd = await cmd.ExecuteReaderAsync(ct);
         await rd.ReadAsync(ct);
         return new AlmMensajeSinAcuse(Convert.ToInt32(rd.GetValue(0)), Convert.ToInt32(rd.GetValue(1)));
@@ -88,6 +92,13 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
         P(cmd, "@texto", DbType.String, acuse.Error is null ? DBNull.Value : acuse.Error.Length > MaxTexto ? acuse.Error[..MaxTexto] : acuse.Error);
         await cmd.ExecuteNonQueryAsync(ct);
     }
+
+    /// <summary>
+    /// <c>Integraciones:AlmMensaje:SoloPrefijoMensajeId</c>: solo para pruebas en ENSAYO. Con valor, el lector (y la alarma) ven únicamente los
+    /// mensajes cuyo <c>mensaje_id</c> empieza con él; vacío (por omisión) = todos.
+    /// </summary>
+    private object Prefijo() =>
+        configuration["Integraciones:AlmMensaje:SoloPrefijoMensajeId"] is { Length: > 0 } p ? p : DBNull.Value;
 
     private static DateTimeOffset Fecha(object v) => v switch
     {

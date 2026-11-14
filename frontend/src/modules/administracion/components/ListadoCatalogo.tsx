@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { useState, type ReactNode } from 'react';
 import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -19,6 +20,7 @@ export function ListadoCatalogo<T>({
   children: (visibles: readonly T[]) => ReactNode;
   etiqueta?: string;
 }) {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<number>();
   const [pagina, setPagina] = useState(0);
@@ -27,7 +29,7 @@ export function ListadoCatalogo<T>({
       (filtro === undefined || estado?.(item) === filtro) &&
       texto(item).toLocaleLowerCase('es-MX').includes(busqueda.trim().toLocaleLowerCase('es-MX')),
   );
-  const offset = Math.min(pagina, Math.max(0, Math.ceil(filtrados.length / 10) - 1)) * 10;
+  const offset = Math.min(pagina, Math.max(0, Math.ceil(filtrados.length / limiteTabla) - 1)) * limiteTabla;
   return (
     <ListadoModulo
       tabs={
@@ -61,13 +63,12 @@ export function ListadoCatalogo<T>({
         <PaginacionTabla
           total={filtrados.length}
           offset={offset}
-          limit={10}
-          tamanos={[]}
-          onChange={(n) => setPagina(n / 10)}
+          limit={limiteTabla}
+          onChange={(n) => setPagina(n / limiteTabla)}
         />
       }
     >
-      {children(filtrados.slice(offset, offset + 10))}
+      {children(filtrados.slice(offset, offset + limiteTabla))}
     </ListadoModulo>
   );
 }

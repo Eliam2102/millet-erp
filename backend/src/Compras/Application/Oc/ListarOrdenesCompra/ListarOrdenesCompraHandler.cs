@@ -36,6 +36,11 @@ public sealed class ListarOrdenesCompraHandler
         var query = _db.OrdenesCompra
             .Where(x => request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalDestinoId)).AsNoTracking();
 
+        if (request.ParaCapturaFactura == true)
+        {
+            query = query.Where(o => o.Estado == Domain.Oc.EstadoOrdenCompra.Autorizada ||
+                (o.EsServicioComercioExterior && o.Estado == Domain.Oc.EstadoOrdenCompra.EnAutorizacionDireccion));
+        }
         if (request.Estado is { } estado)
         {
             query = query.Where(o => o.Estado == estado);

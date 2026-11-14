@@ -78,7 +78,8 @@ function mensaje(e: unknown, fallback: string) {
  * contramovimiento y CxC recibe la alerta.
  */
 export function BandejaChequesRecibidos() {
-  const [estado, setEstado] = useState<EstadoChequeRecibido | undefined>(EstadoChequeRecibido.EnFirmePendiente);
+  const [estado, setEstado] = useState<EstadoChequeRecibido | undefined>(EstadoChequeRecibido.EnFirmePendiente,
+  );
   const query = useChequesRecibidos(estado);
   const puede = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
   const [nuevo, setNuevo] = useState(false);
@@ -120,13 +121,14 @@ export function BandejaChequesRecibidos() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton rows={5} columns={[{ width: 'w-24' }, { width: 'w-40' }, { width: 'w-28' }, { width: 'w-24' }, { width: 'w-28' }]} />
+        <TableSkeleton rows={5} columns={[{ width: 'w-24' }, { width: 'w-40' }, { width: 'w-28' }, { width: 'w-24' }, { width: 'w-28' },
+          ]} />
       ) : items.length === 0 ? (
         <EmptyState icon={<Inbox className="h-10 w-10" />} title="Sin cheques" description="Los cheques que registres aparecen aquí." />
       ) : (
         <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Recibido</TableHead>
@@ -194,7 +196,9 @@ export function BandejaChequesRecibidos() {
           {nuevo && <RegistrarChequeForm cerrar={() => setNuevo(false)} />}
         </SheetContent>
       </Sheet>
-      {aConfirmar && <ConfirmarChequeDialog cheque={aConfirmar} cerrar={() => setAConfirmar(null)} />}
+      {aConfirmar && (
+        <ConfirmarChequeDialog cheque={aConfirmar} cerrar={() => setAConfirmar(null)} />
+      )}
       {aRebotar && <RebotarChequeDialog cheque={aRebotar} cerrar={() => setARebotar(null)} />}
     </div>
   );
@@ -232,7 +236,8 @@ function RegistrarChequeForm({ cerrar }: { cerrar: () => void }) {
           toast.success('Cheque registrado en firme pendiente');
           cerrar();
         },
-        onError: (e) => toast.error('No se pudo registrar el cheque', { description: mensaje(e, 'Vuelve a intentarlo.') }),
+        onError: (e) => toast.error('No se pudo registrar el cheque', { description: mensaje(e, 'Vuelve a intentarlo.'),
+          }),
       },
     );
   }
@@ -301,7 +306,9 @@ function RegistrarChequeForm({ cerrar }: { cerrar: () => void }) {
   );
 }
 
-function ConfirmarChequeDialog({ cheque, cerrar }: { cheque: ChequeRecibidoResponse; cerrar: () => void }) {
+function ConfirmarChequeDialog({ cheque, cerrar,
+}: { cheque: ChequeRecibidoResponse; cerrar: () => void;
+}) {
   const lineas = useLineasCandidatasCheque(cheque.id);
   const confirmar = useConfirmarCheque();
   const key = useBodyScopedIdempotencyKey();
@@ -336,7 +343,8 @@ function ConfirmarChequeDialog({ cheque, cerrar }: { cheque: ChequeRecibidoRespo
         <DialogHeader>
           <DialogTitle>Confirmar cheque {cheque.numero}</DialogTitle>
           <DialogDescription>
-            Al confirmarlo nace el ingreso por <MoneyDisplay amount={cheque.importe} currency={cheque.moneda} strong /> y
+            Al confirmarlo nace el ingreso por{' '}
+            <MoneyDisplay amount={cheque.importe} currency={cheque.moneda} strong /> y
             suma al saldo de {cheque.cuenta}.
           </DialogDescription>
         </DialogHeader>
@@ -384,11 +392,21 @@ function ConfirmarChequeDialog({ cheque, cerrar }: { cheque: ChequeRecibidoRespo
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="cheque-fecha-valor">Fecha en que lo acreditó *</Label>
-                <Input id="cheque-fecha-valor" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                <Input
+                  id="cheque-fecha-valor"
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="cheque-referencia">Referencia del banco *</Label>
-                <Input id="cheque-referencia" maxLength={120} value={referencia} onChange={(e) => setReferencia(e.target.value)} />
+                <Input
+                  id="cheque-referencia"
+                  maxLength={120}
+                  value={referencia}
+                  onChange={(e) => setReferencia(e.target.value)}
+                />
               </div>
             </div>
           )}
@@ -406,7 +424,13 @@ function ConfirmarChequeDialog({ cheque, cerrar }: { cheque: ChequeRecibidoRespo
   );
 }
 
-function RebotarChequeDialog({ cheque, cerrar }: { cheque: ChequeRecibidoResponse; cerrar: () => void }) {
+function RebotarChequeDialog({
+  cheque,
+  cerrar,
+}: {
+  cheque: ChequeRecibidoResponse;
+  cerrar: () => void;
+}) {
   const rebotar = useRebotarCheque();
   const key = useBodyScopedIdempotencyKey();
   const [fecha, setFecha] = useState(hoyLocalISO);
@@ -445,18 +469,33 @@ function RebotarChequeDialog({ cheque, cerrar }: { cheque: ChequeRecibidoRespons
           {error && <AvisoEnLinea tono="error">{error}</AvisoEnLinea>}
           <div className="space-y-1">
             <Label htmlFor="rebote-fecha">Fecha de la devolución *</Label>
-            <Input id="rebote-fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <Input
+              id="rebote-fecha"
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="rebote-motivo">Motivo *</Label>
-            <Textarea id="rebote-motivo" rows={3} maxLength={300} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+            <Textarea
+              id="rebote-motivo"
+              rows={3}
+              maxLength={300}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+            />
           </div>
         </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={cerrar} disabled={rebotar.isPending}>
             Cancelar
           </Button>
-          <Button variant="destructive" onClick={ejecutar} disabled={!motivo.trim() || !fecha || rebotar.isPending}>
+          <Button
+            variant="destructive"
+            onClick={ejecutar}
+            disabled={!motivo.trim() || !fecha || rebotar.isPending}
+          >
             {rebotar.isPending ? 'Registrando…' : 'Registrar rebote'}
           </Button>
         </DialogFooter>

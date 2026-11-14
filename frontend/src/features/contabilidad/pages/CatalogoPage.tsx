@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { BarraFiltros, PaginacionTabla, ErrorState, TableSkeleton } from '@/components/erp';
 import { esApiError } from '@/lib/api';
@@ -258,6 +259,7 @@ function ListaCuentas({
   setOffset: (n: number) => void;
   vacio: React.ReactNode;
 }) {
+  const { limit: limiteTabla } = useTamanoPagina();
   if (consulta.isLoading) {
     return <TableSkeleton rows={5} />;
   }
@@ -321,8 +323,7 @@ function ListaCuentas({
       <PaginacionTabla
         total={total}
         offset={offset}
-        limit={LIMITE}
-        tamanos={[]}
+        limit={limiteTabla}
         onChange={setOffset}
       />
     </div>

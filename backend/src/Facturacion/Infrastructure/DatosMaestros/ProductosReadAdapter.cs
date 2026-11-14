@@ -14,6 +14,8 @@ namespace Millet.Facturacion.Infrastructure.DatosMaestros;
 /// PLATFORM-TODO(&lt;DatosMaestrosFiscal&gt;) para productos.
 /// <c>Origen</c> se proyecta como string (contrato del puerto).
 /// </summary>
+// Normalización en SQL; ToUpperInvariant no se traduce en este proveedor.
+#pragma warning disable CA1304, CA1311, CA1862
 public sealed class ProductosReadAdapter : IProductosReadPort
 {
     private readonly CompartidoDbContext _db;
@@ -31,7 +33,11 @@ public sealed class ProductosReadAdapter : IProductosReadPort
                 x.ObjetoImp, x.TasaIvaTraslado, x.TasaRetencionIva,
                 x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal, x.PesoUnitarioKg,
                 x.EsServicioRecubrimiento, Activo = x.Estatus == EstatusCatalogo.Activo,
-                x.FraccionArancelaria, x.UnidadAduana,
+                x.FraccionArancelaria, x.UnidadAduana, x.UnidadMedidaId, x.UnidadMedida,
+                DecimalesCantidad = _db.UnidadesMedida
+                    .Where(u => u.Id == x.UnidadMedidaId || (x.UnidadMedidaId == null
+                        && u.Codigo.Trim().ToUpper().TrimEnd('.') == x.UnidadMedida.Trim().ToUpper().TrimEnd('.')))
+                    .Select(u => (int?)u.Decimales).FirstOrDefault(),
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -39,7 +45,8 @@ public sealed class ProductosReadAdapter : IProductosReadPort
             p.Id, p.Descripcion, p.ClaveProdServSat, p.ClaveUnidadSat,
             p.ObjetoImp, p.TasaIvaTraslado, p.TasaRetencionIva,
             p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg,
-            p.EsServicioRecubrimiento, p.Activo, p.FraccionArancelaria, p.UnidadAduana);
+            p.EsServicioRecubrimiento, p.Activo, p.FraccionArancelaria, p.UnidadAduana,
+            p.UnidadMedidaId, p.UnidadMedida, p.DecimalesCantidad);
     }
 
     public async Task<ProductoFiscalLectura?> ResolverPorReferenciaAsync(
@@ -53,7 +60,11 @@ public sealed class ProductosReadAdapter : IProductosReadPort
                 x.ObjetoImp, x.TasaIvaTraslado, x.TasaRetencionIva,
                 x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal, x.PesoUnitarioKg,
                 x.EsServicioRecubrimiento, Activo = x.Estatus == EstatusCatalogo.Activo,
-                x.FraccionArancelaria, x.UnidadAduana,
+                x.FraccionArancelaria, x.UnidadAduana, x.UnidadMedidaId, x.UnidadMedida,
+                DecimalesCantidad = _db.UnidadesMedida
+                    .Where(u => u.Id == x.UnidadMedidaId || (x.UnidadMedidaId == null
+                        && u.Codigo.Trim().ToUpper().TrimEnd('.') == x.UnidadMedida.Trim().ToUpper().TrimEnd('.')))
+                    .Select(u => (int?)u.Decimales).FirstOrDefault(),
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -61,7 +72,8 @@ public sealed class ProductosReadAdapter : IProductosReadPort
             p.Id, p.Descripcion, p.ClaveProdServSat, p.ClaveUnidadSat,
             p.ObjetoImp, p.TasaIvaTraslado, p.TasaRetencionIva,
             p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg,
-            p.EsServicioRecubrimiento, p.Activo, p.FraccionArancelaria, p.UnidadAduana);
+            p.EsServicioRecubrimiento, p.Activo, p.FraccionArancelaria, p.UnidadAduana,
+            p.UnidadMedidaId, p.UnidadMedida, p.DecimalesCantidad);
     }
 
     public async Task<IReadOnlyList<ProductoAwBusquedaItem>> BuscarAsync(
@@ -82,7 +94,7 @@ public sealed class ProductosReadAdapter : IProductosReadPort
                 PostgresFunctions.Translate(p.Descripcion.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                     .Contains(PostgresFunctions.Translate(descripcion.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
         }
-#pragma warning restore CA1304, CA1311, CA1862
+
 
         return await q
             .OrderBy(p => p.ReferenciaExterna)
@@ -91,7 +103,12 @@ public sealed class ProductosReadAdapter : IProductosReadPort
                 p.Id, p.ReferenciaExterna, p.Descripcion, p.UnidadMedida,
                 p.ClaveProdServSat, p.ClaveUnidadSat, p.ObjetoImp,
                 p.TasaIvaTraslado, p.TasaRetencionIva, p.TasaRetencionIsr,
-                p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg))
+                p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.UnidadMedidaId,
+                _db.UnidadesMedida.Where(u => u.Id == p.UnidadMedidaId || (p.UnidadMedidaId == null
+                    && u.Codigo.Trim().ToUpper().TrimEnd('.') == p.UnidadMedida.Trim().ToUpper().TrimEnd('.')))
+                    .Select(u => (int?)u.Decimales).FirstOrDefault()))
             .ToListAsync(cancellationToken);
     }
 }
+
+#pragma warning restore CA1304, CA1311, CA1862

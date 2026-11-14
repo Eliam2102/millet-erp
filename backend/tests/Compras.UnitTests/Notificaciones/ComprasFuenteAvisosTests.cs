@@ -52,6 +52,24 @@ public sealed class ComprasFuenteAvisosTests
         (await fuente.ConsultarAsync(Contexto(), default)).Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Aviso_CE_solo_llega_a_quien_tiene_facultad_del_nivel(bool segunda)
+    {
+        await using var db = Db(); var oc = Oc(99);
+        typeof(OrdenCompra).GetProperty(nameof(OrdenCompra.EsServicioComercioExterior))!.SetValue(oc, true);
+        if (segunda) FirmarN1(oc, Guid.NewGuid());
+        db.OrdenesCompra.Add(oc); await db.SaveChangesAsync();
+        var p = new Permisos(PermisosCanonicos.ComprasOrdenesLeer,
+            segunda ? PermisosCanonicos.ComprasOrdenesAutorizarNivel2 : PermisosCanonicos.ComprasOrdenesAutorizarNivel1);
+        var fuente = Fuente(db, p);
+        (await fuente.ConsultarAsync(Contexto(), default)).Should().BeEmpty();
+        p.Codigos.Add(segunda ? PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel2 : PermisosCanonicos.ComercioExteriorServiciosAutorizarNivel1);
+        var aviso = (await fuente.ConsultarAsync(Contexto(), default)).Should().ContainSingle().Which;
+        aviso.Motivo.Should().Contain(segunda ? "Dirección Comercial" : "Comercio Exterior");
+    }
+
     [Fact]
     public async Task Oc_n2_excluye_firmante_n1_y_cancelacion_excluye_solicitante_y_espera_almacenes()
     {

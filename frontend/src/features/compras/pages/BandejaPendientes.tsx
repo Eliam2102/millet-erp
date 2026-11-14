@@ -1,3 +1,4 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { problemaUsuario } from '@/lib/error-usuario';
 import { TabsEstado } from '@/components/erp/data/TabsEstado';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
@@ -84,7 +85,12 @@ const SENTINEL_ALL = '__all__';
  * sin alguno de los dos no tiene sentido entrar.</para>
  */
 export function BandejaPendientes() {
-  const search = useSearch({ from: FROM });
+  const ruta = useSearch({ from: FROM });
+  const tamano = useTamanoPagina();
+  const search = {
+    ...ruta,
+    limit: ruta.limit ?? tamano.limit,
+  };
   const navigate = useNavigate();
   const verTodosDepartamentos = useHasPermission(
     PermisosCanonicos.ComprasRequisicionesVerTodosDepartamentos,

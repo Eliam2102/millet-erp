@@ -97,7 +97,7 @@ export function SolicitudesCuentaPanel() {
   return (
     <>
       <div className="overflow-x-auto rounded-md border">
-        <Table className="w-full text-sm">
+        <Table paginada className="w-full text-sm">
           <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
             <TableRow>
               <TableHead className="px-3 py-2 font-medium">Tipo</TableHead>
@@ -149,7 +149,7 @@ function DiffDatos({
 }) {
   return (
     <div className="overflow-x-auto rounded-md border">
-      <Table className="w-full text-sm">
+      <Table paginada className="w-full text-sm">
         <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
           <TableRow>
             <TableHead className="px-3 py-2 font-medium">Campo</TableHead>
@@ -231,7 +231,8 @@ function SolicitudCuentaSheet({
                   : 'Solicitud de cambio de cuenta'}
               </SheetTitle>
               <SheetDescription>
-                Solicitó {solicitud.solicitadoPorNombre ?? solicitud.solicitadoPor} el {fechaHora(solicitud.solicitadoEn)}.
+                Solicitó {solicitud.solicitadoPorNombre ?? solicitud.solicitadoPor} el {' '}
+                {fechaHora(solicitud.solicitadoEn)}.
               </SheetDescription>
             </SheetHeader>
             <SheetBody className="space-y-4">
@@ -252,7 +253,8 @@ function SolicitudCuentaSheet({
               )}
               {!pendiente && (
                 <p className="text-xs text-ink-muted">
-                  Resuelta por {valor(solicitud.resueltoPorNombre ?? solicitud.resueltoPor)} el {fechaHora(solicitud.resueltoEn)}.
+                  Resuelta por {valor(solicitud.resueltoPorNombre ?? solicitud.resueltoPor)} el{' '}
+                  {fechaHora(solicitud.resueltoEn)}.
                 </p>
               )}
             </SheetBody>
@@ -331,7 +333,8 @@ export function HistorialCuentaSheet({
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <Badge variant="info">Versión {v.numeroVersion ?? '—'}</Badge>
                   <span className="text-ink-muted">
-                    Autorizó {valor(v.resueltoPorNombre ?? v.resueltoPor)} el {fechaHora(v.resueltoEn)}
+                    Autorizó {valor(v.resueltoPorNombre ?? v.resueltoPor)} el {' '}
+                    {fechaHora(v.resueltoEn)}
                   </span>
                 </div>
                 <DiffDatos antes={v.datosVigentes} despues={v.datosPropuestos} />

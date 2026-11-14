@@ -5,8 +5,10 @@ import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useMensajesAppMarcados, type MensajeAppMarcado } from '@/features/almacen/api/useConsumoComponentes';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { useMensajesAppMarcados, type MensajeAppMarcado,
+} from '@/features/almacen/api/useConsumoComponentes';
 import { esApiError } from '@/lib/api';
 
 const ESTADOS = { 1: 'EN_REVISION', 2: 'ERROR' } as const;
@@ -75,7 +77,7 @@ export function MensajesAppPage() {
           />
         ) : (
           <TableContainer>
-            <Table>
+            <Table paginada>
               <TableHeader>
                 <TableRow>
                   <TableHead>Mensaje</TableHead>

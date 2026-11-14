@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -33,14 +34,36 @@ export interface ErrorStateProps {
   className?: string;
 }
 
+function mensajeUsuario(mensaje?: string) {
+  const texto = mensaje?.trim();
+  return texto === 'Ocurrió un error inesperado. Reporta el código de seguimiento traceId a soporte.'
+    ? 'Ocurrió un error inesperado. Reporta el código de seguimiento a soporte.'
+    : texto || undefined;
+}
+
 export function ErrorState({ problem, title, onRetry, className }: ErrorStateProps) {
-  const tituloFinal = title ?? problem?.title ?? 'Algo salió mal';
+  const tituloServidor = mensajeUsuario(problem?.title);
+  const tituloFinal = title?.trim() || tituloServidor || 'Algo salió mal';
   const noEncontrado = problem?.status === 404;
-  const tituloServidor = problem?.title?.trim();
+  const detalleServidor = mensajeUsuario(problem?.detail);
+  const causa = (detalleServidor !== tituloFinal ? detalleServidor : undefined)
+    || (tituloServidor !== tituloFinal ? tituloServidor : undefined);
   const detalle = noEncontrado
-    ? undefined
-    : problem?.detail?.trim() || (tituloServidor !== tituloFinal ? tituloServidor : undefined);
+    ? 'El registro no existe o ya no está disponible.'
+    : causa || (detalleServidor ? undefined : 'No se pudo completar la solicitud. Intenta de nuevo; si persiste, avisa a soporte.');
   const codigo = codigoSoporte(problem);
+  const traceId = problem?.traceId;
+  const [copia, setCopia] = useState<{ traceId: string; mensaje: string } | null>(null);
+
+  async function copiarCodigo() {
+    if (!traceId) return;
+    try {
+      await navigator.clipboard.writeText(traceId);
+      setCopia({ traceId, mensaje: 'Código copiado.' });
+    } catch {
+      setCopia({ traceId, mensaje: 'No se pudo copiar. Selecciona el código y cópialo.' });
+    }
+  }
 
   return (
     <div className={cn('flex flex-col items-center gap-4 px-6 py-12', className)}>
@@ -48,12 +71,17 @@ export function ErrorState({ problem, title, onRetry, className }: ErrorStatePro
         <TriangleAlert className="h-4 w-4" />
         <AlertTitle>{tituloFinal}</AlertTitle>
         <AlertDescription>
-          {detalle ??
-            (noEncontrado
-              ? 'El registro no existe o ya no está disponible.'
-              : 'No se pudo completar la solicitud. Intenta de nuevo; si persiste, avisa a soporte.')}
+          {detalle}
           {codigo != null && (
-            <span className="mt-2 block font-mono text-xs opacity-80">{codigo}</span>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="select-text break-all font-mono text-xs">{codigo}</span>
+              <Button type="button" variant="outline" size="sm" onClick={copiarCodigo}>
+                Copiar código
+              </Button>
+              <span role="status" className="text-xs">
+                {copia?.traceId === traceId ? copia?.mensaje : null}
+              </span>
+            </div>
           )}
         </AlertDescription>
       </Alert>

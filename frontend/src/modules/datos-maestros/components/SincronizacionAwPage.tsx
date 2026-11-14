@@ -172,7 +172,7 @@ export function SincronizacionAwPage() {
               <BarraFiltros total={`${corridas.data?.items.length ?? 0} corridas recibidas`} />
             }
             pie={
-              <PaginacionTabla
+              <PaginacionTabla regionId={paginaCorridas.regionId}
                 total={corridas.data?.items.length ?? 0}
                 offset={paginaCorridas.offset}
                 limit={paginaCorridas.limit}

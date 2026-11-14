@@ -7,7 +7,8 @@ import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccion
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import {
   useCambiarOrigenCapturaMp,
   useOrigenCapturaMp,
@@ -35,7 +36,8 @@ function pendientes(e: EventoOrigenCaptura): number {
 export function OrigenCapturaMpPage() {
   const query = useOrigenCapturaMp();
   const cambiar = useCambiarOrigenCapturaMp();
-  const [destino, setDestino] = useState<{ evento: EventoOrigenCaptura; origen: 'ERP' | 'APP' } | null>(null);
+  const [destino, setDestino] = useState<{ evento: EventoOrigenCaptura; origen: 'ERP' | 'APP';
+  } | null>(null);
   const [motivo, setMotivo] = useState<string | null>('');
 
   const abrir = (evento: EventoOrigenCaptura, origen: 'ERP' | 'APP') => {
@@ -49,7 +51,8 @@ export function OrigenCapturaMpPage() {
       { evento: destino.evento.evento, origen: destino.origen, motivo: (motivo ?? '').trim() },
       {
         onSuccess: () => {
-          toast.success(`La ${destino.evento.nombre} ahora se captura en ${destino.origen === 'APP' ? 'la app de Almacenes' : 'el ERP'}`);
+          toast.success(`La ${destino.evento.nombre} ahora se captura en ${destino.origen === 'APP' ? 'la app de Almacenes' : 'el ERP'}`,
+          );
           setDestino(null);
         },
         onError: (e) => toast.error(errorUsuario(e, 'No se pudo cambiar el origen')),
@@ -65,8 +68,9 @@ export function OrigenCapturaMpPage() {
         descripcion="Define si cada evento de materia prima se captura en el ERP (captura provisional) o llega solo de la app de Almacenes."
       />
       <AvisoEnLinea tono="advertencia">
-        El origen que no está habilitado se rechaza: el ERP no registra lo que ya viene de la app y la app recibe ERROR con el motivo.
-        Antes de cambiar hay que conciliar los mensajes en revisión y sin acuse. Cada cambio queda en la bitácora y se puede revertir.
+        El origen que no está habilitado se rechaza: el ERP no registra lo que ya viene de la app y
+        la app recibe ERROR con el motivo. Antes de cambiar hay que conciliar los mensajes en
+        revisión y sin acuse. Cada cambio queda en la bitácora y se puede revertir.
       </AvisoEnLinea>
 
       {query.isError ? (
@@ -76,10 +80,13 @@ export function OrigenCapturaMpPage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || !data ? (
-        <TableSkeleton rows={4} columns={[{ width: 'w-28' }, { width: 'w-36' }, { width: 'w-28' }, { width: 'w-24' }]} />
+        <TableSkeleton
+          rows={4}
+          columns={[{ width: 'w-28' }, { width: 'w-36' }, { width: 'w-28' }, { width: 'w-24' }]}
+        />
       ) : (
         <TableContainer>
-          <Table>
+          <Table paginada>
             <TableHeader>
               <TableRow>
                 <TableHead>Evento</TableHead>
@@ -129,11 +136,14 @@ export function OrigenCapturaMpPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-ink">Bitácora de cambios</h2>
         {data && data.bitacora.length === 0 ? (
-          <EmptyState title="Sin cambios" description="Todos los eventos siguen en transición: se aceptan el ERP y la app." />
+          <EmptyState
+            title="Sin cambios"
+            description="Todos los eventos siguen en transición: se aceptan el ERP y la app."
+          />
         ) : (
           data && (
             <TableContainer>
-              <Table>
+              <Table paginada>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha</TableHead>
@@ -150,8 +160,12 @@ export function OrigenCapturaMpPage() {
                       <TableCell className="whitespace-nowrap">
                         <DateTimeDisplay value={c.cambiadoAt} variant="corta" />
                       </TableCell>
-                      <TableCell className="capitalize">{data.eventos.find((e) => e.evento === c.evento)?.nombre ?? c.evento}</TableCell>
-                      <TableCell>{c.origenAnterior ? ORIGEN[c.origenAnterior].texto : '—'}</TableCell>
+                      <TableCell className="capitalize">
+                        {data.eventos.find((e) => e.evento === c.evento)?.nombre ?? c.evento}
+                      </TableCell>
+                      <TableCell>
+                        {c.origenAnterior ? ORIGEN[c.origenAnterior].texto : '—'}
+                      </TableCell>
                       <TableCell>{ORIGEN[c.origen].texto}</TableCell>
                       <TableCell>{c.motivo}</TableCell>
                       <TableCell className="whitespace-nowrap">{c.cambiadoPor}</TableCell>
@@ -173,13 +187,17 @@ export function OrigenCapturaMpPage() {
             <div className="space-y-3">
               <p>
                 La {destino.evento.nombre} de materia prima se capturará solo en{' '}
-                {destino.origen === 'APP' ? 'la app de Almacenes; el ERP dejará de registrarla.' : 'el ERP; la app recibirá ERROR.'}
+                {destino.origen === 'APP'
+                  ? 'la app de Almacenes; el ERP dejará de registrarla.'
+                  : 'el ERP; la app recibirá ERROR.'}
               </p>
               {pendientes(destino.evento) > 0 && (
                 <AvisoEnLinea tono="advertencia">
                   Hay {destino.evento.pendientes.mensajesEnRevision} mensaje(s) en revisión
-                  {destino.evento.pendientes.mensajesSinAcuse ? ` y ${destino.evento.pendientes.mensajesSinAcuse} sin acuse` : ''}.
-                  Concílialos en «Mensajes de la app» antes de cambiar.
+                  {destino.evento.pendientes.mensajesSinAcuse
+                    ? ` y ${destino.evento.pendientes.mensajesSinAcuse} sin acuse`
+                    : ''}
+                  . Concílialos en «Mensajes de la app» antes de cambiar.
                 </AvisoEnLinea>
               )}
               <label className="block text-sm font-medium text-ink" htmlFor="motivo-origen">

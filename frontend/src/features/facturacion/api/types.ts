@@ -966,6 +966,9 @@ export interface PedidoFacturableLineaDetalle {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  unidadMedidaId?: string | null;
+  unidadMedida?: string | null;
+  decimalesCantidad?: number | null;
 }
 
 /**
@@ -1118,6 +1121,8 @@ export interface ProductoAwLookupItem {
   unidadAduana: string | null;
   pesoUnitarioKg: number | null;
   datosFiscalesCompletos: boolean;
+  unidadMedidaId?: string | null;
+  decimalesCantidad?: number | null;
 }
 
 /** Item de la bandeja de excepciones de importación (GET /pedidos-facturables/excepciones). */
@@ -1459,6 +1464,9 @@ export interface ComprobanteDetalleResponse {
   estado: string;
   uuid: string | null;
   receptorRfc: string;
+  clienteClave?: string | null;
+  /** H-U40: tipo de cambio del CFDI (null en MXN). */
+  tipoCambio?: number | null;
   receptorNombre: string;
   moneda: string;
   subtotal: number;
@@ -1547,6 +1555,7 @@ export interface DatosSustitucionResponse {
     descripcion: string;
     claveUnidadSat: string;
     cantidad: number;
+    decimalesCantidad?: number | null;
     valorUnitario: number;
     descuento: number;
     objetoImp: string;
@@ -1699,8 +1708,23 @@ export interface ReenviarCorreoResponse {
 // ─── NC bonificación + cancelación (FE-F5) ────────────────────────────
 
 /** Command de NC por bonificación (relación 01). */
+/** P53: tipo de la NC sobre una factura (las tres van a la misma cuenta contable). */
+export type TipoNotaCredito = 'Bonificacion' | 'Devolucion' | 'Cancelacion';
+
+export const TIPOS_NOTA_CREDITO: ReadonlyArray<{ value: TipoNotaCredito; label: string; ayuda: string }> = [
+  { value: 'Bonificacion', label: 'Bonificación o descuento', ayuda: 'Relación 01. Descuento posterior a la venta.' },
+  { value: 'Devolucion', label: 'Devolución de mercancía', ayuda: 'Relación 03. Por el importe de lo devuelto.' },
+  {
+    value: 'Cancelacion',
+    label: 'Cancelación de la factura',
+    ayuda: 'Relación 01. Anula el saldo pendiente completo de una factura que ya no se cancela ante el SAT.',
+  },
+];
+
 export interface NotaCreditoBonificacionCommand {
   facturaVentaId: string;
+  /** P53: sin tipo el backend la trata como bonificación. */
+  tipo?: TipoNotaCredito;
   montoTotal: number;
   tasaIva: number | null;
   descripcion: string | null;
@@ -1871,6 +1895,8 @@ export interface CajaListadoItem {
   sucursales: number;
   canales: number;
   usuarios: number;
+  /** Sucursales donde opera la caja (alcance); limita la «sucursal de operación». */
+  sucursalIds?: string[];
 }
 
 export interface CajaSucursalItem {
@@ -2170,6 +2196,8 @@ export interface ComprobanteCobrableItem {
    * ranura del pedido A+W (motivo Ranura). 0 si no hay ranura.
    */
   montoRanura: number;
+  /** H-U41: importe ya comprometido en propuestas de aplicación de CxC abiertas; `total` ya lo descuenta. */
+  montoReservadoCxc?: number;
 }
 
 /** Ajuste de caja ([Decisión 12-C]); aplicadoEnSesionId null = pendiente. */

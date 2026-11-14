@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CONCEPTOS_RETENCION_CLIENTE, OBJETOS_IMP } from '@/features/facturacion/api/types';
 import { ProductoAwSelector } from '@/features/facturacion/components/selectors/ProductoAwSelector';
+import { decimalesCantidadFactura } from '@/features/facturacion/schemas/emitir-factura';
+import { stepParaDecimales } from '@/components/erp/forms/decimales-unidad';
 import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
 import { cn } from '@/lib/utils';
 import { Link } from '@tanstack/react-router';
@@ -162,6 +164,11 @@ function ConceptoInline({
     name: `lineas.${index}` as const,
   });
   const productoId = linea.productoId;
+  const decimalesCantidad = decimalesCantidadFactura(linea);
+  const cantidadId = `linea-${index}-cantidad`;
+  useEffect(() => {
+    void form.trigger(`lineas.${index}.cantidad`);
+  }, [productoId, decimalesCantidad, linea.cantidad, form, index]);
   // Con producto del catálogo, lo fiscal es de solo lectura (se corrige
   // en el master, no en la factura) — mismo principio que el receptor.
   const fiscalFija = productoId != null;
@@ -230,6 +237,7 @@ function ConceptoInline({
               onChange={(item) => {
                 const opts = { shouldDirty: true } as const;
                 form.setValue(`lineas.${index}.productoId` as const, item?.id ?? null, opts);
+                form.setValue(`lineas.${index}.decimalesCantidad` as const, item?.decimalesCantidad ?? null, opts);
                 if (item == null) return;
                 form.setValue(`lineas.${index}.descripcion` as const, item.descripcion, opts);
                 form.setValue(
@@ -321,16 +329,19 @@ function ConceptoInline({
           </>
         )}
         <div className="sm:col-span-1">
-          <Label className="text-xs">Cant. *</Label>
+          <Label htmlFor={cantidadId} className="text-xs">Cant. *</Label>
           <Input
             type="number"
-            step="0.0001"
+            id={cantidadId}
+            step={decimalesCantidad == null ? '0.0001' : stepParaDecimales(decimalesCantidad)}
             min="0"
+            aria-invalid={Boolean(errs?.cantidad)}
+            aria-describedby={errs?.cantidad ? `${cantidadId}-error` : undefined}
             {...form.register(`lineas.${index}.cantidad` as const, {
               valueAsNumber: true,
             })}
           />
-          {errs?.cantidad && <p className="text-xs text-danger-fg">{errs.cantidad.message}</p>}
+          {errs?.cantidad && <p id={`${cantidadId}-error`} role="alert" className="text-xs text-danger-fg">{errs.cantidad.message}</p>}
         </div>
         <div className="sm:col-span-2">
           <Label className="text-xs">Valor unit. *</Label>
@@ -607,12 +618,15 @@ function ArticuloFiscalResumen({
       {puedeCorregirArticulo && linea.productoId != null && (
         <Link
           to="/admin/datos-maestros/productos-aw/$id"
+          target="_blank"
+          rel="noopener noreferrer"
           params={{ id: linea.productoId }}
           className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand hover:underline"
           title="Corregir los datos fiscales en el catálogo de productos A+W"
         >
           <SquarePen className="size-3.5" aria-hidden />
           Corregir en catálogo
+          <span className="sr-only"> (se abre en otra pestaña; tu captura se conserva)</span>
         </Link>
       )}
     </div>
@@ -735,11 +749,14 @@ function ConceptoFilaCompacta({
               {puedeCorregirArticulo && linea.productoId != null && (
                 <Link
                   to="/admin/datos-maestros/productos-aw/$id"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   params={{ id: linea.productoId }}
                   className="inline-flex items-center gap-1 font-medium underline underline-offset-2"
                 >
                   <SquarePen className="size-3.5" aria-hidden />
                   Corregir en catálogo
+                  <span className="sr-only"> (se abre en otra pestaña; tu captura se conserva)</span>
                 </Link>
               )}
             </>

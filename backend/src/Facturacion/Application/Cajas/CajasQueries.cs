@@ -34,7 +34,8 @@ public sealed record CajaListadoItem(
     string Estatus,
     int Sucursales,
     int Canales,
-    int Usuarios);
+    int Usuarios,
+    IReadOnlyList<Guid> SucursalIds);
 
 /// <summary>
 /// OR de permisos de lectura de caja (<c>administrar ∨ operar ∨ supervisar</c>),
@@ -101,7 +102,8 @@ public sealed class ListarCajasHandler : IRequestHandler<ListarCajasQuery, IRead
                 c.Estatus.ToString(),
                 c.Sucursales.Count,
                 c.Canales.Count,
-                c.Usuarios.Count))
+                c.Usuarios.Count,
+                c.Sucursales.Select(s => s.SucursalId).ToList()))
             .ToListAsync(cancellationToken);
     }
 }

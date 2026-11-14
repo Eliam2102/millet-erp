@@ -1,3 +1,4 @@
+import { hoyLocalISO } from '@/lib/datetime';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
@@ -20,7 +21,7 @@ const columnasLibro: ColumnaLibro[] = [
   { clave: 'neto', etiqueta: 'Neto', tipo: 'moneda' },
 ];
 export function ConciliacionPage() {
-  const [periodo, setPeriodo] = useState('2026-02');
+  const [periodo, setPeriodo] = useState(() => hoyLocalISO().slice(0, 7));
   const actual = useAuthStore((s) => s.currentSucursalId);
   const [sucursal, setSucursal] = useState(actual ?? '');
   const alcance = sucursal ? `&sucursalId=${sucursal}` : '';
@@ -261,7 +262,7 @@ export function ConciliacionPage() {
   );
 }
 export function LibroActivosPage() {
-  const [corte, setCorte] = useState('2026-02-28');
+  const [corte, setCorte] = useState(hoyLocalISO);
   const q = useLibroQuery<FilaLibro[]>(`reportes/libro?corte=${corte}`, !!corte);
   return (
     <main className="space-y-5 text-sm">

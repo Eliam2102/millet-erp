@@ -3180,6 +3180,220 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("relacion_cfdi", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Conciliacion.CierreFolios", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.Property<int>("Cancelados")
+                        .HasColumnType("integer")
+                        .HasColumnName("cancelados");
+
+                    b.Property<DateTimeOffset>("CerradoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cerrado_en");
+
+                    b.Property<string>("CerradoPor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("cerrado_por");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int>("Descartados")
+                        .HasColumnType("integer")
+                        .HasColumnName("descartados");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<long>("FolioFinal")
+                        .HasColumnType("bigint")
+                        .HasColumnName("folio_final");
+
+                    b.Property<long>("FolioInicial")
+                        .HasColumnType("bigint")
+                        .HasColumnName("folio_inicial");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("integer")
+                        .HasColumnName("mes");
+
+                    b.Property<string>("MotivoReapertura")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_reapertura");
+
+                    b.Property<DateTimeOffset?>("ReabiertoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reabierto_en");
+
+                    b.Property<string>("ReabiertoPor")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("reabierto_por");
+
+                    b.Property<string>("ReporteJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("reporte_json");
+
+                    b.Property<string>("Serie")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("serie");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Usados")
+                        .HasColumnType("integer")
+                        .HasColumnName("usados");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<bool>("Vigente")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vigente");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cierres_folios");
+
+                    b.HasIndex("EmpresaId", "Anio", "Mes", "Tipo", "Serie")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cierres_folios_vigente")
+                        .HasFilter("vigente");
+
+                    b.ToTable("cierres_folios", "facturacion", t =>
+                        {
+                            t.HasCheckConstraint("ck_cierres_folios_mes", "mes BETWEEN 1 AND 12");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Conciliacion.ResolucionIncidenciaFiscal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ComprobanteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comprobante_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("EstadoInterno")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado_interno");
+
+                    b.Property<string>("EstatusSatAntes")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("estatus_sat_antes");
+
+                    b.Property<string>("EstatusSatDespues")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("estatus_sat_despues");
+
+                    b.Property<string>("Nota")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("nota");
+
+                    b.Property<DateTimeOffset>("ResueltaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelta_en");
+
+                    b.Property<string>("ResueltaPor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("resuelta_por");
+
+                    b.Property<string>("Soporte")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("soporte");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("Uuid")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_resoluciones_incidencia_fiscal");
+
+                    b.HasIndex("EmpresaId", "ComprobanteId")
+                        .HasDatabaseName("ix_resoluciones_incidencia_fiscal_comprobante");
+
+                    b.ToTable("resoluciones_incidencia_fiscal", "facturacion");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.ConciliacionSat.ConciliacionSat", b =>
                 {
                     b.Property<Guid>("Id")

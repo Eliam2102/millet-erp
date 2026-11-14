@@ -5,7 +5,8 @@ import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useSucursalesContables } from '../../api/dimensiones';
@@ -47,7 +48,7 @@ export function RolesMotor({ puedeAdministrar }: Props) {
           />
         }
         pie={
-          <PaginacionTabla total={items.length} offset={pagina.offset} limit={10} tamanos={[]} onChange={pagina.onChange} />
+          <PaginacionTabla regionId={pagina.regionId} total={items.length} offset={pagina.offset} limit={pagina.limit} onChange={pagina.onChange} />
         }
       >
         {roles.isLoading ? (
@@ -87,14 +88,16 @@ export function RolesMotor({ puedeAdministrar }: Props) {
                     <TableCell className="px-3">
                       {r.cuentaId ? (
                         <span>
-                          <span className="font-mono text-xs">{r.cuentaCodigo}</span> {r.cuentaNombre}
+                          <span className="font-mono text-xs">{r.cuentaCodigo}</span> {' '}
+                          {r.cuentaNombre}
                         </span>
                       ) : (
                         <Badge variant="warning">Sin cuenta</Badge>
                       )}
                     </TableCell>
                     <TableCell className="px-3 text-ink-secondary">
-                      {[r.sucursalId ? nombreSucursal(r.sucursalId) : 'Todas las sucursales', r.moneda ?? 'todas las monedas'].join(' · ')}
+                      {[r.sucursalId ? nombreSucursal(r.sucursalId) : 'Todas las sucursales', r.moneda ?? 'todas las monedas',
+                      ].join(' · ')}
                     </TableCell>
                     <TableCell className="whitespace-nowrap px-3 text-ink-secondary">
                       {r.vigenteHasta
@@ -104,12 +107,22 @@ export function RolesMotor({ puedeAdministrar }: Props) {
                     <TableCell className="px-3">
                       <div className="flex justify-end gap-1" data-print="hidden">
                         {puedeAdministrar && (
-                          <Button variant="secondary" size="sm" onClick={() => setCambiando(r)} aria-label={`Cambiar cuenta de ${r.codigo}`}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setCambiando(r)}
+                            aria-label={`Cambiar cuenta de ${r.codigo}`}
+                          >
                             <Pencil aria-hidden="true" />
                             Cambiar cuenta
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => setBitacora(r)} aria-label={`Bitácora de ${r.codigo}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setBitacora(r)}
+                          aria-label={`Bitácora de ${r.codigo}`}
+                        >
                           <History aria-hidden="true" />
                           Bitácora
                         </Button>

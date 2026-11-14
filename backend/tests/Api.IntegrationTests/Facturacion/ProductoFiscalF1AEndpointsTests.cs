@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Catalogos.Domain;
+using Millet.Facturacion.Application.Catalogos;
+using Millet.Facturacion.Infrastructure.DatosMaestros;
 using Millet.DatosMaestros.Domain;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 using Millet.Facturacion.Domain.Facturas;
@@ -103,6 +106,53 @@ public sealed class ProductoFiscalF1AEndpointsTests(WebApplicationFactory<Progra
         {
             db.ProductosAw.Remove(producto);
             db.Clientes.Remove(cliente);
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task FB48_PostgreSQL_resuelve_precision_ProductoAw_y_lookup_sin_inferir_SAT()
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var sufijo = Guid.NewGuid().ToString("N")[..8];
+        var prefijo = "FB48-" + sufijo;
+        var piezas = await db.UnidadesMedida.SingleOrDefaultAsync(u => u.Codigo == "PZA");
+        var crearPiezas = piezas is null;
+        piezas ??= new UnidadMedida(Guid.NewGuid(), "PZA", "Pieza ficticia FB48", DimensionUnidad.Conteo, 1, 0, false);
+        var kilos = new UnidadMedida(Guid.NewGuid(), "F48" + sufijo, "Kg ficticio FB48", DimensionUnidad.Peso, 1, 3, false);
+        if (crearPiezas) db.UnidadesMedida.Add(piezas);
+        db.UnidadesMedida.Add(kilos);
+        var porFk = new ProductoAw(Guid.NewGuid(), prefijo + "-FK", "FICTICIO FK", "PZA", unidadMedidaId: kilos.Id);
+        var legacy = new ProductoAw(Guid.NewGuid(), prefijo + "-LEGACY", "FICTICIO LEGACY", " pza. ");
+        var desconocido = new ProductoAw(Guid.NewGuid(), prefijo + "-NULL", "FICTICIO NULL", "F48-DESCONOCIDA");
+        db.ProductosAw.AddRange(porFk, legacy, desconocido);
+        await db.SaveChangesAsync();
+        try
+        {
+            // Adaptador real y PostgreSQL: estas tres rutas deben traducir la normalización y subconsulta.
+            var adapter = new ProductosReadAdapter(db);
+            Assert.Equal(0, piezas.Decimales);
+            Assert.Equal(3, (await adapter.ObtenerAsync(porFk.Id, CancellationToken.None))!.DecimalesCantidad);
+            Assert.Equal(0, (await adapter.ResolverPorReferenciaAsync(legacy.ReferenciaExterna, CancellationToken.None))!.DecimalesCantidad);
+            Assert.Null((await adapter.ObtenerAsync(desconocido.Id, CancellationToken.None))!.DecimalesCantidad);
+            var busqueda = await adapter.BuscarAsync(prefijo, null, 20, CancellationToken.None);
+            Assert.Equal(3, busqueda.Single(p => p.ProductoId == porFk.Id).DecimalesCantidad);
+            Assert.Equal(0, busqueda.Single(p => p.ProductoId == legacy.Id).DecimalesCantidad);
+            Assert.Null(busqueda.Single(p => p.ProductoId == desconocido.Id).DecimalesCantidad);
+            var lookup = await new ProductosAwLookupHandler(adapter).Handle(new ProductosAwLookupQuery(prefijo), CancellationToken.None);
+            Assert.Equal(kilos.Id, lookup.Single(p => p.Id == porFk.Id).UnidadMedidaId);
+            Assert.Equal(3, lookup.Single(p => p.Id == porFk.Id).DecimalesCantidad);
+            Assert.Equal(0, lookup.Single(p => p.Id == legacy.Id).DecimalesCantidad);
+            Assert.Null(lookup.Single(p => p.Id == desconocido.Id).DecimalesCantidad);
+        }
+        finally
+        {
+            db.ProductosAw.RemoveRange(porFk, legacy, desconocido);
+            await db.SaveChangesAsync();
+            db.UnidadesMedida.Remove(kilos);
+            if (crearPiezas) db.UnidadesMedida.Remove(piezas);
             await db.SaveChangesAsync();
         }
     }

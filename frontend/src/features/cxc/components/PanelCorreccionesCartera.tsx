@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { esApiError } from '@/lib/api';
 import { formatDate } from '@/lib/datetime';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -14,7 +15,8 @@ import {
   useRechazarReversaMovimiento,
   useSolicitarReversaMovimiento,
 } from '@/features/cxc/api/useCorreccionesCartera';
-import { CorreccionCarteraDialog, type ModoCorreccion } from '@/features/cxc/components/CorreccionCarteraDialog';
+import { CorreccionCarteraDialog, type ModoCorreccion,
+} from '@/features/cxc/components/CorreccionCarteraDialog';
 
 type Fila = Record<string, unknown>;
 
@@ -38,9 +40,12 @@ function mensajeError(err: unknown) {
  * reversa de un movimiento mal aplicado y, con otro permiso, autorizar o rechazar las solicitudes pendientes. El rastro (quién, por qué,
  * antes/después) aparece como filas del propio estado de cuenta.
  */
-export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: string; filas: Fila[] }) {
+export function PanelCorreccionesCartera({ clienteId, filas,
+}: { clienteId: string; filas: Fila[];
+}) {
   const puedeCorregir = useHasPermission(PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar);
-  const puedeAutorizar = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar);
+  const puedeAutorizar = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar,
+  );
   const pendientes = useCorreccionesCartera(clienteId, 'Pendiente');
   const corregirPlazo = useCorregirPlazo(clienteId);
   const solicitar = useSolicitarReversaMovimiento(clienteId);
@@ -48,7 +53,8 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
   const rechazar = useRechazarReversaMovimiento(clienteId);
   const [objetivo, setObjetivo] = useState<Objetivo | null>(null);
 
-  const facturas = filas.filter((f) => f.tipo === 'Factura' && typeof f.factura_cartera_id === 'string');
+  const facturas = filas.filter((f) => f.tipo === 'Factura' && typeof f.factura_cartera_id === 'string',
+  );
   const movimientos = filas.filter(
     (f) => (f.tipo === 'Pago' || f.tipo === 'Nota de crédito') && typeof f.movimiento_id === 'string',
   );
@@ -60,11 +66,14 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
     if (!objetivo) return;
     try {
       if (objetivo.modo === 'plazo') {
-        await corregirPlazo.mutateAsync({ facturaCarteraId: objetivo.id, plazoDias: datos.plazoDias!, motivo: datos.motivo });
-        toast.success('Plazo corregido', { description: 'El vencimiento y la antigüedad se recalcularon.' });
+        await corregirPlazo.mutateAsync({ facturaCarteraId: objetivo.id, plazoDias: datos.plazoDias!, motivo: datos.motivo,
+        });
+        toast.success('Plazo corregido', { description: 'El vencimiento y la antigüedad se recalcularon.',
+        });
       } else if (objetivo.modo === 'reversa') {
         await solicitar.mutateAsync({ movimientoId: objetivo.id, motivo: datos.motivo });
-        toast.success('Reversa solicitada', { description: 'Queda pendiente de autorización de otra persona.' });
+        toast.success('Reversa solicitada', { description: 'Queda pendiente de autorización de otra persona.',
+        });
       } else {
         await rechazar.mutateAsync({ id: objetivo.id, motivo: datos.motivo });
         toast.success('Reversa rechazada');
@@ -95,7 +104,7 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
       {solicitudes.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-ink-muted">Reversas pendientes de autorización</p>
-          <Table>
+          <Table paginada>
             <TableHeader>
               <TableRow>
                 <TableHead>Factura</TableHead>
@@ -113,7 +122,7 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
                     {c.movimientoTipo} {importe(c.movimientoImporte)}
                   </TableCell>
                   <TableCell>
-                    {c.solicitadaPorNombre ?? '—'} <Badge variant="neutral">{formatDate(c.solicitadaEn)}</Badge>
+                    {c.solicitadaPorNombre ?? '—'}{' '} <Badge variant="neutral">{formatDate(c.solicitadaEn)}</Badge>
                   </TableCell>
                   <TableCell>{c.motivo}</TableCell>
                   <TableCell className="space-x-2 text-right">
@@ -125,7 +134,9 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => setObjetivo({ modo: 'rechazar', id: c.id, texto: `Reversa de ${c.movimientoTipo} en ${c.folio}` })}
+                          onClick={() => setObjetivo({ modo: 'rechazar', id: c.id, texto: `Reversa de ${c.movimientoTipo} en ${c.folio}`,
+                            })
+                          }
                         >
                           Rechazar
                         </Button>
@@ -142,7 +153,7 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
       {puedeCorregir && facturas.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-ink-muted">Facturas: corregir el plazo</p>
-          <Table>
+          <Table paginada>
             <TableHeader>
               <TableRow>
                 <TableHead>Factura</TableHead>
@@ -155,7 +166,9 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
               {facturas.map((f) => (
                 <TableRow key={String(f.factura_cartera_id)}>
                   <TableCell>{String(f.referencia)}</TableCell>
-                  <TableCell>{typeof f.vencimiento === 'string' ? formatDate(f.vencimiento) : '—'}</TableCell>
+                  <TableCell>
+                    {typeof f.vencimiento === 'string' ? formatDate(f.vencimiento) : '—'}
+                  </TableCell>
                   <TableCell>{String(f.plazo_dias)} días</TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -183,7 +196,7 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
       {puedeCorregir && movimientos.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-ink-muted">Movimientos mal aplicados: solicitar su reversa</p>
-          <Table>
+          <Table paginada>
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
@@ -220,7 +233,8 @@ export function PanelCorreccionesCartera({ clienteId, filas }: { clienteId: stri
             </TableBody>
           </Table>
           <p className="text-xs text-ink-muted">
-            Los pagos con complemento de pago (REP) no se revierten aquí: se corrigen cancelando el REP.
+            Los pagos con complemento de pago (REP) no se revierten aquí: se corrigen cancelando el
+            REP.
           </p>
         </div>
       )}

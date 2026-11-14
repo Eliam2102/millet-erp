@@ -12,7 +12,7 @@ import {
 } from '@/features/compras/ordenes/api/types';
 
 describe('BandejaOcSearchSchema', () => {
-  it('input vacío: aplica defaults page=1, pageSize=10', () => {
+  it('input vacío: conserva page=1 sin cantidad explícita', () => {
     expect(BandejaOcSearchSchema.parse({})).toEqual(DEFAULT_BANDEJA_OC_SEARCH);
   });
 
@@ -22,11 +22,9 @@ describe('BandejaOcSearchSchema', () => {
     expect(r.pageSize).toBe(100);
   });
 
-  it('rechaza pageSize < 10 (mínimo) cayendo a default', () => {
-    // Zod con `.min(10)` lanza error; pero como pageSize es optional con default,
-    // el caller (TanStack Router) puede preferir filtrar inválidos al default.
-    // Acá probamos que el schema sí valida (lanza ZodError).
-    expect(() => BandejaOcSearchSchema.parse({ pageSize: 5 })).toThrow();
+  it('admite cinco filas para ajuste automático y conserva el mínimo del servidor', () => {
+    expect(BandejaOcSearchSchema.parse({ pageSize: 5 }).pageSize).toBe(5);
+    expect(() => BandejaOcSearchSchema.parse({ pageSize: 0 })).toThrow();
   });
 
   it('rechaza pageSize > 200 (máximo backend)', () => {

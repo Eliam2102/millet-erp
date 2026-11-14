@@ -63,11 +63,10 @@ export function ReporteCxc({
       filtros={<BarraFiltros filtros={filtrosUi} />}
       pie={
         <div data-print="hidden">
-          <PaginacionTabla
+          <PaginacionTabla regionId={pagina.regionId}
             total={reporte?.filas.length ?? 0}
             offset={pagina.offset}
-            limit={10}
-            tamanos={[]}
+            limit={pagina.limit}
             onChange={pagina.cambiar}
           />
         </div>
@@ -159,7 +158,7 @@ export function ReporteCxc({
                 <TableRow
                   key={index}
                   className={
-                    index >= pagina.offset && index < pagina.offset + 10
+                    index >= pagina.offset && index < pagina.offset + pagina.limit
                       ? 'h-12'
                       : 'hidden print:table-row'
                   }

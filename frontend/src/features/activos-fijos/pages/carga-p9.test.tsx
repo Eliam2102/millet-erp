@@ -23,6 +23,9 @@ beforeEach(() => {
   vi.stubGlobal(
     'Response',
     class {
+      headers = new Headers({
+        'Content-Type': 'multipart/form-data; boundary=WebKitCaseSensitive',
+      });
       constructor(form: FormData) {
         state.form = form;
       }
@@ -70,6 +73,9 @@ it('envía Excel y hoja, muestra avisos, confirma sólo una previa vigente', asy
   expect(state.form?.get('archivo')).toBe(file);
   expect(state.form?.get('hoja')).toBe('SAP');
   expect(state.form?.get('corte')).toBe('2026-10-31');
+  expect(state.request.mock.calls[0][1]).toMatchObject({
+    headers: { 'Content-Type': 'multipart/form-data; boundary=WebKitCaseSensitive' },
+  });
   expect(screen.getByRole('region', { name: 'Avisos' })).toHaveTextContent('Sin responsable');
   fireEvent.click(screen.getByRole('button', { name: 'Confirmar carga' }));
   await waitFor(() => expect(state.request).toHaveBeenCalledTimes(2));
@@ -78,6 +84,44 @@ it('envía Excel y hoja, muestra avisos, confirma sólo una previa vigente', asy
   await waitFor(() => expect(screen.getByLabelText(/Nombre de hoja/)).toBeEnabled());
   fireEvent.change(screen.getByLabelText(/Nombre de hoja/), { target: { value: 'Otra' } });
   expect(screen.getByRole('button', { name: 'Confirmar carga' })).toBeDisabled();
+});
+it('bloquea la confirmación desde la previa cuando falta acumulada', async () => {
+  state.request.mockResolvedValue({
+    data: {
+      valida: true,
+      errores: [],
+      cuadre: [],
+      avisos: [
+        {
+          renglon: 2,
+          codigo: 'AF_CARGA_SIN_ACUMULADA',
+          columna: 'depreciación acumulada',
+          mensaje: 'Falta depreciación acumulada',
+        },
+      ],
+    },
+  });
+  renderPage();
+  fireEvent.change(screen.getByLabelText('Archivo Excel o CSV *'), {
+    target: { files: [new File(['csv'], 'ficticio-incompleto.csv')] },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Prueba en seco' }));
+  await waitFor(() =>
+    expect(screen.getByRole('region', { name: 'Avisos' })).toHaveTextContent(
+      'Falta depreciación acumulada',
+    ),
+  );
+  expect(screen.getByRole('button', { name: 'Confirmar carga' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Confirmar carga' })).toHaveAttribute(
+    'title',
+    'Complete la depreciación acumulada antes de confirmar',
+  );
+  expect(screen.queryByText('Validación correcta')).not.toBeInTheDocument();
+  expect(
+    screen.getByText('Complete la depreciación acumulada antes de confirmar'),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar carga' }));
+  expect(state.request).toHaveBeenCalledTimes(1);
 });
 it('rechaza extensiones incorrectas y muestra fila, columna y motivo de errores', async () => {
   renderPage();

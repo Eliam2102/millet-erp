@@ -269,7 +269,7 @@ Estructura (todo dentro de una tarjeta `bg-surface-card rounded-t-lg shadow-card
 - Importe: alineado a la derecha, `pr-4 tabular-nums font-medium`.
 - Estado: Badge (4.6).
 - Acciones: icon-button ⋯ de 28px con `aria-label="Acciones de {folio}"`.
-- Cada listado muestra **10 filas** por página.
+- Cada listado ofrece **Automático, 10, 20, 25, 50 o 100 filas** según contrato. Automático mide la región de registros y usa su alto; una elección explícita se conserva por usuario/vista en el navegador y prevalece al redimensionar. Se reinicia página al cambiar cantidad o filtros. La URL con cantidad explícita prevalece al abrir un enlace. Los listados remotos pasan el mismo límite al servidor y al pie; nunca se presenta una colección parcial como total remoto. Partidas editables y reportes agrupados conservan sus filas y totales completos.
 
 ### 4.5 Indicadores dentro de tabla
 
@@ -364,7 +364,7 @@ Shell (rail + panel de módulo + topbar)
   ├ Header de página: H1 (22/600) + descripción 13 muted (1 línea: qué es y qué se hace aquí)
   │                   └ derecha: [Exportar] secondary + [Acción primaria]
   ├ KPIs: 4 tarjetas KPI (grid-cols-4 gap-3), cada una filtra el listado
-  └ Tarjeta de tabla (crece hasta el fondo, rounded-t-lg): Tabs → Filtros → Header → 10 filas → Footer
+  └ Tarjeta de tabla (crece hasta el fondo, rounded-t-lg): Tabs → Filtros → Header → Filas según espacio/preferencia → Footer
 ```
 
 - Las tabs de vista corresponden a los estados del flujo, en el orden del proceso, más "Todas".
@@ -510,7 +510,7 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 - [ ] La tipografía es Plex Sans 13 base; folios, UUID y RFC van en Plex Mono.
 - [ ] Montos con `tabular-nums`, alineados a la derecha y en formato `$0,000.00`.
 - [ ] Los estados usan los badges y textos exactos de 7.2.
-- [ ] La tabla muestra 10 filas, se estira al alto disponible y no deja hueco vacío.
+- [ ] La tabla aprovecha el alto disponible, ofrece cantidad persistida y modo automático, conserva columnas legibles y scroll interno.
 - [ ] Solo hay una acción primaria por zona, y los botones deshabilitados explican el motivo.
 - [ ] Los botones de ícono tienen `aria-label`, los inputs tienen `<label>` y no hay `onClick` en `div`.
 - [ ] Los textos están en español (es-MX), en sentence case, y no hay datos inventados.
@@ -539,3 +539,11 @@ design-system/
   tailwind.config.ts ← copiar/mergear a la raíz
 src/components/ui/   ← componentes shadcn con las variantes de la sección 4
 ```
+
+## Revisión local de navegación y cabecera · 12-nov-2026
+Por instrucción de Eliam, esta rama propone sustituir el panel lateral permanente por navegación ocultable pegada al borde izquierdo, desde debajo de cabecera al pie, sin radios ni separación. Reutiliza rail76/panel240; cerrada libera ancho y fijada reserva316px. Menú accesible y hover de4px de escritorio; cierre automático con excepción de búsqueda enfocada/pin, Escape disponible y movimiento reducido. En móvil conserva drawer por toque.
+
+La cabecera móvil prioriza marca/menu/búsqueda/campana/usuario; empresa/sucursal se muestran en fila adaptable con labels y selectores44px. Herramientas secundarias en Más opciones hastaxl; escritorio56px conserva controles sin scroll horizontal. Los paneles de herramientas/avisos caben en viewport. Esto sustituye el patrón de shell/header anterior sólo para el candidato local: no acredita publicación ni aceptaciónMillet. Reglas/servicios/roles sin cambios.
+
+### Corrección posterior de Eliam · cabecera limpia
+Eliam rechaza el header anterior por controles amontonados y pide quitar «Millet ERP». La cabecera móvil y de escritorio eliminan esa marca textual; los controles móviles tienen separación horizontal8px. Funciones, contexto, permisos y sidebar conservados. Sustituye el criterio previo de marca visible en esta propuesta local; sin publicación.

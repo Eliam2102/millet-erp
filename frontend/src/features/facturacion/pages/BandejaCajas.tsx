@@ -161,11 +161,10 @@ function TabCajas(props: {
           />
         }
         pie={
-          <PaginacionTabla
+          <PaginacionTabla regionId={paginacion.regionId}
             total={items.length}
             offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
+            limit={paginacion.limit}
             onChange={paginacion.onChange}
           />
         }
@@ -282,8 +281,7 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
     id == null
       ? 'Todos los canales'
       : (canales.data?.find((c) => c.id === id)?.nombre ?? `Canal ${id}`);
-  const nombreUsuario =
-    usuarios.data?.items.find((u) => u.id === props.usuarioId)?.nombre ?? '—';
+  const nombreUsuario = usuarios.data?.items.find((u) => u.id === props.usuarioId)?.nombre ?? '—';
 
   if (query.isLoading) {
     return <TableSkeleton rows={3} columns={[{ width: 'w-full' }]} />;

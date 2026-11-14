@@ -348,7 +348,13 @@ public static partial class NormalizadorEventos
                 LlaveOverride: $"{PagoAnticipoAgente}:{p.PagoId}");
         return new(PagoProveedorAplicado, eventoId, p.EmpresaId, p.FechaPago, Doc(DocPagoProveedor, p.PagoId, p.ReferenciaBancaria),
             null, null, null, null, null, MonedaDe(p.Moneda), p.TipoCambio,
-            new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload, FacturaOrigenId: p.FacturaProveedorId);
+            // M-326 (b): Total = lo que liquida del pasivo (efectivo + redondeo); el banco sale solo por el efectivo y la diferencia
+            // (≤ $0.99, autorizada en Tesorería) va a REDONDEO: abono si se pagó menos que el saldo, cargo si se pagó de más.
+            new Dictionary<string, decimal?>
+            {
+                ["Total"] = p.Monto, ["EfectivoPagado"] = p.Monto - p.Redondeo,
+                ["RedondeoAbono"] = Math.Max(0m, p.Redondeo), ["RedondeoCargo"] = Math.Max(0m, -p.Redondeo),
+            }, [], payload, FacturaOrigenId: p.FacturaProveedorId);
     }
 
     /// <summary>
@@ -561,7 +567,7 @@ public static partial class NormalizadorEventos
         decimal? Perdida, decimal? Utilidad);
 
     private sealed record PagoProveedorContrato(Guid EmpresaId, Guid FacturaProveedorId, Guid PagoId, decimal Monto, string? Moneda,
-        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio, bool EsAnticipoAgente = false, Guid? SucursalId = null, Guid? ProveedorId = null);
+        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio, bool EsAnticipoAgente = false, Guid? SucursalId = null, Guid? ProveedorId = null, decimal Redondeo = 0m);
 
     private sealed record PagoRevertidoContrato(Guid PagoOriginalId, string? Motivo);
 

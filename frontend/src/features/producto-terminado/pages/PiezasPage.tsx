@@ -1,5 +1,7 @@
+import { useTamanoPagina } from '@/components/erp/data/useTamanoPagina';
 import { useState } from 'react';
-import { Breadcrumbs, BarraFiltros, EmptyState, ErrorState, PaginacionTabla, TableSkeleton } from '@/components/erp';
+import { Breadcrumbs, BarraFiltros, EmptyState, ErrorState, PaginacionTabla, TableSkeleton,
+} from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
@@ -25,8 +27,6 @@ import { textoMotivoPedido } from '../lib/motivos-ui';
 import { SolicitarParcialSheet, UbicarPiezasSheet } from './PiezasSheets';
 import { TramoDetenidoBanner } from './TramoDetenidoBanner';
 
-const PAGE_SIZE = 25;
-// Con un pedido filtrado caben todas sus piezas en una página para poder pedir la salida parcial.
 const PAGE_SIZE_PEDIDO = 100;
 const columnas = 'grid grid-cols-[36px_minmax(0,1.3fr)_90px_64px_64px_minmax(0,1fr)_150px_minmax(0,1.2fr)_minmax(0,1.2fr)_140px] items-center';
 const enPt = (p: PiezaDto) => p.estado.toLowerCase() === 'enpt';
@@ -39,11 +39,12 @@ const avanceUi: Record<AvancePosicionDto['avanceFisico'], { texto: string; tono:
 };
 
 export function PiezasPage() {
+  const { limit: limiteTabla } = useTamanoPagina();
   const [pedido, setPedido] = useState('');
   const [sucursalId, setSucursalId] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const pedidoBuscado = pedido.trim();
-  const pageSize = pedidoBuscado ? PAGE_SIZE_PEDIDO : PAGE_SIZE;
+  const pageSize = pedidoBuscado ? PAGE_SIZE_PEDIDO : limiteTabla;
   const operar = useAuthStore((s) => s.permisos.includes(P.ProductoTerminadoExcepcionesGestionar));
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [hoja, setHoja] = useState<'ubicar' | 'parcial' | null>(null);
@@ -62,7 +63,7 @@ export function PiezasPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-5 overflow-auto text-sm">
-      <Breadcrumbs items={[{ label: "Producto terminado" }, { label: 'Piezas' }]} />
+      <Breadcrumbs items={[{ label: 'Producto terminado' }, { label: 'Piezas' }]} />
       <PageHeader
         titulo="Piezas en producto terminado"
         descripcion="Consulta las piezas escaneadas por pedido y sucursal, con su avance por partida."
@@ -74,19 +75,30 @@ export function PiezasPage() {
             Ubicar{seleccion.length > 0 ? ` (${seleccion.length})` : ''}
           </Button>
           {pedidoBuscado && (
-            <Button variant="outline" disabled={piezasPedidoEnPt.length === 0} onClick={() => setHoja('parcial')}>
+            <Button
+              variant="outline"
+              disabled={piezasPedidoEnPt.length === 0}
+              onClick={() => setHoja('parcial')}
+            >
               Solicitar salida parcial
             </Button>
           )}
-          {seleccion.length === 0 && <span className="text-xs text-ink-muted">Marca piezas En PT para ubicarlas.</span>}
+          {seleccion.length === 0 && (
+            <span className="text-xs text-ink-muted">Marca piezas En PT para ubicarlas.</span>
+          )}
         </div>
       )}
       {pedidoBuscado && q.data && (q.data.estadoPedido || q.data.avance.length > 0) && (
-        <section aria-label="Estado del pedido" className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
+        <section
+          aria-label="Estado del pedido"
+          className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
+        >
           <h2 className="text-md font-semibold">Estado del pedido</h2>
           {q.data.estadoPedido ? (
             <>
-              <Badge variant={q.data.estadoPedido.estado === 'Liberado' ? 'success' : 'warning'}>{q.data.estadoPedido.estado}</Badge>
+              <Badge variant={q.data.estadoPedido.estado === 'Liberado' ? 'success' : 'warning'}>
+                {q.data.estadoPedido.estado}
+              </Badge>
               <span>{textoMotivoPedido(q.data.estadoPedido.motivo)}</span>
               {q.data.estadoPedido.desde && (
                 <span className="text-xs text-ink-muted">
@@ -101,14 +113,21 @@ export function PiezasPage() {
         </section>
       )}
       {pedidoBuscado && q.data && q.data.avance.length > 0 && (
-        <section aria-label="Avance por partida" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <section
+          aria-label="Avance por partida"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        >
           {q.data.avance.map((a) => (
             <article key={a.posicion} className="rounded-lg bg-surface-card p-4 shadow-card-flat">
               <header className="flex items-center justify-between gap-2">
                 <h2 className="text-md font-semibold">Partida {a.posicion}</h2>
-                <Badge variant={avanceUi[a.avanceFisico].tono}>{avanceUi[a.avanceFisico].texto}</Badge>
+                <Badge variant={avanceUi[a.avanceFisico].tono}>
+                  {avanceUi[a.avanceFisico].texto}
+                </Badge>
               </header>
-              {a.descripcion && <p className="mt-1 truncate text-xs text-ink-muted">{a.descripcion}</p>}
+              {a.descripcion && (
+                <p className="mt-1 truncate text-xs text-ink-muted">{a.descripcion}</p>
+              )}
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                 {[
                   ['Esperadas', a.esperadas],
@@ -170,7 +189,7 @@ export function PiezasPage() {
                 total={q.data?.total ?? 0}
                 offset={offset}
                 limit={pageSize}
-                tamanos={[]}
+                tamanos={pedidoBuscado ? [] : undefined}
                 onChange={(o) => setOffset(o)}
               />
             }
@@ -183,7 +202,18 @@ export function PiezasPage() {
               <Table className="grid min-w-[1200px] text-sm">
                 <TableHeader className="h-auto min-h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
                   <TableRow className={`${columnas} min-h-9`}>
-                    {['', 'Etiqueta', 'Pedido', 'Partida', 'N.º de pieza', 'Sucursal', 'Estado', 'Ubicación', 'Estación de origen', 'Escaneada'].map((x, i) => (
+                    {[
+                      '',
+                      'Etiqueta',
+                      'Pedido',
+                      'Partida',
+                      'N.º de pieza',
+                      'Sucursal',
+                      'Estado',
+                      'Ubicación',
+                      'Estación de origen',
+                      'Escaneada',
+                    ].map((x, i) => (
                       <TableHead key={x || i} className="px-3">
                         {x || <span className="sr-only">Seleccionar</span>}
                       </TableHead>
@@ -192,21 +222,33 @@ export function PiezasPage() {
                 </TableHeader>
                 <TableBody className="grid">
                   {items.map((p) => (
-                    <TableRow key={p.id} className={`${columnas} min-h-12 border-b border-line-row`}>
+                    <TableRow
+                      key={p.id}
+                      className={`${columnas} min-h-12 border-b border-line-row`}
+                    >
                       <TableCell className="px-3">
                         {operar && enPt(p) && (
-                          <Checkbox aria-label={`Seleccionar ${p.etiqueta}`} checked={seleccion.includes(p.etiqueta)} onCheckedChange={() => alternar(p.etiqueta)} />
+                          <Checkbox
+                            aria-label={`Seleccionar ${p.etiqueta}`}
+                            checked={seleccion.includes(p.etiqueta)}
+                            onCheckedChange={() => alternar(p.etiqueta)}
+                          />
                         )}
                       </TableCell>
-                      <TableCell className="min-w-0 truncate px-3 font-mono text-xs">{p.etiqueta}</TableCell>
+                      <TableCell className="min-w-0 truncate px-3 font-mono text-xs">
+                        {p.etiqueta}
+                      </TableCell>
                       <TableCell className="px-3">{p.numeroPedido}</TableCell>
                       <TableCell className="px-3 tabular-nums">{p.posicion}</TableCell>
                       <TableCell className="px-3 tabular-nums">{p.numeroPieza}</TableCell>
-                      <TableCell className="min-w-0 truncate px-3">{nombreSucursal(p.sucursalId)}</TableCell>
+                      <TableCell className="min-w-0 truncate px-3">
+                        {nombreSucursal(p.sucursalId)}
+                      </TableCell>
                       <TableCell className="px-3">
                         {p.estado === 'EnTransito' ? (
                           <Badge variant="info" className="h-auto min-h-ctl-xs whitespace-normal">
-                            En tránsito{p.sucursalDestinoId ? ` a ${nombreSucursal(p.sucursalDestinoId)}` : ''}
+                            En tránsito
+                            {p.sucursalDestinoId ? ` a ${nombreSucursal(p.sucursalDestinoId)}` : ''}
                           </Badge>
                         ) : p.estado === 'Cargada' ? (
                           <Badge variant="warning">Cargada</Badge>
@@ -223,13 +265,20 @@ export function PiezasPage() {
                         ) : (
                           <Badge variant="success">En PT</Badge>
                         )}
-                        {p.costoPendiente && <Badge variant="warning" className="ml-1">Costo pendiente</Badge>}
+                        {p.costoPendiente && (
+                          <Badge variant="warning" className="ml-1">
+                            Costo pendiente
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="min-w-0 px-3">
                         {p.porUbicar ? (
                           <Badge variant="warning">Por ubicar</Badge>
                         ) : p.almacen ? (
-                          <span>{almacenTexto[p.almacen]}{p.lugar ? ` · ${p.lugar}` : ''}</span>
+                          <span>
+                            {almacenTexto[p.almacen]}
+                            {p.lugar ? ` · ${p.lugar}` : ''}
+                          </span>
                         ) : (
                           <span className="text-ink-muted">—</span>
                         )}
@@ -237,8 +286,13 @@ export function PiezasPage() {
                       <TableCell className="min-w-0 px-3 text-xs">
                         {p.estacionOrigen != null ? (
                           <>
-                            <span className="tabular-nums">Estación {p.estacionOrigen}</span>{p.areaOrigen ? ` · ${p.areaOrigen}` : ''}
-                            {p.terminadaAwAt && <p className="text-ink-muted tabular-nums"><DateTimeDisplay value={p.terminadaAwAt} variant="datetime" /></p>}
+                            <span className="tabular-nums">Estación {p.estacionOrigen}</span>
+                            {p.areaOrigen ? ` · ${p.areaOrigen}` : ''}
+                            {p.terminadaAwAt && (
+                              <p className="text-ink-muted tabular-nums">
+                                <DateTimeDisplay value={p.terminadaAwAt} variant="datetime" />
+                              </p>
+                            )}
                           </>
                         ) : (
                           <span className="text-ink-muted">—</span>
@@ -256,10 +310,22 @@ export function PiezasPage() {
         </div>
       )}
       {hoja === 'ubicar' && (
-        <UbicarPiezasSheet etiquetas={seleccion} onCerrar={() => setHoja(null)} onListo={() => { setHoja(null); setSeleccion([]); }} />
+        <UbicarPiezasSheet
+          etiquetas={seleccion}
+          onCerrar={() => setHoja(null)}
+          onListo={() => {
+            setHoja(null);
+            setSeleccion([]);
+          }}
+        />
       )}
       {hoja === 'parcial' && (
-        <SolicitarParcialSheet pedido={pedidoBuscado} piezas={piezasPedidoEnPt} onCerrar={() => setHoja(null)} onListo={() => setHoja(null)} />
+        <SolicitarParcialSheet
+          pedido={pedidoBuscado}
+          piezas={piezasPedidoEnPt}
+          onCerrar={() => setHoja(null)}
+          onListo={() => setHoja(null)}
+        />
       )}
     </main>
   );

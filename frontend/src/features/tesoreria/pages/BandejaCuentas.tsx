@@ -147,11 +147,10 @@ export function BandejaCuentas() {
         }
         pie={
           verSolicitudes ? undefined : (
-            <PaginacionTabla
+            <PaginacionTabla regionId={paginacion.regionId}
               total={cuentas.length}
               offset={paginacion.offset}
-              limit={10}
-              tamanos={[]}
+              limit={paginacion.limit}
               onChange={paginacion.onChange}
             />
           )

@@ -49,6 +49,30 @@ public static class PagosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // M-326 (b): redondeo de hasta $0.99 al pagar. Solicita quien registra pagos; autoriza/rechaza el Gerente de Área (otro usuario).
+        app.MapPost("/api/v1/tesoreria/pagos/redondeo", async (
+            [FromBody] SolicitarRedondeoPagoCommand command, IMediator mediator, CancellationToken ct) =>
+            Results.Created($"/api/v1/tesoreria/pagos/redondeo/{command.FacturaProveedorId}", await mediator.Send(command, ct)))
+            .WithTags("Tesoreria").WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosAplicar)
+            .WithName("SolicitarRedondeoPago")
+            .Produces<RedondeoPagoResponse>(StatusCodes.Status201Created).ProducesValidationProblem().ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        app.MapPost("/api/v1/tesoreria/pagos/redondeo/{id:guid}/autorizar", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AutorizarRedondeoPagoCommand(id), ct)))
+            .WithTags("Tesoreria").WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosAutorizarRedondeo)
+            .WithName("AutorizarRedondeoPago")
+            .Produces<RedondeoPagoResponse>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        app.MapPost("/api/v1/tesoreria/pagos/redondeo/{id:guid}/rechazar", async (
+            Guid id, [FromBody] RechazarRedondeoPagoBody body, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new RechazarRedondeoPagoCommand(id, body.Motivo), ct)))
+            .WithTags("Tesoreria").WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosAutorizarRedondeo)
+            .WithName("RechazarRedondeoPago")
+            .Produces<RedondeoPagoResponse>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // 86e3pdmee: cuentas del proveedor para elegir a cuál pagar (número enmascarado salvo permiso PII).
         app.MapGet("/api/v1/tesoreria/proveedores/{proveedorId:guid}/cuentas", async (
             Guid proveedorId,
@@ -112,3 +136,5 @@ public static class PagosEndpoints
     /// <summary>TES-09: TC del catálogo para la fecha del pago; <c>ValorEnMxn</c> null si el catálogo no lo tiene o la moneda es MXN.</summary>
     public sealed record TipoCambioPagoResponse(string Moneda, DateOnly Fecha, decimal? ValorEnMxn);
 }
+
+public sealed record RechazarRedondeoPagoBody(string Motivo);

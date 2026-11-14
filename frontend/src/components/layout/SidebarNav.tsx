@@ -54,10 +54,13 @@ export function SidebarNav({
     const orden = [
       'compras',
       'almacen',
+      'producto-terminado',
       'cxp',
       'tesoreria',
       'cxc',
       'facturacion',
+      'comercio-exterior',
+      'activos-fijos',
       'centros-costo',
       'contabilidad',
       'reportes',
@@ -70,8 +73,10 @@ export function SidebarNav({
     };
     const railClass = (active: boolean) =>
       cn(
-        'flex w-rail-item max-w-full shrink-0 flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-        active ? 'bg-rail-active text-primary-foreground' : 'text-rail-fg hover:bg-rail-active hover:text-primary-foreground',
+        'flex min-h-14 w-rail-item max-w-full shrink-0 flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-center text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        active
+          ? 'bg-brand text-primary-foreground'
+          : 'text-rail-fg hover:bg-rail-active hover:text-primary-foreground',
       );
     const ordenados = [...items].sort(
       (a, b) =>
@@ -89,7 +94,7 @@ export function SidebarNav({
           const content = (
             <>
               <Icon size={20} strokeWidth={2} aria-hidden="true" />
-              <span>
+              <span className="max-w-full [overflow-wrap:anywhere]">
                 {item.kind === 'modulo' ? (nombres[item.moduloId] ?? item.label) : item.label}
               </span>
             </>
@@ -110,6 +115,7 @@ export function SidebarNav({
               type="button"
               onClick={() => onModuloOpen(item)}
               aria-label={item.label}
+              title={item.label}
               aria-current={active ? 'true' : undefined}
               className={railClass(active)}
             >
@@ -118,7 +124,12 @@ export function SidebarNav({
           );
         })}
         {puedeVerAdmin && (
-          <Link to="/admin" className={cn(railClass(isLinkActive('/admin')), 'mt-auto')}>
+          <Link
+            to="/admin"
+            title="Administración"
+            aria-label="Administración"
+            className={cn(railClass(isLinkActive('/admin')), 'mt-auto')}
+          >
             <Settings size={20} strokeWidth={2} aria-hidden="true" />
             <span>Admin</span>
           </Link>
@@ -133,7 +144,9 @@ export function SidebarNav({
         <div className="flex h-7 w-7 items-center justify-center rounded bg-sidebar-accent text-xs font-bold text-primary-foreground">
           M
         </div>
-        <span className="text-sm font-semibold tracking-wide text-primary-foreground">Millet ERP</span>
+        <span className="text-sm font-semibold tracking-wide text-primary-foreground">
+          Millet ERP
+        </span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">

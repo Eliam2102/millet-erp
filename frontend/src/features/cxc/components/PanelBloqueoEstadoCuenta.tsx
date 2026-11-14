@@ -41,7 +41,10 @@ export function PanelBloqueoEstadoCuenta({
       className="flex flex-col gap-4 rounded-md border border-line bg-surface-card p-4 shadow-card-flat"
     >
       <div data-print="hidden">{filtros}</div>
-      <div role="alert" className="flex items-start gap-3 rounded-md bg-warning-bg p-3 text-warning-fg">
+      <div
+        role="alert"
+        className="flex items-start gap-3 rounded-md bg-warning-bg p-3 text-warning-fg"
+      >
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <div className="space-y-1">
           <h2 id="bloqueo-estado-cuenta" className="text-sm font-semibold">
@@ -67,36 +70,36 @@ export function PanelBloqueoEstadoCuenta({
         </p>
       ) : pendientes && pendientes.length > 0 ? (
         <TableContainer maxHeightClassName="">
-        <Table aria-label="Pagos que bloquean el estado de cuenta">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fecha del pago</TableHead>
-              <TableHead>Referencia</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead>Moneda</TableHead>
-              <TableHead>Límite REP</TableHead>
-              <TableHead>Situación</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pendientes.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell>{fechaCorta(p.fechaValor)}</TableCell>
-                <TableCell className="truncate">{p.referencia ?? 'Sin referencia'}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatMoney({ amount: p.monto, currency: p.moneda })}
-                </TableCell>
-                <TableCell>{p.moneda}</TableCell>
-                <TableCell>{fechaCorta(p.fechaLimite)}</TableCell>
-                <TableCell>
-                  <Badge variant={p.motivo === 'SinRep' ? 'warning' : 'info'}>
-                    {p.motivo === 'SinRep' ? 'Sin REP' : 'REP sin reflejar en cartera'}
-                  </Badge>
-                </TableCell>
+          <Table paginada aria-label="Pagos que bloquean el estado de cuenta">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha del pago</TableHead>
+                <TableHead>Referencia</TableHead>
+                <TableHead className="text-right">Monto</TableHead>
+                <TableHead>Moneda</TableHead>
+                <TableHead>Límite REP</TableHead>
+                <TableHead>Situación</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {pendientes.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{fechaCorta(p.fechaValor)}</TableCell>
+                  <TableCell className="truncate">{p.referencia ?? 'Sin referencia'}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatMoney({ amount: p.monto, currency: p.moneda })}
+                  </TableCell>
+                  <TableCell>{p.moneda}</TableCell>
+                  <TableCell>{fechaCorta(p.fechaLimite)}</TableCell>
+                  <TableCell>
+                    <Badge variant={p.motivo === 'SinRep' ? 'warning' : 'info'}>
+                      {p.motivo === 'SinRep' ? 'Sin REP' : 'REP sin reflejar en cartera'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </TableContainer>
       ) : (
         <p className="text-sm text-ink-muted">

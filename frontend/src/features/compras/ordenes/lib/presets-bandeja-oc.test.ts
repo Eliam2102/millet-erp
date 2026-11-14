@@ -22,12 +22,12 @@ describe('BANDEJA_OC_PRESETS', () => {
     ]);
   });
 
-  it('cada preset tiene id estable, label legible y search válido', () => {
+  it('cada preset tiene id estable y filtros válidos sin imponer cantidad', () => {
     for (const p of BANDEJA_OC_PRESETS) {
       expect(p.id).toMatch(/^[a-z][a-z0-9-]+$/);
       expect(p.label.length).toBeGreaterThan(0);
       expect(p.search.page).toBe(1);
-      expect(p.search.pageSize).toBe(10);
+      expect(p.search.pageSize).toBeUndefined();
     }
   });
 
@@ -51,6 +51,11 @@ describe('detectarPresetActivo', () => {
   it('search exactamente igual a un preset: lo detecta', () => {
     const p = BANDEJA_OC_PRESETS[2]; // sin-recepcion
     expect(detectarPresetActivo(p.search)?.id).toBe(p.id);
+  });
+
+  it('mantiene activo el filtro al usar la cantidad guardada de 20 filas', () => {
+    const p = BANDEJA_OC_PRESETS[2];
+    expect(detectarPresetActivo({ ...p.search, pageSize: 20 })?.id).toBe(p.id);
   });
 
   it('search del preset + page distinto: NO matchea (preset reinicia el cursor)', () => {
