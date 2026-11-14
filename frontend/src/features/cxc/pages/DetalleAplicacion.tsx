@@ -123,6 +123,18 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
               <dd className="text-xs [overflow-wrap:anywhere]">{p.remittanceRef || <span className="text-ink-muted">Sin referencia</span>}</dd>
             </div>
             <div>
+              <dt className="text-xs text-ink-muted">Propuesta por</dt>
+              <dd className="[overflow-wrap:anywhere]">{p.propuestoPorNombre || <span className="text-ink-muted">—</span>}</dd>
+            </div>
+            {p.resueltaPorNombre && (
+              <div>
+                <dt className="text-xs text-ink-muted">
+                  {p.estado === EstadoPropuestaAplicacion.Rechazada ? 'Rechazada por' : 'Confirmada por'}
+                </dt>
+                <dd className="[overflow-wrap:anywhere]">{p.resueltaPorNombre}</dd>
+              </div>
+            )}
+            <div>
               <dt className="text-xs text-ink-muted">Ajuste no fiscal</dt>
               <dd className="font-mono tabular-nums">
                 {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : <span className="text-ink-muted">—</span>}

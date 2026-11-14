@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Facturacion.Domain.NotasCredito;
 
 namespace Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificacion;
 
@@ -15,7 +16,24 @@ public sealed record EmitirNotaCreditoBonificacionCommand(
     string? Descripcion,
     ReembolsoClienteRequest? Reembolso = null,
     string? Comentarios = null,
-    bool Devolucion = false) : IRequest<EmitirNotaCreditoBonificacionResponse>;
+    bool Devolucion = false,
+    string? Tipo = null) : IRequest<EmitirNotaCreditoBonificacionResponse>
+{
+    /// <summary>
+    /// P53: tipo de la NC elegido en pantalla (<c>Bonificacion</c>, <c>Devolucion</c> o <c>Cancelacion</c>).
+    /// Sin tipo se conserva el indicador <see cref="Devolucion"/> (M-352).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public MotivoNotaCredito MotivoResuelto => Tipo switch
+    {
+        "Devolucion" => MotivoNotaCredito.Devolucion,
+        "Cancelacion" => MotivoNotaCredito.Cancelacion,
+        "Bonificacion" => MotivoNotaCredito.Bonificacion,
+        _ => Devolucion ? MotivoNotaCredito.Devolucion : MotivoNotaCredito.Bonificacion,
+    };
+
+    public static readonly string[] TiposValidos = ["Bonificacion", "Devolucion", "Cancelacion"];
+}
 
 /// <summary>
 /// F6.3: «Devolver dinero al cliente». Al quedar timbrada la NC se pide a Tesorería el reembolso por su total, con esta

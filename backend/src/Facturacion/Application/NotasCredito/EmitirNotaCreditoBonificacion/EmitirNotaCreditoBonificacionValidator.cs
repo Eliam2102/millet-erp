@@ -12,6 +12,8 @@ public sealed class EmitirNotaCreditoBonificacionValidator : AbstractValidator<E
         RuleFor(c => c.MontoTotal).GreaterThan(0);
         RuleFor(c => c.TasaIva).GreaterThanOrEqualTo(0).When(c => c.TasaIva.HasValue);
         RuleFor(c => c.Comentarios).MaximumLength(NotaCredito.ComentariosMaxLength);
+        RuleFor(c => c.Tipo!).Must(t => EmitirNotaCreditoBonificacionCommand.TiposValidos.Contains(t))
+            .When(c => c.Tipo is not null).WithMessage("Tipo de nota de crédito no válido (Bonificacion, Devolucion o Cancelacion).");
         RuleFor(c => c.Reembolso!).SetValidator(new ReembolsoClienteRequestValidator()).When(c => c.Reembolso is not null);
     }
 }

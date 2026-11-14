@@ -57,6 +57,17 @@ public sealed class FiscalApiSdkAdapterOptions
     /// </summary>
     public bool Disabled { get; set; }
 
+    /// <summary>
+    /// M-293b: <c>Simulado</c> registra un SDK en memoria (sin red, sin credenciales) para probar la descarga masiva. Solo se
+    /// acepta en Development: fuera de ahí la aplicación no arranca. Por omisión (<c>Real</c>) se usa el SDK de FiscalAPI.
+    /// </summary>
+    public string Modo { get; set; } = ModoReal;
+
+    public const string ModoReal = "Real";
+    public const string ModoSimulado = "Simulado";
+
+    public bool EsSimulado => string.Equals(Modo, ModoSimulado, StringComparison.OrdinalIgnoreCase);
+
     // ── Nombres remotos de catálogos SAT (FAC-DET-PR1) ──────────────────
     // Confirmados contra la lista pública de FiscalAPI
     // (GET /api/v4/catalogs → docs.fiscalapi.com/catalogs). Configurables

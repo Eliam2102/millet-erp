@@ -239,3 +239,12 @@ describe('<NuevoPedidoManual> — comportamiento fiscal (86e3wzcn4)', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('<NuevoPedidoManual> — P48 cantidad', () => {
+  it('las flechas no avanzan en diezmilésimas (paso libre, sube de 1 en 1)', () => {
+    setPermisos(['facturacion.pedidos.capturar']);
+    renderForm();
+    const cantidad = screen.getAllByLabelText('Cantidad')[0];
+    expect(cantidad).toHaveAttribute('step', 'any');
+  });
+});
