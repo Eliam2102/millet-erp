@@ -19,7 +19,7 @@ import { formatDateTime } from '@/lib/datetime';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { formatMoney } from '@/lib/money';
 import { Link } from '@tanstack/react-router';
-import { PackagePlus, Receipt } from 'lucide-react';
+import { ListChecks, PackagePlus, Receipt } from 'lucide-react';
 import { useState } from 'react';
 
 interface SalidasPedidoProps {
@@ -53,6 +53,8 @@ export function SalidasPedido({
   salidas,
 }: SalidasPedidoProps) {
   const [registrando, setRegistrando] = useState(false);
+  // P47: mismo registro de salida (FAC-08), pero abre la factura al terminar.
+  const [facturandoPorPosicion, setFacturandoPorPosicion] = useState(false);
 
   if (salidas.isError) {
     return (
@@ -92,18 +94,32 @@ export function SalidasPedido({
             no cambia.
           </p>
         </div>
-        {puedeCapturar && facturable && (
-          <Button
-            variant="outline"
-            onClick={() => setRegistrando(true)}
-            disabled={!pendienteDeSalir}
-            title={pendienteDeSalir ? undefined : 'Todas las partidas del pedido ya tienen salida.'}
-            data-print="hidden"
-          >
-            <PackagePlus className="mr-2 h-4 w-4" />
-            Registrar salida
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {puedeCapturar && puedeEmitir && facturable && (
+            <Button
+              variant="outline"
+              onClick={() => setFacturandoPorPosicion(true)}
+              disabled={!pendienteDeSalir || bloqueoEmision != null}
+              title={bloqueoEmision ?? (pendienteDeSalir ? undefined : 'Todas las partidas del pedido ya tienen salida.')}
+              data-print="hidden"
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              Facturar por posición
+            </Button>
+          )}
+          {puedeCapturar && facturable && (
+            <Button
+              variant="outline"
+              onClick={() => setRegistrando(true)}
+              disabled={!pendienteDeSalir}
+              title={pendienteDeSalir ? undefined : 'Todas las partidas del pedido ya tienen salida.'}
+              data-print="hidden"
+            >
+              <PackagePlus className="mr-2 h-4 w-4" />
+              Registrar salida
+            </Button>
+          )}
+        </div>
       </div>
 
       {haySalidas ? (
@@ -123,6 +139,30 @@ export function SalidasPedido({
           El pedido no tiene salidas parciales. Si se entrega en partes, registra cada salida para
           facturar solo lo que sale.
         </p>
+      )}
+
+      {facturandoPorPosicion && puedeRegistrar && (
+        <RegistrarSalidaDialog
+          pedidoId={pedidoId}
+          avance={datos.avance}
+          onCerrar={() => setFacturandoPorPosicion(false)}
+          porPosicion={{
+            onRegistrada: (s) =>
+              onFacturarSalida({
+                id: s.id,
+                numeroParcialidad: s.numeroParcialidad,
+                origen: s.origen,
+                referencia: s.referencia,
+                registradaEn: new Date().toISOString(),
+                total: s.total,
+                facturaId: null,
+                folio: null,
+                uuid: null,
+                estadoFactura: null,
+                lineas: s.lineas,
+              }),
+          }}
+        />
       )}
 
       {registrando && puedeRegistrar && (

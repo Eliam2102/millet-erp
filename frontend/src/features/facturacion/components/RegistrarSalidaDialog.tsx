@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { AvancePartidaPedido } from '@/features/facturacion/api/types';
+import type { AvancePartidaPedido, SalidaFacturableResponse } from '@/features/facturacion/api/types';
 import { useRegistrarSalida } from '@/features/facturacion/api/usePedidos';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { Loader2 } from 'lucide-react';
@@ -34,6 +34,17 @@ interface RegistrarSalidaDialogProps {
   pedidoId: string;
   avance: AvancePartidaPedido[];
   onCerrar: () => void;
+  /**
+   * P47 «Facturar por posición»: el mismo registro de salida (FAC-08) con folio
+   * propuesto; al registrarse, entrega la salida para facturarla de inmediato.
+   */
+  porPosicion?: { onRegistrada: (salida: SalidaFacturableResponse) => void };
+}
+
+/** Folio que se propone en «Facturar por posición» (editable, ≤ 80). */
+function referenciaPorPosicion(ahora: Date = new Date()): string {
+  const dosDigitos = (n: number) => String(n).padStart(2, '0');
+  return `POS-${ahora.getFullYear()}${dosDigitos(ahora.getMonth() + 1)}${dosDigitos(ahora.getDate())}-${dosDigitos(ahora.getHours())}${dosDigitos(ahora.getMinutes())}${dosDigitos(ahora.getSeconds())}`;
 }
 
 /**
@@ -42,12 +53,12 @@ interface RegistrarSalidaDialogProps {
  * pendiente de salir; el pedido no se modifica. Reenviar la misma referencia
  * con las mismas cantidades no crea otra salida.
  */
-export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar }: RegistrarSalidaDialogProps) {
+export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar, porPosicion }: RegistrarSalidaDialogProps) {
   const id = useId();
   const registrar = useRegistrarSalida();
   // Una sola llave por apertura del diálogo: reintentos del mismo envío no duplican.
   const idempotencyKey = useRef(crypto.randomUUID());
-  const [referencia, setReferencia] = useState('');
+  const [referencia, setReferencia] = useState(() => (porPosicion ? referenciaPorPosicion() : ''));
   const [cantidades, setCantidades] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -86,6 +97,11 @@ export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar }: RegistrarS
       },
       {
         onSuccess: (salida) => {
+          if (porPosicion) {
+            porPosicion.onRegistrada(salida);
+            onCerrar();
+            return;
+          }
           toast.success(
             salida.yaRegistrada
               ? `La salida ya estaba registrada como parcialidad ${salida.numeroParcialidad}`
@@ -109,10 +125,11 @@ export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar }: RegistrarS
     <Dialog open onOpenChange={(abierto) => !abierto && !registrar.isPending && onCerrar()}>
       <DialogContent closeLabel="Cerrar" data-component="registrar-salida-dialog" size="lg">
         <DialogHeader>
-          <DialogTitle>Registrar salida</DialogTitle>
+          <DialogTitle>{porPosicion ? 'Facturar por posición' : 'Registrar salida'}</DialogTitle>
           <DialogDescription>
-            Captura lo que sale en esta entrega. Cada salida se factura por separado y el pedido no
-            cambia.
+            {porPosicion
+              ? 'Elige cuánto facturar de cada posición (hasta lo pendiente). Al continuar se abre la factura solo con esas cantidades; el resto queda por facturar.'
+              : 'Captura lo que sale en esta entrega. Cada salida se factura por separado y el pedido no cambia.'}
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
@@ -144,11 +161,13 @@ export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar }: RegistrarS
                   <Table className="w-full text-sm">
                     <TableHeader className="bg-surface-subtle">
                       <TableRow>
-                        <TableHead className="px-3 py-2 text-left">Partida</TableHead>
+                        <TableHead className="px-3 py-2 text-left">{porPosicion ? 'Posición' : 'Partida'}</TableHead>
                         <TableHead className="px-3 py-2 text-left">Producto / servicio</TableHead>
                         <TableHead className="px-3 py-2 text-right">Pedida</TableHead>
                         <TableHead className="px-3 py-2 text-right">Pendiente de salir</TableHead>
-                        <TableHead className="w-40 px-3 py-2 text-right">En esta salida</TableHead>
+                        <TableHead className="w-40 px-3 py-2 text-right">
+                          {porPosicion ? 'A facturar' : 'En esta salida'}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -213,7 +232,7 @@ export function RegistrarSalidaDialog({ pedidoId, avance, onCerrar }: RegistrarS
             data-action="registrar-salida"
           >
             {registrar.isPending && <Loader2 className="animate-spin" />}
-            Registrar salida
+            {porPosicion ? 'Continuar a la factura' : 'Registrar salida'}
           </Button>
         </DialogFooter>
       </DialogContent>

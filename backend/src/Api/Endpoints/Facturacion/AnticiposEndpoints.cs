@@ -7,6 +7,7 @@ using Millet.Facturacion.Application.Anticipos.AplicarAnticipoAFactura;
 using Millet.Facturacion.Application.Anticipos.EmitirFacturaAnticipo;
 using Millet.Facturacion.Application.Anticipos.LiberarApartado;
 using Millet.Facturacion.Application.Anticipos.RegistrarAnticipoExterno;
+using Millet.Facturacion.Application.Anticipos.ReversarAplicacion;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Application.Anticipos.Queries;
@@ -102,6 +103,24 @@ public static class AnticiposEndpoints
         .WithName("LiberarApartadoAnticipo")
         .WithSummary("Libera con motivo el importe apartado (vinculado sin NC) de un anticipo")
         .Produces<LiberacionApartadoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // POST: M-344 — reversa interna autorizada de la aplicación del anticipo {id} a una factura (sin cancelar la NC ante el SAT).
+        group.MapPost("/{id:guid}/reversar-aplicacion", async (
+            Guid id,
+            ReversarAplicacionAnticipoRequest body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+                Results.Ok(await mediator.Send(
+                    new ReversarAplicacionAnticipoCommand(id, body.FacturaVentaId, body.Motivo ?? string.Empty), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        // Mismo nivel de autorización que liberar un apartado; la separación de funciones la impone el comando.
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionAnticiposLiberarApartado)
+        .WithName("ReversarAplicacionAnticipo")
+        .WithSummary("Revierte (interna, autorizada y con motivo) la aplicación de un anticipo a una factura")
+        .Produces<ReversaAplicacionAnticipoResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -240,3 +259,4 @@ public static class AnticiposEndpoints
 
 /// <summary>Cuerpo de <c>POST /{id}/liberar-apartado</c> (U-4).</summary>
 public sealed record LiberarApartadoAnticipoRequest(Guid FacturaVentaId, string? Motivo);
+public sealed record ReversarAplicacionAnticipoRequest(Guid FacturaVentaId, string? Motivo);

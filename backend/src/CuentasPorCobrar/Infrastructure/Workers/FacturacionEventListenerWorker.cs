@@ -192,6 +192,14 @@ public sealed class FacturacionEventListenerWorker : BackgroundService, ILocalIn
                     break;
                 }
 
+                case AnticipoAplicacionReversadaHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<AnticipoAplicacionReversadaPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new AnticipoAplicacionReversadaCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 case ComprobanteCanceladoHandler.EventType:
                 {
                     var payload = JsonSerializer.Deserialize<ComprobanteCanceladoPayload>(body, JsonOpts)

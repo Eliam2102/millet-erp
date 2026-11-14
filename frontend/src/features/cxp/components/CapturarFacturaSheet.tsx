@@ -5,7 +5,7 @@ import { NotasCreditoAdjuntas } from './NotasCreditoAdjuntas';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { hoyLocalISO, parseDateOnlyLocal } from '@/lib/datetime';
 import { addDays, format } from 'date-fns';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
@@ -185,11 +185,11 @@ export function CapturarFacturaSheet({
     }
   }
 
-  // Detalle re-parseado del XML (líneas de cfdi:Concepto) para importar
-  // partidas con un click en lugar de teclearlas.
+  // Detalle re-parseado del XML (líneas de cfdi:Concepto) para traer las
+  // partidas en vez de teclearlas.
   const cfdiParseadoQuery = useCfdiParseado(cfdiBase?.id ?? null);
 
-  function importarLineasCfdi() {
+  function importarLineasCfdi({ avisar = true } = {}) {
     const lineas = cfdiParseadoQuery.data?.lineas;
     if (!lineas || lineas.length === 0) return;
     form.setValue('descuentos', cfdiParseadoQuery.data?.descuentos ?? 0);
@@ -209,8 +209,22 @@ export function CapturarFacturaSheet({
         lineaOcId: null,
       })),
     );
-    toast.success(`${lineas.length} partida(s) importadas del CFDI`);
+    if (avisar) toast.success(`${lineas.length} partida(s) importadas del CFDI`);
   }
+
+  // Al vincular un CFDI sus partidas se traen solas: el auxiliar solo amarra
+  // cada una a su línea de OC (el three-way match sigue siendo suyo). Se hace
+  // una vez por CFDI para no pisar lo que ya editó; el botón permite rehacerlo.
+  const partidasTraidasDeCfdiId = useRef<string | null>(null);
+  useEffect(() => {
+    const cfdiId = cfdiBase?.id ?? null;
+    if (!open || cfdiId === null) return;
+    if (partidasTraidasDeCfdiId.current === cfdiId) return;
+    if (!cfdiParseadoQuery.data?.lineas?.length) return;
+    partidasTraidasDeCfdiId.current = cfdiId;
+    importarLineasCfdi({ avisar: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, cfdiBase?.id, cfdiParseadoQuery.data]);
 
   // La OC es dueña de proveedor y sucursal: se derivan, el usuario no los teclea.
   // Compartido por el selector de OC y el panel de pendientes del proveedor.
@@ -282,6 +296,8 @@ export function CapturarFacturaSheet({
   useEffect(() => {
     if (open) {
       form.reset(buildDefaults(cfdiPreseleccionado ?? null));
+      // El reset deja las partidas vacías: volver a traerlas del CFDI.
+      partidasTraidasDeCfdiId.current = null;
       // No reseteamos proveedorNombreSel aquí: la etiqueta está guardada por
       // proveedorIdSel (que queda en '' tras el reset) → un nombre viejo nunca
       // se muestra. El onSelect/onChange lo mantienen en sync con la OC.
@@ -762,7 +778,7 @@ export function CapturarFacturaSheet({
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={importarLineasCfdi}
+                        onClick={() => importarLineasCfdi()}
                       >
                         <Download className="mr-1 h-3 w-3" />
                         Importar {cfdiParseadoQuery.data!.lineas.length}{' '}
