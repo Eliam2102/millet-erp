@@ -378,25 +378,31 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
                             name={`lineas.${index}.lineaSalidaOrigenId` as const}
                             control={form.control}
                             render={({ field }) => (
-                              <select
-                                aria-label={`Partida de salida origen ${index + 1}`}
-                                className="h-9 w-full rounded-md border bg-surface-page px-2 text-sm"
-                                value={field.value ?? ''}
-                                onChange={(e) => field.onChange(e.target.value)}
-                                onBlur={field.onBlur}
+                              <Select
+                                value={field.value || ''}
+                                onValueChange={(v) => field.onChange(v)}
                                 disabled={!salidaOrigenQuery.data}
                               >
-                                <option value="">
-                                  {salidaOrigenQuery.data
-                                    ? 'Selecciona la partida…'
-                                    : 'Primero elige la salida origen'}
-                                </option>
-                                {salidaOrigenQuery.data?.lineas.map((l) => (
-                                  <option key={l.id} value={l.id}>
-                                    {`#${l.posicion} · ${l.articuloClave ?? ''} ${l.articuloDescripcion ?? 'Artículo sin descripción'} · ${l.cantidad} ${l.unidadMedida}`}
-                                  </option>
-                                ))}
-                              </select>
+                                <SelectTrigger
+                                  aria-label={`Partida de salida origen ${index + 1}`}
+                                  onBlur={field.onBlur}
+                                >
+                                  <SelectValue
+                                    placeholder={
+                                      salidaOrigenQuery.data
+                                        ? 'Selecciona la partida…'
+                                        : 'Primero elige la salida origen'
+                                    }
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {salidaOrigenQuery.data?.lineas.map((l) => (
+                                    <SelectItem key={l.id} value={l.id}>
+                                      {`#${l.posicion} · ${l.articuloClave ?? ''} ${l.articuloDescripcion ?? 'Artículo sin descripción'} · ${l.cantidad} ${l.unidadMedida}`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             )}
                           />
                         </Field>
