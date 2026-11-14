@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- H-U33: catálogo oficial SAT c_ConfigAutotransporte (Carta Porte 3.1); ver Domain/CartaPorte/Catalogos/README.md. -->
+    <EmbeddedResource Include="Domain/CartaPorte/Catalogos/c_ConfigAutotransporte.csv" LogicalName="Millet.Facturacion.Catalogos.c_ConfigAutotransporte.csv" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Millet.Facturacion.UnitTests" />
     <InternalsVisibleTo Include="Millet.Facturacion.IntegrationTests" />
   </ItemGroup>

@@ -50,6 +50,9 @@ public sealed class CartaPorte : Comprobante
     private readonly List<CartaPorteMercancia> _mercancias = [];
     public IReadOnlyCollection<CartaPorteMercancia> Mercancias => _mercancias.AsReadOnly();
 
+    /// <summary>H-U32: moneda del CFDI tipo T (Anexo 20: «XXX», sin operación monetaria).</summary>
+    public const string MonedaTraslado = "XXX";
+
     private CartaPorte() { }
 
     private CartaPorte(
@@ -60,7 +63,8 @@ public sealed class CartaPorte : Comprobante
         DateTimeOffset fechaSalida, DateTimeOffset fechaLlegadaEstimada,
         string? origenCodigoPostal, string? origenEstado, string? destinoCodigoPostal, string? destinoEstado)
         : base(id, empresaId, tipoCfdi, folio, folioNumero, sucursalId, cajaId, usuarioEmisorId, receptor,
-               emisor, metodoPago: "PUE", formaPago: "01", moneda, tipoCambio: null,
+               // H-U32: Anexo 20, un CFDI tipo T (Traslado) lleva Moneda XXX (el PAC rechaza otra con CP103).
+               emisor, metodoPago: "PUE", formaPago: "01", tipoCfdi == TipoComprobante.Traslado ? MonedaTraslado : moneda, tipoCambio: null,
                periodoAnio, periodoMes)
     {
         Origen = origen;

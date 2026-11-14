@@ -847,6 +847,8 @@ export interface VehiculoListItem {
   pesoBrutoVehicular: number | null;
   activo: boolean;
   version: number;
+  /** H-U33: la configuración exige remolque (catálogo SAT c_ConfigAutotransporte); la Carta Porte aún no lo captura. */
+  exigeRemolque?: boolean;
 }
 
 /** Renglón del catálogo de operadores (GET /carta-porte/operadores). */

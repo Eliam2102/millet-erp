@@ -21,7 +21,9 @@ public sealed record VehiculoListItem(
     string? PolizaSeguro,
     decimal? PesoBrutoVehicular,
     bool Activo,
-    int Version);
+    int Version,
+    // H-U33 (aditivo): la configuración exige remolque según c_ConfigAutotransporte; la Carta Porte aún no lo captura.
+    bool ExigeRemolque = false);
 
 /// <summary>Renglón del catálogo de operadores para la pantalla de administración.</summary>
 public sealed record OperadorListItem(
@@ -50,13 +52,14 @@ public sealed class ListarVehiculosHandler : IRequestHandler<ListarVehiculosQuer
         var q = _db.Vehiculos.AsNoTracking();
         if (!query.IncluirInactivos) q = q.Where(v => v.Activo);
 
-        return await q
+        var items = await q
             .OrderBy(v => v.Placa)
             .Select(v => new VehiculoListItem(
                 v.Id, v.Placa, v.ConfigVehicular, v.AnioModelo,
                 v.TipoPermisoSct, v.NumPermisoSct, v.Aseguradora, v.PolizaSeguro,
-                v.PesoBrutoVehicular, v.Activo, v.Version))
+                v.PesoBrutoVehicular, v.Activo, v.Version, false))
             .ToListAsync(cancellationToken);
+        return [.. items.Select(i => i with { ExigeRemolque = ConfigVehicularRemolque.ExigeRemolque(i.ConfigVehicular) })];
     }
 }
 

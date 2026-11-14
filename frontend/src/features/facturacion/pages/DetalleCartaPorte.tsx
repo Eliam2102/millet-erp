@@ -114,6 +114,7 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
         estado={c.estado}
         errorCodigo={c.timbradoErrorCodigo}
         errorMensaje={c.timbradoErrorMensaje}
+        mostrarMotivoPac
       />
 
       <CorregirCartaPorteDialog carta={c} open={corrigiendo} onOpenChange={setCorrigiendo} />
