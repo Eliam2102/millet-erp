@@ -351,6 +351,20 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
             <Dato label="Fecha de timbrado">
               <DateTimeDisplay value={f.fechaTimbrado} variant="datetime" />
             </Dato>
+            <Dato label="Creó">
+              {f.creadoPor ? (
+                <>
+                  <div>{f.creadoPor}</div>
+                  {f.creadoEn && (
+                    <div className="text-xs text-ink-muted">
+                      <DateTimeDisplay value={f.creadoEn} variant="datetime" />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="text-ink-muted">Sin registro</span>
+              )}
+            </Dato>
             <Dato label="Versión">{f.version}</Dato>
           </dl>
         </section>

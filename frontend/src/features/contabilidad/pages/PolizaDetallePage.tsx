@@ -482,8 +482,17 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           <Dato k="Fecha">{fechaCorta(p.fecha)}</Dato>
           <Dato k="Periodo">{etiquetaPeriodo(p.periodoAnio, p.periodoNumero)}</Dato>
           <Dato k="Origen">{ETIQUETA_ORIGEN[p.origen] ?? p.origen}</Dato>
-          <Dato k="Capturó">{p.capturadaPor}</Dato>
-          <Dato k="Autorizó">{p.autorizadaPor ?? '—'}</Dato>
+          {/* P19/P23: quién y cuándo, a la vista (no solo en la bitácora). */}
+          <Dato k="Capturó">
+            {p.capturadaPor}
+            <span className="block text-xs font-normal text-ink-muted">{formatDateTime(p.capturadaEn)}</span>
+          </Dato>
+          <Dato k="Autorizó">
+            {p.autorizadaPor ?? '—'}
+            {p.autorizadaEn && (
+              <span className="block text-xs font-normal text-ink-muted">{formatDateTime(p.autorizadaEn)}</span>
+            )}
+          </Dato>
           <div className="col-span-2 md:col-span-4">
             <dt className="text-xs text-ink-muted">Concepto</dt>
             <dd className="whitespace-pre-line text-sm font-medium">{p.concepto}</dd>

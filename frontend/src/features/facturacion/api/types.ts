@@ -1473,6 +1473,9 @@ export interface ComprobanteDetalleResponse {
   uuid: string | null;
   receptorRfc: string;
   clienteClave?: string | null;
+  /** P19/P23: quién capturó el comprobante y cuándo. */
+  creadoPor?: string | null;
+  creadoEn?: string | null;
   /** H-U40: tipo de cambio del CFDI (null en MXN). */
   tipoCambio?: number | null;
   receptorNombre: string;

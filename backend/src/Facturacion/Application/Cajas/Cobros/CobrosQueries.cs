@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Facturas;
+using Millet.Facturacion.Domain.Anticipos;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.NotasCredito;
@@ -117,7 +118,11 @@ public sealed class ListarComprobantesCobrablesHandler
                         || (c.Tipo == TipoComprobante.Pago
                             && _db.RecibosPago.Any(r => r.Id == c.Id && r.MonedaPago == "MXN")))
             .Where(c => !_db.CobrosMostrador.Any(
-                x => x.ComprobanteId == c.Id && x.Estado == EstadoCobroMostrador.Registrado));
+                x => x.ComprobanteId == c.Id && x.Estado == EstadoCobroMostrador.Registrado))
+            // H-U51 (supuesto a validar): una factura de anticipo cuyo anticipo ya se vinculó o amortizó a una factura de
+            // venta se considera cobrada (el anticipo PUE nace cobrado al timbrar); no se ofrece en la cola de caja.
+            .Where(c => !_db.Anticipos.Any(a => a.FacturaAnticipoId == c.Id
+                && (a.MontoAmortizado > 0 || a.Estado == EstadoAnticipo.Amortizado || a.Vinculaciones.Any())));
 
         // 86e3tfdx8: todas las palabras, en cualquier orden, sin acentos ni
         // mayúsculas, en folio o nombre del receptor.

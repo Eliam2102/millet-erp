@@ -157,4 +157,71 @@ describe('<BandejaFacturas> — smoke', () => {
       expect(screen.getByText(/No se pudieron cargar las facturas/i)).toBeInTheDocument(),
     );
   });
+
+  it('P19: con permiso de pólizas, columna Póliza con enlace y una sola llamada por página', async () => {
+    useAuthStore.setState({
+      permisos: ['facturacion.facturas.leer', 'contabilidad.polizas.leer'],
+    });
+    const factura = (id: string, folio: string) => ({
+      id,
+      folio,
+      estado: 'Timbrado',
+      uuid: null,
+      receptorNombre: 'Cliente',
+      receptorRfc: 'AAA010101AAA',
+      total: 116,
+      moneda: 'MXN',
+      fechaTimbrado: '2026-05-30T10:00:00Z',
+    });
+    const llamadas: string[] = [];
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas', () =>
+        HttpResponse.json({ items: [factura('f-1', 'A-1'), factura('f-2', 'A-2')], sinAsignarCount: null }),
+      ),
+      http.get('*/api/v1/contabilidad/polizas/por-documentos', ({ request }) => {
+        llamadas.push(request.url);
+        return HttpResponse.json([
+          {
+            documentoId: 'f-1',
+            polizas: [{ id: 'p-1', folio: 'IG-0001', fecha: '2026-05-30', estado: 'Autorizada' }],
+          },
+        ]);
+      }),
+    );
+    render(<BandejaFacturas />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByRole('link', { name: 'IG-0001' })).toHaveAttribute(
+      'href',
+      '/contabilidad/polizas/$id',
+    );
+    expect(screen.getByRole('columnheader', { name: 'Póliza' })).toBeInTheDocument();
+    expect(llamadas).toHaveLength(1);
+    const ids = new URL(llamadas[0] ?? '').searchParams.getAll('documentoIds');
+    expect(ids).toEqual(['f-1', 'f-2']);
+  });
+
+  it('P19: sin permiso de pólizas la bandeja funciona sin la columna', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'f-1',
+              folio: 'A-1',
+              estado: 'Timbrado',
+              uuid: null,
+              receptorNombre: 'Cliente',
+              receptorRfc: 'AAA010101AAA',
+              total: 116,
+              moneda: 'MXN',
+              fechaTimbrado: null,
+            },
+          ],
+          sinAsignarCount: null,
+        }),
+      ),
+    );
+    render(<BandejaFacturas />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('A-1')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Póliza' })).not.toBeInTheDocument();
+  });
 });
