@@ -50,6 +50,11 @@ export interface TimbradoFallidoBannerProps {
    * Cambia el texto del descarte: la factura sigue vigente sin esa NC.
    */
   esNotaCreditoPendiente?: boolean;
+  /**
+   * H-U34: muestra «Motivo del PAC: código — mensaje». Solo Carta Porte; en facturas el texto técnico del PAC
+   * sigue oculto (revisión de UI del 5-nov, 86e3tfkmv).
+   */
+  mostrarMotivoPac?: boolean;
 }
 
 export function TimbradoFallidoBanner({
@@ -58,6 +63,7 @@ export function TimbradoFallidoBanner({
   errorCodigo,
   errorMensaje,
   esNotaCreditoPendiente = false,
+  mostrarMotivoPac = false,
 }: TimbradoFallidoBannerProps) {
   const puedeReintentar = useHasPermission(
     PermisosCanonicos.FacturacionComprobantesReintentarTimbrado,
@@ -147,7 +153,7 @@ export function TimbradoFallidoBanner({
             : 'No se pudo timbrar el comprobante. Revisa sus datos fiscales con Facturación antes de reintentar.'}
       </p>
       {/* H-U34: el motivo que dio el PAC (código y mensaje) para corregir el dato antes de reintentar. */}
-      {errorMensaje?.trim() && (
+      {mostrarMotivoPac && errorMensaje?.trim() && (
         <p className="text-xs text-danger-fg [overflow-wrap:anywhere]">
           <span className="font-medium">Motivo del PAC:</span>{' '}
           {errorCodigo && <span className="font-mono">{errorCodigo}</span>}

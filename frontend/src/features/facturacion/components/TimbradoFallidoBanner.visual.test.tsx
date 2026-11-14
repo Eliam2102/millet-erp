@@ -43,13 +43,14 @@ it('M-284: ofrece adoptar el CFDI solo cuando el PAC no confirmó el timbrado', 
   expect(screen.queryByRole('button', { name: 'Adoptar CFDI timbrado' })).toBeNull();
 });
 
-it('H-U34: muestra el código y el mensaje con que el PAC rechazó el timbrado', () => {
+it('H-U34: en Carta Porte muestra el código y el mensaje con que el PAC rechazó el timbrado', () => {
   render(
     <TimbradoFallidoBanner
       comprobanteId="prueba"
       estado="TimbradoFallido"
       errorCodigo="CP103"
       errorMensaje="El valor del campo Moneda debe ser XXX para el tipo de comprobante T."
+      mostrarMotivoPac
     />,
   );
   expect(screen.getByText('Motivo del PAC:')).toBeInTheDocument();
@@ -58,6 +59,13 @@ it('H-U34: muestra el código y el mensaje con que el PAC rechazó el timbrado',
 });
 
 it('H-U34: sin mensaje del PAC no muestra el renglón de motivo', () => {
-  render(<TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_SIN_SALDO" errorMensaje={null} />);
+  render(
+    <TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="PAC_SIN_SALDO" errorMensaje={null} mostrarMotivoPac />,
+  );
   expect(screen.queryByText('Motivo del PAC:')).toBeNull();
+});
+
+it('fuera de Carta Porte (facturas) el texto técnico del PAC sigue oculto', () => {
+  render(<TimbradoFallidoBanner comprobanteId="prueba" estado="TimbradoFallido" errorCodigo="CFDI40100" errorMensaje="Rechazo del PAC" />);
+  expect(screen.queryByText(/Motivo del PAC|CFDI40100|Rechazo del PAC/)).toBeNull();
 });

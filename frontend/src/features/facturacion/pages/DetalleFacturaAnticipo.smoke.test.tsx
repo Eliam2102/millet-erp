@@ -112,10 +112,7 @@ describe('<DetalleFacturaAnticipo> — smoke (ANT-PR2)', () => {
     await waitFor(() =>
       expect(screen.getByText(/No se pudo timbrar el comprobante/)).toBeInTheDocument(),
     );
-    // H-U34 (reemplaza la regla de 86e3tfkmv): el motivo del PAC se muestra aparte, con código y mensaje, para corregir el dato.
-    expect(screen.getByText('Motivo del PAC:')).toBeInTheDocument();
-    expect(screen.getByText('CFDI40100')).toBeInTheDocument();
-    expect(screen.getByText(/Rechazo del PAC/)).toBeInTheDocument();
+    expect(screen.queryByText(/CFDI40100|Rechazo del PAC/)).not.toBeInTheDocument();
   });
 
 
