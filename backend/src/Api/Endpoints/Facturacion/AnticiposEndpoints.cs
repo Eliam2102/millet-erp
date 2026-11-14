@@ -97,8 +97,8 @@ public static class AnticiposEndpoints
                 Results.Ok(await mediator.Send(
                     new ReversarAplicacionAnticipoCommand(id, body.FacturaVentaId, body.Motivo ?? string.Empty), cancellationToken)))
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        // Mismo nivel de autorización que liberar un apartado; la separación de funciones la impone el comando.
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionAnticiposLiberarApartado)
+        // Solo Contador General (mismo permiso que la reversa de cobro en cartera); la separación de funciones la impone el comando.
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoReversar)
         .WithName("ReversarAplicacionAnticipo")
         .WithSummary("Revierte (interna, autorizada y con motivo) la aplicación de un anticipo a una factura")
         .Produces<ReversaAplicacionAnticipoResponse>(StatusCodes.Status200OK)

@@ -4,8 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Compras.Domain;
 using Millet.Compras.Infrastructure;
+using Millet.Compras.Infrastructure.Seed;
 using Millet.Compras.IntegrationTests.Fixtures;
 using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
 using static Millet.Compras.IntegrationTests.Autorizacion.AutorizacionTestSeeding;
 
@@ -50,6 +52,33 @@ public class AutorizadorMatrizEndpointsTests : IClassFixture<StubsWebApplication
             Assert.Equal(jefeDptoId, detalle.GetProperty("autorizadorN1Id").GetGuid());
             Assert.Equal(jefeAlmacenId, detalle.GetProperty("autorizadorN2Id").GetGuid());
             Assert.True((await AutorizarAsync(jefeAlmacen, rq, 2)).IsSuccessStatusCode);
+        }
+        finally
+        {
+            await LimpiarAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Seed_De_Ensayo_Asigna_N1_Y_N2_Y_El_Solicitante_No_Firma()
+    {
+        var admin = await CreateSuperAdminClientAsync(_factory); // solicitante de la RQ
+        var (n1, n1Id) = await CreateUsuarioFirmanteAsync();
+        var (n2, n2Id) = await CreateUsuarioFirmanteAsync();
+        try
+        {
+            await PutUmbralAmbosAsync(admin);
+            Assert.Equal(-1, await SembrarEnsayoAsync(n1Id, n1Id)); // una persona no firma N1 y N2
+            Assert.Equal(2, await SembrarEnsayoAsync(n1Id, n2Id));
+            Assert.Equal(0, await SembrarEnsayoAsync(n1Id, n2Id)); // idempotente
+            var rq = await CrearTransmitirAsync(admin, new[] { (ArticuloSinStock, 1m) });
+
+            await AssertNoFacultadoAsync(await AutorizarAsync(admin, rq, 1));
+            Assert.True((await AutorizarAsync(n1, rq, 1)).IsSuccessStatusCode);
+            Assert.Equal((int)EstadoRequisicion.EnAutorizacion, await EstadoAsync(admin, rq));
+            await AssertNoFacultadoAsync(await AutorizarAsync(admin, rq, 2));
+            Assert.True((await AutorizarAsync(n2, rq, 2)).IsSuccessStatusCode);
+            Assert.NotEqual((int)EstadoRequisicion.EnAutorizacion, await EstadoAsync(admin, rq));
         }
         finally
         {
@@ -153,6 +182,19 @@ public class AutorizadorMatrizEndpointsTests : IClassFixture<StubsWebApplication
             Guid.CreateVersion7(), EmpresaInicialId, scopeId, rol, usuarioId,
             DateTimeOffset.UtcNow, usuarioId, "test C3.1", DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
+    }
+
+    private async Task<int> SembrarEnsayoAsync(Guid n1Id, Guid n2Id)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        var correos = await identidad.Usuarios.AsNoTracking().Where(u => u.Id == n1Id || u.Id == n2Id)
+            .ToDictionaryAsync(u => u.Id, u => u.Email);
+        return await ComprasTestSeedHostedService.SembrarAprobadoresEnsayoAsync(
+            scope.ServiceProvider.GetRequiredService<ComprasDbContext>(), identidad, EmpresaInicialId,
+            correos[n1Id], correos[n2Id], [TestComprasFixtures.DeptoCompras], [TestComprasFixtures.SucursalMid],
+            DateTimeOffset.UtcNow, CancellationToken.None);
     }
 
     private async Task LimpiarAsync()

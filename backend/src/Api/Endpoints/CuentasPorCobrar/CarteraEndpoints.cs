@@ -96,8 +96,8 @@ public static class CarteraEndpoints
         .WithName("ObtenerEstadoCuentaCliente")
         .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
 
-        // M-237 (CXC-CARTERA/corregir): correcciones desde el estado de cuenta. Supuesto «a validar»: se reusan los permisos existentes
-        // (corregir/solicitar = cobranza.registrar; autorizar = aplicacion-pago.confirmar, y nunca quien solicitó), como en el ajuste de cobro.
+        // M-237 (CXC-CARTERA/corregir): correcciones desde el estado de cuenta. Corregir/solicitar = cobranza.registrar (supuesto «a validar»);
+        // autorizar o rechazar la reversa = aplicacion-pago.reversar, solo Contador General, y nunca quien solicitó.
         cartera.MapGet("/cartera/correcciones", async (
             [FromQuery] Guid? clienteId,
             [FromQuery] string? estado,
@@ -168,7 +168,7 @@ public static class CarteraEndpoints
             return Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, true, null), cancellationToken));
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoReversar)
         .WithName("AutorizarReversaMovimientoCartera")
         .WithSummary("Autoriza la reversa de un movimiento: regresa el saldo a la factura (M-237)")
         .Produces<CorreccionCarteraResponse>(StatusCodes.Status200OK)
@@ -187,7 +187,7 @@ public static class CarteraEndpoints
             return Results.Ok(await mediator.Send(new DecidirReversaMovimientoCommand(id, false, body.Motivo), cancellationToken));
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoReversar)
         .WithName("RechazarReversaMovimientoCartera")
         .WithSummary("Rechaza la reversa de un movimiento con motivo; la cartera no cambia (M-237)")
         .Produces<CorreccionCarteraResponse>(StatusCodes.Status200OK)

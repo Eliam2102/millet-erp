@@ -286,7 +286,7 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                     // 86e3tac2y: la Dirección revisa el acta del cierre de Almacén.
                     or PermisosCanonicos.AlmacenCierreRevisarActa),
             (Guid.Parse("0000000f-0011-0000-0000-000000000002"), "contador-general",
-                "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas, autoriza las cancelaciones de CFDI (F6.5) y la reversa de anticipos al agente ya comprobados (M-327).",
+                "Contador General", "Registra las bajas autorizadas por el Director de Administración y Finanzas, autoriza las cancelaciones de CFDI (F6.5), la reversa de anticipos al agente ya comprobados (M-327) y la reversa de cobros y de aplicaciones de anticipo.",
                 p => p.Codigo is PermisosCanonicos.ActivosFijosTrasladosGestionar or PermisosCanonicos.ActivosFijosReversasSolicitar or PermisosCanonicos.ActivosFijosActivosVer or PermisosCanonicos.ActivosFijosLeerTodasSucursales or PermisosCanonicos.ActivosFijosGestionarTodasSucursales or PermisosCanonicos.ActivosFijosBajasRegistrar or PermisosCanonicos.DatosMaestrosProveedoresBloquear
                     or PermisosCanonicos.FacturacionCancelacionesAutorizar or PermisosCanonicos.FacturacionCancelacionesConsultar
                     or PermisosCanonicos.FacturacionFacturasLeer or PermisosCanonicos.FacturacionAnticiposLeer
@@ -298,6 +298,9 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                     // M-327 (Millet, 10-nov-2026): autoriza la reversa de un anticipo al agente ya comprobado. Perfil corporativo:
                     // consulta y firma expedientes de todas las sucursales.
                     or PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionAutorizar or PermisosCanonicos.ComercioExteriorExpedientesLeer
+                    // Reversa de cobro aplicado (cartera) y de aplicación de anticipo: solo Contador General. Perfil corporativo:
+                    // autoriza la reversa sobre facturas de cartera de cualquier sucursal (ADR-0051).
+                    or PermisosCanonicos.CuentasPorCobrarAplicacionPagoReversar or PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales
                     or PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales or PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales
                     // M-199 (Javier Canché, 11-nov): captura el alta o cambio de cuenta bancaria. M-202: visto bueno y reapertura de la conciliación.
                     or PermisosCanonicos.TesoreriaCuentasVer or PermisosCanonicos.TesoreriaCuentasAdministrar

@@ -142,4 +142,10 @@ param appSettingsExtra = {
   // Umbral general de ENSAYO de Compras (ComprasTestSeedHostedService) para que la RQ no quede en
   // SinPolitica mientras Millet no entrega montos (HMONTOS). No corre en Production.
   Seed__UmbralEnsayo__Habilitado: 'true'
+  // Aprobadores N1 (jefe de departamento) y N2 (jefe de almacén) de ENSAYO con dos cuentas de prueba distintas
+  // (las mismas del modo pruebas de correo). Solo llenan huecos; se reemplazan en Configuración de Compras cuando
+  // Millet designe aprobadores (HMONTOS). Si una cuenta aún no inició sesión en QA, el seed se omite con aviso.
+  Seed__AprobadoresEnsayo__Habilitado: 'true'
+  Seed__AprobadoresEnsayo__N1Correo: 'operaciones@vilostudio.ai'
+  Seed__AprobadoresEnsayo__N2Correo: 'geovany@vilostudio.ai'
 }

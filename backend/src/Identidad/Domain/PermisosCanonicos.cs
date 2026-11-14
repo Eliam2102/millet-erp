@@ -531,6 +531,8 @@ public static class PermisosCanonicos
     public const string CuentasPorCobrarAplicacionPagoConfirmar = "cuentas_por_cobrar.aplicacion-pago.confirmar";
     /// <summary>M-326 parte 2: autorizar o rechazar un redondeo de cobro (hasta $0.99). Lo asigna Administración al Gerente de Área.</summary>
     public const string CuentasPorCobrarAplicacionPagoAutorizarRedondeo = "cuentas_por_cobrar.aplicacion-pago.autorizar-redondeo";
+    /// <summary>Autorizar o rechazar la reversa de un cobro aplicado (cartera, M-237) y revertir la aplicación de un anticipo (M-344). Solo Contador General.</summary>
+    public const string CuentasPorCobrarAplicacionPagoReversar = "cuentas_por_cobrar.aplicacion-pago.reversar";
     // C7.2 (86e3kdxy6): administrar las reglas de liberación por serie.
     public const string CuentasPorCobrarReglasSerieGestionar    = "cuentas_por_cobrar.reglas-serie.gestionar";
     // C7.7 (86e3jvv4q): conciliar la cartera a demanda; leer las corridas usa cartera.leer.
@@ -1049,6 +1051,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000a-0005-0000-0000-000000000001"), CuentasPorCobrarAplicacionPagoProponer,  "Crear propuestas de aplicación de pago desde depósitos"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000002"), CuentasPorCobrarAplicacionPagoConfirmar, "Confirmar o rechazar propuestas de aplicación de pago (Ingresos)"),
         (Guid.Parse("0000000a-0005-0000-0000-000000000003"), CuentasPorCobrarAplicacionPagoAutorizarRedondeo, "Autorizar o rechazar el redondeo de hasta $0.99 de un cobro (Gerente de Área, distinto de quien propone)"),
+        (Guid.Parse("0000000a-0005-0000-0000-000000000004"), CuentasPorCobrarAplicacionPagoReversar, "Autorizar la reversa de un cobro aplicado o de la aplicación de un anticipo (Contador General)"),
         (Guid.Parse("0000000a-0006-0000-0000-000000000001"), CuentasPorCobrarReglasSerieGestionar,    "Dar de alta, cambiar y activar o desactivar las reglas de liberación por serie"),
         (Guid.Parse("0000000a-0007-0000-0000-000000000001"), CuentasPorCobrarConciliacionEjecutar,    "Ejecutar a demanda la conciliación diaria de cartera contra facturación"),
 
