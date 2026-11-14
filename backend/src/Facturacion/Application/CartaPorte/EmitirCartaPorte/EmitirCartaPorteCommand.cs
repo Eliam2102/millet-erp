@@ -43,7 +43,11 @@ public sealed record EmitirCartaPorteCommand(
     string? DestinoCodigoPostal = null,
     string? DestinoEstado = null,
     // M-354: tramo del traslado que se emite; solo vehículo propio. Sin él, el flujo es el de siempre.
-    Guid? TramoId = null) : IRequest<EmitirCartaPorteResponse>;
+    Guid? TramoId = null,
+    // P51: retención de IVA que hace el cliente sobre el flete (solo tipo I); mismo catálogo que la factura de servicio
+    // (FLETES 4 %, SERVICIOS 6 %, DESPERDICIO/IMPORTACION 16 %). Con concepto, la tasa sale de él.
+    string? ConceptoRetencion = null,
+    decimal? TasaRetencionIva = null) : IRequest<EmitirCartaPorteResponse>;
 
 public sealed record CartaPorteMercanciaInput(
     string Descripcion,

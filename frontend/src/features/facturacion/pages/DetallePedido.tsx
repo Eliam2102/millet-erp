@@ -290,6 +290,7 @@ function Contenido({
             observaciones: p.comentarios,
             condicionesPago: p.condicionPagoOrigen,
             lineas: lineasEmision.map(({ l, cantidad, descuento }) => ({
+              posicion: l.posicion,
               productoId: l.productoId,
               claveProdServSat: l.claveProdServSat ?? '',
               descripcion: l.productoDescripcion,

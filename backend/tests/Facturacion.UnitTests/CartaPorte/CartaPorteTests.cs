@@ -67,6 +67,72 @@ public sealed class CartaPorteTests
         cp.Total.Should().Be(5800m);
     }
 
+    private static Dominio.CartaPorte IngresoConRetencion(TipoComprobante tipo, decimal monto, string? concepto, decimal? tasa = null) =>
+        Dominio.CartaPorte.CrearBorrador(Guid.NewGuid(), tipo, "CP-1", 1, Guid.NewGuid(),
+            null, null, Receptor(), new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "MXN", 2026, 5, "Conkal", "Cancún", 300m,
+            Guid.NewGuid(), Guid.NewGuid(), null, null, Ahora, Ahora.AddHours(4), montoServicio: monto,
+            tasaIvaServicio: tipo == TipoComprobante.Ingreso ? 0.16m : null, conceptoRetencion: concepto, tasaRetencionIva: tasa);
+
+    [Theory]
+    [InlineData("FLETES", 200.00, 5600.00)]      // 5000 + 800 − 4 %
+    [InlineData("fletes", 200.00, 5600.00)]      // el concepto se normaliza
+    [InlineData("SERVICIOS", 300.00, 5500.00)]   // 6 %
+    [InlineData("DESPERDICIO", 800.00, 5000.00)] // 16 %
+    public void CrearBorrador_ingreso_con_retencion_resta_del_total(string concepto, decimal retencion, decimal total)
+    {
+        var cp = IngresoConRetencion(TipoComprobante.Ingreso, 5000m, concepto);
+
+        cp.ImpuestosTrasladados.Should().Be(800m);
+        cp.Retenciones.Should().Be(retencion);
+        cp.Total.Should().Be(total);
+    }
+
+    [Fact]
+    public void CrearBorrador_ingreso_con_tasa_de_catalogo_sin_concepto_la_acepta()
+    {
+        var cp = IngresoConRetencion(TipoComprobante.Ingreso, 1234.56m, concepto: null, tasa: 0.04m);
+
+        cp.Retenciones.Should().Be(49.38m); // 1234.56 × 4 % = 49.3824
+        cp.Total.Should().Be(1234.56m + 197.53m - 49.38m);
+    }
+
+    [Fact]
+    public void CrearBorrador_ingreso_sin_retencion_conserva_el_total()
+    {
+        var cp = IngresoConRetencion(TipoComprobante.Ingreso, 5000m, concepto: null);
+
+        cp.Retenciones.Should().Be(0m);
+        cp.Total.Should().Be(5800m);
+    }
+
+    [Theory]
+    [InlineData("FLETES", null)]
+    [InlineData(null, 0.04)]
+    public void CrearBorrador_traslado_con_retencion_lanza(string? concepto, double? tasa)
+    {
+        var act = () => IngresoConRetencion(TipoComprobante.Traslado, 0m, concepto, (decimal?)tasa);
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CARTA_PORTE_RETENCION_EN_TRASLADO");
+    }
+
+    [Fact]
+    public void CrearBorrador_retencion_fuera_de_catalogo_lanza()
+    {
+        var act = () => IngresoConRetencion(TipoComprobante.Ingreso, 5000m, concepto: null, tasa: 0.10m);
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CARTA_PORTE_RETENCION_INVALIDA");
+    }
+
+    [Theory]
+    [InlineData("FLETES", 0.06)]
+    [InlineData("OTRO", null)]
+    public void CrearBorrador_concepto_de_retencion_invalido_lanza(string concepto, double? tasa)
+    {
+        var act = () => IngresoConRetencion(TipoComprobante.Ingreso, 5000m, concepto, (decimal?)tasa);
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code.StartsWith("LINEA_CONCEPTO_RETENCION"));
+    }
+
     [Fact]
     public void CrearBorrador_ingreso_sin_monto_lanza()
     {

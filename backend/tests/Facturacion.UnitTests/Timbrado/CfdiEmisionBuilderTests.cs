@@ -409,6 +409,60 @@ public sealed class CfdiEmisionBuilderTests
         e.ComplementoCartaPorte.Mercancias.Single().PesoEnKg.Should().Be(850m);
     }
 
+    [Theory]
+    [InlineData("FLETES", 0.04, 200.00)]
+    [InlineData("SERVICIOS", 0.06, 300.00)]
+    public void DesdeCartaPorte_ingreso_con_retencion_lleva_iva_y_retencion_en_el_concepto(string concepto, decimal tasa, decimal retencion)
+    {
+        var cp = Dominio.CartaPorte.CrearBorrador(
+            Guid.NewGuid(), TipoComprobante.Ingreso, "FA-000301", 301,
+            Guid.NewGuid(), null, null, Receptor, Emisor, "MXN", 2026, 7,
+            origen: "Querétaro", destino: "CDMX", distanciaKm: 220m,
+            vehiculoId: Guid.NewGuid(), operadorId: Guid.NewGuid(),
+            cartaPortePreviaId: null, pedidoFacturableId: null,
+            fechaSalida: AhoraUtc, fechaLlegadaEstimada: AhoraUtc.AddHours(4),
+            montoServicio: 5000m, tasaIvaServicio: 0.16m,
+            origenCodigoPostal: "76120", origenEstado: "QUE", destinoCodigoPostal: "06600", destinoEstado: "CMX",
+            conceptoRetencion: concepto);
+        cp.AgregarMercancia("Vidrio laminado", "43211508", "H87", 10m, 850m, materialPeligroso: false);
+
+        var e = CfdiEmisionBuilder.DesdeCartaPorte(
+            cp, VehiculoCatalogo(), Dominio.Operador.Crear(cp.EmpresaId, "CCC010101CC1", "Juan Chofer", "LIC-99"), AhoraUtc);
+
+        var c = e.Conceptos.Single();
+        c.ObjetoImp.Should().Be("02");
+        c.Impuestos.Should().HaveCount(2);
+        var traslado = c.Impuestos.Single(i => !i.EsRetencion);
+        traslado.TasaOCuota.Should().Be(0.16m);
+        traslado.Importe.Should().Be(800m);
+        var ret = c.Impuestos.Single(i => i.EsRetencion);
+        ret.Impuesto.Should().Be("002");
+        ret.TipoFactor.Should().Be("Tasa");
+        ret.Base.Should().Be(5000m);
+        ret.TasaOCuota.Should().Be(tasa);
+        ret.Importe.Should().Be(retencion);
+    }
+
+    [Fact]
+    public void DesdeCartaPorte_ingreso_sin_retencion_no_agrega_retencion()
+    {
+        var cp = Dominio.CartaPorte.CrearBorrador(
+            Guid.NewGuid(), TipoComprobante.Ingreso, "FA-000302", 302,
+            Guid.NewGuid(), null, null, Receptor, Emisor, "MXN", 2026, 7,
+            origen: "Querétaro", destino: "CDMX", distanciaKm: 220m,
+            vehiculoId: Guid.NewGuid(), operadorId: Guid.NewGuid(),
+            cartaPortePreviaId: null, pedidoFacturableId: null,
+            fechaSalida: AhoraUtc, fechaLlegadaEstimada: AhoraUtc.AddHours(4),
+            montoServicio: 5000m, tasaIvaServicio: 0.16m,
+            origenCodigoPostal: "76120", origenEstado: "QUE", destinoCodigoPostal: "06600", destinoEstado: "CMX");
+        cp.AgregarMercancia("Vidrio laminado", "43211508", "H87", 10m, 850m, materialPeligroso: false);
+
+        var e = CfdiEmisionBuilder.DesdeCartaPorte(
+            cp, VehiculoCatalogo(), Dominio.Operador.Crear(cp.EmpresaId, "CCC010101CC1", "Juan Chofer", "LIC-99"), AhoraUtc);
+
+        e.Conceptos.Single().Impuestos.Should().ContainSingle().Which.EsRetencion.Should().BeFalse();
+    }
+
     [Fact]
     public void DesdeCartaPorte_mapea_ubicaciones_con_domicilio_y_rfcs()
     {

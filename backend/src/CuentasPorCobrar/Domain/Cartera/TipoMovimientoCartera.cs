@@ -17,4 +17,7 @@ public enum TipoMovimientoCartera : short
     /// <see cref="MovimientoCartera.OrigenComprobanteId"/> = REP del cobro; resta del pago en la conciliación de cobros contra pólizas.
     /// </summary>
     ReversaAjusteCobro = 3,
+
+    /// <summary>M-344: la aplicación de un anticipo a la factura se revirtió; <c>OrigenComprobanteId</c> = Id de la reversa.</summary>
+    ReversaAplicacionAnticipo = 4,
 }

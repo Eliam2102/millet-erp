@@ -345,6 +345,95 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("anticipo_vinculacion", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Anticipos.ReversaAplicacionAnticipo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AnticipoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anticipo_id");
+
+                    b.Property<Guid?>("AplicadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("aplicado_por_id");
+
+                    b.Property<Guid>("AutorizadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por_id");
+
+                    b.Property<string>("AutorizadoPorNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("autorizado_por_nombre");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("FacturaVentaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_venta_id");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo");
+
+                    b.Property<Guid>("NcAmortizacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("nc_amortizacion_id");
+
+                    b.Property<DateTimeOffset>("ReversadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reversado_en");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_anticipo_reversa_aplicacion");
+
+                    b.HasIndex("NcAmortizacionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_anticipo_reversa_nc");
+
+                    b.HasIndex("AnticipoId", "FacturaVentaId")
+                        .HasDatabaseName("ix_anticipo_reversa_anticipo_factura");
+
+                    b.ToTable("anticipo_reversa_aplicacion", "facturacion");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Cajas.AutorizacionAperturaCaja", b =>
                 {
                     b.Property<Guid>("Id")

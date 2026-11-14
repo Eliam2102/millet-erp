@@ -865,6 +865,45 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
 
+    it('P47: «Facturar por posición» registra la salida con lo elegido y abre la factura con esas posiciones', async () => {
+      setPermisos(permisosCompletos);
+      prepararPedido([], 0, 0);
+      let body: { referencia: string; lineas: unknown } | null = null;
+      mswServer.use(
+        http.post('*/api/v1/facturacion/pedidos-facturables/p-1/salidas', async ({ request }) => {
+          body = (await request.json()) as { referencia: string; lineas: unknown };
+          return HttpResponse.json(
+            {
+              id: 's-9', pedidoFacturableId: 'p-1', numeroParcialidad: 1, origen: 3, referencia: body.referencia,
+              total: 100, yaRegistrada: false, lineas: [{ posicion: 1, cantidad: 1, importe: 100 }],
+            },
+            { status: 201 },
+          );
+        }),
+      );
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      fireEvent.click(await screen.findByRole('button', { name: /Facturar por posición/ }));
+      const dialogo = await screen.findByRole('dialog');
+      // El folio se propone solo; basta con elegir cuánto facturar de cada posición.
+      expect(
+        (within(dialogo).getByLabelText(/Folio de salida o contenedor/) as HTMLInputElement).value,
+      ).toMatch(/^POS-\d{8}-\d{6}$/);
+      fireEvent.change(
+        within(dialogo).getByLabelText('Cantidad de la partida 1 en esta salida'),
+        { target: { value: '1' } },
+      );
+      fireEvent.click(within(dialogo).getByRole('button', { name: 'Continuar a la factura' }));
+      await waitFor(() => expect(body).not.toBeNull());
+      expect(body!.lineas).toEqual([{ posicion: 1, cantidad: 1 }]);
+      expect(await screen.findByTestId('emitir-factura-form')).toBeInTheDocument();
+      const prefill = prefillSpy.mock.calls.at(-1)?.[0] as {
+        salidaFacturableId: string;
+        lineas: Array<{ posicion: number; cantidad: number }>;
+      };
+      expect(prefill.salidaFacturableId).toBe('s-9');
+      expect(prefill.lineas).toEqual([expect.objectContaining({ posicion: 1, cantidad: 1 })]);
+    });
+
     it('no deja registrar más de lo pendiente de salir', async () => {
       setPermisos(permisosCompletos);
       prepararPedido([{ id: 's-1', numeroParcialidad: 1, cantidad: 1, importe: 100 }], 1, 0);

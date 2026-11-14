@@ -113,7 +113,7 @@ public static class CfdiPdfModelBuilder
             folioCartaPortePrevia);
 
         return Armar(cp, datos ?? DatosImpresionCfdi.Vacio, TipoDocumentoPdf.CartaPorte, "CARTA PORTE", "WAYBILL", "carta-porte",
-            conceptos, traslado ? [] : [IvaUnico(cp)],
+            conceptos, traslado ? [] : ImpuestosCartaPorte(cp),
             new TotalesFisicosPdf(complemento.PesoBrutoTotalKg, null, mercancias.Sum(x => x.Cantidad)),
             comentarios: null, ordenCompra: null, referencia: null, condiciones: null, relaciones: Relacionados(cp),
             cartaPorte: complemento);
@@ -215,6 +215,17 @@ public static class CfdiPdfModelBuilder
         var baseIva = c.Subtotal - c.Descuento;
         var tasa = baseIva > 0 ? Math.Round(c.ImpuestosTrasladados / baseIva, 2, MidpointRounding.AwayFromZero) : 0;
         return new("002 IVA", "Tasa", tasa, baseIva, c.ImpuestosTrasladados, false);
+    }
+
+    /// <summary>P51: IVA trasladado y, si el cliente retiene, la retención de IVA del flete (tasa reconstruida como en el CFDI).</summary>
+    private static List<ImpuestoResumenPdf> ImpuestosCartaPorte(Comprobante c)
+    {
+        var impuestos = new List<ImpuestoResumenPdf> { IvaUnico(c) };
+        var baseImpuesto = c.Subtotal - c.Descuento;
+        if (c.Retenciones > 0m && baseImpuesto > 0m)
+            impuestos.Add(new("002 IVA", "Tasa", Math.Round(c.Retenciones / baseImpuesto, 2, MidpointRounding.AwayFromZero),
+                baseImpuesto, c.Retenciones, true));
+        return impuestos;
     }
 
     private static ImpuestoResumenPdf Retencion(string nombre, decimal tasa, decimal baseImpuesto) =>

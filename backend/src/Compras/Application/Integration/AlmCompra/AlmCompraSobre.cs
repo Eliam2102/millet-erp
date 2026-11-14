@@ -13,7 +13,8 @@ public sealed record AlmCompraLinea(
     string LineaErp, string? Requisicion, int? Posicion, int ArticuloAw, int? ArticuloAlmacenAw,
     int? Ancho, int? Alto, int Piezas, string? Lote, string? Pedimento, string? Etiqueta,
     decimal? CostoM2, decimal? CostoPieza,
-    // Opcional e informativo (v8 punto 8): costo promedio por m², lo calcula Contabilidad (M-149). Sin valor no viaja.
+    // Opcional e informativo (v11 puntos 8 y 11): promedio móvil del ERP por m² tras la compra (M-149), en la moneda de la compra.
+    // Solo vidrio en m²; sin valor no viaja.
     decimal? CostoMedioM2 = null);
 
 /// <summary>
