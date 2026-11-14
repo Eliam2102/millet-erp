@@ -23,8 +23,13 @@ public sealed class AwSolicitudesWorkerTests
 
     private sealed class FakeReader(IReadOnlyList<SolicitudAw> pendientes) : IAwSolicitudesReader
     {
-        public Task<IReadOnlyList<SolicitudAw>> LeerPendientesAsync(int max, CancellationToken ct) =>
-            Task.FromResult(pendientes);
+        public int Lecturas { get; private set; }
+
+        public Task<IReadOnlyList<SolicitudAw>> LeerPendientesAsync(int max, CancellationToken ct)
+        {
+            Lecturas++;
+            return Task.FromResult(pendientes);
+        }
 
         public Task<LecturaPedidoAw> LeerDatosPedidoAsync(string numeroPedido, CancellationToken ct) =>
             throw new NotSupportedException();
@@ -150,7 +155,8 @@ public sealed class AwSolicitudesWorkerTests
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(null));
         services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
-        services.AddSingleton<IAwSolicitudesReader>(new FakeReader([new(Guid.NewGuid(), "5001", OperacionAw.Alta, 1, Ahora)]));
+        var reader = new FakeReader([new(Guid.NewGuid(), "5001", OperacionAw.Alta, 1, Ahora)]);
+        services.AddSingleton<IAwSolicitudesReader>(reader);
         services.AddSingleton<IAwNotasCreditoPort>(new FakeNotas(
             [new(Guid.NewGuid(), "NC-7", 1, "AW-1", null, "CLI-1", "Bonificacion", 100m, null, Ahora)]));
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<FakeProcesarHandler>());
@@ -168,5 +174,6 @@ public sealed class AwSolicitudesWorkerTests
 
         FakeProcesarNotaHandler.Procesadas.Should().Contain("NC-7/v1");
         FakeProcesarHandler.Procesados.Should().BeEmpty(); // ningún pedido se ingirió
+        reader.Lecturas.Should().Be(0); // ni siquiera se lee la cola aw_solicitud_pedido
     }
 }
