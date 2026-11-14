@@ -1468,6 +1468,8 @@ export interface ComprobanteDetalleResponse {
   /** P19/P23: quién capturó el comprobante y cuándo. */
   creadoPor?: string | null;
   creadoEn?: string | null;
+  /** H-U40: tipo de cambio del CFDI (null en MXN). */
+  tipoCambio?: number | null;
   receptorNombre: string;
   moneda: string;
   subtotal: number;

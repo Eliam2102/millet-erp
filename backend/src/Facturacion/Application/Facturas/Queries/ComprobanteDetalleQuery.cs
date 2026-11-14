@@ -71,7 +71,9 @@ public sealed record ComprobanteDetalleResponse(
     // M-340: versión de la proforma aprobada de la que viene la factura (el folio PF va en Proforma).
     Guid? ProformaPedidoId = null, string? ClienteClave = null,
     // P19/P23: quién capturó el comprobante y cuándo (metadatos de creación).
-    string? CreadoPor = null, DateTimeOffset? CreadoEn = null);
+    string? CreadoPor = null, DateTimeOffset? CreadoEn = null,
+    // H-U40: tipo de cambio del CFDI (null en MXN), para mostrarlo en el detalle de una factura en moneda extranjera.
+    decimal? TipoCambio = null);
 
 /// <summary>U-1: NC pendiente de timbrar ligada a la factura, con el motivo del PAC.</summary>
 public sealed record NotaCreditoPendienteDetalle(
@@ -285,7 +287,7 @@ public sealed class ComprobanteDetalleHandler
             CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones, ProformaPedidoId: f.ProformaPedidoId,
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
             NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre,
-            ClienteId: clienteId, ClienteClave: cliente?.Clave,
+            ClienteId: clienteId, ClienteClave: cliente?.Clave, TipoCambio: f.TipoCambio,
             SustituidaPor: sustituidaPor, SustituyeA: sustituyeA, SustitucionRechazadaMotivo: sustitucionRechazada,
             NotasCreditoPendientes: ncPendientes,
             CreadoPor: f.CreatedBy, CreadoEn: f.CreatedAt,
