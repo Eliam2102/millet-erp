@@ -701,6 +701,14 @@ function ConceptoFilaCompacta({
       )}
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        {linea.posicionPedido != null && (
+          <span
+            className="font-mono text-xs tabular-nums text-ink-muted"
+            title="Posición de la partida en el pedido"
+          >
+            Pos. {linea.posicionPedido}
+          </span>
+        )}
         <span className="min-w-0 flex-1 basis-48 truncate" title={linea.descripcion}>
           {linea.descripcion || <span className="text-ink-muted">(sin descripción)</span>}
         </span>
