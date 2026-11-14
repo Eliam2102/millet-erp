@@ -235,7 +235,8 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             await new AdjuntarEvidenciaDevolucionAProveedorHandler(db).Handle(
                 new AdjuntarEvidenciaDevolucionAProveedorCommand(dev.DevolucionId, "FOTO", "hojas.jpg", "blob://hojas.jpg", null), default);
             await new SolicitarAutorizacionDevolucionAProveedorHandler(db).Handle(new SolicitarAutorizacionDevolucionAProveedorCommand(dev.DevolucionId), default);
-            await new AutorizarDevolucionAProveedorHandler(db, new UserFake(ctx.UserId)).Handle(new AutorizarDevolucionAProveedorCommand(dev.DevolucionId), default);
+            // DEV_PROV_AUTOAUTORIZACION: autoriza otra persona (Dirección).
+            await new AutorizarDevolucionAProveedorHandler(db, new UserFake(Guid.NewGuid())).Handle(new AutorizarDevolucionAProveedorCommand(dev.DevolucionId), default);
             await new RegistrarSalidaDevolucionAProveedorHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
                 oc, ctx.Periodos, new ConversionM2()).Handle(
                 new RegistrarSalidaDevolucionAProveedorCommand(dev.DevolucionId, ctx.SubDisponibleId, Fecha, [new DevolucionProveedorSalidaLineaBin(lineaDev.Id, ctx.RackId)]), default);

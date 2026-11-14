@@ -331,7 +331,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             tolerancia: tolerancia,
             diferenciaContraOc: Math.Abs(diferencia),
             redondeoAplicado: redondeo,
-            ahora: ahora);
+            ahora: ahora,
+            capturadoPor: _currentUser?.UserId);
 
         if (oc.EsServicioComercioExterior) factura.IdentificarServicioComercioExterior();
 

@@ -144,11 +144,20 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         _bitacora.Add($"Factura estado={fac.GetProperty("estado")} dif={fac.GetProperty("diferenciaContraOc")}");
 
         // ---------- 6. CxP autoriza -> pasivo en Tesoreria ----------
+        // FACTURA_AUTOAUTORIZACION: quien capturó (B) no autoriza; firma otra persona de CxP.
+        using var cxp = await ClienteConPermisosAsync(app, todos);
         var det = await J(await b.GetAsync($"/api/v1/cuentas-por-pagar/facturas/{facturaId}"));
+        using (var propia = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/cuentas-por-pagar/facturas/{facturaId}/autorizar"))
+        {
+            propia.Headers.Add("X-Expected-Version", det.GetProperty("version").GetInt32().ToString());
+            var rechazo = await b.SendAsync(propia);
+            Assert.Equal(System.Net.HttpStatusCode.UnprocessableEntity, rechazo.StatusCode);
+            Assert.Contains("FACTURA_AUTOAUTORIZACION", await rechazo.Content.ReadAsStringAsync());
+        }
         using (var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/cuentas-por-pagar/facturas/{facturaId}/autorizar"))
         {
             req.Headers.Add("X-Expected-Version", det.GetProperty("version").GetInt32().ToString());
-            await Ok(await b.SendAsync(req), "B autoriza factura en CxP");
+            await Ok(await cxp.SendAsync(req), "CxP autoriza factura capturada por B");
         }
         await BombearAsync(app);
         var pasivos = await J(await b.GetAsync($"/api/v1/tesoreria/pasivos-pendientes?proveedorId={Proveedor}"));

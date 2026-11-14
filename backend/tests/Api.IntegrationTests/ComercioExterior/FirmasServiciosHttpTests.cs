@@ -71,6 +71,8 @@ public sealed class FirmasServiciosHttpTests
         using var sinFactura = await Firma(n2, 2); Assert.Equal(HttpStatusCode.UnprocessableEntity, sinFactura.StatusCode);
         Assert.Contains("CE_SERVICIO_SIN_PASIVO", await sinFactura.Content.ReadAsStringAsync());
         using var cxpClient = await e.ClienteAsync(false, extra: [PermisosCanonicos.CuentasPorPagarFacturasCapturar, PermisosCanonicos.CuentasPorPagarFacturasAutorizar, PermisosCanonicos.CuentasPorPagarFacturasCancelar]);
+        // FACTURA_AUTOAUTORIZACION: quien captura la factura no la autoriza.
+        using var cxpAutoriza = await e.ClienteAsync(false, extra: [PermisosCanonicos.CuentasPorPagarFacturasAutorizar]);
         Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaConOc.CapturarFacturaConOcCommand captura;
         using (var scope = e.Scope())
         {
@@ -92,7 +94,7 @@ public sealed class FirmasServiciosHttpTests
             using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/cuentas-por-pagar/facturas/{f.Id}/autorizar");
             request.Headers.Add("X-Expected-Version", f.Version.ToString());
             request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
-            return await cxpClient.SendAsync(request);
+            return await cxpAutoriza.SendAsync(request);
         }
         using var sinSegunda = await Liberar();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, sinSegunda.StatusCode);

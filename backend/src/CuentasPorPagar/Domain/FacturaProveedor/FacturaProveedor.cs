@@ -97,6 +97,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     public decimal? TipoCambioCatalogo { get; private set; }
     /// <summary>M-080: quién confirmó el TC capturado fuera de tolerancia.</summary>
     public Guid? TipoCambioAutorizadoPor { get; private set; }
+    /// <summary>Quién capturó la factura con OC; no puede autorizarla (FACTURA_AUTOAUTORIZACION). Null en facturas generadas por el sistema.</summary>
+    public Guid? CapturadoPor { get; private set; }
 
     public void RegistrarTipoCambioConfirmado(decimal catalogo, Guid autorizadoPor)
     {
@@ -347,7 +349,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Tolerancia tolerancia,
         decimal diferenciaContraOc,
         decimal redondeoAplicado,
-        DateTimeOffset ahora)
+        DateTimeOffset ahora,
+        Guid? capturadoPor = null)
     {
         if (total <= 0)
             throw new BusinessRuleException("FACTURA_TOTAL_INVALIDO", "El total de la factura debe ser > 0.");
@@ -383,9 +386,10 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
             diferenciaContraOc: Math.Abs(diferenciaContraOc),
             redondeoAplicado: redondeoAplicado,
             estadoInicial: EstadoPasivo.Capturada);
+        factura.CapturadoPor = capturadoPor;
 
         factura.RegistrarTransicion(EstadoPasivo.Capturada, EstadoPasivo.Capturada, ahora,
-            $"Factura capturada con OC {ordenCompraId}", usuarioId: null);
+            $"Factura capturada con OC {ordenCompraId}", usuarioId: capturadoPor);
 
         return factura;
     }
@@ -781,6 +785,9 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Solo facturas en Capturada o EnRevision pueden autorizarse (actual: {Estado}).");
         }
 
+        // Segregación de funciones (misma regla que OC_AUTOAUTORIZACION).
+        if (CapturadoPor is not null && usuarioId == CapturadoPor)
+            throw new BusinessRuleException("FACTURA_AUTOAUTORIZACION", "Quien capturó la factura no puede autorizarla.");
         if (EnRevision && MotivoRevisionId == MotivoFaltaReppId && !ReppRecibido)
             throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra los complementos pendientes en Tesorería antes de volver a autorizar.");
         if (AlertaRetenciones is not null && RetencionesRevisadasEn is null)

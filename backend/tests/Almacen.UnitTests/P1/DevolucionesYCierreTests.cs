@@ -49,7 +49,7 @@ public sealed class DevolucionesYCierreTests
         dev.Lineas.Single().CostoUnitarioMxn.Should().Be(25);
         await Error(() => h.Handle(cmd, default), "DEVOLUCION_EXCEDE_RECEPCION");
         dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
-        dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
+        dev.SolicitarAutorizacion(); dev.Autorizar(Guid.NewGuid()); // DEV_PROV_AUTOAUTORIZACION: autoriza otra persona
         await f.Db.SaveChangesAsync();
         await new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true), new P7Support.Conversion())
             .Handle(new(result.DevolucionId, f.SubId, P1Fixture.Fecha, [new(dev.Lineas.Single().Id, f.BinId)]), default);
@@ -70,7 +70,7 @@ public sealed class DevolucionesYCierreTests
         var result = await h.Handle(cmd, default);
         var dev = await f.Db.Set<DevolucionAProveedor>().Include(d => d.Lineas).SingleAsync();
         dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
-        dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
+        dev.SolicitarAutorizacion(); dev.Autorizar(Guid.NewGuid()); // DEV_PROV_AUTOAUTORIZACION: autoriza otra persona
         await f.Db.SaveChangesAsync();
         await new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true), new P7Support.Conversion())
             .Handle(new(result.DevolucionId, f.SubId, P1Fixture.Fecha, [new(dev.Lineas.Single().Id, f.BinId)]), default);
@@ -89,7 +89,7 @@ public sealed class DevolucionesYCierreTests
         var result = await h.Handle(cmd, default);
         var dev = await f.Db.Set<DevolucionAProveedor>().Include(d => d.Lineas).SingleAsync();
         dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
-        dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
+        dev.SolicitarAutorizacion(); dev.Autorizar(Guid.NewGuid()); // DEV_PROV_AUTOAUTORIZACION: autoriza otra persona
         await f.Db.SaveChangesAsync();
         var almacenB = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), "P1B", "Almacén P1B", Guid.NewGuid());
         var subB = Guid.NewGuid();
@@ -114,7 +114,7 @@ public sealed class DevolucionesYCierreTests
         var result = await h.Handle(cmd, default);
         var dev = await f.Db.Set<DevolucionAProveedor>().Include(d => d.Lineas).SingleAsync();
         dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
-        dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
+        dev.SolicitarAutorizacion(); dev.Autorizar(Guid.NewGuid()); // DEV_PROV_AUTOAUTORIZACION: autoriza otra persona
         await f.Db.SaveChangesAsync();
         var almacenId = (await f.Db.SubAlmacenes.SingleAsync(s => s.Id == f.SubId)).AlmacenId;
         var subB = Guid.NewGuid();

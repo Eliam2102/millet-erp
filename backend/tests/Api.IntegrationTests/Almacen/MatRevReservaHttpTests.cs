@@ -220,7 +220,11 @@ public class MatRevReservaHttpTests : IClassFixture<WebApplicationFactory<Progra
                 Assert.Equal(2m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId));
 
                 // Autorizada y con salida física registrada: otra hoja libre de MAT-REV sí se da de baja.
-                using var autoriza = await admin.PostAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}/autorizar", null);
+                // DEV_PROV_AUTOAUTORIZACION: quien dictaminó (admin) no autoriza; firma Dirección.
+                var direccion = await ContabTestKit.ClienteConPermisosAsync(_factory,
+                    PermisosCanonicos.AlmacenDevolucionesProveedorAutorizar, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales);
+                using var autoriza = await direccion.PostAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}/autorizar", null);
+                await ContabTestKit.LimpiarClienteAsync(direccion);
                 Assert.True(autoriza.StatusCode == HttpStatusCode.NoContent, await autoriza.Content.ReadAsStringAsync());
                 var dev = await ContabTestKit.Json(await admin.GetAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}"));
                 var lineaDevolucionId = dev.GetProperty("lineas").EnumerateArray().Single().GetProperty("id").GetGuid();

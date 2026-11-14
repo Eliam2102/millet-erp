@@ -60,6 +60,21 @@ public class DevolucionAProveedorTests
     }
 
     [Fact]
+    public void Autorizar_por_quien_solicito_falla_y_no_cambia_estado()
+    {
+        var d = NuevaDev();
+        AgregarLinea(d);
+        AgregarEvidencia(d);
+        d.SolicitarAutorizacion();
+
+        var act = () => d.Autorizar(d.SolicitadaPor);
+        act.Should().Throw<BusinessRuleException>()
+            .Which.Code.Should().Be("DEV_PROV_AUTOAUTORIZACION");
+        d.Estado.Should().Be(EstadoDevolucionProveedor.EnAutorizacion);
+        d.AutorizadaPor.Should().BeNull();
+    }
+
+    [Fact]
     public void Autorizar_con_evidencia_pasa_a_autorizada()
     {
         var d = NuevaDev();

@@ -161,7 +161,7 @@ public class RecepcionOcGuardPendienteTests
         }
         else
         {
-            dev.Autorizar(UserId);
+            dev.Autorizar(Guid.NewGuid()); // DEV_PROV_AUTOAUTORIZACION: autoriza otra persona
             dev.MarcarRegistrada(Guid.NewGuid(), "DEV-F5-1");
         }
         db.DevolucionesProveedor.Add(dev);
