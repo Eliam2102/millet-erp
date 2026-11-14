@@ -34,7 +34,7 @@ public static class AlmacenesAppEntrada
             return (null, $"datos.lineas debe traer de 1 a {MaxLineas} líneas.");
 
         var items = new List<(string Articulo, decimal? Ancho, decimal? Alto, decimal Piezas, decimal? M2, string? Lote, string Ruta,
-            LlaveAlmacenApp? Almacen)>();
+            LlaveAlmacenApp? Almacen, string? Requisicion, int? Posicion)>();
         decimal total = 0;
         var i = 0;
         foreach (var l in lineas.EnumerateArray())
@@ -46,6 +46,9 @@ public static class AlmacenesAppEntrada
             if (!TryNumero(l, "reclamadas", out var reclamadas) || reclamadas is < 0 || reclamadas > piezasLinea)
                 return (null, $"{pl}.reclamadas debe estar entre cero y las piezas de la línea.");
             var articuloLinea = ArticuloAw(l, out _);
+            // v11: requisicion + posicion identifican la línea de la compra cuando hay dos iguales de RQ distintas.
+            var requisicion = Texto(l, "requisicion")?.Trim() is { Length: > 0 } rqFolio ? rqFolio : null;
+            int? posicion = TryNumero(l, "posicion", out var pos) && pos is > 0 && pos == decimal.Truncate(pos.Value) ? (int)pos.Value : null;
 
             var grupos = new List<(JsonElement G, string Ruta, LlaveAlmacenApp? Almacen)>();
             if (l.TryGetProperty("almacenes", out var almacenes) && almacenes.ValueKind == JsonValueKind.Array && almacenes.GetArrayLength() > 0)
@@ -81,7 +84,7 @@ public static class AlmacenesAppEntrada
                     || ancho is <= 0 || alto is <= 0 || (ancho is null) != (alto is null))
                     return (null, $"{p}.ancho y {p}.alto deben venir juntos y ser mayores que cero, o no venir.");
                 if (!TryNumero(g, "m2", out var m2) || m2 is <= 0) return (null, $"{p}.m2 debe ser numérico y mayor que cero.");
-                items.Add((articulo.Trim(), ancho, alto, piezas.Value, m2, Texto(g, "lote"), p, llave));
+                items.Add((articulo.Trim(), ancho, alto, piezas.Value, m2, Texto(g, "lote"), p, llave, requisicion, posicion));
                 sumaLinea += piezas.Value;
             }
             if (sumaLinea != piezasLinea)
@@ -108,7 +111,8 @@ public static class AlmacenesAppEntrada
             var cantidad = x.Piezas * (r.AreaHojaM2 ?? 1m);
             if (r.AreaHojaM2 is not null && x.M2 is { } m2 && Math.Abs(m2 - cantidad) > 0.0001m + x.Piezas * 0.00005m)
                 return (null, $"{x.Ruta}.m2 ({m2:0.####}) no coincide con piezas × área de la hoja ({cantidad:0.####}).");
-            entradas.Add(new EntradaApp(r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId, cantidad, r.AnchoMm, r.AltoMm, x.Lote, x.Almacen));
+            entradas.Add(new EntradaApp(r.ArticuloId, r.UnidadMedida, r.ProductoAwVarianteId, cantidad, r.AnchoMm, r.AltoMm, x.Lote, x.Almacen,
+                Requisicion: x.Requisicion, Posicion: x.Posicion));
         }
 
         var entrada = Texto(datos, "entrada")?.Trim() is { Length: > 0 } en ? en : null;

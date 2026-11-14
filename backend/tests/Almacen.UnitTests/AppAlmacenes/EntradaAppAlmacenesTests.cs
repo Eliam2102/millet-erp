@@ -185,6 +185,32 @@ public class EntradaAppAlmacenesTests
     }
 
     [Fact]
+    public async Task Contra_OC_con_dos_lineas_iguales_toma_la_de_su_requisicion_y_posicion_v11()
+    {
+        var (db, _, _) = Db();
+        var otraLinea = Guid.NewGuid();
+        // Dos líneas con el mismo artículo y medida, de dos RQ de la app; la primera también tiene pendiente.
+        var oc = Oc() with
+        {
+            Lineas =
+            [
+                new OcLineaLectura(LineaOc, Articulo, "M2", 201.422m, 0m, 285.40m, ProductoAwVarianteId: Variante, AnchoMm: 3302m, AltoMm: 6100m,
+                    RequisicionApp: "RQ-00000001", PosicionApp: 1),
+                new OcLineaLectura(otraLinea, Articulo, "M2", 201.422m, 0m, 300m, ProductoAwVarianteId: Variante, AnchoMm: 3302m, AltoMm: 6100m,
+                    RequisicionApp: "RQ-00000002", PosicionApp: 3),
+            ],
+        };
+
+        var (estado, _, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(oc), EmpresaId, Usuario, Sucursal, "m", FolioOc, "EN-8",
+            [Hojas(2) with { Requisicion = "RQ-00000002", Posicion = 3 }], default);
+        await db.SaveChangesAsync();
+
+        (estado, error).Should().Be((SalidaAppAlmacenes.Recibido, (string?)null));
+        var linea = (await db.Movimientos.Include(m => m.Lineas).SingleAsync()).Lineas.Single();
+        (linea.LineaOcId, linea.CostoUnitarioMxn).Should().Be(((Guid?)otraLinea, 300m));
+    }
+
+    [Fact]
     public async Task Contra_OC_la_misma_entrada_otra_vez_es_DUPLICADO_sin_segunda_recepcion()
     {
         var (db, _, _) = Db();

@@ -10,6 +10,7 @@ import { useEmisorDefaults } from '@/features/facturacion/api/useFacturas';
 import { EmisorInfoBar } from '@/features/facturacion/components/EmisorInfoBar';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { OperadorPicker } from '@/features/facturacion/components/OperadorPicker';
+import { RetencionServicioCampos } from '@/features/facturacion/components/RetencionServicioCampos';
 import {
   ReceptorFiscalInfo,
   ReceptorIncompletoBanner,
@@ -88,6 +89,7 @@ const VALORES_INICIALES: CartaPorteValues = {
   fechaLlegadaEstimada: hoyLocalISO(),
   montoServicio: 0,
   tasaIvaServicio: 0.16,
+  conceptoRetencion: null,
   mercancias: [defaultMercancia()],
 };
 
@@ -235,6 +237,7 @@ function FormInner({
           fechaLlegadaEstimada: `${values.fechaLlegadaEstimada}T18:00:00Z`,
           montoServicio: values.montoServicio,
           tasaIvaServicio: values.tasaIvaServicio,
+          conceptoRetencion: values.tipoCfdi === 'I' ? (values.conceptoRetencion ?? null) : null,
           mercancias: values.mercancias,
         },
         idempotencyKey,
@@ -496,6 +499,7 @@ function FormInner({
               {...form.register('tasaIvaServicio', { setValueAs: numeroONull })}
             />
           </Campo>
+          <RetencionServicioCampos control={form.control} setValue={form.setValue} />
         </Seccion>
 
         <section className="space-y-2">

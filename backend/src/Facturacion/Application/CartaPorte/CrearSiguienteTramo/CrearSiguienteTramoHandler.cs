@@ -86,7 +86,8 @@ public sealed class CrearSiguienteTramoHandler : IRequestHandler<CrearSiguienteT
             command.Origen, command.Destino, command.DistanciaKm, command.VehiculoId, command.OperadorId,
             cartaPortePreviaId: previa.Id, previa.PedidoFacturableId, command.FechaSalida, command.FechaLlegadaEstimada,
             command.MontoServicio, command.TasaIvaServicio,
-            command.OrigenCodigoPostal, command.OrigenEstado, command.DestinoCodigoPostal, command.DestinoEstado);
+            command.OrigenCodigoPostal, command.OrigenEstado, command.DestinoCodigoPostal, command.DestinoEstado,
+            command.ConceptoRetencion, command.TasaRetencionIva);
 
         // Hereda las mercancías de la previa (misma carga, nuevo tramo).
         foreach (var m in previa.Mercancias)

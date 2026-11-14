@@ -51,6 +51,8 @@ export const CartaPorteSchema = z.object({
   // Tipo I: servicio facturado
   montoServicio: z.number().min(0, 'El monto no puede ser negativo'),
   tasaIvaServicio: z.number().min(0).max(1).nullable(),
+  // P51: retención de IVA del cliente sobre el flete (solo tipo I).
+  conceptoRetencion: z.string().nullable().optional(),
   mercancias: z.array(CartaPorteMercanciaSchema).min(1, 'Agrega al menos una mercancía'),
 });
 
@@ -82,6 +84,8 @@ export const SiguienteTramoSchema = z.object({
   fechaLlegadaEstimada: z.string().min(1, 'Fecha de llegada requerida'),
   montoServicio: z.number().min(0, 'El monto no puede ser negativo'),
   tasaIvaServicio: z.number().min(0).max(1).nullable(),
+  // P51: retención de IVA del cliente sobre el flete (solo tipo I).
+  conceptoRetencion: z.string().nullable().optional(),
 });
 
 export type SiguienteTramoValues = z.infer<typeof SiguienteTramoSchema>;

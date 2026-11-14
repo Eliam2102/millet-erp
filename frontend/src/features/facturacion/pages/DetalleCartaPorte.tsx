@@ -21,6 +21,7 @@ import {
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { OperadorPicker } from '@/features/facturacion/components/OperadorPicker';
+import { RetencionServicioCampos } from '@/features/facturacion/components/RetencionServicioCampos';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { VehiculoPicker } from '@/features/facturacion/components/VehiculoPicker';
@@ -179,6 +180,9 @@ function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['dat
         <Dato label="Llegada estimada">
           {new Date(c.fechaLlegadaEstimada).toLocaleString('es-MX')}
         </Dato>
+        {(c.retenciones ?? 0) > 0 && (
+          <Dato label="Retención IVA">{`− ${(c.retenciones ?? 0).toFixed(2)}`}</Dato>
+        )}
         {c.total > 0 && <Dato label="Total">{c.total.toFixed(2)}</Dato>}
       </dl>
 
@@ -277,6 +281,7 @@ function SiguienteTramoForm({
       fechaLlegadaEstimada: hoyLocalISO(),
       montoServicio: 0,
       tasaIvaServicio: 0.16,
+      conceptoRetencion: null,
     },
   });
 
@@ -300,6 +305,7 @@ function SiguienteTramoForm({
           fechaLlegadaEstimada: `${values.fechaLlegadaEstimada}T18:00:00Z`,
           montoServicio: values.montoServicio,
           tasaIvaServicio: values.tasaIvaServicio,
+          conceptoRetencion: values.tipoCfdi === 'I' ? (values.conceptoRetencion ?? null) : null,
         },
         idempotencyKey,
       },
@@ -451,6 +457,9 @@ function SiguienteTramoForm({
             {...form.register('montoServicio', { valueAsNumber: true })}
           />
         </CampoCp>
+        <div className="grid grid-cols-12 gap-2 sm:col-span-3">
+          <RetencionServicioCampos control={form.control} setValue={form.setValue} />
+        </div>
       </div>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onDone} disabled={crear.isPending}>
