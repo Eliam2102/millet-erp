@@ -199,4 +199,21 @@ public sealed class RedondeoPagoProveedorM326Tests
         movimientos.Sum(m => m.Monto).Should().Be(1999.20m, "el contramovimiento es por el efectivo (999.60), no por lo aplicado");
         (await db.PasivosPendientesPago.SingleAsync()).SaldoPendiente.Should().Be(1000m);
     }
+
+    [Fact]
+    public async Task El_pago_lleva_la_cuenta_contable_de_la_cuenta_bancaria_de_Millet_y_sin_ella_no_se_inventa()
+    {
+        var (db, cuenta, pasivo) = Escenario(); await using var _ = db;
+        var conCuenta = new CuentaBancaria(EmpresaId, "Santander", "9876543210", null, "MXN", "102.01.01.01");
+        var otroPasivo = new PasivoPendientePago(EmpresaId, Guid.NewGuid(), pasivo.ProveedorId, null, 500m, 500m, "MXN", null,
+            new DateOnly(2026, 12, 1), null, "F-2", Ahora, "PUE");
+        db.CuentasBancarias.Add(conCuenta); db.PasivosPendientesPago.Add(otroPasivo); await db.SaveChangesAsync();
+        var eventos = new Captura();
+
+        await Pago(db, eventos).Handle(Cmd(conCuenta, otroPasivo, 500m, 0m, "SPEI-B8"), default);
+        await Pago(db, eventos).Handle(Cmd(cuenta, pasivo, 1000m, 0m, "SPEI-B8-SIN"), default);
+
+        eventos.Eventos.OfType<PagoFacturaProveedorAplicadoIntegrationEvent>().Select(e => e.CuentaContableRef)
+            .Should().Equal("102.01.01.01", null);
+    }
 }

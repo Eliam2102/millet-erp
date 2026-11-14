@@ -337,7 +337,10 @@ public static partial class NormalizadorEventos
 
     // ---------------------------------------------------------------- Tesorería
 
-    /// <summary>#5 PP: cargo PROVEEDORES · abono BANCOS. Proveedor y sucursal: de la póliza TT de la factura (enriquecedor).</summary>
+    /// <summary>
+    /// #5 PP: cargo PROVEEDORES · abono BANCOS. Proveedor y sucursal: de la póliza TT de la factura (enriquecedor). B8: el abono va a la
+    /// cuenta contable de la cuenta bancaria del pago (Tesorería la manda); sin dato, al rol BANCOS.
+    /// </summary>
     private static EventoContable PagoProveedor(Guid eventoId, string payload)
     {
         var p = Leer<PagoProveedorContrato>(payload);
@@ -345,7 +348,7 @@ public static partial class NormalizadorEventos
             return new(PagoAnticipoAgente, eventoId, p.EmpresaId, p.FechaPago, Doc(DocPagoProveedor, p.PagoId, p.ReferenciaBancaria),
                 p.SucursalId, p.ProveedorId, null, null, null, MonedaDe(p.Moneda), p.TipoCambio,
                 new Dictionary<string, decimal?> { ["Total"] = p.Monto }, [], payload,
-                LlaveOverride: $"{PagoAnticipoAgente}:{p.PagoId}");
+                LlaveOverride: $"{PagoAnticipoAgente}:{p.PagoId}", CuentaPorRol: CuentaBanco(p.CuentaContableRef));
         return new(PagoProveedorAplicado, eventoId, p.EmpresaId, p.FechaPago, Doc(DocPagoProveedor, p.PagoId, p.ReferenciaBancaria),
             null, null, null, null, null, MonedaDe(p.Moneda), p.TipoCambio,
             // M-326 (b): Total = lo que liquida del pasivo (efectivo + redondeo); el banco sale solo por el efectivo y la diferencia
@@ -354,7 +357,7 @@ public static partial class NormalizadorEventos
             {
                 ["Total"] = p.Monto, ["EfectivoPagado"] = p.Monto - p.Redondeo,
                 ["RedondeoAbono"] = Math.Max(0m, p.Redondeo), ["RedondeoCargo"] = Math.Max(0m, -p.Redondeo),
-            }, [], payload, FacturaOrigenId: p.FacturaProveedorId);
+            }, [], payload, FacturaOrigenId: p.FacturaProveedorId, CuentaPorRol: CuentaBanco(p.CuentaContableRef));
     }
 
     /// <summary>
@@ -567,7 +570,8 @@ public static partial class NormalizadorEventos
         decimal? Perdida, decimal? Utilidad);
 
     private sealed record PagoProveedorContrato(Guid EmpresaId, Guid FacturaProveedorId, Guid PagoId, decimal Monto, string? Moneda,
-        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio, bool EsAnticipoAgente = false, Guid? SucursalId = null, Guid? ProveedorId = null, decimal Redondeo = 0m);
+        DateOnly FechaPago, string? ReferenciaBancaria, decimal? TipoCambio, bool EsAnticipoAgente = false, Guid? SucursalId = null, Guid? ProveedorId = null, decimal Redondeo = 0m,
+        string? CuentaContableRef = null);
 
     private sealed record PagoRevertidoContrato(Guid PagoOriginalId, string? Motivo);
 

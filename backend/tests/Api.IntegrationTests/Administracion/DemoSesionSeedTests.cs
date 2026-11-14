@@ -334,6 +334,9 @@ public sealed partial class DemoSesionSeedTests
         Assert.Empty(codigosRoles.Except(sembradas));
         Assert.Equal(7 + 3 + codigosRoles.Except(reutilizadasDelCatalogo).Count(),
             await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        // M-326: el rol REDONDEO (sin cuenta desde su migración) queda con la cuenta de ensayo; una TT con centavos ya no cae en «Sin cuenta».
+        var redondeo = await contabilidad.RolesCuenta.SingleAsync(r => r.Codigo == "REDONDEO" && r.SucursalId == null && r.Moneda == null);
+        Assert.Equal("990.34.00.00", await contabilidad.Cuentas.Where(c => c.Id == redondeo.CuentaId).Select(c => c.Codigo).SingleAsync());
         // K10.5: OC-DEMO-K105-01..04 en la puente; saldadas 01 y 04, deudora 02 (+5,000) y acreedora 03 (−3,000). Requiere la migración K105MovimientosPuente.
         var puente = await contabilidad.MovimientosPuente.ToListAsync();
         Assert.Equal(4, puente.Select(m => m.OrdenCompraFolio).Distinct().Count());

@@ -47,7 +47,8 @@ public sealed partial class DemoSesionSeedHostedService
         // PCV: costo de ventas de la entrega de PT (cuentas por operación: 501.01.00.00 y 115.04.00.00 cuando Contabilidad las mapee).
         ("990.31.00.00", "DEMO Costo de ventas", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["COSTO_DE_VENTAS"]),
         ("990.32.00.00", "DEMO Inventario de producto terminado", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["INVENTARIO_PT"]),
-        // 86e3zcbjx: redondeo de hasta $0.01 de la factura del banco de la terminal (real: 703.21.00.00).
+        // 86e3zcbjx y M-326: redondeo de la terminal, de cobros, pagos y la TT de proveedor (hasta $0.99). Cuenta de ensayo hasta que
+        // Millet confirme la real (sugerida 703.21.00.00, que no está en el catálogo DEMO); este sembrador solo corre en Development.
         ("990.34.00.00", "DEMO Redondeo", NaturalezaCuenta.Deudora, CuentaControl.Ninguna, ["REDONDEO"]),
     ];
 

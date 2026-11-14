@@ -50,6 +50,11 @@ public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     public decimal? TipoCambioPago { get; init; }
     /// <summary>M-326 (b, aditivo): redondeo autorizado (±≤0.99) incluido en <c>Monto</c>; el efectivo pagado es <c>Monto − Redondeo</c>. 0 si no hubo.</summary>
     public decimal Redondeo { get; init; }
+    /// <summary>
+    /// B8 (aditivo): código de la cuenta contable de la cuenta bancaria de Millet de la que salió el pago (<c>CuentaContableRef</c>).
+    /// Contabilidad abona ahí en la PP en lugar de la cuenta única del rol BANCOS; null si la cuenta bancaria no la tiene capturada.
+    /// </summary>
+    public string? CuentaContableRef { get; init; }
     public const string WireEventType = "tesoreria.pago-factura-proveedor.aplicado.v1";
 }
 
@@ -265,6 +270,8 @@ public sealed record MovimientoBancarioRegistradoIntegrationEvent(
     Guid? CentroCostoId = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
+    /// <summary>B8 (aditivo): cuenta contable de la cuenta bancaria del movimiento; null si no la tiene capturada.</summary>
+    public string? CuentaContableRef { get; init; }
     public const string WireEventType = "tesoreria.movimiento-bancario.registrado.v1";
 }
 

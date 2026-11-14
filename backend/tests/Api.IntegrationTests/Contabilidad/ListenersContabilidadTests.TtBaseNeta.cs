@@ -51,4 +51,30 @@ public sealed partial class ListenersContabilidadTests
         }
         finally { await LimpiarAsync(e); }
     }
+
+    [Fact]
+    public async Task PP_el_pago_SPEI_abona_a_la_cuenta_contable_de_su_cuenta_bancaria_y_no_a_la_del_rol_BANCOS()
+    {
+        Escenario? e = null;
+        try
+        {
+            e = await PrepararAsync();
+            var factura = Guid.NewGuid();
+            var pago = Guid.NewGuid();
+            await Cxp(new FacturaProveedorRegistradaIntegrationEvent(EmpresaBootstrapId, Ahora, factura, Guid.NewGuid(), 1_160m,
+                [new LineaFacturadaPayload(Guid.NewGuid(), Guid.NewGuid(), 1m, 1_000m, ValorCapitalizable: 1_000m)], [],
+                ProveedorId: e.Proveedor, Subtotal: 1_000m, Iva: 160m, RetencionesTotal: 0m, Moneda: "MXN", SucursalId: e.Sucursal));
+
+            // B8: Tesorería manda la cuenta contable de la cuenta bancaria de Millet de la que salió el SPEI (aquí, la del rol BANCOS_MN).
+            var eventoPago = await Tesoreria(new PagoFacturaProveedorAplicadoIntegrationEvent(EmpresaBootstrapId, Ahora, factura, pago, 1_160m,
+                "MXN", Hoy(), "Transferencia", "SPEI-B8") { CuentaContableRef = Codigo(e.Suf, "1.4") });
+
+            (await RechazoAsync(eventoPago)).Should().BeNull("la cuenta de bancos viene en el evento");
+            var pp = (await PolizasAsync(pago)).Should().ContainSingle().Subject;
+            pp.TipoClave.Should().Be("PP");
+            Saldo(pp.Partidas, e.Cuentas["BANCOS_MN"]).Should().Be(-1_160m);
+            pp.Partidas.Should().NotContain(x => x.CuentaId == e.Cuentas["BANCOS"]);
+        }
+        finally { await LimpiarAsync(e); }
+    }
 }

@@ -341,7 +341,8 @@ public sealed class RegistrarPagoProveedorHandler
                     CuentaBancariaId: movimiento.CuentaBancariaId,
                     TipoCambio: pasivo.TipoCambio) { EsAnticipoAgente = pasivo.OrigenTipo == "AnticipoAgente",
                         SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId,
-                        TipoCambioPago = tipoCambioPago, Redondeo = item.Redondeo }, cancellationToken);
+                        TipoCambioPago = tipoCambioPago, Redondeo = item.Redondeo,
+                        CuentaContableRef = cuenta.CuentaContableRef }, cancellationToken);
             }
         }
 

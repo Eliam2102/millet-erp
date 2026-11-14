@@ -91,7 +91,8 @@ public static partial class NormalizadorEventos
         var doc = Doc(DocMovimientoBancario, m.MovimientoBancarioId, m.ReferenciaBancaria);
         if (m.MovimientoBaseId is not null)
             return new(MovimientoBancarioRegistrado, eventoId, m.EmpresaId, m.FechaValor, doc, m.SucursalId, null, null, null, null,
-                MonedaDe(m.Moneda), null, new Dictionary<string, decimal?> { ["Total"] = 0m, ["Iva"] = 0m }, [], payload);
+                MonedaDe(m.Moneda), null, new Dictionary<string, decimal?> { ["Total"] = 0m, ["Iva"] = 0m }, [], payload,
+                CuentaPorRol: CuentaBanco(m.CuentaContableRef));
 
         var signo = string.Equals(m.Sentido, SentidoEgreso, StringComparison.OrdinalIgnoreCase) ? 1m : -1m;
         var iva = m.Iva ?? 0m;
@@ -100,7 +101,8 @@ public static partial class NormalizadorEventos
         return new(MovimientoBancarioRegistrado, eventoId, m.EmpresaId, m.FechaValor, doc, m.SucursalId, null, null, m.CentroCostoId, null,
             MonedaDe(m.Moneda), null,
             new Dictionary<string, decimal?> { ["Base"] = signo * m.Monto, ["Iva"] = signo * iva, ["Total"] = signo * (m.Monto + iva) },
-            [new LineaEventoContable(null, signo * m.Monto, null, false, Clasificador: concepto)], payload);
+            [new LineaEventoContable(null, signo * m.Monto, null, false, Clasificador: concepto)], payload,
+            CuentaPorRol: CuentaBanco(m.CuentaContableRef));
     }
 
     /// <summary>
@@ -132,7 +134,7 @@ public static partial class NormalizadorEventos
     private sealed record MovimientoBancarioContrato(Guid EmpresaId, Guid MovimientoBancarioId,
         [property: System.Text.Json.Serialization.JsonConverter(typeof(SentidoJsonConverter))] string? Sentido,
         decimal Monto, string? Moneda, DateOnly FechaValor, string? ReferenciaBancaria, string? ConceptoNombre, decimal? Iva, Guid? SucursalId,
-        Guid? MovimientoBaseId, Guid? CentroCostoId = null);
+        Guid? MovimientoBaseId, Guid? CentroCostoId = null, string? CuentaContableRef = null);
 
     private sealed record ReembolsoContrato(Guid EmpresaId, DateTimeOffset OcurridoEn, Guid DevolucionId, string? DevolucionFolio,
         Guid NotaCreditoId, string? Estado, decimal Importe, string? Moneda, DateOnly? FechaPago);
