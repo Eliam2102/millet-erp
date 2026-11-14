@@ -336,6 +336,15 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
               <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>
             </Dato>
             <Dato label="Moneda">{f.moneda}</Dato>
+            {f.moneda.toUpperCase() !== 'MXN' && (
+              <Dato label="Tipo de cambio">
+                {f.tipoCambio != null ? (
+                  <span className="tabular-nums">{f.tipoCambio.toFixed(4)}</span>
+                ) : (
+                  <span className="text-ink-muted">Sin tipo de cambio</span>
+                )}
+              </Dato>
+            )}
             <Dato label="Método de pago">{f.metodoPago ?? <span className="text-ink-muted">Sin método de pago</span>}</Dato>
             <Dato label="Fecha de timbrado">
               <DateTimeDisplay value={f.fechaTimbrado} variant="datetime" />
