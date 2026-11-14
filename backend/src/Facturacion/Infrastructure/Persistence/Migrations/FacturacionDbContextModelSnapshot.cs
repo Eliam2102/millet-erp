@@ -5447,6 +5447,12 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("descripcion");
 
+                    b.Property<bool>("OrigenExterno")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("origen_externo");
+
                     b.Property<Guid?>("PedidoFacturableId")
                         .HasColumnType("uuid")
                         .HasColumnName("pedido_facturable_id");

@@ -222,6 +222,36 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
         Estado = EstadoTimbrado.Borrador;
     }
 
+    /// <summary>
+    /// P45: el CFDI se timbró fuera del ERP (SAP/A+W) y solo se registró aquí para usar su saldo.
+    /// El ERP nunca lo timbra, cancela ni reenvía.
+    /// </summary>
+    public virtual bool EsOrigenExterno => false;
+
+    private void ExigirNoExterno(string operacion)
+    {
+        if (EsOrigenExterno)
+            throw new BusinessRuleException("COMPROBANTE_EXTERNO",
+                $"El comprobante {Folio} se timbró fuera del ERP; no se puede {operacion} desde el ERP.");
+    }
+
+    /// <summary>
+    /// P45: registra el timbre de un CFDI emitido fuera del ERP. Pasa de Borrador a Timbrado sin PAC; solo para
+    /// comprobantes de origen externo.
+    /// </summary>
+    protected void RegistrarTimbreExterno(string uuid, DateTimeOffset fechaTimbrado)
+    {
+        if (!EsOrigenExterno)
+            throw new BusinessRuleException("COMPROBANTE_NO_EXTERNO", "Solo un comprobante de origen externo registra un timbre sin PAC.");
+        if (Estado != EstadoTimbrado.Borrador)
+            throw new BusinessRuleException("COMPROBANTE_NO_TIMBRABLE", $"El comprobante ya está en {Estado}.");
+        if (string.IsNullOrWhiteSpace(uuid))
+            throw new BusinessRuleException("COMPROBANTE_UUID_INVALIDO", "El UUID del timbre es obligatorio.");
+        Estado = EstadoTimbrado.Timbrado;
+        Uuid = uuid;
+        FechaTimbrado = fechaTimbrado;
+    }
+
     /// <summary>Nace en <see cref="EstadoTimbrado.PorAutorizar"/> (nota de crédito de A+W); la subclase lo invoca al crearse.</summary>
     protected void EsperarAutorizacion() => Estado = EstadoTimbrado.PorAutorizar;
 
@@ -250,6 +280,7 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// </summary>
     public void MarcarTimbradoEnProceso()
     {
+        ExigirNoExterno("timbrar");
         if (Estado != EstadoTimbrado.Borrador)
             throw new BusinessRuleException(
                 "COMPROBANTE_NO_TIMBRABLE",
@@ -322,6 +353,7 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// </summary>
     public void ReabrirParaReintentoTimbrado()
     {
+        ExigirNoExterno("re-timbrar");
         if (Estado != EstadoTimbrado.TimbradoFallido)
             throw new BusinessRuleException(
                 "COMPROBANTE_NO_REINTENTABLE",
@@ -370,7 +402,11 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
         texto is null || texto.Length <= maximo ? texto : texto[..maximo];
 
     /// <summary>Marca el CFDI como enviado por correo al cliente. Idempotente.</summary>
-    public void MarcarEnviadoCorreo() => EnviadoCorreo = true;
+    public void MarcarEnviadoCorreo()
+    {
+        ExigirNoExterno("reenviar por correo");
+        EnviadoCorreo = true;
+    }
 
     /// <summary>
     /// F6.7: guarda el resultado de la consulta de estatus al SAT. No mueve el
@@ -514,6 +550,7 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// </summary>
     public void MarcarCancelacionPendiente()
     {
+        ExigirNoExterno("cancelar");
         if (Estado != EstadoTimbrado.Timbrado)
             throw new BusinessRuleException(
                 "COMPROBANTE_NO_CANCELABLE",

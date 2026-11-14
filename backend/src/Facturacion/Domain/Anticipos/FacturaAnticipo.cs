@@ -51,6 +51,11 @@ public sealed class FacturaAnticipo : Comprobante
             ? Math.Round(ImpuestosTrasladados / Subtotal, 2, MidpointRounding.AwayFromZero)
             : null);
 
+    /// <summary>P45: anticipo cuyo CFDI se timbró en SAP/A+W y se registró en el ERP solo por su saldo vivo.</summary>
+    public bool OrigenExterno { get; private set; }
+
+    public override bool EsOrigenExterno => OrigenExterno;
+
     private FacturaAnticipo() { }
 
     private FacturaAnticipo(
@@ -197,5 +202,61 @@ public sealed class FacturaAnticipo : Comprobante
                 "ANTICIPO_TOTAL_NO_DESGLOSABLE",
                 $"El total {total:0.00} no se puede desglosar en subtotal e IVA dentro de la tolerancia del SAT.");
         return (montoBase, iva);
+    }
+
+    /// <summary>
+    /// P45: registra la factura de anticipo que se timbró fuera del ERP (SAP/A+W) con su UUID y total, para que su saldo
+    /// vivo se pueda aplicar con NC 07 a facturas del ERP. Queda Timbrada sin pasar por el PAC; nunca se timbra, cancela
+    /// ni reenvía desde el ERP.
+    /// </summary>
+    public static FacturaAnticipo RegistrarExterna(
+        Guid empresaId,
+        string folio,
+        Guid sucursalId,
+        Guid? usuarioId,
+        DatosFiscalesReceptor receptor,
+        DatosFiscalesEmisor emisor,
+        string formaPago,
+        string moneda,
+        decimal? tipoCambio,
+        DateTimeOffset fechaTimbrado,
+        TipoAnticipo tipoAnticipo,
+        Guid? pedidoFacturableId,
+        Guid anticipoId,
+        string uuid,
+        decimal total,
+        decimal? tasaIvaTraslado)
+    {
+        if (string.IsNullOrWhiteSpace(uuid) || !Guid.TryParse(uuid, out _))
+            throw new BusinessRuleException("ANTICIPO_EXTERNO_UUID_INVALIDO", "El UUID del CFDI de anticipo no es válido.");
+        var (montoBase, iva) = DesglosarTotal(total, tasaIvaTraslado);
+
+        var factura = new FacturaAnticipo(
+            id: Guid.CreateVersion7(),
+            empresaId: empresaId,
+            folio: folio,
+            folioNumero: 0,
+            sucursalId: sucursalId,
+            cajaId: null,
+            usuarioEmisorId: usuarioId,
+            receptor: receptor,
+            emisor: emisor,
+            formaPago: formaPago,
+            moneda: moneda,
+            tipoCambio: tipoCambio,
+            periodoAnio: fechaTimbrado.Year,
+            periodoMes: fechaTimbrado.Month,
+            canalVentaId: null,
+            tipoAnticipo: tipoAnticipo,
+            pedidoFacturableId: pedidoFacturableId,
+            anticipoId: anticipoId,
+            claveProdServSat: "84111506",
+            claveUnidadSat: "ACT",
+            descripcion: "Anticipo de clientes (timbrado fuera del ERP)");
+        factura.OrigenExterno = true;
+        factura.TasaIvaTraslado = tasaIvaTraslado;
+        factura.EstablecerTotales(subtotal: montoBase, descuento: 0m, impuestosTrasladados: iva, retenciones: 0m, total: total);
+        factura.RegistrarTimbreExterno(uuid.Trim().ToUpperInvariant(), fechaTimbrado);
+        return factura;
     }
 }

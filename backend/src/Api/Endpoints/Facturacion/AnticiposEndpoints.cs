@@ -6,6 +6,7 @@ using Millet.Api.Web;
 using Millet.Facturacion.Application.Anticipos.AplicarAnticipoAFactura;
 using Millet.Facturacion.Application.Anticipos.EmitirFacturaAnticipo;
 using Millet.Facturacion.Application.Anticipos.LiberarApartado;
+using Millet.Facturacion.Application.Anticipos.RegistrarAnticipoExterno;
 using Millet.Facturacion.Application.Anticipos.ReversarAplicacion;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Domain.Ports;
@@ -48,6 +49,24 @@ public static class AnticiposEndpoints
         .Produces<EmitirFacturaAnticipoResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // POST: P45 — registra un anticipo timbrado fuera del ERP (SAP/A+W) para aplicar su saldo vivo. No timbra.
+        group.MapPost("/externos", async (
+            RegistrarAnticipoExternoCommand command,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(command, cancellationToken);
+            return Results.Created($"/api/v1/facturacion/anticipos/{response.AnticipoId}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionAnticiposEmitir)
+        .WithName("RegistrarAnticipoExterno")
+        .WithSummary("Registra un anticipo timbrado fuera del ERP (UUID y saldo vivo) para aplicarlo con NC 07")
+        .Produces<RegistrarAnticipoExternoResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 

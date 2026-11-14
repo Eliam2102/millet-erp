@@ -106,6 +106,32 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
     }
 
     /// <summary>
+    /// P45: saldo de un anticipo timbrado fuera del ERP. <paramref name="montoCobrado"/> es el total del CFDI y
+    /// <paramref name="saldoVivo"/> lo que queda por aplicar; la diferencia se toma como ya amortizada fuera del ERP.
+    /// </summary>
+    public static Anticipo CrearExterno(
+        Guid empresaId,
+        Guid clienteId,
+        string receptorRfc,
+        TipoAnticipo tipoAnticipo,
+        string moneda,
+        decimal montoCobrado,
+        decimal saldoVivo,
+        Guid facturaAnticipoId,
+        string? pedidoOrigenRef,
+        Guid id)
+    {
+        if (saldoVivo <= 0 || saldoVivo > montoCobrado)
+            throw new BusinessRuleException("ANTICIPO_EXTERNO_SALDO_INVALIDO",
+                "El saldo vivo debe ser mayor que cero y no mayor que el total del CFDI de anticipo.");
+        var anticipo = Crear(empresaId, clienteId, receptorRfc, tipoAnticipo, moneda, montoCobrado, facturaAnticipoId,
+            pedidoOrigenRef, id: id);
+        anticipo.MontoAmortizado = montoCobrado - saldoVivo;
+        anticipo.Saldo = saldoVivo;
+        return anticipo;
+    }
+
+    /// <summary>
     /// Crea el saldo de un anticipo al timbrar su CFDI (M1). <paramref name="montoCobrado"/>
     /// es el techo amortizable: para PUE el total del CFDI; para PPD arranca en 0
     /// y lo incrementan los REPP (F6).

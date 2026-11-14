@@ -24,6 +24,7 @@ public sealed class FacturaAnticipoConfiguration : IEntityTypeConfiguration<Fact
         builder.Property(e => e.ClaveUnidadSat).HasMaxLength(10).IsRequired();
         builder.Property(e => e.Descripcion).HasMaxLength(1000).IsRequired();
         builder.Property(e => e.TasaIvaTraslado).HasPrecision(7, 6); // 86e3zg0vb
+        builder.Property(e => e.OrigenExterno).HasDefaultValue(false).IsRequired(); // P45
 
         builder.HasIndex(e => e.AnticipoId)
             .IsUnique()
