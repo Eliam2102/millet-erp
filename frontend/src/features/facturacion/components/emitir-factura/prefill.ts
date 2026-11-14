@@ -77,6 +77,8 @@ export interface EmitirFacturaPrefill {
     valorUnitario: number;
     descuento: number;
     requierePedimento: boolean;
+    /** P47: posición de la partida en el pedido. */
+    posicion?: number | null;
     // Del master producto_aw (FAC-UX-PR3); null = usar fallback del form.
     objetoImp?: string | null;
     tasaIvaTraslado?: number | null;

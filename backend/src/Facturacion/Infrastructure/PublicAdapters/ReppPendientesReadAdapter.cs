@@ -11,6 +11,10 @@ public sealed class ReppPendientesReadAdapter(FacturacionDbContext db) : IReppPe
     {
         var pagos = await db.ReppPendientes.AsNoTracking()
             .Where(p => p.ClienteId == clienteId && p.Estado != EstadoReppPendiente.Descartado)
+            // H-U49: un pendiente que solo relaciona facturas PUE nunca tendrá REP (fiscalmente no se emite); no bloquea el
+            // estado de cuenta. Cubre los pendientes creados antes de que la confirmación dejara de generarlos.
+            .Where(p => !(p.Estado == EstadoReppPendiente.Pendiente && p.Facturas.Any()
+                && p.Facturas.All(f => db.FacturasVenta.Any(v => v.Id == f.FacturaVentaId && v.MetodoPago != "PPD"))))
             .OrderBy(p => p.FechaValor)
             .Select(p => new { p.Id, p.Estado, p.FechaValor, p.FechaLimite, p.Monto, p.Moneda, p.Referencia, p.ReciboPagoId })
             .ToListAsync(cancellationToken);

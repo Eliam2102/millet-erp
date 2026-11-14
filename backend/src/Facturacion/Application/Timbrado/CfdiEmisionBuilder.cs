@@ -245,7 +245,8 @@ public static class CfdiEmisionBuilder
 
         IReadOnlyList<ConceptoCfdi> conceptos = cp.Tipo == TipoComprobante.Ingreso
             // Tipo I: se factura el servicio de transporte (un concepto).
-            ? [ConceptoUnico("78101800", "E48", "Servicio de transporte de carga", cp.Subtotal, cp.ImpuestosTrasladados)]
+            ? [ConRetencionIva(ConceptoUnico("78101800", "E48", "Servicio de transporte de carga", cp.Subtotal, cp.ImpuestosTrasladados),
+                cp.Subtotal, cp.Retenciones)]
             // Tipo T: los conceptos espejan las mercancías con valor 0 (no objeto de impuesto).
             : cp.Mercancias
                 .Select(m => new ConceptoCfdi(
@@ -394,6 +395,23 @@ public static class CfdiEmisionBuilder
     /// <para>86e3zg0vb: con <paramref name="tasaExplicita"/> = 0 (anticipo de exportación y su NC de aplicación) el traslado va como
     /// <c>Tasa 0.000000</c> con importe 0, no como Exento. Null conserva el comportamiento anterior.</para>
     /// </summary>
+    /// <summary>
+    /// P51: agrega al concepto la retención de IVA (002, Tasa) que hace el cliente. La tasa se reconstruye de los importes y se
+    /// ajusta a 2 decimales: las del catálogo de retenciones (4 %, 6 %, 16 %) los tienen. Sin retención, el concepto no cambia.
+    /// </summary>
+    private static ConceptoCfdi ConRetencionIva(ConceptoCfdi concepto, decimal baseImpuesto, decimal retencion)
+    {
+        if (retencion <= 0m || baseImpuesto <= 0m)
+            return concepto;
+        var tasa = Math.Round(retencion / baseImpuesto, 2, MidpointRounding.AwayFromZero);
+        return concepto with
+        {
+            ObjetoImp = ObjetoImpGravado,
+            Impuestos = [.. concepto.Impuestos, new ImpuestoConceptoCfdi(
+                Base: baseImpuesto, Impuesto: "002", TipoFactor: "Tasa", TasaOCuota: tasa, Importe: retencion, EsRetencion: true)],
+        };
+    }
+
     private static ConceptoCfdi ConceptoUnico(
         string claveProdServ, string claveUnidad, string descripcion, decimal subtotal, decimal importeIva, decimal? tasaExplicita = null)
     {

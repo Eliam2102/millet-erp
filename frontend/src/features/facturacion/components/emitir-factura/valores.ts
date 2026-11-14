@@ -119,6 +119,7 @@ export function valoresIniciales(
           tasaRetencionIva: l.tasaRetencionIva ?? null,
           tasaRetencionIsr: l.tasaRetencionIsr ?? null,
           requierePedimento: l.requierePedimento,
+          posicionPedido: l.posicion ?? null,
           // B12: la línea del pedido hereda la fracción y la unidad aduana del artículo
           // (como al elegirlo a mano en Partidas); siguen editables.
           fraccionArancelaria: aduanalesCe[i]?.fraccionArancelaria ?? l.fraccionArancelaria ?? null,

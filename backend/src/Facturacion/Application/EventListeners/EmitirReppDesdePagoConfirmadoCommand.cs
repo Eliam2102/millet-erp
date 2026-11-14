@@ -39,13 +39,25 @@ public sealed class EmitirReppDesdePagoConfirmadoHandler(FacturacionDbContext db
             // Tesorería); se lee del movimiento por puerto y queda en el pendiente.
             var ordenante = ordenantes is null ? null : await ordenantes.ObtenerAsync(p.MovimientoBancarioId, cancellationToken);
             var cobro = p.Monto - p.SaldoAFavorPorIdentificar;
+            IReadOnlyList<PagoClienteFacturaAplicadaPayload>? relacionables = p.Facturas;
             // M-326 parte 2: un excedente de redondeo (el cliente depositó centavos de más) no va en el CFDI de pagos: el REP relaciona
             // solo lo aplicado a facturas. Sin desglose de facturas se conserva el cobro.
             if (p.Facturas is { Count: > 0 } aplicadas)
-                cobro = Math.Min(cobro, aplicadas.Sum(f => f.ImporteAplicado));
-            db.ReppPendientes.Add(new ReppPendiente(p.EmpresaId, p.ClienteId, p.MovimientoBancarioId,
-                p.CuentaBancariaId, p.PropuestaId, cobro, p.Moneda, p.FechaValor, p.Referencia,
-                RelacionFiscal(p.Facturas, cobro), ordenante));
+            {
+                // H-U49: el REP solo existe para facturas PPD; lo aplicado a PUE ya quedó pagado con la factura y no se relaciona.
+                var ids = aplicadas.Select(f => f.FacturaVentaId).Distinct().ToList();
+                var pue = await db.FacturasVenta.AsNoTracking()
+                    .Where(f => ids.Contains(f.Id) && f.MetodoPago != "PPD")
+                    .Select(f => f.Id).ToListAsync(cancellationToken);
+                relacionables = [.. aplicadas.Where(f => !pue.Contains(f.FacturaVentaId))];
+                var aplicadoPue = aplicadas.Where(f => pue.Contains(f.FacturaVentaId)).Sum(f => f.ImporteAplicado);
+                cobro = Math.Min(cobro - aplicadoPue, relacionables.Sum(f => f.ImporteAplicado));
+            }
+            // Sin desglose se conserva el comportamiento previo; con desglose, solo si queda algo PPD que relacionar.
+            if (p.Facturas is not { Count: > 0 } || (relacionables is { Count: > 0 } && cobro > 0m))
+                db.ReppPendientes.Add(new ReppPendiente(p.EmpresaId, p.ClienteId, p.MovimientoBancarioId,
+                    p.CuentaBancariaId, p.PropuestaId, cobro, p.Moneda, p.FechaValor, p.Referencia,
+                    RelacionFiscal(relacionables, cobro), ordenante));
         }
 
         // Pendiente y dedupe se confirman juntos. Nunca se invoca al PAC desde el evento.

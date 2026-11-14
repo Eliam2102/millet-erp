@@ -37,6 +37,8 @@ public sealed class CompraAPagoAuthMetadataTests
         "GET /api/v1/tesoreria/pagos-comercio-exterior/",
         "POST /api/v1/tesoreria/pagos-comercio-exterior/{facturaProveedorId:guid}/autorizar/{nivel:int}",
         "POST /api/v1/tesoreria/pagos-comercio-exterior/{facturaProveedorId:guid}/rechazar",
+        // M-326: lectura de redondeos con cualquiera de pasivos.ver / pagos.aplicar / pagos.autorizar-redondeo; el endpoint responde 403.
+        "GET /api/v1/tesoreria/pagos/redondeo",
     ];
 
     private readonly WebApplicationFactory<Program> _factory;
