@@ -657,6 +657,8 @@ export interface EmitirCartaPorteCommand {
   fechaLlegadaEstimada: string;
   montoServicio: number;
   tasaIvaServicio: number | null;
+  /** P51: concepto de la retención de IVA del cliente (FLETES, SERVICIOS, …); solo tipo I. */
+  conceptoRetencion?: string | null;
   mercancias: CartaPorteMercanciaInput[];
 }
 
@@ -678,6 +680,8 @@ export interface SiguienteTramoCommand {
   fechaLlegadaEstimada: string;
   montoServicio: number;
   tasaIvaServicio: number | null;
+  /** P51: concepto de la retención de IVA del cliente; solo tipo I. */
+  conceptoRetencion?: string | null;
 }
 
 /** Respuesta de la emisión de Carta Porte. */
@@ -745,6 +749,10 @@ export interface CartaPorteDetalleResponse {
   timbradoErrorCodigo: string | null;
   timbradoErrorMensaje: string | null;
   folioPac: string | null;
+  /** P51: desglose del servicio facturado (tipo I). */
+  subtotal?: number;
+  impuestosTrasladados?: number;
+  retenciones?: number;
 }
 
 /** M-354: modalidad del tramo. Solo el vehículo propio emite Carta Porte de Millet. */

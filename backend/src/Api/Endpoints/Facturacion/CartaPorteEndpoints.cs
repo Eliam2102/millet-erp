@@ -109,7 +109,7 @@ public static class CartaPorteEndpoints
                 body.VehiculoId, body.OperadorId, body.FechaSalida, body.FechaLlegadaEstimada,
                 body.MontoServicio, body.TasaIvaServicio,
                 body.OrigenCodigoPostal, body.OrigenEstado,
-                body.DestinoCodigoPostal, body.DestinoEstado), ct);
+                body.DestinoCodigoPostal, body.DestinoEstado, body.ConceptoRetencion, body.TasaRetencionIva), ct);
             return Results.Created($"/api/v1/facturacion/carta-porte/{response.Id}", response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -305,7 +305,10 @@ public static class CartaPorteEndpoints
         string? OrigenCodigoPostal = null,
         string? OrigenEstado = null,
         string? DestinoCodigoPostal = null,
-        string? DestinoEstado = null);
+        string? DestinoEstado = null,
+        // P51: retención de IVA del cliente sobre el flete (solo tipo I).
+        string? ConceptoRetencion = null,
+        decimal? TasaRetencionIva = null);
 
     /// <summary>
     /// Body del PATCH de vehículo (el id viene en la ruta). Si viene

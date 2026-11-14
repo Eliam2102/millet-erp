@@ -92,7 +92,8 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
             command.Origen, command.Destino, command.DistanciaKm, command.VehiculoId, command.OperadorId,
             cartaPortePreviaId: null, command.PedidoFacturableId, command.FechaSalida, command.FechaLlegadaEstimada,
             command.MontoServicio, command.TasaIvaServicio,
-            command.OrigenCodigoPostal, command.OrigenEstado, command.DestinoCodigoPostal, command.DestinoEstado);
+            command.OrigenCodigoPostal, command.OrigenEstado, command.DestinoCodigoPostal, command.DestinoEstado,
+            command.ConceptoRetencion, command.TasaRetencionIva);
         tramo?.VincularCartaPorte(cp.Id); // se guarda con la Carta Porte, antes del PAC
 
         foreach (var m in command.Mercancias)
