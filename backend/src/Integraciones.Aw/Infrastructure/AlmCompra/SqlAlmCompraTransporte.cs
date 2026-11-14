@@ -19,7 +19,8 @@ namespace Millet.Integraciones.Aw.Infrastructure.AlmCompra;
 public sealed class SqlAlmCompraTransporte(IConfiguration configuration) : IAlmCompraTransporte
 {
     public const string ConnectionStringName = "AlmacenesAppDb";
-    private const int MaxTexto = 1000;
+    /// <summary>v11: acuse_texto NVARCHAR(1000); el mismo tope que al escribir en alm_mensaje.</summary>
+    public const int MaxTexto = 1000;
 
     // Idempotente: el INSERT solo corre si el mensaje_id no existe (reintento tras una falla a medias no duplica).
     // fecha y acuse_fecha van en hora local del servidor (Mérida), sin zona, como fecha_escrito (Jorge, 12-nov): la conversión

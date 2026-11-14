@@ -38,7 +38,7 @@ public interface IAlmCargaInicialOrigen
 /// Aplica la carga inicial de existencias de la app (contrato v9 §4). Toma la carga de número más alto y aplica cada renglón como una
 /// ENTRADA_MANUAL con el mismo manejador que <c>alm_mensaje</c> (sucursal, artículo, medida, llave de almacén, lote), idempotente por
 /// <c>mensajeId = carga-inicial:{carga}:{renglón}</c>, al costo del renglón (<see cref="EsCargaInicial"/>). Acusa APLICADO o ERROR por
-/// renglón. Si ya se aplicó otra carga, no aplica la nueva (se sumaría la existencia dos veces): lo deja en el log y no acusa.
+/// renglón. Si ya se aplicó otra carga, no aplica la nueva (se sumaría la existencia dos veces): la acusa en ERROR con el motivo.
 /// Una falla del ERP no acusa: el renglón se reintenta en el siguiente ciclo. Apagado por omisión
 /// (<see cref="AlmMensajeOptions.CargaInicialHabilitada"/>).
 /// </summary>
@@ -54,12 +54,22 @@ public sealed class AlmCargaInicialLector(
     public async Task<(int Aplicados, int Errores)> ProcesarAsync(CancellationToken ct)
     {
         if (await origen.UltimaCargaAsync(ct) is not { } carga) return default;
+        int aplicados = 0, errores = 0;
         if (await origen.CargaAplicadaAsync(ct) is { } aplicada && aplicada != carga)
         {
+            // v11: una carga se puede regenerar, pero sumar la nueva sobre la ya aplicada duplicaría la existencia. El ERP no la
+            // aplica y acusa ERROR por renglón (v11: «si el ERP no puede aplicar un mensaje, contesta ERROR»), para que Almacenes
+            // lo vea en su acuse en vez de quedarse esperando. Reemplazarla exige reversar la anterior y eso lo decide Millet.
             logger.LogError("[AlmCargaInicial] La carga {Carga} no se aplica: ya se aplicó la carga {Aplicada}. Revisar con TI.", carga, aplicada);
-            return default;
+            var texto = $"La carga {carga} no se aplica: el ERP ya aplicó la carga {aplicada} y sumarla duplicaría la existencia. "
+                + "Avisen al equipo del ERP para reversar la carga anterior antes de regenerarla.";
+            foreach (var r in await origen.LeerPendientesAsync(carga, Math.Max(1, options.Value.Lote), ct))
+            {
+                await origen.EscribirAcuseAsync(carga, r.Renglon, "ERROR", texto, ct);
+                errores++;
+            }
+            return (0, errores);
         }
-        int aplicados = 0, errores = 0;
         foreach (var r in await origen.LeerPendientesAsync(carga, Math.Max(1, options.Value.Lote), ct))
         {
             AcuseApp acuse;

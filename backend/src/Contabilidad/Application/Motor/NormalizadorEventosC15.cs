@@ -193,12 +193,13 @@ public static partial class NormalizadorEventos
 
     /// <summary>
     /// Campo de importe que carga una salida de inventario según su causa (U-2): rotura o daño → Merma; salida manual o no planificada →
-    /// Ajuste; lo demás → Consumo. H1 (86e3z5w25) lo usa también para saber qué cuenta, y qué dimensiones, exige la salida al capturarla.
+    /// Ajuste; venta (VENTA_ALBARAN de la app) → CostoVentas, el cargo que la devolución de venta ya reversa; lo demás → Consumo. H1 (86e3z5w25) lo usa también para saber qué cuenta, y qué dimensiones, exige la salida al capturarla.
     /// </summary>
     public static string CampoSalidaInventario(string? causa) => (causa ?? string.Empty).Trim().ToLowerInvariant() switch
     {
         "rotura" or "daño" or "dano" => "Merma",
         "salida_manual" or "salida_no_planificada" => "Ajuste",
+        "venta" => "CostoVentas",
         _ => "Consumo",
     };
 
@@ -232,15 +233,17 @@ public static partial class NormalizadorEventos
         var ajuste = campo == "Ajuste";
         var muestra = campo == "Muestra";
         var prestamo = campo == "Prestamo";
+        var costoVentas = campo == "CostoVentas";
         return Mxn(SalidaInventarioRegistrada, eventoId, s.EmpresaId, s.FechaMovimiento, Doc(DocSalidaInventario, s.MovimientoId, s.FolioMovimiento),
             s.SucursalId, importes: new()
             {
                 ["Subtotal"] = total,
-                ["Consumo"] = merma || ajuste || muestra || prestamo ? 0m : total,
+                ["Consumo"] = merma || ajuste || muestra || prestamo || costoVentas ? 0m : total,
                 ["Merma"] = merma ? total : 0m,
                 ["Ajuste"] = ajuste ? total : 0m,
                 ["Muestra"] = muestra ? total : 0m,
                 ["Prestamo"] = prestamo ? total : 0m,
+                ["CostoVentas"] = costoVentas ? total : 0m,
             }, lineas: lineas, payload: payload, centroCostoId: s.CentroCostoId);
     }
 

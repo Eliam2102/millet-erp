@@ -20,7 +20,12 @@ namespace Millet.Integraciones.Aw.Infrastructure.AlmMensaje;
 public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMensajeOrigen
 {
     public const string ConnectionStringName = "AlmacenesAppDb";
-    private const int MaxTexto = 1000; // v11: acuse_texto NVARCHAR(1000) (ENSAYO trae 2000; 1000 cabe en las dos)
+    /// <summary>v11: <c>acuse_texto NVARCHAR(1000)</c>. ENSAYO admite 2000, pero 1000 cabe en las dos y es lo que fija el contrato.</summary>
+    public const int MaxTexto = 1000;
+
+    /// <summary>El texto del acuse recortado al largo de la columna: pasarse trona el UPDATE y el mensaje se quedaría sin acuse.</summary>
+    public static string? TextoAcuse(string? error) =>
+        error is { Length: > MaxTexto } largo ? largo[..MaxTexto] : error;
 
     // ponytail: agrupa toda la tabla cada 10 s; si crece a millones de renglones, acotar por fecha_escrito o indexar (mensaje_id, intento).
     private const string SqlPendientes = """
@@ -89,7 +94,7 @@ public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMens
         P(cmd, "@id", DbType.Int64, secuencia);
         P(cmd, "@estado", DbType.String, acuse.Estado);
         P(cmd, "@folio", DbType.String, (object?)acuse.Folio ?? DBNull.Value);
-        P(cmd, "@texto", DbType.String, acuse.Error is null ? DBNull.Value : acuse.Error.Length > MaxTexto ? acuse.Error[..MaxTexto] : acuse.Error);
+        P(cmd, "@texto", DbType.String, (object?)TextoAcuse(acuse.Error) ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 

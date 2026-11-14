@@ -31,6 +31,8 @@ public static class AlmacenesAppSalida
         ["SALIDA_MANUAL"] = TipoMovimiento.AjusteNegativo,
         // v9: lo que llegó roto o no llegó sale enseguida de la entrada (folio DEV); sin el flujo 8.B de CxP.
         [Reclamacion] = TipoMovimiento.SalidaPorDevolucionAProveedor,
+        // v10-v11: la venta por albarán (A+W pasó el pedido a 71); la app dice de qué división, línea y lote salió cada hoja.
+        [VentaAlbaran] = TipoMovimiento.SalidaPorVenta,
     };
 
     /// <summary>
@@ -41,6 +43,13 @@ public static class AlmacenesAppSalida
 
     /// <summary>M-223: la ROTURA de la app entra pendiente y baja el saldo hasta que la autoriza otro usuario en el ERP.</summary>
     public const string Rotura = "ROTURA";
+
+    /// <summary>
+    /// VENTA_ALBARAN (v10-v11): la venta de un pedido de A+W, uno por venta y con todo. Sin costo: sale al promedio del ERP. El
+    /// movimiento guarda el pedido de A+W y el albarán, para que la devolución de esa venta entre al mismo costo con que salió
+    /// (v11 §6 pto 15, opción a acordada el 11-nov).
+    /// </summary>
+    public const string VentaAlbaran = "VENTA_ALBARAN";
 
     /// <summary>
     /// RECLAMACION_PROVEEDOR (v9): <c>lineas[]</c> con sus <c>grupos[]</c> (sin almacén: se reparte en la sucursal, primero el lote).
@@ -86,6 +95,15 @@ public static class AlmacenesAppSalida
             if (!alm.TryGetProperty("grupos", out var grupos) || grupos.ValueKind != JsonValueKind.Array
                 || grupos.GetArrayLength() == 0)
                 return (null, $"{contenedor}[{i}].grupos debe ser un arreglo con al menos un elemento.");
+            // La reclamación agrupa por línea de la compra y cada línea dice sus piezas: la suma de sus grupos tiene que darlas,
+            // como en ENTRADA_ALMACEN. Si no cuadran, el ERP sacaría del inventario algo distinto de lo que la app cree.
+            decimal? piezasLinea = null;
+            if (tipo == Reclamacion)
+            {
+                if (!TryNumero(alm, "piezas", out piezasLinea) || piezasLinea is null or <= 0)
+                    return (null, $"{contenedor}[{i}].piezas debe ser mayor que cero.");
+            }
+            var sumaGrupos = 0m;
             var j = 0;
             foreach (var g in grupos.EnumerateArray())
             {
@@ -119,8 +137,11 @@ public static class AlmacenesAppSalida
                     if (ancho is null && costoPieza is null && costoM2 is not null) return (null, $"{p} no lleva medida: el costo va en costoPieza.");
                 }
                 items.Add((articulo, ancho, alto, piezas.Value, m2, p, llave, Texto(g, "lote"), costoM2, costoPieza));
+                sumaGrupos += piezas.Value;
                 j++;
             }
+            if (piezasLinea is { } esperadas && sumaGrupos != esperadas)
+                return (null, $"{contenedor}[{i}]: la suma de piezas de sus grupos ({sumaGrupos:0.####}) no coincide con piezas ({esperadas:0.####}).");
             i++;
         }
 
@@ -149,8 +170,9 @@ public static class AlmacenesAppSalida
             EntradaManual => TipoMovimiento.AjustePositivo,
             _ => Tipos[tipo],
         };
-        // El traslado (CAMBIO_ALMACEN), la entrada y la reclamación (va contra el proveedor, no contra un área) no llevan área ni equipo.
-        if (dimensiones is not null && tipo is not (AlmacenesAppCambio.Tipo or EntradaManual or Reclamacion)
+        // El traslado (CAMBIO_ALMACEN), la entrada, la reclamación (va contra el proveedor) y la venta (va a la división de la que
+        // salió la hoja, no a un área) no llevan área ni equipo.
+        if (dimensiones is not null && tipo is not (AlmacenesAppCambio.Tipo or EntradaManual or Reclamacion or VentaAlbaran)
             && (area is not null || equipo is not null || exigirAreaEquipo))
         {
             var causa = SalidaInventarioRegistradaIntegrationEvent.CausaPorDefecto(tipoMov);
@@ -172,6 +194,10 @@ public static class AlmacenesAppSalida
                 DeRenglones(datos, "mesa") is { Length: > 0 } mesa ? $" mesa {mesa}" : "",
                 DeRenglones(datos, "jobid") is { Length: > 0 } job ? $" job {job}" : "",
                 (Valor(datos, "pedidoAw") ?? DeRenglones(datos, "pedidoAw")) is { Length: > 0 } ped ? $" pedido {ped}" : "")
+            : tipo == VentaAlbaran
+            ? string.Concat(
+                Valor(datos, "pedidoAw") is { Length: > 0 } pedVenta ? $" pedido {pedVenta}" : "",
+                Valor(datos, "albaran") is { Length: > 0 } alb ? $" albarán {alb}" : "")
             : tipo == Reclamacion
             ? string.Concat(
                 Texto(datos, "reclamacion") is { Length: > 0 } rp ? $" {rp.Trim()}" : "",

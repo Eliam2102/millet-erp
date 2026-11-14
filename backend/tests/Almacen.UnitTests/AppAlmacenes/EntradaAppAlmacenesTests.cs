@@ -385,6 +385,47 @@ public class EntradaAppAlmacenesTests
     }
 
     [Fact]
+    public async Task Regreso_de_prestamo_sin_la_salida_en_el_ERP_entra_al_promedio_y_no_al_costo_del_mensaje()
+    {
+        var (db, unica, sub) = Db();
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 100m, 100m, Variante, "L-1"));
+        await db.SaveChangesAsync();
+
+        // El préstamo salió antes de que el ERP leyera la app: no hay movimiento original que consultar.
+        var (estado, _, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-rp",
+            [Hojas(1, "L-1") with { CostoRespaldoMxn = 130m }], default, TipoMovimiento.AjustePositivo,
+            new OrigenApp("REGRESO_PRESTAMO", "MV-NO-ESTA"));
+        await db.SaveChangesAsync();
+
+        (estado, error).Should().Be((SalidaAppAlmacenes.Recibido, (string?)null));
+        // El promedio del ERP manda sobre el costo de A+W del mensaje: ese solo es respaldo si el ERP no tiene promedio.
+        (await db.LineasMovimiento.SingleAsync()).CostoUnitarioMxn.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task Devolucion_de_venta_con_la_venta_por_albaran_en_el_ERP_entra_al_costo_con_que_salio()
+    {
+        var (db, unica, sub) = Db();
+        db.SaldosInventario.Add(new SaldoInventario(unica, sub, Articulo, 100m, 100m, Variante, "L-1"));
+        await db.SaveChangesAsync();
+        // La venta por albarán salió a 150; hoy el promedio del saldo es 100 y el mensaje de la devolución trae 130 de A+W.
+        var venta = new SalidaApp(TipoMovimiento.SalidaPorVenta, Sucursal, Articulo, "M2", Variante, 2 * 20.1422m, 150m,
+            "App Almacenes VENTA_ALBARAN MV-0006455 pedido 90064863", 3302m, 6100m, Lote: "L-1");
+        var (_, folioVenta, _) = await SalidaAppAlmacenes.RegistrarAsync(db, new Captura(), EmpresaId, Usuario, [venta], default);
+        await AplicadoAsync(db, "VENTA_ALBARAN", "MV-0006455", folioVenta);
+
+        // v11 §6 pto 15 (opción a, acordada con Jorge el 11-nov): el ERP reversa la venta con el costo con que la registró.
+        var (estado, _, error) = await EntradaAppAlmacenes.RegistrarAsync(db, Puertos(), EmpresaId, Usuario, Sucursal, "m", null, "msg-dv",
+            [Hojas(1, "L-1") with { CostoRespaldoMxn = 130m }], default, TipoMovimiento.AjustePositivo,
+            new OrigenApp("DEVOLUCION_VENTA", "MV-0006455"));
+        await db.SaveChangesAsync();
+
+        (estado, error).Should().Be((SalidaAppAlmacenes.Recibido, (string?)null));
+        (await db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Tipo == TipoMovimiento.AjustePositivo))
+            .Lineas.Single().CostoUnitarioMxn.Should().Be(150m);
+    }
+
+    [Fact]
     public async Task Cancelacion_de_entrada_sale_al_costo_con_que_entro()
     {
         var (db, unica, sub) = Db();
