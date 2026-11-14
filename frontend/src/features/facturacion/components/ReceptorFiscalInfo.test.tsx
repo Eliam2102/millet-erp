@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ReceptorIncompletoBanner } from './ReceptorFiscalInfo';
+import { ReceptorFiscalInfo, ReceptorIncompletoBanner } from './ReceptorFiscalInfo';
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ params, children }: { params: { id: string }; children: React.ReactNode }) =>
-    <a href={`/admin/datos-maestros/clientes/${params.id}`}>{children}</a>,
+  Link: ({ params, children, target, rel }: { params: { id: string }; children: React.ReactNode; target?: string; rel?: string }) =>
+    <a href={`/admin/datos-maestros/clientes/${params.id}`} target={target} rel={rel}>{children}</a>,
 }));
 
 describe('diagnóstico fiscal del receptor', () => {
@@ -19,5 +19,14 @@ describe('diagnóstico fiscal del receptor', () => {
     expect(screen.getByText('Falta el régimen fiscal.')).toBeInTheDocument();
     expect(screen.getByRole('link')).toHaveAttribute('href', `/admin/datos-maestros/clientes/${clienteId}`);
     expect(screen.queryByText(/gap G12/)).not.toBeInTheDocument();
+  });
+
+  it('P44: «Corregir en catálogo» abre otra pestaña para no perder la captura', () => {
+    const clienteId = '00000003-0000-0000-0000-000000000002';
+    render(<ReceptorFiscalInfo clienteId={clienteId} puedeCorregirEnCatalogo
+      valores={{ rfc: 'XAXX010101000', nombre: 'Cliente de prueba', regimenFiscal: '616', codigoPostal: '00000' }} />);
+    const enlace = screen.getByRole('link', { name: /Corregir en catálogo/ });
+    expect(enlace).toHaveAttribute('target', '_blank');
+    expect(enlace).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });

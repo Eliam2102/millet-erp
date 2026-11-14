@@ -1,5 +1,3 @@
-using Millet.Almacen.Domain.Saldos;
-
 namespace Millet.Almacen.Application.PublicPorts;
 
 /// <summary>
@@ -9,7 +7,8 @@ namespace Millet.Almacen.Application.PublicPorts;
 /// </summary>
 public interface ICostoMedioReader
 {
+    /// <param name="almacenId">Almacén de la entrada; <c>null</c> = toda la sucursal (la compra aún no sabe a qué almacén entra).</param>
     /// <param name="costoCompra">Costo unitario de la compra en su moneda; se convierte a MXN con <paramref name="tipoCambio"/> (1 si MXN).</param>
-    Task<decimal> EstimarTrasCompraAsync(Guid almacenId, Guid articuloId, Guid? varianteId, decimal piezasOM2Entran,
-        decimal costoCompra, decimal tipoCambio, AgrupacionCostoMedio agrupacion, CancellationToken ct);
+    Task<decimal> EstimarTrasCompraAsync(Guid sucursalId, Guid? almacenId, Guid articuloId, Guid? varianteId, decimal piezasOM2Entran,
+        decimal costoCompra, decimal tipoCambio, CancellationToken ct);
 }

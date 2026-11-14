@@ -312,7 +312,7 @@ describe('<DetalleFactura> — smoke', () => {
     );
     render(<DetalleFactura />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /NC bonificación/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Nota de crédito/i }));
     fireEvent.change(screen.getAllByRole('spinbutton')[0], { target: { value: '10' } });
     fireEvent.click(screen.getByRole('checkbox', { name: /Devolver dinero al cliente/i }));
     fireEvent.change(screen.getByLabelText(/Banco/), { target: { value: 'BBVA' } });
@@ -324,6 +324,29 @@ describe('<DetalleFactura> — smoke', () => {
     expect(cuerpo).toMatchObject({
       reembolso: { banco: 'BBVA', clabe: '032180000118359719', titular: 'Cliente SA' },
     });
+  });
+
+  it('P53: la NC de cancelación va por el saldo pendiente completo con tipo Cancelacion', async () => {
+    let cuerpo: unknown = null;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () =>
+        HttpResponse.json({ ...detalle, relaciones: [], totalPorCobrar: 80 }),
+      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+      http.post('*/api/v1/facturacion/notas-credito/bonificacion', async ({ request }) => {
+        cuerpo = await request.json();
+        return HttpResponse.json({ id: 'nc-31', estado: 'Timbrado', uuid: 'U', folio: 'NC-31', total: 80 }, { status: 201 });
+      }),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Nota de crédito/i }));
+    fireEvent.change(screen.getByLabelText(/Tipo/), { target: { value: 'Cancelacion' } });
+    expect(screen.getByLabelText(/Monto total/)).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir NC' }));
+
+    await waitFor(() => expect(cuerpo).not.toBeNull());
+    expect(cuerpo).toMatchObject({ tipo: 'Cancelacion', montoTotal: 80 });
   });
 
   it('F1-CXC-05 P2: aplica un anticipo del cliente a la factura timbrada con tope en lo que falta por cobrar', async () => {

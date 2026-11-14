@@ -1,13 +1,5 @@
 namespace Millet.Almacen.Domain.Saldos;
 
-/// <summary>Agrupación de la llave del costo medio. Pregunta abierta a Fernando Alejos (M-149): por línea o por sucursal.</summary>
-public enum AgrupacionCostoMedio
-{
-    /// <summary>Por almacén (sucursal + tipo + línea, Lista de almacenes): igual que A+W, que lleva el costo por ubicación. Omisión.</summary>
-    PorAlmacen = 0,
-    PorSucursal = 1,
-}
-
 /// <summary>
 /// Costo medio móvil (M-149; Jorge 29-oct, Fernando Alejos 4 y 9-nov): la compra entra a su valor REAL y de ahí sale el promedio
 /// del inventario; las entradas manuales toman el promedio del ERP sin moverlo. Unidad: m² en vidrio, cantidad en lo demás; MXN.

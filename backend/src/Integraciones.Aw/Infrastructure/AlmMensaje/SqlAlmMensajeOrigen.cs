@@ -20,7 +20,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.AlmMensaje;
 public sealed class SqlAlmMensajeOrigen(IConfiguration configuration) : IAlmMensajeOrigen
 {
     public const string ConnectionStringName = "AlmacenesAppDb";
-    private const int MaxTexto = 2000; // acuse_texto NVARCHAR(2000) (verificado en ENSAYO, 11-nov)
+    private const int MaxTexto = 1000; // v11: acuse_texto NVARCHAR(1000) (ENSAYO trae 2000; 1000 cabe en las dos)
 
     // ponytail: agrupa toda la tabla cada 10 s; si crece a millones de renglones, acotar por fecha_escrito o indexar (mensaje_id, intento).
     private const string SqlPendientes = """

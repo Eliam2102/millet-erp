@@ -23,7 +23,8 @@ namespace Millet.Almacen.Application.AppAlmacenes;
 /// </summary>
 public sealed record EntradaApp(
     Guid ArticuloId, string UnidadMedida, Guid? ProductoAwVarianteId, decimal Cantidad, decimal? AnchoMm = null, decimal? AltoMm = null,
-    string? Lote = null, LlaveAlmacenApp? Almacen = null, decimal? CostoRespaldoMxn = null, bool CostoDelMensaje = false);
+    string? Lote = null, LlaveAlmacenApp? Almacen = null, decimal? CostoRespaldoMxn = null, bool CostoDelMensaje = false,
+    string? Requisicion = null, int? Posicion = null);
 
 /// <summary>Puertos que usa la entrada de la app (lectura de la OC, conversión de unidades, periodo contable y outbox).</summary>
 public sealed record EntradaAppPuertos(
@@ -158,7 +159,8 @@ public static class EntradaAppAlmacenes
             $"La orden de compra {oc?.Folio} está dirigida a otra sucursal: no entra en el almacén de esta.");
         var recibidoPropio = await RecibidoPorLineaOc.CalcularAsync(db, puertos.Conversion, oc, ct);
 
-        // Partida → línea de la OC por artículo + medida (la app no manda lineaErp). Varias líneas iguales: la primera con pendiente.
+        // Partida → línea de la OC por artículo + medida (la app no manda lineaErp). Varias líneas iguales: la de su requisicion +
+        // posicion (v11); sin ellas, la primera con pendiente.
         var porLinea = new List<(EntradaApp E, OcLineaLectura L, decimal Factor)>(entradas.Count);
         foreach (var e in entradas)
         {
@@ -167,7 +169,9 @@ public static class EntradaAppAlmacenes
             if (candidatas.Count == 0)
                 throw new BusinessRuleException("RECEPCION_ARTICULO_NO_EN_OC",
                     $"La orden de compra {oc?.Folio} no tiene una línea con {Medida(e)}.");
-            var linea = candidatas.FirstOrDefault(l => l.CantidadSolicitada - Math.Max(l.CantidadRecibida, recibidoPropio.GetValueOrDefault(l.LineaId)) > 0)
+            var linea = candidatas.FirstOrDefault(l => e.Requisicion is not null && e.Posicion is not null
+                    && l.RequisicionApp == e.Requisicion && l.PosicionApp == e.Posicion)
+                ?? candidatas.FirstOrDefault(l => l.CantidadSolicitada - Math.Max(l.CantidadRecibida, recibidoPropio.GetValueOrDefault(l.LineaId)) > 0)
                 ?? candidatas[0];
             porLinea.Add((e, linea, await RecibidoPorLineaOc.FactorDocumentoABaseAsync(puertos.Conversion, e.ArticuloId, linea.UnidadMedida, ct)));
         }
