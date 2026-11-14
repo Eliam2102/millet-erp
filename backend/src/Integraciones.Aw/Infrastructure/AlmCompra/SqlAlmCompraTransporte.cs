@@ -22,13 +22,16 @@ public sealed class SqlAlmCompraTransporte(IConfiguration configuration) : IAlmC
     private const int MaxTexto = 1000;
 
     // Idempotente: el INSERT solo corre si el mensaje_id no existe (reintento tras una falla a medias no duplica).
+    // fecha y acuse_fecha van en hora local del servidor (Mérida), sin zona, como fecha_escrito (Jorge, 12-nov): la conversión
+    // la hace el propio servidor con su diferencia contra UTC.
     private const string SqlEscribir = """
         INSERT INTO dbo.alm_compra (mensaje_id, tipo, folio, fecha, contenido)
-        SELECT @id, @tipo, @folio, @fecha, @contenido
+        SELECT @id, @tipo, @folio, DATEADD(MINUTE, DATEDIFF(MINUTE, SYSUTCDATETIME(), SYSDATETIME()), @fecha), @contenido
          WHERE NOT EXISTS (SELECT 1 FROM dbo.alm_compra WHERE mensaje_id = @id)
         """;
     private const string SqlAcuse = """
-        SELECT TOP (1) acuse_estado, acuse_compra_id, acuse_texto, acuse_fecha
+        SELECT TOP (1) acuse_estado, acuse_compra_id, acuse_texto,
+               DATEADD(MINUTE, DATEDIFF(MINUTE, SYSDATETIME(), SYSUTCDATETIME()), acuse_fecha)
           FROM dbo.alm_compra WHERE mensaje_id = @id AND acuse_estado IS NOT NULL ORDER BY id DESC
         """;
 
@@ -40,7 +43,7 @@ public sealed class SqlAlmCompraTransporte(IConfiguration configuration) : IAlmC
         P(cmd, "@id", DbType.String, mensaje.MensajeId);
         P(cmd, "@tipo", DbType.String, mensaje.Tipo);
         P(cmd, "@folio", DbType.String, mensaje.Referencia);
-        P(cmd, "@fecha", DbType.DateTime2, mensaje.Fecha.UtcDateTime); // datetime2(0): sin zona, se guarda en UTC
+        P(cmd, "@fecha", DbType.DateTime2, mensaje.Fecha.UtcDateTime); // UTC; el SQL lo pasa a hora local
         P(cmd, "@contenido", DbType.String, mensaje.Sobre);
         await cmd.ExecuteNonQueryAsync(ct);
     }

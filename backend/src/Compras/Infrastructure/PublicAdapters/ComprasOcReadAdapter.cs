@@ -31,6 +31,12 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
         if (oc is null) return null;
 
         var conversionMxn = ConvertirAMxn(oc.Moneda, oc.TipoCambio);
+        // v11: la entrada de la app identifica la línea por requisicion + posicion (folio de la app y posición de su RQ).
+        var lineaRqIds = oc.Lineas.Where(l => l.LineaRequisicionId is not null).Select(l => l.LineaRequisicionId!.Value).ToList();
+        var rqApp = await (from lr in _db.LineaRequisiciones.AsNoTracking()
+                           join r in _db.Requisiciones.AsNoTracking() on lr.RequisicionId equals r.Id
+                           where lineaRqIds.Contains(lr.Id) && r.Origen == Millet.Compras.Domain.OrigenRequisicion.AlmacenesApp
+                           select new { lr.Id, r.FolioExterno, lr.Posicion }).ToDictionaryAsync(x => x.Id, cancellationToken);
 
         // GAP-9 / CA2.10: los servicios no se reciben en Almacén.
         var lineas = oc.Lineas
@@ -44,7 +50,9 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
                 PrecioUnitarioMxn: Math.Round(l.PrecioUnitario * conversionMxn, 4),
                 CentroCostoId: l.CentroCostoId,
                 CantidadFacturada: l.CantidadFacturada - l.CantidadAcreditada, EsActivoFijo: l.EsActivoFijo, ClaseActivoId: l.ClaseActivoId, FraccionArancelaria: l.FraccionArancelaria,
-                ProductoAwVarianteId: l.ProductoAwVarianteId, AnchoMm: l.AnchoMm, AltoMm: l.AltoMm))
+                ProductoAwVarianteId: l.ProductoAwVarianteId, AnchoMm: l.AnchoMm, AltoMm: l.AltoMm,
+                RequisicionApp: l.LineaRequisicionId is Guid lr && rqApp.TryGetValue(lr, out var x) ? x.FolioExterno : null,
+                PosicionApp: l.LineaRequisicionId is Guid lr2 && rqApp.TryGetValue(lr2, out var y) ? y.Posicion : null))
             .ToList();
 
         var transporte = _transporte is null ? null : await _transporte.ObtenerAsync(oc.Id, cancellationToken);

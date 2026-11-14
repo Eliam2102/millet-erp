@@ -51,7 +51,9 @@ public sealed record OcLineaLectura(
     Guid? CentroCostoId = null,
     decimal CantidadFacturada = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null, string? FraccionArancelaria = null,
     // F1-MP-01 (E1): medida de la hoja capturada en la OC; la recepción la toma de aquí (S3).
-    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null);
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null,
+    // v11: folio y posición de la RQ de la app que surte la línea (null si no viene de una RQ de la app).
+    string? RequisicionApp = null, int? PosicionApp = null);
 
 public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
 
