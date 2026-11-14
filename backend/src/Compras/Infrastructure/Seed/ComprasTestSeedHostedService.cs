@@ -1,8 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Millet.Catalogos.Domain;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
+using Millet.Identidad.Infrastructure;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Infrastructure.Persistence;
@@ -75,15 +79,23 @@ public sealed class ComprasTestSeedHostedService : IHostedService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ComprasTestSeedHostedService> _logger;
+
+    /// <summary>
+    /// Vigencia fija del umbral de ensayo (determinista: dos arranques producen la misma fila).
+    /// </summary>
+    public static readonly DateOnly UmbralEnsayoVigenteDesde = new(2026, 11, 1);
 
     public ComprasTestSeedHostedService(
         IServiceScopeFactory scopeFactory,
         IHostEnvironment environment,
+        IConfiguration configuration,
         ILogger<ComprasTestSeedHostedService> logger)
     {
         _scopeFactory = scopeFactory;
         _environment = environment;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -108,8 +120,120 @@ public sealed class ComprasTestSeedHostedService : IHostedService
         await PostgresAdvisoryLock.ExecuteAsync(
             db,
             SeedLockId,
-            ct => AdelantarFolioSecuenciaAsync(db, ct),
+            async ct =>
+            {
+                await AdelantarFolioSecuenciaAsync(db, ct);
+                if (_configuration.GetValue<bool>("Seed:UmbralEnsayo:Habilitado")
+                    && await SembrarUmbralEnsayoAsync(db, EmpresaBootstrapId, ct))
+                    _logger.LogWarning(
+                        "ComprasTestSeed: sembrado el umbral general de ENSAYO (no es política de Millet). " +
+                        "Reemplazarlo desde Configuración de Compras cuando Millet entregue montos y aprobadores.");
+                var aprobadores = _configuration.GetSection("Seed:AprobadoresEnsayo");
+                if (aprobadores.GetValue<bool>("Habilitado"))
+                {
+                    var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                    var departamentos = await compartido.Departamentos.AsNoTracking()
+                        .Where(d => d.EmpresaId == EmpresaBootstrapId && d.Estatus == EstatusCatalogo.Activo)
+                        .Select(d => d.Id).ToListAsync(ct);
+                    var sucursales = await compartido.Sucursales.AsNoTracking()
+                        .Where(s => s.EmpresaId == EmpresaBootstrapId && s.Estatus == EstatusCatalogo.Activo)
+                        .Select(s => s.Id).ToListAsync(ct);
+                    var nuevos = await SembrarAprobadoresEnsayoAsync(
+                        db, scope.ServiceProvider.GetRequiredService<IdentidadDbContext>(), EmpresaBootstrapId,
+                        aprobadores["N1Correo"], aprobadores["N2Correo"], departamentos, sucursales,
+                        scope.ServiceProvider.GetRequiredService<IClock>().UtcNow, ct);
+                    if (nuevos < 0)
+                        _logger.LogWarning(
+                            "ComprasTestSeed: aprobadores de ENSAYO omitidos; N1Correo y N2Correo deben ser dos usuarios " +
+                            "activos y distintos que ya iniciaron sesión (reiniciar el API después del primer acceso).");
+                    else if (nuevos > 0)
+                        _logger.LogWarning(
+                            "ComprasTestSeed: {Nuevos} aprobadores N1/N2 de ENSAYO sembrados (no son designación de Millet). " +
+                            "Reemplazarlos desde Configuración de Compras cuando Millet entregue aprobadores (HMONTOS).",
+                            nuevos);
+                }
+            },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Umbral general de ENSAYO (fila <c>DepartamentoId = Guid.Empty</c>) para que una RQ
+    /// de QA no quede en <c>SinPolitica</c> mientras Millet no entrega montos ni aprobadores
+    /// (plano 02 §6 y §9 Regla 1: se ensaya con valores ficticios). Valores elegidos para no
+    /// decidir nada pendiente: modo <c>SoloDisponibilidad</c> (default del modelo: la RQ pide
+    /// N2 solo si hay que comprar) y monto 0, con lo que toda OC con importe sigue pidiendo
+    /// la segunda firma, igual que sin umbral (Regla 4; definición de la firma 2 abierta).
+    /// Idempotente: si ya existe cualquier fila general de la empresa (sembrada o capturada
+    /// por un administrador, vigente o cerrada) no hace nada. Devuelve si insertó.
+    /// </summary>
+    public static async Task<bool> SembrarUmbralEnsayoAsync(
+        ComprasDbContext db, Guid empresaId, CancellationToken cancellationToken)
+    {
+        if (await db.UmbralesAprobacionDepartamento.AnyAsync(
+                u => u.EmpresaId == empresaId && u.DepartamentoId == Guid.Empty, cancellationToken))
+            return false;
+
+        db.UmbralesAprobacionDepartamento.Add(new UmbralAprobacionDepartamento(
+            empresaId, Guid.Empty, UmbralEnsayoVigenteDesde, umbralMonto: 0m,
+            modoNivel2: ModoNivel2.SoloDisponibilidad));
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>Marca de los aprobadores de ensayo: queda en <c>motivo</c> y se ve en el histórico de aprobadores.</summary>
+    public const string MotivoAprobadorEnsayo =
+        "ENSAYO QA: aprobador de prueba, no es designación de Millet. Reemplazar en Configuración de Compras (HMONTOS).";
+
+    /// <summary>Actor técnico de auditoría (<c>designado_por</c>) del seed; no es usuario ni identidad de Entra.</summary>
+    public static readonly Guid SembradorEnsayoId = Guid.Parse("00000003-5eed-0000-0000-000000000001");
+
+    /// <summary>
+    /// Aprobadores N1 (<c>JefeDpto</c> de cada departamento) y N2 (<c>JefeAlmacen</c> de cada
+    /// sucursal) de ENSAYO con dos usuarios de prueba ya existentes, para ensayar en QA la
+    /// segregación RQ → N1 → N2 mientras Millet no designa aprobadores (Verdad vigente
+    /// Compras §4 punto 1). No pisa una designación vigente (real o de ensayo): solo llena
+    /// los huecos, así que es idempotente. Devuelve -1 si los correos no resuelven a dos
+    /// usuarios activos distintos (una misma persona no firma N1 y N2); si no, cuántos insertó.
+    /// </summary>
+    public static async Task<int> SembrarAprobadoresEnsayoAsync(
+        ComprasDbContext db, IdentidadDbContext identidad, Guid empresaId, string? n1Correo, string? n2Correo,
+        IReadOnlyCollection<Guid> departamentoIds, IReadOnlyCollection<Guid> sucursalIds,
+        DateTimeOffset ahora, CancellationToken cancellationToken)
+    {
+        var n1 = await UsuarioActivoAsync(identidad, n1Correo, cancellationToken);
+        var n2 = await UsuarioActivoAsync(identidad, n2Correo, cancellationToken);
+        if (n1 is not Guid n1Id || n2 is not Guid n2Id || n1Id == n2Id) return -1;
+
+        var objetivos = departamentoIds.Select(id => (Scope: id, Rol: RolAprobador.JefeDpto, Usuario: n1Id))
+            .Concat(sucursalIds.Select(id => (Scope: id, Rol: RolAprobador.JefeAlmacen, Usuario: n2Id)))
+            .ToList();
+        var scopes = objetivos.Select(o => o.Scope).ToList();
+        var ocupados = (await db.AprobadoresDepartamento.AsNoTracking()
+                .Where(a => a.EmpresaId == empresaId && a.VigenteHasta == null && scopes.Contains(a.DepartamentoId))
+                .Select(a => new { a.DepartamentoId, a.Rol })
+                .ToListAsync(cancellationToken))
+            .Select(a => (a.DepartamentoId, a.Rol)).ToHashSet();
+
+        var nuevos = 0;
+        foreach (var (scope, rol, usuario) in objetivos.Where(o => !ocupados.Contains((o.Scope, o.Rol))))
+        {
+            db.AprobadoresDepartamento.Add(new AprobadorDepartamento(
+                Guid.CreateVersion7(), empresaId, scope, rol, usuario, ahora, SembradorEnsayoId, MotivoAprobadorEnsayo, ahora));
+            nuevos++;
+        }
+        if (nuevos > 0) await db.SaveChangesAsync(cancellationToken);
+        return nuevos;
+    }
+
+    private static async Task<Guid?> UsuarioActivoAsync(
+        IdentidadDbContext identidad, string? correo, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(correo)) return null;
+        var normalizado = correo.Trim().ToLowerInvariant();
+        return await identidad.Usuarios.AsNoTracking()
+            .Where(u => u.Activo && u.Email.ToLower() == normalizado)
+            .Select(u => (Guid?)u.Id)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

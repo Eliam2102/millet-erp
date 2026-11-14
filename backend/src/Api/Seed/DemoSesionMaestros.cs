@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Application.Adjuntos;
+using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application.Blob;
@@ -166,6 +167,42 @@ public sealed partial class DemoSesionSeedHostedService
             {
                 foreach (var key in subidos)
                     try { await blob.EliminarAsync(key, CancellationToken.None); } catch { /* conserva el error original */ }
+                throw;
+            }
+        }
+
+        // Segunda cuenta del proveedor de ensayo, ya validada, para probar el pago y la corrida con
+        // dos cuentas activas (auditoría de cierre, T5). CLABE de prueba con dígito de control válido;
+        // la valida una identidad técnica distinta de quien la captura (segregación de la cuenta).
+        var activoId = Id("DEMO-PROV-ACT");
+        const string clabeEnsayo = "012180001111222231";
+        var proveedorActivo = await db.Proveedores.SingleOrDefaultAsync(p => p.Id == activoId, ct);
+        if (proveedorActivo is not null
+            && !await db.CuentasBancariasProveedor.AnyAsync(c => c.ProveedorId == activoId && c.Clabe == clabeEnsayo, ct))
+        {
+            var tipoEstadoCuenta = await db.AdjuntoTiposDocumento.SingleAsync(
+                t => t.TipoEntidad == "proveedor" && t.Codigo == ValidarCuentaBancariaProveedorHandler.TipoDocumentoSoporte, ct);
+            var bytes = CrearPdf("DEMO-PROV-ACT / Estado de cuenta de ensayo, segunda cuenta");
+            var nombre = "DEMO-PROV-ACT-segunda-cuenta.pdf";
+            var blobRef = $"proveedor/{activoId}/{Id(nombre)}.pdf";
+            using (var stream = new MemoryStream(bytes))
+                await blob.SubirAsync(blobRef, stream, "application/pdf", ct);
+            try
+            {
+                var adjunto = new Adjunto(Id(nombre), "proveedor", activoId, null, tipoEstadoCuenta.Id, nombre,
+                    "application/pdf", bytes.Length, Convert.ToHexStringLower(SHA256.HashData(bytes)), blobRef,
+                    new DateOnly(2027, 1, 12), ActorId, Fecha);
+                db.Adjuntos.Add(adjunto);
+                var cuenta = CuentaBancariaProveedor.Capturar(activoId, "BBVA México", clabeEnsayo, null, null, "MXN",
+                    proveedorActivo.RazonSocial, ActorId, "DEMO sembrador", Fecha);
+                cuenta.Validar(Id("DEMO-VALIDADOR-CUENTAS"), "DEMO validador de cuentas", adjunto.Id, cotejoCompleto: true,
+                    "Cuenta de ENSAYO: sin validez bancaria.", Fecha);
+                db.CuentasBancariasProveedor.Add(cuenta);
+                await db.SaveChangesAsync(ct);
+            }
+            catch
+            {
+                try { await blob.EliminarAsync(blobRef, CancellationToken.None); } catch { /* conserva el error original */ }
                 throw;
             }
         }

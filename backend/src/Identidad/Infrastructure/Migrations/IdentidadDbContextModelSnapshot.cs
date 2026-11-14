@@ -4303,6 +4303,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000a-0005-0000-0000-000000000004"),
+                            Accion = "reversar",
+                            Codigo = "cuentas_por_cobrar.aplicacion-pago.reversar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar la reversa de un cobro aplicado o de la aplicación de un anticipo (Contador General)",
+                            Modulo = "cuentas_por_cobrar",
+                            Recurso = "aplicacion-pago",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000a-0006-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "cuentas_por_cobrar.reglas-serie.gestionar",

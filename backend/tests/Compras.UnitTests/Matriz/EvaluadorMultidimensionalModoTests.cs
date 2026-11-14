@@ -178,6 +178,14 @@ public sealed class EvaluadorMultidimensionalModoTests
         Assert.Empty(consultas);
     }
 
+    [Fact]
+    public async Task Umbral_De_Ensayo_Sembrado_Dos_Veces_Queda_Una_Fila_Y_La_Rq_Encuentra_Politica()
+    {
+        // Con existencia: basta N1. Sin existencia: pide N2. Nunca SinPolitica.
+        Assert.Equal(RequiereNivel.SoloN1, await EvaluarAsync(null, 0m, null, 5_000m, 1m, 10m, sembrarEnsayo: true));
+        Assert.Equal(RequiereNivel.N1YN2, await EvaluarAsync(null, 0m, null, 5_000m, 1m, 0m, sembrarEnsayo: true));
+    }
+
     private static async Task<RequiereNivel> EvaluarAsync(
         ModoNivel2? modo,
         decimal umbral,
@@ -188,7 +196,8 @@ public sealed class EvaluadorMultidimensionalModoTests
         bool esServicio = false,
         Guid? departamentoFila = null,
         List<Guid>? consultas = null,
-        Naturaleza naturaleza = Naturaleza.Estandar)
+        Naturaleza naturaleza = Naturaleza.Estandar,
+        bool sembrarEnsayo = false)
     {
         var dbName = Guid.NewGuid().ToString();
         var empresa = new BypassedEmpresaContext();
@@ -204,6 +213,13 @@ public sealed class EvaluadorMultidimensionalModoTests
                 Empresa, departamentoFila ?? Departamento, hoy.AddDays(-1), umbral,
                 modoNivel2: m, montoMinimoDisponibilidad: minimo));
             await db.SaveChangesAsync();
+        }
+
+        if (sembrarEnsayo)
+        {
+            Assert.True(await Millet.Compras.Infrastructure.Seed.ComprasTestSeedHostedService.SembrarUmbralEnsayoAsync(db, Empresa, default));
+            Assert.False(await Millet.Compras.Infrastructure.Seed.ComprasTestSeedHostedService.SembrarUmbralEnsayoAsync(db, Empresa, default));
+            Assert.Equal(1, await db.UmbralesAprobacionDepartamento.CountAsync());
         }
 
         if (naturaleza != Naturaleza.Estandar)

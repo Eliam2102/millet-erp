@@ -31,6 +31,24 @@ public sealed class M327PermisosReversaTests
         Assert.Contains(PermisosCanonicos.Todos, p => p.Codigo == PermisosCanonicos.ComercioExteriorAnticiposRevertirComprobacionSolicitar);
     }
 
+    [Fact]
+    public async Task Solo_contador_general_reversa_cobros_y_aplicaciones_de_anticipo()
+    {
+        using var db = new IdentidadDbContext(new DbContextOptionsBuilder<IdentidadDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new Empresa());
+        await db.Database.EnsureCreatedAsync();
+        var servicio = new BootstrapSuperAdminHostedService(null!, Options.Create(new BootstrapSuperAdminOptions()),
+            NullLogger<BootstrapSuperAdminHostedService>.Instance);
+        var seed = typeof(BootstrapSuperAdminHostedService).GetMethod("EnsureRolesMvpAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        await (Task)seed.Invoke(servicio, [db, CancellationToken.None])!;
+
+        var permisoId = PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.CuentasPorCobrarAplicacionPagoReversar).Id;
+        var roles = await db.RolPermisos.Where(rp => rp.PermisoId == permisoId)
+            .Join(db.Roles, rp => rp.RolId, r => r.Id, (rp, r) => r.Codigo).ToListAsync();
+        Assert.Equal(["contador-general"], roles);
+        Assert.Contains(PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales, await PermisosAsync(db, "contador-general"));
+    }
+
     private static async Task<HashSet<string>> PermisosAsync(IdentidadDbContext db, string codigoRol)
     {
         var rolId = (await db.Roles.SingleAsync(r => r.Codigo == codigoRol)).Id;
