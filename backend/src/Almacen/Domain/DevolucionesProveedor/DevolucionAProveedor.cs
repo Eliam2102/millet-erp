@@ -135,6 +135,10 @@ public sealed class DevolucionAProveedor : BaseEntity, IPerteneceAEmpresa, IAudi
         if (autorizadoPor == Guid.Empty)
             throw new BusinessRuleException("DEV_PROV_AUTORIZADOR_INVALIDO",
                 "Autorizador requerido.");
+        // Segregación de funciones (misma regla que OC_AUTOAUTORIZACION).
+        if (autorizadoPor == SolicitadaPor)
+            throw new BusinessRuleException("DEV_PROV_AUTOAUTORIZACION",
+                "Quien solicitó la devolución al proveedor no puede autorizarla.");
 
         Estado = EstadoDevolucionProveedor.Autorizada;
         AutorizadaPor = autorizadoPor;

@@ -27,6 +27,30 @@ public sealed class FacturaProveedorAggregateTests
             ahora: DateTimeOffset.UtcNow);
 
     [Fact]
+    public void Autorizar_por_quien_capturo_falla_y_otra_persona_si_autoriza()
+    {
+        var capturista = Guid.NewGuid();
+        var f = Domain.FacturaProveedor.FacturaProveedor.CapturarConOc(
+            Guid.NewGuid(), null, null, Guid.NewGuid(), Guid.NewGuid(), "F-002", "A",
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
+            "MXN", null, 1000m, 0m, 160m, 0m, 1160m, Guid.NewGuid(), null,
+            Tolerancia.MontoAbsoluto(0.99m), 0m, 0m, DateTimeOffset.UtcNow, capturadoPor: capturista);
+        f.CapturadoPor.Should().Be(capturista);
+        f.Bitacora.Single().UsuarioId.Should().Be(capturista);
+
+        var mismo = () => f.Autorizar(capturista, DateTimeOffset.UtcNow);
+        mismo.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("FACTURA_AUTOAUTORIZACION");
+        f.Estado.Should().Be(EstadoPasivo.Capturada);
+
+        // También desde revisión: liberar la revisión no abre la puerta al capturista.
+        f.EnviarARevision(Guid.NewGuid(), Guid.NewGuid(), null, DateTimeOffset.UtcNow);
+        mismo.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("FACTURA_AUTOAUTORIZACION");
+
+        f.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        f.Estado.Should().Be(EstadoPasivo.Autorizada);
+    }
+
+    [Fact]
     public void CapturarConOc_crea_factura_en_Capturada_con_bitacora_inicial()
     {
         var f = Capturar();

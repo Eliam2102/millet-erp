@@ -1883,6 +1883,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("anticipo_aplicado_total");
 
+                    b.Property<Guid?>("CapturadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("capturado_por");
+
                     b.Property<decimal>("CargosAplicadosTotal")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
