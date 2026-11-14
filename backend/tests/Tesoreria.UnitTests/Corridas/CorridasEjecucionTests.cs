@@ -34,8 +34,8 @@ public sealed class CorridasEjecucionTests
         db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.AddRange(pasivos); await db.SaveChangesAsync();
         var c = await new CrearCorridaHandler(db, new EmpresaContext(), new User(Armador), new Proveedores(), new Clock())
             .Handle(new(cuenta.Id, pasivos.Select(p => p.FacturaProveedorId).ToList()), default);
-        c = await new EnviarCorridaAAutorizacionHandler(db, new Proveedores()).Handle(new(c.Id, c.Version), default);
-        c = await new AutorizarCorridaHandler(db, new EmpresaContext(), new User(Jefe), new Roles(), new Proveedores(), new Clock()).Handle(new(c.Id, c.Version), default);
+        c = await new EnviarCorridaAAutorizacionHandler(db, new Proveedores(), new Clock()).Handle(new(c.Id, c.Version), default);
+        c = await new AutorizarCorridaHandler(db, new EmpresaContext(), new User(Jefe), new Roles(), new Proveedores(), new Clock()).Handle(new(c.Id, c.Version, 10_000_000m, DateOnly.FromDateTime(Ahora.UtcDateTime), "Portal BBVA"), default);
         c.Estado.Should().Be("Autorizada");
         return (db, c, pasivos);
     }
@@ -188,7 +188,7 @@ public sealed class CorridasEjecucionTests
         var p = CorridaPagoDominioTests.Pasivo(Guid.NewGuid(), 100m, 100m, 0m, 0m, empresa: Empresa);
         db.CuentasBancarias.Add(cuenta); db.PasivosPendientesPago.Add(p); await db.SaveChangesAsync();
         var c = await new CrearCorridaHandler(db, new EmpresaContext(), new User(Armador), new Proveedores(), new Clock()).Handle(new(cuenta.Id, [p.FacturaProveedorId]), default);
-        if (enviada) await new EnviarCorridaAAutorizacionHandler(db, new Proveedores()).Handle(new(c.Id, c.Version), default);
+        if (enviada) await new EnviarCorridaAAutorizacionHandler(db, new Proveedores(), new Clock()).Handle(new(c.Id, c.Version), default);
 
         var act = () => new GenerarOficioCorridaHandler(db, new Proveedores(), new Clock()).Handle(new(c.Id), default);
 

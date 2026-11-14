@@ -30,6 +30,7 @@ import {
   umbralesGuion, PERSONA, JEFE_PERMS, COMPRADOR_PERMS, CXP_PERMS, designarAprobador,
 } from './_demo';
 import { sql } from '../86e3ke5ck/_data';
+import { capturarSaldoPortal } from '../DEMO-COMPRA-PAGO-VALIDACIONES/_data';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.setTimeout(600_000);
@@ -522,6 +523,7 @@ test('DEMO-01 [AC] @evidence purchase-to-payment with one real user per role: RQ
     await page.goto(`/tesoreria/corridas/${corridaId}`);
     await expect(page.getByRole('button', { name: 'Firmar y autorizar' })).toBeEnabled();
     await foto(page, '10e-firmante-ve-la-corrida');
+    await capturarSaldoPortal(page);
     await page.getByRole('button', { name: 'Firmar y autorizar' }).click();
     const dlg = page.getByRole('alertdialog').or(page.getByRole('dialog')).filter({ hasText: 'Firmar la corrida' });
     await expect(dlg.getByRole('button', { name: 'Firmar y autorizar' })).toBeEnabled();

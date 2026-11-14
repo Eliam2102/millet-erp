@@ -113,7 +113,8 @@ public sealed record CorridaResponse(
     IReadOnlyList<CorridaProveedorResponse> Proveedores,
     IReadOnlyList<CorridaLineaResponse> Lineas,
     IReadOnlyList<CorridaFirmaResponse> Firmas,
-    decimal Ejecutado, decimal Pendiente, DateTimeOffset? OficioGeneradoEn);
+    decimal Ejecutado, decimal Pendiente, DateTimeOffset? OficioGeneradoEn,
+    decimal? SaldoPortal = null, DateOnly? FechaConsultaPortal = null, string? EvidenciaSaldoPortal = null);
 
 internal static class CorridaLectura
 {
@@ -142,7 +143,7 @@ internal static class CorridaLectura
             c.SolicitadaPor, c.AutorizadaPor, c.AutorizadaEn, c.CreadaEn,
             c.FirmasRequeridas, c.FirmasRecibidas, c.RolRequerido, c.MotivoCierre, c.Avisos, c.Version,
             porProveedor, lineas, c.Firmas.Select(f => new CorridaFirmaResponse(f.UsuarioId, f.Roles, f.FirmadaEn, firmantes?.GetValueOrDefault(f.UsuarioId))).ToList(),
-            c.Ejecutado, c.Pendiente, c.OficioGeneradoEn);
+            c.Ejecutado, c.Pendiente, c.OficioGeneradoEn, c.SaldoPortal, c.FechaConsultaPortal, c.EvidenciaSaldoPortal);
     }
 }
 

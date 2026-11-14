@@ -19,7 +19,7 @@ import {
   abrirPeriodoActual, abrirRecepcion, articulo, captureBearer, conceder, crearBinNeutro, CUENTA_MILLET, C_PERMS, CXP_PERMS, COMPRADOR_PERMS,
   lista, ocSinRqTransmitida, PERSONA, PROV, sembrarCuentaMillet, sembrarProveedor, TES_PERMS, umbralesGuion,
 } from '../DEMO-COMPRA-PAGO/_demo';
-import { ok, foto, rechazo } from './_data';
+import { capturarSaldoPortal, ok, foto, rechazo } from './_data';
 import { extracto, genMovs, movALinea, seedCuenta, sql, type Mov } from './_conciliacion';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
@@ -287,6 +287,7 @@ test('V-RO-04 corrida arriba del límite DEMO ($500,000): dos firmas de personas
 
   // primera firma: B (sin rol gerente) -> sigue en autorización
   await page.goto(`/tesoreria/corridas/${corridaId}`); await page.waitForLoadState('networkidle');
+  await capturarSaldoPortal(page);
   await page.getByRole('button', { name: 'Firmar y autorizar' }).click();
   const dlg = page.getByRole('alertdialog').or(page.getByRole('dialog')).filter({ hasText: 'Firmar la corrida' });
   await dlg.getByRole('button', { name: 'Firmar y autorizar' }).click();
@@ -310,6 +311,7 @@ test('V-RO-04 corrida arriba del límite DEMO ($500,000): dos firmas de personas
 
   // segunda firma: jefe de almacén con rol «gerente» -> Autorizada con dos firmantes distintos
   await J2.page.goto(`/tesoreria/corridas/${corridaId}`); await J2.page.waitForLoadState('networkidle');
+  await capturarSaldoPortal(J2.page);
   await J2.page.getByRole('button', { name: 'Firmar y autorizar' }).click();
   const dlg2 = J2.page.getByRole('alertdialog').or(J2.page.getByRole('dialog')).filter({ hasText: 'Firmar la corrida' });
   await dlg2.getByRole('button', { name: 'Firmar y autorizar' }).click();

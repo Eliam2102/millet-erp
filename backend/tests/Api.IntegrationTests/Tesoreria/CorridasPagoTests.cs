@@ -8,6 +8,7 @@ using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
+using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Pasivos;
@@ -141,6 +142,31 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
         Assert.Contains("CORRIDA_SALDO_INSUFICIENTE", await r.Content.ReadAsStringAsync());
     }
 
+    // M-147: con el saldo del portal capturado la corrida pasa aunque el saldo en libros no alcance; si el portal no alcanza, 422.
+    [Fact]
+    public async Task M147_enviar_con_saldo_del_portal_ignora_el_saldo_en_libros_y_lo_guarda()
+    {
+        await using var e = await SembrarAsync(saldoInicial: 1_000m);
+        var c = await AdjuntosProveedorAmbiente.LeerAsync(await Crear(e, e.Pasivo1, e.Pasivo2));   // 1,553.33
+        var url = $"{Base}/{c.GetProperty("id").GetGuid()}/enviar-autorizacion";
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
+
+        var corto = await Post(e.Admin, url, new { saldoPortal = 1_553.32m, fechaConsultaPortal = hoy, evidenciaSaldoPortal = "Portal BBVA" }, c.GetProperty("version").GetInt32());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, corto.StatusCode);
+        Assert.Contains("CORRIDA_SALDO_PORTAL_INSUFICIENTE", await corto.Content.ReadAsStringAsync());
+
+        var futura = await Post(e.Admin, url, new { saldoPortal = 5_000m, fechaConsultaPortal = hoy.AddDays(3), evidenciaSaldoPortal = "Portal BBVA" }, c.GetProperty("version").GetInt32());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, futura.StatusCode);
+        Assert.Contains("CORRIDA_FECHA_PORTAL_FUTURA", await futura.Content.ReadAsStringAsync());
+
+        var ok = await Post(e.Admin, url, new { saldoPortal = 5_000m, fechaConsultaPortal = hoy, evidenciaSaldoPortal = "Portal BBVA" }, c.GetProperty("version").GetInt32());
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var enviada = await AdjuntosProveedorAmbiente.LeerAsync(ok);
+        Assert.Equal("EnAutorizacion", enviada.GetProperty("estado").GetString());
+        Assert.Equal(5_000m, enviada.GetProperty("saldoPortal").GetDecimal());
+        Assert.Equal("Portal BBVA", enviada.GetProperty("evidenciaSaldoPortal").GetString());
+    }
+
     private static Task<HttpResponseMessage> Put(HttpClient c, string url, object body, int version)
     {
         var req = new HttpRequestMessage(HttpMethod.Put, url) { Content = JsonContent.Create(body) };
@@ -162,6 +188,37 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
         Assert.Contains("CORRIDA_MISMO_USUARIO", await r.Content.ReadAsStringAsync());
+    }
+
+    // M-147 (ajuste): al firmar, saldo del portal, fecha de consulta y evidencia son obligatorios; ya no se usa el saldo en libros.
+    [Fact]
+    public async Task M147_firmar_sin_saldo_del_portal_responde_422_con_codigo_y_con_saldo_autoriza()
+    {
+        await using var e = await SembrarAsync();
+        var c = await AdjuntosProveedorAmbiente.LeerAsync(await Crear(e, e.Pasivo1));   // 1,053.33: una firma
+        var id = c.GetProperty("id").GetGuid();
+        var enviada = await AdjuntosProveedorAmbiente.LeerAsync(await Post(e.Admin, $"{Base}/{id}/enviar-autorizacion", null, c.GetProperty("version").GetInt32()));
+        var version = enviada.GetProperty("version").GetInt32();
+        var (firmante, _) = await e.Amb.ClienteConPermisosAsync(PermisosCanonicos.TesoreriaCorridasAutorizar);
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var sinSaldo = await Post(firmante, $"{Base}/{id}/autorizar", null, version);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sinSaldo.StatusCode);
+        Assert.Contains("CORRIDA_SALDO_PORTAL_REQUERIDO", await sinSaldo.Content.ReadAsStringAsync());
+
+        var sinEvidencia = await Post(firmante, $"{Base}/{id}/autorizar", new { saldoPortal = 5_000m, fechaConsultaPortal = hoy }, version);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sinEvidencia.StatusCode);
+        Assert.Contains("CORRIDA_EVIDENCIA_PORTAL_VACIA", await sinEvidencia.Content.ReadAsStringAsync());
+
+        var futura = await Post(firmante, $"{Base}/{id}/autorizar", new { saldoPortal = 5_000m, fechaConsultaPortal = hoy.AddDays(3), evidenciaSaldoPortal = "Portal BBVA" }, version);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, futura.StatusCode);
+        Assert.Contains("CORRIDA_FECHA_PORTAL_FUTURA", await futura.Content.ReadAsStringAsync());
+
+        var ok = await Post(firmante, $"{Base}/{id}/autorizar", new { saldoPortal = 5_000m, fechaConsultaPortal = hoy, evidenciaSaldoPortal = "Portal BBVA" }, version);
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var autorizada = await AdjuntosProveedorAmbiente.LeerAsync(ok);
+        Assert.Equal("Autorizada", autorizada.GetProperty("estado").GetString());
+        Assert.Equal(5_000m, autorizada.GetProperty("saldoPortal").GetDecimal());
     }
 
     [Fact]
@@ -196,18 +253,43 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
-    public async Task Proveedor_sin_opinion_de_cumplimiento_aparece_detenido_por_documentacion_y_no_entra_a_la_corrida()
+    public async Task Proveedor_sin_opinion_de_cumplimiento_se_detiene_solo_si_la_matriz_la_marca_obligatoria()
     {
         await using var e = await SembrarAsync(conOpinionCumplimiento: false);
+        JsonElement Candidato(JsonElement candidatos) =>
+            candidatos.GetProperty("items").EnumerateArray().First(i => i.GetProperty("facturaProveedorId").GetGuid() == e.Pasivo1);
 
-        var candidatos = await AdjuntosProveedorAmbiente.LeerAsync(await e.Admin.GetAsync($"{Base}/candidatos?moneda=MXN"));
-        var detenida = candidatos.GetProperty("items").EnumerateArray().First(i => i.GetProperty("facturaProveedorId").GetGuid() == e.Pasivo1);
-        Assert.True(detenida.GetProperty("detenida").GetBoolean());
-        Assert.Equal("documentación", detenida.GetProperty("motivoDetencion").GetString());
+        await MatrizOpinionCumplimientoAsync(e, obligatoria: true);
+        try
+        {
+            var detenida = Candidato(await AdjuntosProveedorAmbiente.LeerAsync(await e.Admin.GetAsync($"{Base}/candidatos?moneda=MXN")));
+            Assert.True(detenida.GetProperty("detenida").GetBoolean());
+            Assert.Equal("documentación", detenida.GetProperty("motivoDetencion").GetString());
 
-        var r = await Crear(e, e.Pasivo1);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
-        Assert.Contains("CORRIDA_PASIVO_DETENIDO_DOCUMENTACION", await r.Content.ReadAsStringAsync());
+            var r = await Crear(e, e.Pasivo1);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+            Assert.Contains("CORRIDA_PASIVO_DETENIDO_DOCUMENTACION", await r.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            await MatrizOpinionCumplimientoAsync(e, obligatoria: false);   // seed: la 32-D no es obligatoria
+        }
+
+        // ADM-PRV-05: con la 32-D no obligatoria en la matriz el pasivo no se detiene y entra a la corrida.
+        var libre = Candidato(await AdjuntosProveedorAmbiente.LeerAsync(await e.Admin.GetAsync($"{Base}/candidatos?moneda=MXN")));
+        Assert.False(libre.GetProperty("detenida").GetBoolean());
+        Assert.Equal(HttpStatusCode.Created, (await Crear(e, e.Pasivo1)).StatusCode);
+    }
+
+    private static async Task MatrizOpinionCumplimientoAsync(Escenario e, bool obligatoria)
+    {
+        using var scope = e.Amb.Factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var t = await db.AdjuntoTiposDocumento.FirstAsync(x => x.TipoEntidad == "proveedor"
+            && x.Codigo == Millet.Compartido.Application.Adjuntos.ExpedienteAdjuntos.CodigoOpinionCumplimiento);
+        t.Configurar(t.Nombre, obligatoria, obligatoria, t.VigenciaMeses, t.SoloPersonaMoral, t.AplicaOrigen, t.Activo);
+        await db.SaveChangesAsync();
     }
 
     [Fact]

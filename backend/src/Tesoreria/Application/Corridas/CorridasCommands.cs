@@ -164,11 +164,23 @@ public sealed class AjustarImporteCorridaHandler(TesoreriaDbContext db, IProveed
     }
 }
 
-/// <summary>Javier Canché, 9-nov: «La corrida se debería bloquear si no se cuenta con el saldo suficiente para hacer el pago».</summary>
+/// <summary>
+/// Javier Canché, 9-nov: «La corrida se debería bloquear si no se cuenta con el saldo suficiente para hacer el pago».
+/// M-147 (13-nov): «Se debe bloquear con el saldo que se tiene en el portal bancario». Al enviar, si se captura el saldo del
+/// portal se compara contra él; sin captura se mantiene el saldo en libros. Al firmar el saldo del portal es obligatorio y lo
+/// valida <see cref="CorridaPago.Firmar"/>.
+/// </summary>
 internal static class SaldoCorrida
 {
-    public static async Task ExigirAlcanzaAsync(TesoreriaDbContext db, CorridaPago c, CancellationToken ct)
+    public static async Task ExigirAlcanzaAlEnviarAsync(TesoreriaDbContext db, CorridaPago c, EnviarCorridaAAutorizacionCommand command,
+        IClock clock, CancellationToken ct)
     {
+        if (command.SaldoPortal is not null || command.FechaConsultaPortal is not null || !string.IsNullOrWhiteSpace(command.EvidenciaSaldoPortal))
+        {
+            c.RegistrarSaldoPortal(command.SaldoPortal, command.FechaConsultaPortal, command.EvidenciaSaldoPortal,
+                DateOnly.FromDateTime(clock.UtcNow.UtcDateTime));
+            return;
+        }
         var cuenta = await db.CuentasBancarias.AsNoTracking().FirstAsync(x => x.Id == c.CuentaBancariaId, ct);
         var neto = await db.MovimientosBancarios.AsNoTracking().Where(m => m.CuentaBancariaId == cuenta.Id)
             .SumAsync(m => m.Sentido == Domain.Movimientos.SentidoMovimiento.Ingreso ? m.Monto : -m.Monto, ct);
@@ -181,9 +193,18 @@ internal static class SaldoCorrida
 
 // --------------------------------------------------- Enviar a autorización
 
-public sealed record EnviarCorridaAAutorizacionCommand(Guid Id, int VersionEsperada) : IRequest<CorridaResponse>;
+public sealed record EnviarCorridaAAutorizacionCommand(Guid Id, int VersionEsperada,
+    decimal? SaldoPortal = null, DateOnly? FechaConsultaPortal = null, string? EvidenciaSaldoPortal = null)
+    : IRequest<CorridaResponse>;
 
-public sealed class EnviarCorridaAAutorizacionHandler(TesoreriaDbContext db, IProveedorBancoReadPort proveedores)
+/// <summary>Las reglas del saldo del portal (requerido, no negativo, fecha no futura) viven en el dominio con el reloj del sistema.</summary>
+public sealed class EnviarCorridaAAutorizacionValidator : AbstractValidator<EnviarCorridaAAutorizacionCommand>
+{
+    public EnviarCorridaAAutorizacionValidator() =>
+        RuleFor(c => c.EvidenciaSaldoPortal).MaximumLength(300).WithMessage("La referencia de la evidencia admite máx. 300 caracteres.");
+}
+
+public sealed class EnviarCorridaAAutorizacionHandler(TesoreriaDbContext db, IProveedorBancoReadPort proveedores, IClock clock)
     : IRequestHandler<EnviarCorridaAAutorizacionCommand, CorridaResponse>
 {
     public async Task<CorridaResponse> Handle(EnviarCorridaAAutorizacionCommand command, CancellationToken cancellationToken)
@@ -192,7 +213,7 @@ public sealed class EnviarCorridaAAutorizacionHandler(TesoreriaDbContext db, IPr
         var c = await CorridaArmado.CargarAsync(db, command.Id, command.VersionEsperada, ct);
         var escalones = await PoliticaFirmas.CargarAsync(db, c.EmpresaId, c.Moneda, ct);
         var (firmas, rol) = PoliticaFirmaCorrida.Requisito(escalones, c.Total);
-        await SaldoCorrida.ExigirAlcanzaAsync(db, c, ct);
+        await SaldoCorrida.ExigirAlcanzaAlEnviarAsync(db, c, command, clock, ct);
         c.EnviarAAutorizacion(firmas, rol);
         await db.SaveChangesAsync(ct);
         return await CorridaLectura.ToResponseAsync(db, proveedores, c, ct);
@@ -201,7 +222,15 @@ public sealed class EnviarCorridaAAutorizacionHandler(TesoreriaDbContext db, IPr
 
 // --------------------------------------------------- Autorizar (firmar)
 
-public sealed record AutorizarCorridaCommand(Guid Id, int VersionEsperada) : IRequest<CorridaResponse>;
+public sealed record AutorizarCorridaCommand(Guid Id, int VersionEsperada,
+    decimal? SaldoPortal = null, DateOnly? FechaConsultaPortal = null, string? EvidenciaSaldoPortal = null)
+    : IRequest<CorridaResponse>;
+
+public sealed class AutorizarCorridaValidator : AbstractValidator<AutorizarCorridaCommand>
+{
+    public AutorizarCorridaValidator() =>
+        RuleFor(c => c.EvidenciaSaldoPortal).MaximumLength(300).WithMessage("La referencia de la evidencia admite máx. 300 caracteres.");
+}
 
 public sealed class AutorizarCorridaHandler(TesoreriaDbContext db, ICurrentEmpresaContext empresa, ICurrentUserContext user,
     IFirmanteRolesReadPort roles, IProveedorBancoReadPort proveedores, IClock clock) : IRequestHandler<AutorizarCorridaCommand, CorridaResponse>
@@ -211,8 +240,8 @@ public sealed class AutorizarCorridaHandler(TesoreriaDbContext db, ICurrentEmpre
         var ct = cancellationToken;
         var (empresaId, usuarioId) = DevolucionTransiciones.Contexto(empresa, user, "firma la corrida");
         var c = await CorridaArmado.CargarAsync(db, command.Id, command.VersionEsperada, ct);
-        await SaldoCorrida.ExigirAlcanzaAsync(db, c, ct);
-        var firma = c.Firmar(usuarioId, await roles.CodigosRolAsync(usuarioId, empresaId, ct), clock.UtcNow);
+        var firma = c.Firmar(usuarioId, await roles.CodigosRolAsync(usuarioId, empresaId, ct), clock.UtcNow,
+            command.SaldoPortal, command.FechaConsultaPortal, command.EvidenciaSaldoPortal);
         db.Add(firma);
         await db.SaveChangesAsync(ct);
         return await CorridaLectura.ToResponseAsync(db, proveedores, c, ct);

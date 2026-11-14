@@ -10,6 +10,8 @@ public sealed class CorridaPagoDominioTests
     private static readonly Guid Empresa = Guid.NewGuid();
     private static readonly Guid Armador = Guid.NewGuid();
     private static readonly DateTimeOffset Ahora = new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateOnly Hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+    private const decimal Portal = 10_000_000m;
 
     internal static PasivoPendientePago Pasivo(Guid? proveedor, decimal monto, decimal subtotal = 0, decimal traslados = 0, decimal retenciones = 0, string moneda = "MXN", Guid? empresa = null) =>
         new(empresa ?? Empresa, Guid.NewGuid(), proveedor ?? Guid.NewGuid(), null, monto, monto, moneda, null, new DateOnly(2026, 11, 15), null, "F-1", Ahora,
@@ -87,7 +89,7 @@ public sealed class CorridaPagoDominioTests
     public void Quien_arma_no_autoriza()
     {
         var c = Corrida(1_000m); c.EnviarAAutorizacion(1, null);
-        var act = () => c.Firmar(Armador, [], Ahora);
+        var act = () => c.Firmar(Armador, [], Ahora, Portal, Hoy, "Portal");
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_MISMO_USUARIO");
         c.Estado.Should().Be(EstadoCorridaPago.EnAutorizacion);
     }
@@ -96,7 +98,7 @@ public sealed class CorridaPagoDominioTests
     public void Una_firma_basta_bajo_el_limite()
     {
         var c = Corrida(1_000m); c.EnviarAAutorizacion(1, null);
-        c.Firmar(Guid.NewGuid(), ["jefe-tesoreria"], Ahora);
+        c.Firmar(Guid.NewGuid(), ["jefe-tesoreria"], Ahora, Portal, Hoy, "Portal");
         c.Estado.Should().Be(EstadoCorridaPago.Autorizada);
     }
 
@@ -104,11 +106,11 @@ public sealed class CorridaPagoDominioTests
     public void Sobre_el_limite_no_se_autoriza_con_una_sola_firma_ni_con_dos_sin_el_rol()
     {
         var c = Corrida(650_000m); c.EnviarAAutorizacion(2, "gerente");
-        c.Firmar(Guid.NewGuid(), ["jefe-tesoreria"], Ahora);
+        c.Firmar(Guid.NewGuid(), ["jefe-tesoreria"], Ahora, Portal, Hoy, "Portal");
         c.Estado.Should().Be(EstadoCorridaPago.EnAutorizacion);
-        c.Firmar(Guid.NewGuid(), ["jefe-nomina"], Ahora);
+        c.Firmar(Guid.NewGuid(), ["jefe-nomina"], Ahora, Portal, Hoy, "Portal");
         c.Estado.Should().Be(EstadoCorridaPago.EnAutorizacion, "faltan las firmas requeridas con el rol gerente");
-        c.Firmar(Guid.NewGuid(), ["Gerente"], Ahora);
+        c.Firmar(Guid.NewGuid(), ["Gerente"], Ahora, Portal, Hoy, "Portal");
         c.Estado.Should().Be(EstadoCorridaPago.Autorizada);
     }
 
@@ -116,8 +118,8 @@ public sealed class CorridaPagoDominioTests
     public void Segunda_firma_del_gerente_autoriza_al_llegar_a_dos()
     {
         var c = Corrida(650_000m); c.EnviarAAutorizacion(2, "gerente");
-        c.Firmar(Guid.NewGuid(), ["jefe-tesoreria"], Ahora);
-        c.Firmar(Guid.NewGuid(), ["gerente"], Ahora);
+        c.Firmar(Guid.NewGuid(), ["jefe-tesoreria"], Ahora, Portal, Hoy, "Portal");
+        c.Firmar(Guid.NewGuid(), ["gerente"], Ahora, Portal, Hoy, "Portal");
         c.Estado.Should().Be(EstadoCorridaPago.Autorizada);
         c.FirmasRecibidas.Should().Be(2);
     }
@@ -127,8 +129,8 @@ public sealed class CorridaPagoDominioTests
     {
         var c = Corrida(650_000m); c.EnviarAAutorizacion(2, null);
         var u = Guid.NewGuid();
-        c.Firmar(u, [], Ahora);
-        var act = () => c.Firmar(u, [], Ahora);
+        c.Firmar(u, [], Ahora, Portal, Hoy, "Portal");
+        var act = () => c.Firmar(u, [], Ahora, Portal, Hoy, "Portal");
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_YA_FIRMADA");
     }
 
@@ -147,7 +149,7 @@ public sealed class CorridaPagoDominioTests
         c.Estado.Should().Be(EstadoCorridaPago.Rechazada);
         c.Lineas.Should().OnlyContain(l => !l.Viva);
 
-        var a = Corrida(1_000m); a.EnviarAAutorizacion(1, null); a.Firmar(Guid.NewGuid(), [], Ahora);
+        var a = Corrida(1_000m); a.EnviarAAutorizacion(1, null); a.Firmar(Guid.NewGuid(), [], Ahora, Portal, Hoy, "Portal");
         ((Action)(() => a.Rechazar("x", Guid.NewGuid()))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_ESTADO_INVALIDO");
     }
 
@@ -155,13 +157,13 @@ public sealed class CorridaPagoDominioTests
     [Fact]
     public void Autorizada_sin_pagos_se_cancela_y_libera_lineas_pero_ejecutada_no()
     {
-        var a = Corrida(1_000m); a.EnviarAAutorizacion(1, null); a.Firmar(Guid.NewGuid(), [], Ahora);
+        var a = Corrida(1_000m); a.EnviarAAutorizacion(1, null); a.Firmar(Guid.NewGuid(), [], Ahora, Portal, Hoy, "Portal");
         ((Action)(() => a.Cancelar(" "))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_MOTIVO_VACIO");
         a.Cancelar("CxP retiró la factura");
         a.Estado.Should().Be(EstadoCorridaPago.Cancelada);
         a.Lineas.Should().OnlyContain(l => !l.Viva);
 
-        var e = Corrida(400m, 600m); e.EnviarAAutorizacion(1, null); e.Firmar(Guid.NewGuid(), [], Ahora);
+        var e = Corrida(400m, 600m); e.EnviarAAutorizacion(1, null); e.Firmar(Guid.NewGuid(), [], Ahora, Portal, Hoy, "Portal");
         e.RegistrarEjecucion([e.Lineas.First().FacturaProveedorId], "REF-1", new DateOnly(2026, 11, 1));
         ((Action)(() => e.Cancelar("x"))).Should().Throw<BusinessRuleException>().Where(x => x.Code == "CORRIDA_ESTADO_INVALIDO");
     }
@@ -181,7 +183,7 @@ public sealed class CorridaPagoDominioTests
         var c = CorridaPago.Crear(Empresa, null, Guid.NewGuid(), "MXN", Armador, Ahora);
         var p1 = Pasivo(null, 400m); var p2 = Pasivo(null, 600m);
         c.AgregarLinea(p1); c.AgregarLinea(p2);
-        c.EnviarAAutorizacion(2, null); c.Firmar(Guid.NewGuid(), [], Ahora);
+        c.EnviarAAutorizacion(2, null); c.Firmar(Guid.NewGuid(), [], Ahora, Portal, Hoy, "Portal");
 
         c.RetirarPasivo(p1.FacturaProveedorId, "revisión documental").Should().BeTrue();
 
@@ -197,7 +199,7 @@ public sealed class CorridaPagoDominioTests
     {
         var c = CorridaPago.Crear(Empresa, null, Guid.NewGuid(), "MXN", Armador, Ahora);
         var p = Pasivo(null, 400m); c.AgregarLinea(p);
-        c.EnviarAAutorizacion(1, null); c.Firmar(Guid.NewGuid(), [], Ahora);
+        c.EnviarAAutorizacion(1, null); c.Firmar(Guid.NewGuid(), [], Ahora, Portal, Hoy, "Portal");
 
         c.RetirarPasivo(p.FacturaProveedorId, "x").Should().BeTrue();
 
@@ -213,5 +215,58 @@ public sealed class CorridaPagoDominioTests
         ((Action)(() => c.AgregarLinea(Pasivo(null, 10m, moneda: "USD")))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_MONEDA_DISTINTA");
         c.EnviarAAutorizacion(1, null);
         ((Action)(() => c.AgregarLinea(Pasivo(null, 10m)))).Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_ESTADO_INVALIDO");
+    }
+
+    // ---- M-147: saldo del portal bancario ----
+
+    [Fact]
+    public void M147_saldo_portal_suficiente_se_guarda_redondeado_y_el_menor_al_total_bloquea()
+    {
+        var hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+        var c = Corrida(500_000m);
+        c.RegistrarSaldoPortal(650_000.005m, hoy, "  Captura portal BBVA 13-nov  ", hoy);
+        (c.SaldoPortal, c.FechaConsultaPortal, c.EvidenciaSaldoPortal).Should().Be((650_000.01m, hoy, "Captura portal BBVA 13-nov"));
+
+        ((Action)(() => c.RegistrarSaldoPortal(499_999.99m, hoy, "Captura", hoy)))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_SALDO_PORTAL_INSUFICIENTE");
+        c.RegistrarSaldoPortal(500_000m, hoy, "Captura", hoy);   // igual al total alcanza
+    }
+
+    [Theory]
+    [InlineData(-0.01, 0, "Captura", "CORRIDA_SALDO_PORTAL_INVALIDO")]
+    [InlineData(1_000_000, 1, "Captura", "CORRIDA_FECHA_PORTAL_FUTURA")]
+    [InlineData(1_000_000, 0, " ", "CORRIDA_EVIDENCIA_PORTAL_VACIA")]
+    public void M147_saldo_portal_invalido_lanza_codigo(double saldo, int diasDespues, string evidencia, string codigo)
+    {
+        var hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+        var c = Corrida(100m);
+        ((Action)(() => c.RegistrarSaldoPortal((decimal)saldo, hoy.AddDays(diasDespues), evidencia, hoy)))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == codigo);
+        c.SaldoPortal.Should().BeNull();
+    }
+
+    // M-147 (ajuste): al firmar, saldo del portal, fecha de consulta y evidencia son obligatorios; sin ellos no hay firma.
+    [Theory]
+    [InlineData(false, true, "Portal", "CORRIDA_SALDO_PORTAL_REQUERIDO")]
+    [InlineData(true, false, "Portal", "CORRIDA_FECHA_PORTAL_REQUERIDA")]
+    [InlineData(true, true, null, "CORRIDA_EVIDENCIA_PORTAL_VACIA")]
+    public void M147_firmar_sin_saldo_fecha_o_evidencia_del_portal_lanza_codigo_y_no_firma(bool conSaldo, bool conFecha, string? evidencia, string codigo)
+    {
+        var c = Corrida(100m);
+        c.EnviarAAutorizacion(1, null);
+        ((Action)(() => c.Firmar(Guid.NewGuid(), [], Ahora, conSaldo ? Portal : null, conFecha ? Hoy : null, evidencia)))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == codigo);
+        (c.FirmasRecibidas, c.Estado).Should().Be((0, EstadoCorridaPago.EnAutorizacion));
+    }
+
+    [Fact]
+    public void M147_firmar_con_fecha_de_portal_futura_segun_el_reloj_de_la_firma_lanza_codigo()
+    {
+        var c = Corrida(100m);
+        c.EnviarAAutorizacion(1, null);
+        ((Action)(() => c.Firmar(Guid.NewGuid(), [], Ahora, Portal, Hoy.AddDays(1), "Portal")))
+            .Should().Throw<BusinessRuleException>().Where(e => e.Code == "CORRIDA_FECHA_PORTAL_FUTURA");
+        c.Firmar(Guid.NewGuid(), [], Ahora, 100m, Hoy, "Portal");
+        (c.Estado, c.SaldoPortal).Should().Be((EstadoCorridaPago.Autorizada, 100m));
     }
 }

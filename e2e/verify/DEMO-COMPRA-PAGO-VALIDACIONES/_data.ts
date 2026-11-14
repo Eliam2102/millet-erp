@@ -39,6 +39,38 @@ export async function ok(res: { status(): number; text(): Promise<string> }, exp
 }
 export const lista = (r: any): any[] => (Array.isArray(r) ? r : r.items);
 
+/** M-147: al firmar la corrida el saldo del portal, su fecha de consulta y la referencia de la evidencia son obligatorios. */
+export async function capturarSaldoPortal(page: Page, saldo = 100_000_000) {
+  await page.getByLabel(/Saldo en el portal/).fill(String(saldo));
+  await page.getByLabel('Fecha de consulta').fill(today());
+  await page.getByLabel('Referencia de la evidencia').fill('Captura portal BBVA');
+}
+
+const TIPOS_EXPEDIENTE = '/api/v1/datos-maestros/proveedores/expediente/tipos';
+type TipoExpediente = {
+  id: string; codigo: string; nombre: string; obligatorioPersonaMoral: boolean; obligatorioPersonaFisica: boolean;
+  vigenciaMeses: number | null; soloPersonaMoral: boolean; aplicaOrigen: number; activo: boolean; version: number;
+};
+
+/**
+ * 32-D: la matriz del expediente decide si la falta de opinión de cumplimiento detiene el pago (seed: no obligatoria).
+ * Arrange por el endpoint real de la matriz; devuelve la función que deja la obligatoriedad como estaba (para `cleanup`).
+ */
+export async function opinionCumplimientoObligatoria(guard: Guard, obligatoria: boolean): Promise<() => Promise<void>> {
+  guard.dev.allowWrite(/^PUT .*\/datos-maestros\/proveedores\/expediente\/tipos\/[0-9a-f-]+$/);
+  const leer = async () => ((await ok(await guard.api.get(TIPOS_EXPEDIENTE))) as TipoExpediente[]).find((t) => t.codigo === 'opinion_cumplimiento')!;
+  const guardar = async (moral: boolean, fisica: boolean) => {
+    const t = await leer();
+    await ok(await guard.api.put(`${TIPOS_EXPEDIENTE}/${t.id}`, {
+      nombre: t.nombre, obligatorioPersonaMoral: moral, obligatorioPersonaFisica: fisica, vigenciaMeses: t.vigenciaMeses,
+      soloPersonaMoral: t.soloPersonaMoral, aplicaOrigen: t.aplicaOrigen, activo: t.activo,
+    }, { 'X-Expected-Version': String(t.version), 'Idempotency-Key': uuid() }));
+  };
+  const previa = await leer();
+  await guardar(obligatoria, obligatoria);
+  return () => guardar(previa.obligatorioPersonaMoral, previa.obligatorioPersonaFisica);
+}
+
 /** Reads the problem+json of a rejected call and asserts status and code. Returns the problem (message in `detail`). */
 export async function rechazo(res: { status(): number; text(): Promise<string> }, status: number | number[], code: string | RegExp) {
   const txt = await res.text();

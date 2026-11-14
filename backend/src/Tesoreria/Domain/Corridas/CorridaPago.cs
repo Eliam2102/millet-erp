@@ -41,6 +41,15 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// <summary>Avisos acumulados (p. ej. pasivo retirado por CxP), uno por línea.</summary>
     public string? Avisos { get; private set; }
 
+    /// <summary>
+    /// M-147 (Javier Canché, 13-nov): saldo que el portal bancario muestra, capturado al enviar o firmar. Si existe, la corrida
+    /// se bloquea contra este saldo y no contra el saldo en libros del ERP.
+    /// </summary>
+    public decimal? SaldoPortal { get; private set; }
+    public DateOnly? FechaConsultaPortal { get; private set; }
+    /// <summary>Referencia de la evidencia del saldo (folio o nombre de la captura del portal).</summary>
+    public string? EvidenciaSaldoPortal { get; private set; }
+
     private readonly List<CorridaPagoLinea> _lineas = [];
     public IReadOnlyCollection<CorridaPagoLinea> Lineas => _lineas.AsReadOnly();
 
@@ -115,8 +124,13 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
         Estado = EstadoCorridaPago.EnAutorizacion;
     }
 
-    /// <summary>Agrega la firma de <paramref name="usuarioId"/>; autoriza al cumplir las firmas y el rol requeridos.</summary>
-    public CorridaPagoFirma Firmar(Guid usuarioId, IReadOnlyCollection<string> roles, DateTimeOffset ahora)
+    /// <summary>
+    /// Agrega la firma de <paramref name="usuarioId"/>; autoriza al cumplir las firmas y el rol requeridos.
+    /// M-147: quien firma captura siempre el saldo del portal, su fecha de consulta y la evidencia; la corrida se valida
+    /// contra ese saldo (ya no contra el saldo en libros).
+    /// </summary>
+    public CorridaPagoFirma Firmar(Guid usuarioId, IReadOnlyCollection<string> roles, DateTimeOffset ahora,
+        decimal? saldoPortal, DateOnly? fechaConsultaPortal, string? evidenciaSaldoPortal)
     {
         Exigir(EstadoCorridaPago.EnAutorizacion, "firmar");
         if (usuarioId == Guid.Empty)
@@ -125,6 +139,7 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CORRIDA_MISMO_USUARIO", "Quien armó la corrida no puede autorizarla. Pide la firma al Gerente o al Jefe de Tesorería.");
         if (_firmas.Any(f => f.UsuarioId == usuarioId))
             throw new BusinessRuleException("CORRIDA_YA_FIRMADA", "Ya firmaste esta corrida; falta la firma de otra persona.");
+        RegistrarSaldoPortal(saldoPortal, fechaConsultaPortal, evidenciaSaldoPortal, DateOnly.FromDateTime(ahora.UtcDateTime));
         var firma = new CorridaPagoFirma(Id, usuarioId, roles, ahora);
         _firmas.Add(firma);
         FirmasRecibidas++;
@@ -133,6 +148,32 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
             Estado = EstadoCorridaPago.Autorizada; AutorizadaPor = usuarioId; AutorizadaEn = ahora;
         }
         return firma;
+    }
+
+    /// <summary>
+    /// M-147: registra el saldo del portal bancario consultado por quien envía o firma y exige que alcance. Saldo, fecha de
+    /// consulta y evidencia van juntos; <paramref name="hoy"/> viene del reloj del sistema (IClock).
+    /// </summary>
+    public void RegistrarSaldoPortal(decimal? saldoPortal, DateOnly? fechaConsultaPortal, string? evidencia, DateOnly hoy)
+    {
+        if (Estado is not (EstadoCorridaPago.Borrador or EstadoCorridaPago.EnAutorizacion))
+            throw new BusinessRuleException("CORRIDA_ESTADO_INVALIDO", $"No se puede registrar el saldo del portal de una corrida en estado {Estado}.");
+        if (saldoPortal is not decimal saldo)
+            throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_REQUERIDO", "Captura el saldo que muestra el portal bancario.");
+        if (fechaConsultaPortal is not DateOnly fechaConsulta)
+            throw new BusinessRuleException("CORRIDA_FECHA_PORTAL_REQUERIDA", "Indica la fecha en que consultaste el portal bancario.");
+        if (saldo < 0)
+            throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_INVALIDO", "El saldo del portal no puede ser negativo.");
+        if (fechaConsulta > hoy)
+            throw new BusinessRuleException("CORRIDA_FECHA_PORTAL_FUTURA", "La fecha de consulta del portal no puede ser futura.");
+        if (string.IsNullOrWhiteSpace(evidencia))
+            throw new BusinessRuleException("CORRIDA_EVIDENCIA_PORTAL_VACIA", "Indica la referencia de la evidencia del saldo del portal.");
+        SaldoPortal = decimal.Round(saldo, 2, MidpointRounding.AwayFromZero);
+        FechaConsultaPortal = fechaConsulta;
+        EvidenciaSaldoPortal = evidencia.Trim();
+        if (Pendiente > SaldoPortal)
+            throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_INSUFICIENTE",
+                $"El portal bancario muestra {SaldoPortal:N2} {Moneda} y la corrida suma {Pendiente:N2}; no alcanza para pagarla.");
     }
 
     public void Rechazar(string motivo, Guid usuarioId)

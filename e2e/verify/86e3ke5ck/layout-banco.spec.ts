@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import type { Page } from '@playwright/test';
 import { test, expect, apiCallOn, expectNoPlaceholders, shot } from '../../_harness/fixtures';
 import { BANCO_MILLET, PROVS, grupo, seed, sql, sumaNeto, type Prov } from './_data';
+import { capturarSaldoPortal } from '../DEMO-COMPRA-PAGO-VALIDACIONES/_data';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
 test.describe.configure({ mode: 'serial' });
@@ -63,6 +64,7 @@ async function autorizar(page: Page, id: string, prefix: string, capturas: boole
   await page.goto(`/tesoreria/corridas/${id}`);
   await expect(page.getByRole('button', { name: 'Firmar y autorizar' })).toBeEnabled();
   if (capturas) await shot(page, `${prefix}f-firmante-ve-corrida-en-autorizacion`);
+  await capturarSaldoPortal(page);
   await page.getByRole('button', { name: 'Firmar y autorizar' }).click();
   // La confirmación es un AlertDialog: se espera visible (sin animación a medias) antes de capturar.
   const dlg = page.getByRole('alertdialog').or(page.getByRole('dialog')).filter({ hasText: 'Firmar la corrida' });
