@@ -152,7 +152,12 @@ public sealed class DevolucionProveedorPostFacturaTests(WebApplicationFactory<Pr
         var baseDev = $"/api/v1/almacen/devoluciones-proveedor/{devId}";
         await Ok(await b.PostAsJsonAsync($"{baseDev}/evidencias", new { TipoEvidencia = "FOTO", NombreArchivo = "dano.jpg", BlobRef = "blob://dano.jpg", Comentario = (string?)null }), "evidencia");
         await Ok(await b.PostAsync($"{baseDev}/solicitar-autorizacion", null), "solicita autorización");
-        await Ok(await b.PostAsync($"{baseDev}/autorizar", null), "autoriza devolución");
+        // DEV_PROV_AUTOAUTORIZACION: quien solicitó (B) no autoriza; firma Dirección.
+        var propia = await b.PostAsync($"{baseDev}/autorizar", null);
+        Assert.Equal(System.Net.HttpStatusCode.UnprocessableEntity, propia.StatusCode);
+        Assert.Contains("DEV_PROV_AUTOAUTORIZACION", await propia.Content.ReadAsStringAsync());
+        using (var direccion = await ClienteConPermisosAsync(app, PermisosCanonicos.Todos.Select(p => p.Codigo).ToArray()))
+            await Ok(await direccion.PostAsync($"{baseDev}/autorizar", null), "Dirección autoriza devolución");
 
         Guid lineaDevId;
         using (var scope = app.Services.CreateScope())
