@@ -22,6 +22,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    env: { VITE_DOMINIOS_CORPORATIVOS: 'millet.mx,millet.com.mx' },
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     // La suite completa (2400+ pruebas) corre en paralelo: con la máquina cargada los 5 s por

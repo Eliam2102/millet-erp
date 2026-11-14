@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -108,16 +108,12 @@ describe('<EmpleadoInlineForm> · dominio en el paso Acceso (86e3x6cpw)', () => 
     expect(await screen.findByText(/revisa antes de crear/i, {}, ESPERA)).toBeInTheDocument();
   });
 
-  it('cuenta nueva con dominio fuera de la lista: sigue bloqueando', async () => {
+  it('no ofrece «Cuenta Microsoft nueva» y un borrador con esa opción vuelve a «Sin acceso»', async () => {
     usarValidacion(false);
     abrirPasoAcceso(2);
-    expect(
-      await screen.findByText(/Dominio no permitido para cuenta corporativa/, {}, ESPERA),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(AVISO)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
-    await waitFor(() => expect(screen.queryByText(/revisa antes de crear/i)).toBeNull());
+    const select = await screen.findByLabelText('Acceso al ERP');
+    expect(select).toHaveValue('0');
+    expect(screen.queryByRole('option', { name: 'Cuenta Microsoft nueva' })).toBeNull();
   });
 });
 
@@ -145,13 +141,11 @@ describe('<EmpleadoAccesoPanel> · dominio al dar acceso (86e3x6cpw)', () => {
     expect(screen.queryByText(/Dominio no permitido/)).not.toBeInTheDocument();
   });
 
-  it('«Cuenta Microsoft nueva» con dominio fuera de la lista: muestra el error de dominio', async () => {
+  it('no ofrece crear cuenta Microsoft (Graph sin permiso de escritura)', () => {
     usarValidacion(false);
     abrirPanel();
-    fireEvent.change(screen.getByLabelText(/modo de acceso/i), { target: { value: '2' } });
-    expect(
-      await screen.findByText(/Dominio no permitido para cuenta corporativa/, {}, ESPERA),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(AVISO)).not.toBeInTheDocument();
+    const select = screen.getByLabelText(/modo de acceso/i);
+    expect(select).toHaveValue('1');
+    expect(screen.queryByRole('option', { name: 'Crear cuenta Microsoft' })).toBeNull();
   });
 });

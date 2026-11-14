@@ -368,6 +368,8 @@ jobs:
           VITE_ENTRA_TENANT_ID: ${{ steps.kv.outputs.tenant_id }}
           VITE_ENTRA_CLIENT_ID: ${{ steps.kv.outputs.spa_client_id }}
           VITE_API_AUDIENCE: api://${{ steps.kv.outputs.api_client_id }}/access_as_user
+          # Dominios del correo corporativo en el alta de colaborador; deben coincidir con Entra:DominiosPermitidos del API.
+          VITE_DOMINIOS_CORPORATIVOS: millet.mx,millet.com.mx
         run: npm run build
 
       - name: Deploy to Static Web Apps

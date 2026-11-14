@@ -43,7 +43,10 @@ import {
   SucursalSelector,
 } from '@/components/erp';
 import { cn } from '@/lib/utils';
-import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
+import {
+  DOMINIO_POR_OMISION,
+  DOMINIOS_CORPORATIVOS,
+} from '@/modules/administracion/dominios-corporativos';
 import { AvisoCuentaFueraDeDominio } from '@/modules/administracion/components/AvisoCuentaFueraDeDominio';
 
 export interface EmpleadoInlineFormProps {
@@ -108,11 +111,11 @@ export function EmpleadoInlineForm({
     return at > 0 ? emailInicial.slice(0, at) : emailInicial;
   });
   const [emailDomain, setEmailDomain] = useState(() => {
-    if (!emailInicial) return DOMINIOS_CORPORATIVOS[0];
+    if (!emailInicial) return DOMINIO_POR_OMISION;
     const at = emailInicial.indexOf('@');
     const rawDomain = at > 0 ? emailInicial.slice(at + 1).toLowerCase() : '';
     const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
-    return matched ?? DOMINIOS_CORPORATIVOS[0];
+    return matched ?? DOMINIO_POR_OMISION;
   });
 
   const form = useForm<EmpleadoValues>({
@@ -162,10 +165,10 @@ export function EmpleadoInlineForm({
         const rawDomain = at > 0 ? empleado.email.slice(at + 1).toLowerCase() : '';
         const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
         setEmailPrefix(prefix);
-        setEmailDomain(matched ?? DOMINIOS_CORPORATIVOS[0]);
+        setEmailDomain(matched ?? DOMINIO_POR_OMISION);
       } else {
         setEmailPrefix('');
-        setEmailDomain(DOMINIOS_CORPORATIVOS[0]);
+        setEmailDomain(DOMINIO_POR_OMISION);
       }
     }
   }, [empleado, form]);
@@ -196,7 +199,8 @@ export function EmpleadoInlineForm({
         if (parsed.values) {
           form.reset(parsed.values);
           if (typeof parsed.paso === 'number') setPaso(parsed.paso);
-          if (typeof parsed.acceso === 'number') setAcceso(parsed.acceso);
+          // «Cuenta Microsoft nueva» ya no se ofrece (Graph sin permiso de escritura, 10-nov).
+          if (parsed.acceso === 0 || parsed.acceso === 1) setAcceso(parsed.acceso);
           if (parsed.emailContacto) setEmailContacto(parsed.emailContacto);
           if (parsed.rolId) setRolId(parsed.rolId);
           if (parsed.emailPrefix !== undefined) setEmailPrefix(parsed.emailPrefix);
@@ -329,7 +333,7 @@ export function EmpleadoInlineForm({
     setEmailContacto('');
     setRolId('');
     setEmailPrefix('');
-    setEmailDomain(DOMINIOS_CORPORATIVOS[0]);
+    setEmailDomain(DOMINIO_POR_OMISION);
     setBorradorCargado(false);
     toast.info('Borrador eliminado');
   }
@@ -818,7 +822,7 @@ export function EmpleadoInlineForm({
                     value={
                       DOMINIOS_CORPORATIVOS.includes(emailDomain)
                         ? emailDomain
-                        : DOMINIOS_CORPORATIVOS[0]
+                        : DOMINIO_POR_OMISION
                     }
                     onChange={(e) => handleEmailDomainChange(e.target.value)}
                     className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"
@@ -839,7 +843,7 @@ export function EmpleadoInlineForm({
                     {emailPrefix.trim()}@
                     {DOMINIOS_CORPORATIVOS.includes(emailDomain)
                       ? emailDomain
-                      : DOMINIOS_CORPORATIVOS[0]}
+                      : DOMINIO_POR_OMISION}
                   </span>
                 </p>
               ) : (
@@ -1047,7 +1051,6 @@ export function EmpleadoInlineForm({
               >
                 <option value={0}>Sin acceso</option>
                 {canDarAcceso && <option value={1}>Ya tiene cuenta Microsoft</option>}
-                {canDarAcceso && <option value={2}>Cuenta Microsoft nueva</option>}
               </select>
             </Field>
           </FormCampo>
@@ -1130,7 +1133,7 @@ export function EmpleadoInlineForm({
                         value={
                           DOMINIOS_CORPORATIVOS.includes(emailDomain)
                             ? emailDomain
-                            : DOMINIOS_CORPORATIVOS[0]
+                            : DOMINIO_POR_OMISION
                         }
                         onChange={(e) => handleEmailDomainChange(e.target.value)}
                         className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"

@@ -51,7 +51,7 @@ describe('<EmpleadoInlineForm>', () => {
     });
   });
 
-  it('permite ingresar solo el nombre de usuario y selecciona uzieltzaboutlook.com por defecto', () => {
+  it('permite ingresar solo el nombre de usuario y selecciona el primer dominio configurado por defecto', () => {
     const onCancel = vi.fn();
     sessionStorage.setItem(
       'millet_empleado_wizard_draft_v1',
@@ -66,7 +66,7 @@ describe('<EmpleadoInlineForm>', () => {
     expect(emailInput).toBeInTheDocument();
 
     const domainSelect = screen.getByLabelText(/dominio corporativo/i);
-    expect(domainSelect).toHaveValue('uzieltzaboutlook.onmicrosoft.com');
+    expect(domainSelect).toHaveValue('millet.mx');
 
     fireEvent.change(emailInput, { target: { value: 'uziel.tza' } });
     expect(emailInput).toHaveValue('uziel.tza');

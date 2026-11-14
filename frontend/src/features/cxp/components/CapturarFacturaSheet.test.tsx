@@ -310,6 +310,39 @@ describe('<CapturarFacturaSheet> — las partidas se traen del CFDI (M-292)', ()
     expect(screen.getByText(/Partidas \(2\)/)).toBeInTheDocument();
   });
 
+  it('al reimportar del CFDI se quita el error de la partida anterior («Descripción obligatoria»)', async () => {
+    mockParseado([
+      {
+        posicion: 1,
+        claveProdServ: '31162800',
+        cantidad: 50,
+        claveUnidad: 'H87',
+        unidad: 'Pieza',
+        descripcion: 'Refacciones criticas',
+        valorUnitario: 250,
+        importe: 12500,
+        descuento: null,
+      },
+    ]);
+
+    render(
+      <CapturarFacturaSheet open onOpenChange={() => {}} cfdiPreseleccionado={cfdi} />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    const descripcion = await screen.findByDisplayValue('Refacciones criticas');
+    fireEvent.change(descripcion, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Capturar factura' }));
+    expect(await screen.findByText('Descripción obligatoria.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Importar 1 partida del\s+CFDI/ }));
+
+    expect(await screen.findByDisplayValue('Refacciones criticas')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText('Descripción obligatoria.')).not.toBeInTheDocument(),
+    );
+  });
+
   it('sin CFDI vinculado la partida sigue vacía para capturarla a mano', () => {
     render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
       wrapper: createQueryWrapper(),

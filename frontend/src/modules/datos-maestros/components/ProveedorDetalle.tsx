@@ -55,6 +55,9 @@ import { QueFaltaPanel } from '@/modules/datos-maestros/components/QueFaltaPanel
 import { ProveedorAccesoPortalSection } from '@/modules/datos-maestros/components/ProveedorAccesoPortalSection';
 import { ProveedorBloqueo } from '@/modules/datos-maestros/components/ProveedorBloqueo';
 
+/** «Acceso al portal» oculto mientras el portal de proveedores no se habilita para el cliente. */
+const MOSTRAR_ACCESO_PORTAL = false;
+
 /**
  * Detalle de proveedor (P3 del patrón cross-módulo). Header en flow
  * normal (NO sticky) con clave + razón social + badge de estatus +
@@ -437,7 +440,8 @@ export function ProveedorDetalle() {
           id={proveedor.id}
           etiqueta={`${proveedor.clave} · ${proveedor.razonSocial}`}
         />
-        <ProveedorAccesoPortalSection proveedorId={proveedor.id} />
+        {/* El portal de proveedores no entra en las pruebas con el cliente: la sección queda oculta, no se retira. */}
+        {MOSTRAR_ACCESO_PORTAL && <ProveedorAccesoPortalSection proveedorId={proveedor.id} />}
       </div>
 
       {/* Diálogo de Confirmación para Validar Proveedor */}

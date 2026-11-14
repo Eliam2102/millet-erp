@@ -209,6 +209,10 @@ export function CapturarFacturaSheet({
         lineaOcId: null,
       })),
     );
+    // replace() no revalida: sin esto queda el error de las partidas anteriores
+    // («Descripción obligatoria») sobre las que ya llegaron del CFDI.
+    if (form.formState.isSubmitted) void form.trigger('lineas');
+    else form.clearErrors('lineas');
     if (avisar) toast.success(`${lineas.length} partida(s) importadas del CFDI`);
   }
 

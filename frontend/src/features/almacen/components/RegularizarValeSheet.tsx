@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { RequisicionSelector } from '@/components/erp/selectors/RequisicionSelector';
 import { esApiError, codigoSoporte } from '@/lib/api';
 import {
   RegularizarValeSchema,
@@ -151,12 +151,10 @@ function FormBody({
                   name="rqRegularizadoraId"
                   control={form.control}
                   render={({ field }) => (
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      placeholder="GUID de la RQ aprobada"
-                      spellCheck={false}
-                      autoFocus
+                    <RequisicionSelector
+                      value={field.value}
+                      onChange={(id) => field.onChange(id ?? '')}
+                      placeholder="Buscar RQ aprobada por folio…"
                     />
                   )}
                 />

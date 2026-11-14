@@ -18,7 +18,10 @@ import {
   useValidarCorreoCorporativo,
 } from '@/modules/administracion/api/empleados';
 import { usePuestosDeSucursal } from '@/modules/administracion/api/sucursal-puestos';
-import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
+import {
+  DOMINIO_POR_OMISION,
+  DOMINIOS_CORPORATIVOS,
+} from '@/modules/administracion/dominios-corporativos';
 import { AvisoCuentaFueraDeDominio } from '@/modules/administracion/components/AvisoCuentaFueraDeDominio';
 import { useRoles } from '@/modules/identidad/api/roles';
 import { useDesactivarUsuario, useReactivarUsuario } from '@/modules/identidad/api/usuarios';
@@ -89,11 +92,11 @@ export function EmpleadoAccesoPanel({
     return at > 0 ? emailInicial.slice(0, at) : emailInicial;
   });
   const [emailDomain, setEmailDomain] = useState(() => {
-    if (!emailInicial) return DOMINIOS_CORPORATIVOS[0];
+    if (!emailInicial) return DOMINIO_POR_OMISION;
     const at = emailInicial.indexOf('@');
     const rawDomain = at > 0 ? emailInicial.slice(at + 1).toLowerCase() : '';
     const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
-    return matched ?? DOMINIOS_CORPORATIVOS[0];
+    return matched ?? DOMINIO_POR_OMISION;
   });
 
   const [contacto, setContacto] = useState(() => emailContacto ?? '');
@@ -111,7 +114,7 @@ export function EmpleadoAccesoPanel({
     const rawDomain = email && at > 0 ? email.slice(at + 1).toLowerCase() : '';
     setEmailPrefix(email ? (at > 0 ? email.slice(0, at) : email) : '');
     setEmailDomain(
-      DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain) ?? DOMINIOS_CORPORATIVOS[0],
+      DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain) ?? DOMINIO_POR_OMISION,
     );
     if (emailContacto !== undefined) setContacto(emailContacto ?? '');
   }
@@ -133,7 +136,7 @@ export function EmpleadoAccesoPanel({
 
   const activeDomain = DOMINIOS_CORPORATIVOS.includes(emailDomain)
     ? emailDomain
-    : DOMINIOS_CORPORATIVOS[0];
+    : DOMINIO_POR_OMISION;
   const correoFinal = emailPrefix.trim() ? `${emailPrefix.trim()}@${activeDomain}` : '';
 
   const [correoValidable, setCorreoValidable] = useState(correoFinal);
@@ -351,7 +354,6 @@ export function EmpleadoAccesoPanel({
                 onChange={(e) => setTipo(Number(e.target.value) as 1 | 2)}
               >
                 <option value={1}>Ya tiene cuenta Microsoft</option>
-                <option value={2}>Crear cuenta Microsoft</option>
               </select>
             </label>
           </FormCampo>
@@ -457,7 +459,7 @@ export function EmpleadoAccesoPanel({
                     value={
                       DOMINIOS_CORPORATIVOS.includes(emailDomain)
                         ? emailDomain
-                        : DOMINIOS_CORPORATIVOS[0]
+                        : DOMINIO_POR_OMISION
                     }
                     onChange={(e) => handleEmailDomainChange(e.target.value)}
                     className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"

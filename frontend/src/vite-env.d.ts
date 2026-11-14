@@ -27,6 +27,12 @@ interface ImportMetaEnv {
    * MSAL pide tokens con esta scope; el API los valida con el mismo valor.
    */
   readonly VITE_API_AUDIENCE: string;
+
+  /**
+   * Dominios del correo corporativo del colaborador, separados por comas
+   * (ej. `millet.mx,millet.com.mx`). Deben coincidir con `Entra:DominiosPermitidos` del API.
+   */
+  readonly VITE_DOMINIOS_CORPORATIVOS?: string;
 }
 
 interface ImportMeta {
