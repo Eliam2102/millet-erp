@@ -62,7 +62,7 @@ public sealed class CorridaLayoutBancoTests
             .Handle(new(c.Id, c.Version), default);
 
         c = await new AutorizarCorridaHandler(db, new EmpresaContext(), new User(Jefe), new Roles(), proveedoresPort, new Clock())
-            .Handle(new(c.Id, c.Version), default);
+            .Handle(new(c.Id, c.Version, 10_000_000m, DateOnly.FromDateTime(Ahora.UtcDateTime), "Portal BBVA"), default);
 
         c.Estado.Should().Be("Autorizada");
         return (db, c, pasivos);

@@ -8,6 +8,7 @@ using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
+using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Pasivos;
@@ -155,7 +156,8 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
         Assert.Contains("CORRIDA_SALDO_PORTAL_INSUFICIENTE", await corto.Content.ReadAsStringAsync());
 
         var futura = await Post(e.Admin, url, new { saldoPortal = 5_000m, fechaConsultaPortal = hoy.AddDays(3), evidenciaSaldoPortal = "Portal BBVA" }, c.GetProperty("version").GetInt32());
-        Assert.Equal(HttpStatusCode.BadRequest, futura.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, futura.StatusCode);
+        Assert.Contains("CORRIDA_FECHA_PORTAL_FUTURA", await futura.Content.ReadAsStringAsync());
 
         var ok = await Post(e.Admin, url, new { saldoPortal = 5_000m, fechaConsultaPortal = hoy, evidenciaSaldoPortal = "Portal BBVA" }, c.GetProperty("version").GetInt32());
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
@@ -186,6 +188,37 @@ public sealed class CorridasPagoTests(WebApplicationFactory<Program> factory)
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
         Assert.Contains("CORRIDA_MISMO_USUARIO", await r.Content.ReadAsStringAsync());
+    }
+
+    // M-147 (ajuste): al firmar, saldo del portal, fecha de consulta y evidencia son obligatorios; ya no se usa el saldo en libros.
+    [Fact]
+    public async Task M147_firmar_sin_saldo_del_portal_responde_422_con_codigo_y_con_saldo_autoriza()
+    {
+        await using var e = await SembrarAsync();
+        var c = await AdjuntosProveedorAmbiente.LeerAsync(await Crear(e, e.Pasivo1));   // 1,053.33: una firma
+        var id = c.GetProperty("id").GetGuid();
+        var enviada = await AdjuntosProveedorAmbiente.LeerAsync(await Post(e.Admin, $"{Base}/{id}/enviar-autorizacion", null, c.GetProperty("version").GetInt32()));
+        var version = enviada.GetProperty("version").GetInt32();
+        var (firmante, _) = await e.Amb.ClienteConPermisosAsync(PermisosCanonicos.TesoreriaCorridasAutorizar);
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var sinSaldo = await Post(firmante, $"{Base}/{id}/autorizar", null, version);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sinSaldo.StatusCode);
+        Assert.Contains("CORRIDA_SALDO_PORTAL_REQUERIDO", await sinSaldo.Content.ReadAsStringAsync());
+
+        var sinEvidencia = await Post(firmante, $"{Base}/{id}/autorizar", new { saldoPortal = 5_000m, fechaConsultaPortal = hoy }, version);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sinEvidencia.StatusCode);
+        Assert.Contains("CORRIDA_EVIDENCIA_PORTAL_VACIA", await sinEvidencia.Content.ReadAsStringAsync());
+
+        var futura = await Post(firmante, $"{Base}/{id}/autorizar", new { saldoPortal = 5_000m, fechaConsultaPortal = hoy.AddDays(3), evidenciaSaldoPortal = "Portal BBVA" }, version);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, futura.StatusCode);
+        Assert.Contains("CORRIDA_FECHA_PORTAL_FUTURA", await futura.Content.ReadAsStringAsync());
+
+        var ok = await Post(firmante, $"{Base}/{id}/autorizar", new { saldoPortal = 5_000m, fechaConsultaPortal = hoy, evidenciaSaldoPortal = "Portal BBVA" }, version);
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var autorizada = await AdjuntosProveedorAmbiente.LeerAsync(ok);
+        Assert.Equal("Autorizada", autorizada.GetProperty("estado").GetString());
+        Assert.Equal(5_000m, autorizada.GetProperty("saldoPortal").GetDecimal());
     }
 
     [Fact]

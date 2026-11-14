@@ -57,3 +57,42 @@ describe('<DetalleCorrida> · M-147 saldo del portal', () => {
     expect(body).toEqual({ saldoPortal: 650000, fechaConsultaPortal: '2026-11-13', evidenciaSaldoPortal: 'Captura BBVA' });
   });
 });
+
+describe('<DetalleCorrida> · M-147 saldo del portal obligatorio al firmar', () => {
+  const enAutorizacion = { ...corrida, estado: 'EnAutorizacion', solicitadaPor: 'otro', version: 5 } as unknown as CorridaResponse;
+
+  function montarFirma(onFirmar: (body: unknown) => void) {
+    mswServer.use(
+      http.get('*/api/v1/tesoreria/corridas/cor-1', () => HttpResponse.json(enAutorizacion)),
+      http.post('*/api/v1/tesoreria/corridas/cor-1/autorizar', async ({ request }) => {
+        onFirmar(await request.json());
+        return HttpResponse.json({ ...enAutorizacion, estado: 'Autorizada' });
+      }),
+    );
+    render(<DetalleCorrida id="cor-1" />, { wrapper: createQueryWrapper() });
+  }
+
+  it('sin saldo, fecha ni evidencia no abre la confirmación ni firma', async () => {
+    const onFirmar = vi.fn();
+    montarFirma(onFirmar);
+    expect(await screen.findByLabelText(/Saldo en el portal/)).toBeRequired();
+    fireEvent.click(screen.getByRole('button', { name: 'Firmar y autorizar' }));
+    expect(await screen.findByText(/Para firmar captura el saldo del portal/)).toHaveAttribute('id', 'saldo-portal-error');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onFirmar).not.toHaveBeenCalled();
+  });
+
+  it('con los tres datos confirma y manda el saldo del portal en el cuerpo de la firma', async () => {
+    let body: unknown = null;
+    montarFirma((b) => (body = b));
+    fireEvent.change(await screen.findByLabelText(/Saldo en el portal/), { target: { value: '650000' } });
+    fireEvent.change(screen.getByLabelText('Fecha de consulta'), { target: { value: '2026-11-13' } });
+    fireEvent.change(screen.getByLabelText('Referencia de la evidencia'), { target: { value: 'Captura BBVA' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Firmar y autorizar' }));
+    const confirmar = await screen.findAllByRole('button', { name: 'Firmar y autorizar' });
+    fireEvent.click(confirmar[confirmar.length - 1]);
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toEqual({ saldoPortal: 650000, fechaConsultaPortal: '2026-11-13', evidenciaSaldoPortal: 'Captura BBVA' });
+  });
+});

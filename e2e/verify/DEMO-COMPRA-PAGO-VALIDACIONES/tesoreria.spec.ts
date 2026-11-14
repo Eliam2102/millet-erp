@@ -6,7 +6,7 @@
 import { SA_EMAIL, warm } from '../86e3pc50v/_data';
 import type { Page } from '@playwright/test';
 import { test, expect, shot, type Guard } from '../../_harness/fixtures';
-import { ok, otroUsuarioId, rechazo, sql, today, uuid, foto } from './_data';
+import { ok, opinionCumplimientoObligatoria, otroUsuarioId, rechazo, sql, today, uuid, foto } from './_data';
 import { BANCO_MILLET, CUENTA_MILLET, PROVS, prov, seed, totalDe } from './_tesoreria';
 
 test.use({ role: 'super-admin', viewport: { width: 1600, height: 900 } });
@@ -25,6 +25,8 @@ async function crearCorrida(guard: Guard, facturas: string[], nombre: string) {
   return ok(await guard.api.post(`${API}/corridas`, { cuentaBancariaId: CUENTA_MILLET, facturas, nombre })) as Promise<{ id: string; version: number; estado: string }>;
 }
 const corrida = async (guard: Guard, id: string) => ok(await guard.api.get(`${API}/corridas/${id}`)) as Promise<{ id: string; version: number; estado: string | number }>;
+/** M-147: al firmar la corrida el saldo del portal, su fecha de consulta y la evidencia son obligatorios. */
+const saldoPortal = () => ({ saldoPortal: 10_000_000, fechaConsultaPortal: today(), evidenciaSaldoPortal: 'Captura portal BBVA' });
 const factura = (n: number) => `00000019-0004-4000-8000-${String(700 + n).padStart(12, '0')}`;
 
 async function prep(guard: Guard) {
@@ -71,7 +73,7 @@ test.skip('V-TS-03 CLABE inválida: el pago queda fuera del archivo y se avisa c
   const c = await crearCorrida(guard, [factura(3), factura(6)], 'Pago urgente materiales 06-nov');
   sql(`update tesoreria.corrida_pago set solicitada_por = '${otroUsuarioId(S.yo!)}' where id = '${c.id}'`);
   const env = await ok(await guard.api.post(`${API}/corridas/${c.id}/enviar-autorizacion`, undefined, ver(await corrida(guard, c.id))));
-  await ok(await guard.api.post(`${API}/corridas/${c.id}/autorizar`, undefined, ver(env)));
+  await ok(await guard.api.post(`${API}/corridas/${c.id}/autorizar`, saldoPortal(), ver(env)));
   await page.goto(`/tesoreria/corridas/${c.id}`);
   await settle(page);
   await expect(page.getByText('Autorizada', { exact: true }).first()).toBeVisible();
@@ -119,9 +121,11 @@ test('V-TS-04 proveedor bloqueado: no se arma corrida ni se registra pago', asyn
   expect(sql(`select count(*) from tesoreria.corrida_pago_linea l join tesoreria.corrida_pago c on c.id=l.corrida_id where l.factura_proveedor_id='${factura(4)}'`), 'no se armó corrida').toBe('0');
 });
 
-test('V-TS-05 proveedor sin opinión de cumplimiento: sus facturas quedan detenidas por documentación', async ({ page, guard }) => {
+// 32-D: solo detiene si la matriz del expediente la marca obligatoria (seed: no obligatoria); el arrange la marca y cleanup la restaura.
+test('V-TS-05 proveedor sin opinión de cumplimiento: con la 32-D obligatoria en la matriz sus facturas quedan detenidas por documentación', async ({ page, guard, cleanup }) => {
   await prep(guard);
   const s = prov(2);
+  cleanup.add(await opinionCumplimientoObligatoria(guard, true));
   await page.goto('/tesoreria/corridas/nueva');
   await settle(page);
   await page.getByRole('combobox', { name: 'Cuenta bancaria' }).click();

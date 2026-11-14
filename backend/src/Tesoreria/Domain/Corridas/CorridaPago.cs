@@ -124,8 +124,13 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
         Estado = EstadoCorridaPago.EnAutorizacion;
     }
 
-    /// <summary>Agrega la firma de <paramref name="usuarioId"/>; autoriza al cumplir las firmas y el rol requeridos.</summary>
-    public CorridaPagoFirma Firmar(Guid usuarioId, IReadOnlyCollection<string> roles, DateTimeOffset ahora)
+    /// <summary>
+    /// Agrega la firma de <paramref name="usuarioId"/>; autoriza al cumplir las firmas y el rol requeridos.
+    /// M-147: quien firma captura siempre el saldo del portal, su fecha de consulta y la evidencia; la corrida se valida
+    /// contra ese saldo (ya no contra el saldo en libros).
+    /// </summary>
+    public CorridaPagoFirma Firmar(Guid usuarioId, IReadOnlyCollection<string> roles, DateTimeOffset ahora,
+        decimal? saldoPortal, DateOnly? fechaConsultaPortal, string? evidenciaSaldoPortal)
     {
         Exigir(EstadoCorridaPago.EnAutorizacion, "firmar");
         if (usuarioId == Guid.Empty)
@@ -134,6 +139,7 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("CORRIDA_MISMO_USUARIO", "Quien armó la corrida no puede autorizarla. Pide la firma al Gerente o al Jefe de Tesorería.");
         if (_firmas.Any(f => f.UsuarioId == usuarioId))
             throw new BusinessRuleException("CORRIDA_YA_FIRMADA", "Ya firmaste esta corrida; falta la firma de otra persona.");
+        RegistrarSaldoPortal(saldoPortal, fechaConsultaPortal, evidenciaSaldoPortal, DateOnly.FromDateTime(ahora.UtcDateTime));
         var firma = new CorridaPagoFirma(Id, usuarioId, roles, ahora);
         _firmas.Add(firma);
         FirmasRecibidas++;
@@ -144,11 +150,18 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
         return firma;
     }
 
-    /// <summary>M-147: registra el saldo del portal bancario consultado por quien envía o firma y exige que alcance.</summary>
-    public void RegistrarSaldoPortal(decimal saldo, DateOnly fechaConsulta, string evidencia, DateOnly hoy)
+    /// <summary>
+    /// M-147: registra el saldo del portal bancario consultado por quien envía o firma y exige que alcance. Saldo, fecha de
+    /// consulta y evidencia van juntos; <paramref name="hoy"/> viene del reloj del sistema (IClock).
+    /// </summary>
+    public void RegistrarSaldoPortal(decimal? saldoPortal, DateOnly? fechaConsultaPortal, string? evidencia, DateOnly hoy)
     {
         if (Estado is not (EstadoCorridaPago.Borrador or EstadoCorridaPago.EnAutorizacion))
             throw new BusinessRuleException("CORRIDA_ESTADO_INVALIDO", $"No se puede registrar el saldo del portal de una corrida en estado {Estado}.");
+        if (saldoPortal is not decimal saldo)
+            throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_REQUERIDO", "Captura el saldo que muestra el portal bancario.");
+        if (fechaConsultaPortal is not DateOnly fechaConsulta)
+            throw new BusinessRuleException("CORRIDA_FECHA_PORTAL_REQUERIDA", "Indica la fecha en que consultaste el portal bancario.");
         if (saldo < 0)
             throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_INVALIDO", "El saldo del portal no puede ser negativo.");
         if (fechaConsulta > hoy)
@@ -158,15 +171,9 @@ public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
         SaldoPortal = decimal.Round(saldo, 2, MidpointRounding.AwayFromZero);
         FechaConsultaPortal = fechaConsulta;
         EvidenciaSaldoPortal = evidencia.Trim();
-        ExigirSaldoPortalAlcanza();
-    }
-
-    /// <summary>M-147: con saldo del portal capturado, lo pendiente de la corrida no puede excederlo.</summary>
-    public void ExigirSaldoPortalAlcanza()
-    {
-        if (SaldoPortal is decimal saldo && Pendiente > saldo)
+        if (Pendiente > SaldoPortal)
             throw new BusinessRuleException("CORRIDA_SALDO_PORTAL_INSUFICIENTE",
-                $"El portal bancario muestra {saldo:N2} {Moneda} y la corrida suma {Pendiente:N2}; no alcanza para pagarla.");
+                $"El portal bancario muestra {SaldoPortal:N2} {Moneda} y la corrida suma {Pendiente:N2}; no alcanza para pagarla.");
     }
 
     public void Rechazar(string motivo, Guid usuarioId)

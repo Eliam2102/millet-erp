@@ -35,7 +35,7 @@ public sealed class CorridasEjecucionTests
         var c = await new CrearCorridaHandler(db, new EmpresaContext(), new User(Armador), new Proveedores(), new Clock())
             .Handle(new(cuenta.Id, pasivos.Select(p => p.FacturaProveedorId).ToList()), default);
         c = await new EnviarCorridaAAutorizacionHandler(db, new Proveedores(), new Clock()).Handle(new(c.Id, c.Version), default);
-        c = await new AutorizarCorridaHandler(db, new EmpresaContext(), new User(Jefe), new Roles(), new Proveedores(), new Clock()).Handle(new(c.Id, c.Version), default);
+        c = await new AutorizarCorridaHandler(db, new EmpresaContext(), new User(Jefe), new Roles(), new Proveedores(), new Clock()).Handle(new(c.Id, c.Version, 10_000_000m, DateOnly.FromDateTime(Ahora.UtcDateTime), "Portal BBVA"), default);
         c.Estado.Should().Be("Autorizada");
         return (db, c, pasivos);
     }

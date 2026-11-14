@@ -21,6 +21,8 @@ public sealed class CorridasHandlersTests
     private static readonly Guid JefeTesoreria = Guid.NewGuid();
     private static readonly Guid Gerente = Guid.NewGuid();
     private static readonly DateTimeOffset Ahora = new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateOnly Hoy = DateOnly.FromDateTime(Ahora.UtcDateTime);
+    private const decimal Portal = 10_000_000m;
 
     private static TesoreriaDbContext Db() => new(new DbContextOptionsBuilder<TesoreriaDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new EmpresaContext());
 
@@ -62,7 +64,7 @@ public sealed class CorridasHandlersTests
 
         r = await Enviar(db, r);
         r.FirmasRequeridas.Should().Be(1);
-        r = await Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version), default);
+        r = await Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version, Portal, Hoy, "Portal"), default);
 
         r.Estado.Should().Be("Autorizada");
         r.AutorizadaPor.Should().Be(JefeTesoreria);
@@ -80,7 +82,7 @@ public sealed class CorridasHandlersTests
 
         (await consulta.Handle(new(ids), default)).Should().BeEmpty("una corrida en borrador no programa nada");
         r = await Enviar(db, r);
-        r = await Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version), default);
+        r = await Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version, Portal, Hoy, "Portal"), default);
 
         var fechas = await consulta.Handle(new(ids), default);
         fechas.Should().ContainSingle().Which.Should().Be(new KeyValuePair<Guid, DateOnly>(p[0].FacturaProveedorId, DateOnly.FromDateTime(Ahora.UtcDateTime)));
@@ -196,7 +198,7 @@ public sealed class CorridasHandlersTests
         await using var db = Db();
         var (cuenta, p) = await Escenario(db, (Guid.NewGuid(), 1_000m));
         var r = await Enviar(db, await Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default));
-        await Autorizar(db, Gerente).Handle(new(r.Id, r.Version), default);
+        await Autorizar(db, Gerente).Handle(new(r.Id, r.Version, Portal, Hoy, "Portal"), default);
 
         var c = await new ObtenerCorridaHandler(db, new Proveedores(), new Nombres(Gerente, "Ana Gerente")).Handle(new(r.Id), default);
 
@@ -227,11 +229,11 @@ public sealed class CorridasHandlersTests
         r.FirmasRequeridas.Should().Be(2);
         r.RolRequerido.Should().Be("gerente");
 
-        r = await Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version), default);
+        r = await Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version, Portal, Hoy, "Portal"), default);
         r.Estado.Should().Be("EnAutorizacion");
         r.AutorizadaPor.Should().BeNull();
 
-        r = await Autorizar(db, Gerente).Handle(new(r.Id, r.Version), default);
+        r = await Autorizar(db, Gerente).Handle(new(r.Id, r.Version, Portal, Hoy, "Portal"), default);
         r.Estado.Should().Be("Autorizada");
         r.Firmas.Should().HaveCount(2);
     }
@@ -272,7 +274,7 @@ public sealed class CorridasHandlersTests
         var (cuenta, p) = await Escenario(db, (Guid.NewGuid(), 1_000m));
         var r = await Enviar(db, await Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default));
 
-        var act = () => Autorizar(db, Armador).Handle(new(r.Id, r.Version), default);
+        var act = () => Autorizar(db, Armador).Handle(new(r.Id, r.Version, Portal, Hoy, "Portal"), default);
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_MISMO_USUARIO");
     }
@@ -284,7 +286,7 @@ public sealed class CorridasHandlersTests
         var (cuenta, p) = await Escenario(db, (Guid.NewGuid(), 1_000m));
         var r = await Enviar(db, await Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default));
 
-        var act = () => Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version + 5), default);
+        var act = () => Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version + 5, Portal, Hoy, "Portal"), default);
 
         await act.Should().ThrowAsync<ConcurrencyException>();
     }
@@ -355,9 +357,11 @@ public sealed class CorridasHandlersTests
         r = await enviar.Handle(new(r.Id, r.Version, 650_000m, hoy, "Captura portal BBVA"), default);
         (r.Estado, r.SaldoPortal, r.FechaConsultaPortal, r.EvidenciaSaldoPortal).Should().Be(("EnAutorizacion", 650_000m, hoy, "Captura portal BBVA"));
 
-        // La firma reusa el saldo del portal capturado al enviar (no vuelve al saldo en libros).
-        r = await Autorizar(db, Gerente).Handle(new(r.Id, r.Version), default);
-        r.FirmasRecibidas.Should().Be(1);
+        // Al firmar el saldo del portal es obligatorio: sin él no hay firma ni se vuelve al saldo en libros.
+        var sinSaldo = () => Autorizar(db, Gerente).Handle(new(r.Id, r.Version), default);
+        await sinSaldo.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_SALDO_PORTAL_REQUERIDO");
+        r = await Autorizar(db, Gerente).Handle(new(r.Id, r.Version, 600_000m, hoy, "Captura portal BBVA firma"), default);
+        (r.FirmasRecibidas, r.SaldoPortal, r.EvidenciaSaldoPortal).Should().Be((1, 600_000m, "Captura portal BBVA firma"));
     }
 
     [Fact]
@@ -374,17 +378,19 @@ public sealed class CorridasHandlersTests
     }
 
     [Fact]
-    public void M147_validador_exige_fecha_y_evidencia_con_el_saldo_y_rechaza_negativo_o_fecha_futura()
+    public async Task M147_firmar_con_fecha_de_portal_futura_segun_IClock_bloquea_y_el_validador_solo_acota_la_evidencia()
     {
+        await using var db = Db();
+        var (cuenta, p) = await Escenario(db, (Guid.NewGuid(), 1_000m));
+        var r = await Enviar(db, await Crear(db, Armador).Handle(new(cuenta.Id, [p[0].FacturaProveedorId]), default));
+
+        // El reloj del handler (Ahora = 30-oct) manda: el 31-oct es futuro aunque DateTime.UtcNow sea posterior.
+        var futura = () => Autorizar(db, JefeTesoreria).Handle(new(r.Id, r.Version, Portal, Hoy.AddDays(1), "Portal"), default);
+        await futura.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CORRIDA_FECHA_PORTAL_FUTURA");
+
         var v = new AutorizarCorridaValidator();
-        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
-        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1)).IsValid.Should().BeTrue();
-        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, hoy, "Portal")).IsValid.Should().BeTrue();
-        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, -1m, hoy, "Portal")).IsValid.Should().BeFalse();
-        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, hoy.AddDays(2), "Portal")).IsValid.Should().BeFalse();
-        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, null, "Portal")).IsValid.Should().BeFalse();
-        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, hoy, null)).IsValid.Should().BeFalse();
-        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, null, hoy, null)).IsValid.Should().BeFalse();
-        new EnviarCorridaAAutorizacionValidator().Validate(new EnviarCorridaAAutorizacionCommand(Guid.NewGuid(), 1, -1m, hoy, "x")).IsValid.Should().BeFalse();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, Hoy, new string('x', 300))).IsValid.Should().BeTrue();
+        v.Validate(new AutorizarCorridaCommand(Guid.NewGuid(), 1, 10m, Hoy, new string('x', 301))).IsValid.Should().BeFalse();
+        new EnviarCorridaAAutorizacionValidator().Validate(new EnviarCorridaAAutorizacionCommand(Guid.NewGuid(), 1, 10m, Hoy, new string('x', 301))).IsValid.Should().BeFalse();
     }
 }

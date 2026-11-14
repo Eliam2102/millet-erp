@@ -98,10 +98,16 @@ export function DetalleCorrida({ id }: { id: string }) {
     else toast.error(fallback);
   }
 
-  /** M-147: los tres datos del portal van juntos; vacío = el servidor usa el saldo ya capturado o el de libros. */
-  function leerSaldoPortal(): SaldoPortalCorrida | undefined | null {
+  /**
+   * M-147: los tres datos del portal van juntos. Al enviar son opcionales (vacío = el servidor valida contra el saldo en
+   * libros); al firmar son obligatorios.
+   */
+  function leerSaldoPortal(requerido: boolean): SaldoPortalCorrida | undefined | null {
     const { saldo, fecha, evidencia } = saldoPortal;
-    if (!saldo.trim() && !fecha && !evidencia.trim()) return undefined;
+    if (!saldo.trim() && !fecha && !evidencia.trim()) {
+      if (!requerido) return undefined;
+      return (setErrorSaldoPortal('Para firmar captura el saldo del portal, la fecha de consulta y la referencia de la evidencia.'), null);
+    }
     const n = Number(saldo);
     if (!saldo.trim() || !Number.isFinite(n) || n < 0) return (setErrorSaldoPortal('Captura un saldo del portal mayor o igual a cero.'), null);
     if (!fecha || fecha > hoyLocalISO()) return (setErrorSaldoPortal('Indica la fecha de consulta del portal; no puede ser futura.'), null);
@@ -112,7 +118,7 @@ export function DetalleCorrida({ id }: { id: string }) {
   function ejecutar(accion: 'enviar' | 'autorizar') {
     setAviso(null);
     setErrorSaldoPortal(null);
-    const saldo = leerSaldoPortal();
+    const saldo = leerSaldoPortal(accion === 'autorizar');
     if (saldo === null) {
       setConfirmando(false);
       return;
@@ -247,7 +253,10 @@ export function DetalleCorrida({ id }: { id: string }) {
               size="sm"
               disabled={soyYo || yaFirme}
               aria-describedby={soyYo || yaFirme ? 'autorizar-bloqueo' : undefined}
-              onClick={() => setConfirmando(true)}
+              onClick={() => {
+                setErrorSaldoPortal(null);
+                if (leerSaldoPortal(true) !== null) setConfirmando(true);
+              }}
             >
               Firmar y autorizar
             </Button>
@@ -283,7 +292,9 @@ export function DetalleCorrida({ id }: { id: string }) {
         <section data-print="hidden" className="space-y-2 rounded-lg bg-surface-card p-4 shadow-card-flat">
           <h2 className="text-md font-semibold">Saldo del portal bancario</h2>
           <p className="text-xs text-ink-muted">
-            Opcional. Si lo capturas, la corrida se valida contra este saldo y no contra el saldo en libros del ERP.
+            {c.estado === 'Borrador'
+              ? 'Opcional al enviar. Si lo capturas, la corrida se valida contra este saldo y no contra el saldo en libros del ERP.'
+              : 'Obligatorio para firmar: saldo, fecha de consulta y referencia de la evidencia. La corrida se valida contra este saldo.'}
           </p>
           <div className="grid grid-cols-1 gap-3 @xl:grid-cols-3">
             <label className="space-y-1">
@@ -293,6 +304,7 @@ export function DetalleCorrida({ id }: { id: string }) {
                 inputMode="decimal"
                 min={0}
                 step="0.01"
+                required={c.estado === 'EnAutorizacion'}
                 value={saldoPortal.saldo}
                 onChange={(e) => setSaldoPortal((s) => ({ ...s, saldo: e.target.value }))}
                 aria-invalid={errorSaldoPortal != null}
@@ -304,6 +316,7 @@ export function DetalleCorrida({ id }: { id: string }) {
               <Input
                 type="date"
                 max={hoyLocalISO()}
+                required={c.estado === 'EnAutorizacion'}
                 value={saldoPortal.fecha}
                 onChange={(e) => setSaldoPortal((s) => ({ ...s, fecha: e.target.value }))}
               />
@@ -312,6 +325,7 @@ export function DetalleCorrida({ id }: { id: string }) {
               <span className="text-xs text-ink-secondary">Referencia de la evidencia</span>
               <Input
                 maxLength={300}
+                required={c.estado === 'EnAutorizacion'}
                 placeholder="Folio o nombre de la captura del portal"
                 value={saldoPortal.evidencia}
                 onChange={(e) => setSaldoPortal((s) => ({ ...s, evidencia: e.target.value }))}

@@ -10,6 +10,7 @@ import { baseURL } from '../../_harness/session';
 import {
   FACTURAS, FECHA_PAGO_PPD, IDS, PDF_OPINION, PROVS, UUID, avisosPendientes, sql, codigoDe, esperarMensaje, mailpitUrl, mailpitVaciar, seed, xmlComplementoPago,
 } from './_data';
+import { opinionCumplimientoObligatoria } from '../DEMO-COMPRA-PAGO-VALIDACIONES/_data';
 
 const VIEWPORT = { width: 1600, height: 900 };
 const dinero = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
@@ -102,7 +103,9 @@ test.describe('P8.3 portal de proveedores', () => {
     await context.close();
   });
 
-  test('R3 sin opinión de cumplimiento: portal y corrida detenidos; al subirla en el expediente se liberan', async ({ page, browser }) => {
+  // 32-D: solo detiene si la matriz del expediente la marca obligatoria (seed: no obligatoria); el arrange la marca y cleanup la restaura.
+  test('R3 sin opinión de cumplimiento (obligatoria en la matriz): portal y corrida detenidos; al subirla en el expediente se liberan', async ({ page, browser, guard, cleanup }) => {
+    cleanup.add(await opinionCumplimientoObligatoria(guard, true));
     // Portal del proveedor sin opinión vigente
     const portal = await entrarAlPortal(browser, PROVS.selladores.email);
     await expect(fila(portal.page, FACTURAS.selladores1.folio)).toContainText('Detenida: documentación');
