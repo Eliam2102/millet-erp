@@ -26,12 +26,15 @@ public sealed record SolicitarCancelacionResponse(
     int FirmasRequeridas = 1,
     int FirmasDadas = 0,
     string? PrimeraFirmaPor = null,
-    string? Huella = null)
+    string? Huella = null,
+    // H-U31: el SAT aún no refleja el CFDI (205); la misma solicitud espera un reintento.
+    bool PendienteReintentoSat = false)
 {
     public static SolicitarCancelacionResponse De(Comprobante comprobante, SolicitudCancelacion solicitud) =>
         new(solicitud.Id, comprobante.Id, comprobante.Estado.ToString(), solicitud.Estado.ToString(), solicitud.EstatusSat,
             MensajeSatParaUsuario(solicitud.MensajeError), solicitud.FirmasRequeridas, solicitud.FirmasDadas,
-            solicitud.PrimeraFirmaPorNombre, solicitud.Huella);
+            solicitud.PrimeraFirmaPorNombre, solicitud.Huella,
+            solicitud.PendienteReintentoSat(CancelacionSat205.PrefijoAviso));
 
     /// <summary>
     /// Prueba manual S3-4 (M18): el adaptador del PAC guarda «{mensaje del PAC} — {detalle del SAT}»;

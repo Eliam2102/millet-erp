@@ -167,12 +167,13 @@ export function SolicitudesAnulacionPanel() {
   );
 }
 
-function RechazarAnulacionDialog({
+/** Diálogo para rechazar con motivo una solicitud de anulación (lista de pólizas y detalle de la póliza, H-U30). */
+export function RechazarAnulacionDialog({
   solicitud,
   onClose,
   onRechazada,
 }: {
-  solicitud: SolicitudAnulacion | null;
+  solicitud: Pick<SolicitudAnulacion, 'id' | 'polizaFolio'> | null;
   onClose: () => void;
   onRechazada: (s: SolicitudAnulacion) => void;
 }) {

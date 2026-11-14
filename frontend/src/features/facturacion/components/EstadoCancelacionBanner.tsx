@@ -1,11 +1,13 @@
 import { Button } from '@/components/ui/button';
 import {
-  ESTADO_SOLICITUD_CANCELACION_LABEL,
   type ConsultarCancelacionResponse,
   type EstadoSolicitudCancelacion,
 } from '@/features/facturacion/api/types';
 import { useDecidirCancelacion } from '@/features/facturacion/api/useFacturas';
 import { mostrarError } from '@/features/facturacion/lib/mostrar-error-cancelacion';
+import { etiquetaEstadoCancelacion } from '@/features/facturacion/lib/cancelacion-sat';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useFormIdempotencyKey } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -25,8 +27,11 @@ export function EstadoCancelacionBanner({
   puedeRetirar: boolean;
 }) {
   const idempotencyKey = useFormIdempotencyKey();
+  const keyReintento = useFormIdempotencyKey();
   const decidir = useDecidirCancelacion();
+  const puedeReintentar = useHasPermission(PermisosCanonicos.FacturacionCancelacionesAutorizar);
   if (cancelacion?.estadoSolicitud == null) return null;
+  const porReintentar = cancelacion.pendienteReintentoSat === true;
 
   const estado = cancelacion.estadoSolicitud as EstadoSolicitudCancelacion;
   const pendiente = estado === 'PendienteAutorizacion';
@@ -42,6 +47,23 @@ export function EstadoCancelacionBanner({
     );
   }
 
+  // H-U31: el SAT aún no reflejaba el CFDI (205); se reenvía la misma solicitud.
+  function reintentar() {
+    decidir.mutate(
+      { id: comprobanteId, accion: 'reintentar', idempotencyKey: keyReintento },
+      {
+        onSuccess: (r) => {
+          if (r.pendienteReintentoSat) toast.warning(r.mensajeError ?? 'El SAT aún no refleja este CFDI.');
+          else if (r.estadoComprobante === 'Cancelado') toast.success('Cancelación aceptada por el SAT.');
+          else if (r.estadoSolicitud === 'Rechazada')
+            toast.error(`El SAT rechazó la cancelación.${r.mensajeError ? ` Motivo: ${r.mensajeError}` : ''}`);
+          else toast.success('Cancelación reenviada al SAT.');
+        },
+        onError: (error) => mostrarError(error, 'No se pudo reintentar la cancelación.'),
+      },
+    );
+  }
+
   return (
     <div
       className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
@@ -50,16 +72,19 @@ export function EstadoCancelacionBanner({
       <div className="space-y-0.5">
         <p>
           <span className="font-medium">Solicitud de cancelación:</span>{' '}
-          {ESTADO_SOLICITUD_CANCELACION_LABEL[estado] ?? estado}
+          {etiquetaEstadoCancelacion(cancelacion) || estado}
           {cancelacion.motivoSat ? ` · motivo ${cancelacion.motivoSat}` : ''}
           {cancelacion.uuidSustituto ? ` · sustituye ${cancelacion.uuidSustituto}` : ''}
           {cancelacion.estatusSat ? ` · SAT ${cancelacion.estatusSat}` : ''}
-          {cancelacion.mensajeError ? (
+          {cancelacion.mensajeError && !porReintentar ? (
             <span className="text-danger-fg"> · {cancelacion.mensajeError}</span>
           ) : null}
         </p>
         {cancelacion.solicitadaPor && (
           <p className="text-xs text-ink-muted">Solicitó: {cancelacion.solicitadaPor}</p>
+        )}
+        {porReintentar && cancelacion.mensajeError && (
+          <p role="status">{cancelacion.mensajeError} La factura sigue vigente.</p>
         )}
         {pendiente && (
           <p className="text-xs text-ink-muted">
@@ -77,6 +102,11 @@ export function EstadoCancelacionBanner({
           </p>
         )}
       </div>
+      {porReintentar && puedeReintentar && (
+        <Button variant="outline" size="sm" onClick={reintentar} disabled={decidir.isPending}>
+          {decidir.isPending ? 'Reintentando…' : 'Reintentar ahora'}
+        </Button>
+      )}
       {pendiente && puedeRetirar && (
         <Button variant="outline" size="sm" onClick={retirar} disabled={decidir.isPending}>
           {decidir.isPending ? 'Retirando…' : 'Retirar solicitud'}

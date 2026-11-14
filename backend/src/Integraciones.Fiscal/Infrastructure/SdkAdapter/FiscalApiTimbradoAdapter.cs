@@ -223,6 +223,10 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
             && (estatus.Contains("202", StringComparison.Ordinal)
                 || estatus.Contains("Cancelado", StringComparison.OrdinalIgnoreCase));
 
+        // H-U31: 205 = el SAT aún no refleja el CFDI; no queda «en proceso»: Facturación lo deja pendiente de reintento.
+        if (estatus is not null && System.Text.RegularExpressions.Regex.IsMatch(estatus, @"(?<!\d)205(?!\d)"))
+            return new CancelacionResultado(CancelacionEstado.Error, estatus, $"205: el SAT aún no refleja el CFDI ({estatus}).");
+
         return new CancelacionResultado(
             aceptadaDeInmediato ? CancelacionEstado.Aceptada : CancelacionEstado.EnProceso,
             estatus,

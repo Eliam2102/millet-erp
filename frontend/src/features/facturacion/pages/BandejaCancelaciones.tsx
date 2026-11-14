@@ -193,6 +193,13 @@ function FilaCancelacion({
             );
             return;
           }
+          // H-U31: el SAT aún no refleja el CFDI (205): la solicitud queda pendiente de reintento.
+          if (accion === 'autorizar' && res.pendienteReintentoSat) {
+            toast.warning(
+              `${c.folio}: ${res.mensajeError ?? 'el SAT aún no refleja este CFDI.'} Reintenta desde el detalle de la factura.`,
+            );
+            return;
+          }
           // M18: el SAT puede rechazar la cancelación aunque la API responda 200.
           if (accion === 'autorizar' && res.estadoSolicitud === 'Rechazada') {
             toast.error(

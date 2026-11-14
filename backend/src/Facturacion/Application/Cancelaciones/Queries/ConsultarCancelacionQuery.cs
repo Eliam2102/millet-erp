@@ -32,7 +32,9 @@ public sealed record ConsultarCancelacionResponse(
     string? PrimeraFirmaPor = null,
     DateTimeOffset? PrimeraFirmaEn = null,
     string? FirmaAnuladaMotivo = null,
-    string? Huella = null);
+    string? Huella = null,
+    // H-U31: el SAT aún no refleja el CFDI (205); se puede reintentar.
+    bool PendienteReintentoSat = false);
 
 public sealed class ConsultarCancelacionHandler
     : IRequestHandler<ConsultarCancelacionQuery, ConsultarCancelacionResponse>
@@ -73,6 +75,7 @@ public sealed class ConsultarCancelacionHandler
             PrimeraFirmaPor: solicitud?.PrimeraFirmaPorNombre,
             PrimeraFirmaEn: solicitud?.PrimeraFirmaEn,
             FirmaAnuladaMotivo: solicitud?.FirmaAnuladaMotivo,
-            Huella: solicitud?.Huella);
+            Huella: solicitud?.Huella,
+            PendienteReintentoSat: solicitud?.PendienteReintentoSat(CancelacionSat205.PrefijoAviso) ?? false);
     }
 }

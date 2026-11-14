@@ -36,13 +36,21 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/erp';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, useFormIdempotencyKey } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { formatDateTime } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
-import { useAutorizarPoliza, useDescartarPoliza, usePoliza, usePolizas } from '../api/polizas';
+import {
+  useAprobarAnulacion,
+  useAutorizarPoliza,
+  useDescartarPoliza,
+  usePoliza,
+  usePolizas,
+} from '../api/polizas';
+import { RechazarAnulacionDialog } from '../components/polizas/SolicitudesAnulacionPanel';
+import { MENSAJE_MISMA_PERSONA, esPropia } from '../lib/anulacion';
 import type { Partida, Poliza, PolizaLigada } from '../api/polizas-types';
 import { AnularPolizaDialog } from '../components/polizas/AnularPolizaDialog';
 import { CuadrePoliza } from '../components/polizas/CuadrePoliza';
@@ -168,6 +176,11 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
   const [reclasificando, setReclasificando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [aviso, setAviso] = useState('');
+  // H-U30: la solicitud de anulación también se decide desde el detalle, no solo desde la lista.
+  const puedeAprobarAnulacion = useHasPermission(PermisosCanonicos.ContabilidadPolizasAnularAprobar);
+  const aprobarAnulacion = useAprobarAnulacion();
+  const [rechazandoAnulacion, setRechazandoAnulacion] = useState(false);
+  const keyAnulacion = useBodyScopedIdempotencyKey();
 
   const cerrar = (
     <Button asChild variant="ghost" size="icon" aria-label="Cerrar y volver a la bandeja">
@@ -373,8 +386,47 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
               Solicitada por {p.anulacionPendiente.solicitadaPor} ·{' '}
               {formatDateTime(p.anulacionPendiente.solicitadaEn)}
             </p>
+            {puedeAprobarAnulacion && (
+              <DecisionAnulacion
+                propia={esPropia(p.anulacionPendiente, usuarioId)}
+                aprobando={aprobarAnulacion.isPending}
+                onAprobar={() => {
+                  const solicitudId = p.anulacionPendiente?.solicitudId;
+                  if (!solicitudId) return;
+                  setMensaje('');
+                  setAviso('');
+                  aprobarAnulacion.mutate(
+                    { solicitudId, idempotencyKey: keyAnulacion({ aprobar: solicitudId }) },
+                    {
+                      onSuccess: (anulacion) =>
+                        setAviso(
+                          `Anulación aprobada: la póliza quedó anulada por ${anulacion.folio ?? 'su anulación'}.`,
+                        ),
+                      onError: (e) => setMensaje(mensajePoliza(e)),
+                    },
+                  );
+                }}
+                onRechazar={() => {
+                  setMensaje('');
+                  setAviso('');
+                  setRechazandoAnulacion(true);
+                }}
+              />
+            )}
           </section>
         )}
+        <RechazarAnulacionDialog
+          solicitud={
+            rechazandoAnulacion && p.anulacionPendiente
+              ? { id: p.anulacionPendiente.solicitudId, polizaFolio: p.folio }
+              : null
+          }
+          onClose={() => setRechazandoAnulacion(false)}
+          onRechazada={() => {
+            setRechazandoAnulacion(false);
+            setAviso('Anulación rechazada: la póliza sigue vigente.');
+          }}
+        />
         {p.anuladaPorPolizaId && (
           <section
             aria-label="Anulación"
@@ -638,6 +690,42 @@ function PolizasLigadas({ ligadas, search }: { ligadas: PolizaLigada[]; search: 
         </Table>
       </div>
     </section>
+  );
+}
+
+function DecisionAnulacion({
+  propia,
+  aprobando,
+  onAprobar,
+  onRechazar,
+}: {
+  propia: boolean;
+  aprobando: boolean;
+  onAprobar: () => void;
+  onRechazar: () => void;
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2" data-print="hidden">
+      <Button
+        size="sm"
+        variant="secondary-danger"
+        disabled={propia || aprobando}
+        title={propia ? MENSAJE_MISMA_PERSONA : undefined}
+        onClick={onAprobar}
+      >
+        {aprobando ? 'Aprobando…' : 'Aprobar anulación'}
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={propia || aprobando}
+        title={propia ? MENSAJE_MISMA_PERSONA : undefined}
+        onClick={onRechazar}
+      >
+        Rechazar
+      </Button>
+      {propia && <span className="text-xs">{MENSAJE_MISMA_PERSONA}</span>}
+    </div>
   );
 }
 

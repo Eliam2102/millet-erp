@@ -380,7 +380,8 @@ export function useDecidirCancelacion() {
   return useMutation({
     mutationFn: async (args: {
       id: string;
-      accion: 'autorizar' | 'rechazar' | 'retirar';
+      /** H-U31: «reintentar» reenvía la misma solicitud cuando el SAT aún no reflejaba el CFDI (205). */
+      accion: 'autorizar' | 'rechazar' | 'retirar' | 'reintentar';
       motivo?: string;
       /** M-235: versión que vio quien autoriza; si cambió, el servidor bloquea. */
       huella?: string | null;
