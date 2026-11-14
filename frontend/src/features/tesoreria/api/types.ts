@@ -745,6 +745,10 @@ export interface CorridaResponse {
   ejecutado: number;
   pendiente: number;
   oficioGeneradoEn: string | null;
+  /** M-147: saldo del portal bancario capturado al enviar o firmar; si existe, la corrida se bloquea contra él. */
+  saldoPortal?: number | null;
+  fechaConsultaPortal?: string | null;
+  evidenciaSaldoPortal?: string | null;
 }
 
 // ============================================================================

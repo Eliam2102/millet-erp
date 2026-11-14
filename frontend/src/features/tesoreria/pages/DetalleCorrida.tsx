@@ -32,11 +32,13 @@ import {
   useCorrida,
   useEnviarCorridaAAutorizacion,
   useRechazarCorrida,
+  type SaldoPortalCorrida,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CorridaResponse } from '@/features/tesoreria/api/types';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { ESTADO_CORRIDA_UI, faltaParaAutorizar } from '@/features/tesoreria/lib/corridas';
 import { formatoFecha } from '@/features/tesoreria/lib/formato';
+import { hoyLocalISO } from '@/lib/datetime';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -66,6 +68,8 @@ export function DetalleCorrida({ id }: { id: string }) {
   const [rechazando, setRechazando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [saldoPortal, setSaldoPortal] = useState({ saldo: '', fecha: '', evidencia: '' });
+  const [errorSaldoPortal, setErrorSaldoPortal] = useState<string | null>(null);
 
   if (query.isError) {
     return (
@@ -88,14 +92,32 @@ export function DetalleCorrida({ id }: { id: string }) {
 
   function alError(error: unknown, fallback: string) {
     // Saldo insuficiente: el mensaje trae saldo y total; se muestra tal cual y se queda en pantalla.
-    if (esApiError(error) && error.code === 'CORRIDA_SALDO_INSUFICIENTE') setAviso(mensajeApi(error, fallback));
+    if (esApiError(error) && (error.code === 'CORRIDA_SALDO_INSUFICIENTE' || error.code === 'CORRIDA_SALDO_PORTAL_INSUFICIENTE'))
+      setAviso(mensajeApi(error, fallback));
     else if (esApiError(error)) setAviso(errorUsuario(error));
     else toast.error(fallback);
   }
 
+  /** M-147: los tres datos del portal van juntos; vacío = el servidor usa el saldo ya capturado o el de libros. */
+  function leerSaldoPortal(): SaldoPortalCorrida | undefined | null {
+    const { saldo, fecha, evidencia } = saldoPortal;
+    if (!saldo.trim() && !fecha && !evidencia.trim()) return undefined;
+    const n = Number(saldo);
+    if (!saldo.trim() || !Number.isFinite(n) || n < 0) return (setErrorSaldoPortal('Captura un saldo del portal mayor o igual a cero.'), null);
+    if (!fecha || fecha > hoyLocalISO()) return (setErrorSaldoPortal('Indica la fecha de consulta del portal; no puede ser futura.'), null);
+    if (!evidencia.trim()) return (setErrorSaldoPortal('Indica la referencia de la evidencia del saldo.'), null);
+    return { saldoPortal: n, fechaConsultaPortal: fecha, evidenciaSaldoPortal: evidencia.trim() };
+  }
+
   function ejecutar(accion: 'enviar' | 'autorizar') {
     setAviso(null);
-    const body = { id: c.id, versionEsperada: c.version };
+    setErrorSaldoPortal(null);
+    const saldo = leerSaldoPortal();
+    if (saldo === null) {
+      setConfirmando(false);
+      return;
+    }
+    const body = { id: c.id, versionEsperada: c.version, saldo };
     const mutacion = accion === 'enviar' ? enviar : autorizar;
     mutacion.mutate(
       { ...body, idempotencyKey: keyFor({ accion, ...body }) },
@@ -109,6 +131,7 @@ export function DetalleCorrida({ id }: { id: string }) {
                 : 'Firma registrada',
           );
           setConfirmando(false);
+          setSaldoPortal({ saldo: '', fecha: '', evidencia: '' });
         },
         onError: (e) => {
           setConfirmando(false);
@@ -256,6 +279,53 @@ export function DetalleCorrida({ id }: { id: string }) {
         )}
       </div>
 
+      {((c.estado === 'Borrador' && puedeCrear) || (c.estado === 'EnAutorizacion' && puedeAutorizar && !soyYo && !yaFirme)) && (
+        <section data-print="hidden" className="space-y-2 rounded-lg bg-surface-card p-4 shadow-card-flat">
+          <h2 className="text-md font-semibold">Saldo del portal bancario</h2>
+          <p className="text-xs text-ink-muted">
+            Opcional. Si lo capturas, la corrida se valida contra este saldo y no contra el saldo en libros del ERP.
+          </p>
+          <div className="grid grid-cols-1 gap-3 @xl:grid-cols-3">
+            <label className="space-y-1">
+              <span className="text-xs text-ink-secondary">Saldo en el portal ({c.moneda})</span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.01"
+                value={saldoPortal.saldo}
+                onChange={(e) => setSaldoPortal((s) => ({ ...s, saldo: e.target.value }))}
+                aria-invalid={errorSaldoPortal != null}
+                aria-describedby={errorSaldoPortal ? 'saldo-portal-error' : undefined}
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-ink-secondary">Fecha de consulta</span>
+              <Input
+                type="date"
+                max={hoyLocalISO()}
+                value={saldoPortal.fecha}
+                onChange={(e) => setSaldoPortal((s) => ({ ...s, fecha: e.target.value }))}
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-ink-secondary">Referencia de la evidencia</span>
+              <Input
+                maxLength={300}
+                placeholder="Folio o nombre de la captura del portal"
+                value={saldoPortal.evidencia}
+                onChange={(e) => setSaldoPortal((s) => ({ ...s, evidencia: e.target.value }))}
+              />
+            </label>
+          </div>
+          {errorSaldoPortal && (
+            <p id="saldo-portal-error" role="alert" className="text-xs text-danger-fg">
+              {errorSaldoPortal}
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat @xl:grid-cols-2 @3xl:grid-cols-4">
         <Dato etiqueta="Bruto"><MoneyDisplay amount={c.bruto} currency={c.moneda} /></Dato>
         <Dato etiqueta="Retenciones"><MoneyDisplay amount={c.retenciones} currency={c.moneda} /></Dato>
@@ -267,6 +337,14 @@ export function DetalleCorrida({ id }: { id: string }) {
           {c.rolRequerido && <span className="ml-1 text-xs text-ink-muted">(una del rol «{c.rolRequerido}»)</span>}
           {falta && <p className="text-xs text-warning-fg">Para autorizar: {falta}.</p>}
         </Dato>
+        {c.saldoPortal != null && (
+          <Dato etiqueta="Saldo del portal">
+            <MoneyDisplay amount={c.saldoPortal} currency={c.moneda} />
+            <p className="text-xs text-ink-muted">
+              {c.fechaConsultaPortal ? formatoFecha(c.fechaConsultaPortal) : ''} · {c.evidenciaSaldoPortal}
+            </p>
+          </Dato>
+        )}
       </section>
 
       {(c.estado === 'Autorizada' || c.estado === 'Ejecutada' || c.estado === 'Cerrada') && (

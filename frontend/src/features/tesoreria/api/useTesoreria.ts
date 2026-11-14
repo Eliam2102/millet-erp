@@ -1281,13 +1281,17 @@ function useTransicionCorrida<TArgs extends TransicionCorrida>(
   });
 }
 
+/** M-147: saldo del portal bancario (opcional); sin él el servidor valida contra el saldo en libros. */
+export type SaldoPortalCorrida = { saldoPortal: number; fechaConsultaPortal: string; evidenciaSaldoPortal: string };
+type TransicionConSaldo = TransicionCorrida & { saldo?: SaldoPortalCorrida };
+
 export function useEnviarCorridaAAutorizacion() {
-  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/enviar-autorizacion' }));
+  return useTransicionCorrida((a: TransicionConSaldo) => ({ path: '/enviar-autorizacion', body: a.saldo }));
 }
 
 /** Agrega la firma del usuario actual; quien armó la corrida recibe 422 `CORRIDA_MISMO_USUARIO`. */
 export function useAutorizarCorrida() {
-  return useTransicionCorrida<TransicionCorrida>(() => ({ path: '/autorizar' }));
+  return useTransicionCorrida((a: TransicionConSaldo) => ({ path: '/autorizar', body: a.saldo }));
 }
 
 export function useRechazarCorrida() {
