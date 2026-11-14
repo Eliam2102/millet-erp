@@ -110,6 +110,8 @@ export const ETIQUETA_MOTIVO_NC: Record<string, string> = {
   Ranura: 'Ranura (descuento de pedido)',
   // F6.3 · CA6.17: devolución en dinero de un anticipo no aplicado.
   DevolucionAnticipo: 'Devolución de anticipo',
+  // P53: NC por el saldo completo de una factura que ya no se cancela ante el SAT.
+  Cancelacion: 'Cancelación de factura',
 };
 
 /** Etiqueta del estado de timbrado (FSM del comprobante). */

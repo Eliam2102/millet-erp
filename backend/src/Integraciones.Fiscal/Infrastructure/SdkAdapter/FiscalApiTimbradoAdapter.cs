@@ -40,13 +40,16 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
     private readonly IConfiguracionPacResolver _configResolver;
     private readonly ILogger<FiscalApiTimbradoAdapter> _logger;
     private readonly IClock? _clock;
+    private readonly TimeoutPacOptions _timeoutPac;
 
     public FiscalApiTimbradoAdapter(
         IFiscalApiSdkClientFactory factory,
         IConfiguracionPacResolver configResolver,
-        ILogger<FiscalApiTimbradoAdapter> logger, IMonedaPrecisionReadPort? monedas = null, IClock? clock = null)
+        ILogger<FiscalApiTimbradoAdapter> logger, IMonedaPrecisionReadPort? monedas = null, IClock? clock = null,
+        Microsoft.Extensions.Options.IOptions<TimeoutPacOptions>? timeoutPac = null)
     {
         _factory = factory; _monedas = monedas;
+        _timeoutPac = timeoutPac?.Value ?? new TimeoutPacOptions();
         _configResolver = configResolver;
         _logger = logger;
         _clock = clock;
@@ -90,10 +93,12 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
         var invoice = MapInvoice(emision, precisiones);
         invoice.Issuer.TaxCredentials = CredencialesCsd(config.Csd);
 
+        // Plazo acotado (hoy solo Carta Porte): si vence, TimeoutException cae en el catch de resultado ambiguo → EnProceso.
+        var plazo = PlazoPac(emision);
         Fiscalapi.Common.ApiResponse<SdkModels.Invoice> resp;
         try
         {
-            resp = await sdk.Invoices.CreateAsync(invoice);
+            resp = await ConPlazo(sdk.Invoices.CreateAsync(invoice), plazo);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -103,7 +108,10 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 emision.Serie, emision.Folio, emision.EmpresaId);
             return new TimbradoResultado(
                 TimbradoEstado.EnProceso, null, null, null, null, null, null, null,
-                ErrorCodigo: "PAC_SIN_RESPUESTA", ErrorMensaje: ex.Message);
+                ErrorCodigo: "PAC_SIN_RESPUESTA",
+                ErrorMensaje: ex is TimeoutException
+                    ? $"El PAC no respondió en {plazo?.TotalSeconds:0.#} s; la emisión queda en proceso. No se re-emite: se confirma antes con el PAC."
+                    : ex.Message);
         }
 
         if (!resp.Succeeded)
@@ -135,7 +143,7 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 ErrorMensaje: "El PAC aceptó la solicitud pero no devolvió el timbre.");
         }
 
-        var xml = await ResolverXmlTimbradoAsync(sdk, resp.Data!.Id, timbre.InvoiceBase64);
+        var xml = await ResolverXmlTimbradoAsync(sdk, resp.Data!.Id, timbre.InvoiceBase64, plazo);
 
         return new TimbradoResultado(
             Estado: TimbradoEstado.Timbrado,
@@ -743,8 +751,27 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
 
     // ───────────────────────── Helpers ─────────────────────────
 
+    /// <summary>Plazo de espera al PAC para esta emisión: solo Carta Porte salvo que se generalice (ver <see cref="TimeoutPacOptions"/>).</summary>
+    internal TimeSpan? PlazoPac(CfdiEmision emision) =>
+        _timeoutPac.TimeoutPacSegundos > 0 && (_timeoutPac.AplicaATodos || emision.ComplementoCartaPorte is not null)
+            ? TimeSpan.FromSeconds(_timeoutPac.TimeoutPacSegundos)
+            : null;
+
+    /// <summary>
+    /// Espera la llamada al PAC a lo más <paramref name="plazo"/>; al vencer lanza TimeoutException. La llamada no se cancela
+    /// (el SDK no lo permite): sigue en segundo plano y su resultado se descarta; el comprobante queda en el camino existente.
+    /// </summary>
+    private static Task<T> ConPlazo<T>(Task<T> llamada, TimeSpan? plazo)
+    {
+        if (plazo is not { } p) return llamada;
+        // Si la llamada abandonada falla después, su excepción se observa aquí (no queda como excepción no observada).
+        _ = llamada.ContinueWith(t => _ = t.Exception, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        return llamada.WaitAsync(p);
+    }
+
     private async Task<string?> ResolverXmlTimbradoAsync(
-        Fiscalapi.Abstractions.IFiscalApiClient sdk, string invoiceId, string? invoiceBase64)
+        Fiscalapi.Abstractions.IFiscalApiClient sdk, string invoiceId, string? invoiceBase64, TimeSpan? plazo = null)
     {
         if (!string.IsNullOrWhiteSpace(invoiceBase64))
         {
@@ -761,7 +788,7 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
 
         try
         {
-            var file = await sdk.Invoices.GetXmlAsync(invoiceId);
+            var file = await ConPlazo(sdk.Invoices.GetXmlAsync(invoiceId), plazo);
             if (file.Succeeded && !string.IsNullOrWhiteSpace(file.Data?.Base64File))
                 return Encoding.UTF8.GetString(Convert.FromBase64String(file.Data.Base64File));
         }
