@@ -420,6 +420,8 @@ export const PermisosCanonicos = {
     'tesoreria.movimientos.autorizar-reclasificacion',
   TesoreriaPagosAplicar: 'tesoreria.pagos.aplicar',
   TesoreriaPagosRevertir: 'tesoreria.pagos.revertir',
+  // M-326: autorizar o rechazar el redondeo (hasta $0.99) de un pago a proveedor; lo tiene el Gerente de Área.
+  TesoreriaPagosAutorizarRedondeo: 'tesoreria.pagos.autorizar-redondeo',
   TesoreriaPagosCuentaRegistrar: 'tesoreria.pagos-cuenta.registrar',
   TesoreriaPagosCuentaLigar: 'tesoreria.pagos-cuenta.ligar',
   TesoreriaPagosCuentaAutorizar: 'tesoreria.pagos-cuenta.autorizar',

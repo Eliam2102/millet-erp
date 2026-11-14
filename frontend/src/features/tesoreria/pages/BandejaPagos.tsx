@@ -29,6 +29,7 @@ import {
 import type { PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { RegistrarPagoSheet } from '@/features/tesoreria/components/RegistrarPagoSheet';
+import { RedondeosPorAutorizarPanel } from '@/features/tesoreria/components/RedondeosPorAutorizarPanel';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esPasivoSeleccionable } from '@/features/tesoreria/lib/pagos';
 import type { PagosSearch } from '@/features/tesoreria/lib/pagos-search-schema';
@@ -144,6 +145,8 @@ export function BandejaPagos() {
           </>
         }
       />
+
+      <RedondeosPorAutorizarPanel />
 
       <ListadoModulo
         tabs={
