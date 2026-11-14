@@ -86,7 +86,13 @@ public sealed class ConciliacionCobrosPolizasHandler(CuentasPorCobrarDbContext d
             .Where(p => p.ReciboPagoId != null && origenes.Contains(p.ReciboPagoId.Value))
             .Select(p => new { Rep = p.ReciboPagoId!.Value, p.MovimientoBancarioId })
             .ToListAsync(ct);
-        var movimientoDelRep = propuestasRep.Where(p => p.MovimientoBancarioId != null)
+        // H-U49: el pago de una factura PUE se aplica sin REP, con origen = propuesta; se concilia contra el mismo pago de cliente.
+        var propuestasPue = await db.PropuestasAplicacionPago.AsNoTracking()
+            .Where(p => origenes.Contains(p.Id))
+            .Select(p => new { Rep = p.Id, p.MovimientoBancarioId })
+            .ToListAsync(ct);
+        var movimientoDelRep = propuestasRep.Concat(propuestasPue).Where(p => p.MovimientoBancarioId != null)
+            .DistinctBy(p => p.Rep)
             .ToDictionary(p => p.Rep, p => p.MovimientoBancarioId!.Value);
 
         var porMovimiento = cartera.Where(c => movimientoDelRep.ContainsKey(c.Origen))
