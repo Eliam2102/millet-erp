@@ -1,4 +1,5 @@
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Facturas;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Domain.CartaPorte;
@@ -80,7 +81,10 @@ public sealed class CartaPorte : Comprobante
     /// <summary>
     /// Crea una Carta Porte en <see cref="EstadoTimbrado.Borrador"/>. <paramref name="tipoCfdi"/>
     /// debe ser <c>Traslado</c> (total 0) o <c>Ingreso</c> (servicio facturado:
-    /// <paramref name="montoServicio"/> + IVA). El handler agrega las mercancías.
+    /// <paramref name="montoServicio"/> + IVA − retención). El handler agrega las mercancías.
+    /// P51: <paramref name="conceptoRetencion"/> / <paramref name="tasaRetencionIva"/> fijan la retención de IVA que hace el
+    /// cliente sobre el flete, con el mismo catálogo que la factura de servicio (<see cref="ConceptosRetencionCliente"/>). Solo
+    /// en tipo I; la tasa se guarda implícita en <c>Retenciones</c>/<c>Subtotal</c> (el CFDI la reconstruye al armar el concepto).
     /// </summary>
     public static CartaPorte CrearBorrador(
         Guid empresaId, TipoComprobante tipoCfdi, string folio, long folioNumero, Guid sucursalId, Guid? cajaId,
@@ -90,7 +94,8 @@ public sealed class CartaPorte : Comprobante
         DateTimeOffset fechaSalida, DateTimeOffset fechaLlegadaEstimada,
         decimal montoServicio = 0m, decimal? tasaIvaServicio = null,
         string? origenCodigoPostal = null, string? origenEstado = null,
-        string? destinoCodigoPostal = null, string? destinoEstado = null)
+        string? destinoCodigoPostal = null, string? destinoEstado = null,
+        string? conceptoRetencion = null, decimal? tasaRetencionIva = null)
     {
         if (tipoCfdi is not (TipoComprobante.Traslado or TipoComprobante.Ingreso))
             throw new BusinessRuleException("CARTA_PORTE_TIPO_INVALIDO", "La Carta Porte solo admite CFDI tipo T (Traslado) o I (Ingreso).");
@@ -100,6 +105,13 @@ public sealed class CartaPorte : Comprobante
             throw new BusinessRuleException("CARTA_PORTE_TRANSPORTE_INVALIDO", "El vehículo y el operador son obligatorios.");
         if (tipoCfdi == TipoComprobante.Ingreso && montoServicio <= 0)
             throw new BusinessRuleException("CARTA_PORTE_MONTO_INVALIDO", "Una Carta Porte tipo I debe facturar el servicio de transporte (monto > 0).");
+        var (_, tasaRetencion) = ConceptosRetencionCliente.Resolver(conceptoRetencion, tasaRetencionIva);
+        if (tipoCfdi == TipoComprobante.Traslado && (tasaRetencion is > 0m || !string.IsNullOrWhiteSpace(conceptoRetencion)))
+            throw new BusinessRuleException("CARTA_PORTE_RETENCION_EN_TRASLADO",
+                "Una Carta Porte tipo T (traslado) no lleva importes ni retención; la retención solo aplica cuando se factura el servicio (tipo I).");
+        if (tasaRetencion is < 0m || tasaRetencion is > 0m && !ConceptosRetencionCliente.Tasas.Values.Contains(tasaRetencion.Value))
+            throw new BusinessRuleException("CARTA_PORTE_RETENCION_INVALIDA",
+                "La retención de IVA se elige por concepto: fletes 4 %, servicios 6 %, desperdicio o importación 16 %.");
 
         var cp = new CartaPorte(
             Guid.CreateVersion7(), empresaId, tipoCfdi, folio, folioNumero, sucursalId, cajaId, usuarioEmisorId,
@@ -110,7 +122,8 @@ public sealed class CartaPorte : Comprobante
         if (tipoCfdi == TipoComprobante.Ingreso)
         {
             var iva = tasaIvaServicio is > 0 ? Math.Round(montoServicio * tasaIvaServicio.Value, 2) : 0m;
-            cp.EstablecerTotales(montoServicio, 0m, iva, 0m, montoServicio + iva);
+            var retencion = tasaRetencion is > 0 ? Math.Round(montoServicio * tasaRetencion.Value, 2, MidpointRounding.AwayFromZero) : 0m;
+            cp.EstablecerTotales(montoServicio, 0m, iva, retencion, montoServicio + iva - retencion);
         }
         else
         {
