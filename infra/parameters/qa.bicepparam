@@ -58,8 +58,10 @@ param empresaInicialNombreComercial = 'Tiglass'
 // === Integración A+W: canal real listo, TODO APAGADO ===
 param glassAgentSpnClientId = '__PEDIR_A_ELIAM__'
 
-// M-045b: empresa inicial (id fijo del bootstrap) = worker de ingesta encendido contra MILLET_INTEGRACION_DEV
+// M-045b: empresa inicial (id fijo del bootstrap) del worker AwSolicitudes contra MILLET_INTEGRACION_DEV
 // (secreto operator-managed aw-integracion-connection-string). Vacío lo apaga (candado #2 del runbook).
+// En QA el worker corre con SoloNotasCredito=true (ver appSettingsExtra): lee notas de crédito y NO ingiere
+// pedidos de venta mientras no se resuelva bruto/neto de DEVUELVE_IMPORTE_Y_DESCTO_N.
 param awSolicitudesEmpresaId = '00000003-0000-0000-0000-000000000001'
 // M-184 / M-454: lector directo de notas de crédito de A+W (millet_erp_lector_aw, secreto aw-clientes-connection-string).
 param awNotasCreditoLecturaHabilitada = true
@@ -120,11 +122,14 @@ param appSettingsExtra = {
   // (el mismo de Auth__ServicePrincipalsJson). `empresaInicialRfc` quedó solo como bootstrap.
   CuentasPorPagar__Workers__RfcsReceptores__MIN120224147: '00000003-0000-0000-0000-000000000001'
   Facturacion__Avisos__Contingencias__Fiscal__0: 'mcolin@millet.com.mx'
-  Facturacion__Workers__AwSolicitudes__Disabled: 'true'
+  // M-184 / M-045b: worker encendido solo para notas de crédito; la ingesta de pedidos queda apagada.
+  Facturacion__Workers__AwSolicitudes__Disabled: 'false'
+  Facturacion__Workers__AwSolicitudes__SoloNotasCredito: 'true'
   Integraciones__AlmCompra__Habilitado: 'true'
   Integraciones__AlmCompra__Transporte: 'Sql'
   Integraciones__AlmMensaje__CargaInicialHabilitada: 'true'
-  Integraciones__AlmMensaje__Habilitado: 'false'
+  // M-283: lector alm_mensaje encendido (probado contra ENSAYO el 13-nov).
+  Integraciones__AlmMensaje__Habilitado: 'true'
   Integraciones__AlmMensaje__Origen: 'Sql'
   IntegracionesAw__Clientes__UnificacionAutomaticaHabilitada: 'true'
   IntegracionesAw__Exportacion__BatchSize: '200'
