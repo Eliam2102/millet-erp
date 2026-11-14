@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Inbox } from 'lucide-react';
 import {
+  accesosNavegacion,
   contextoNavegacion,
   filtrarModuloPorPermisos,
   navSidebarItems,
@@ -388,5 +389,22 @@ describe('Contabilidad · Motor contable (C1.4)', () => {
     const motor = polizas?.cards.find((c) => c.to === '/contabilidad/motor');
     expect(motor?.label).toBe('Motor contable');
     expect(motor?.permission).toBe(PermisosCanonicos.ContabilidadMotorLeer);
+  });
+});
+
+describe('pantallas fuera del menú para las pruebas con el cliente', () => {
+  const P = PermisosCanonicos;
+  const todas = Object.values(P);
+
+  it('mermas de proceso: no aparece en el menú ni en el buscador, pero la URL sigue con su permiso', () => {
+    const rutas = accesosNavegacion(todas).map((a) => a.to);
+    expect(rutas).not.toContain('/almacen/mermas');
+    expect(rutaPermitida('/almacen/mermas', [P.AlmacenSalidasLeerTodas])).toBe(true);
+    expect(rutaPermitida('/almacen/mermas', [P.AlmacenEntradasLeer])).toBe(false);
+  });
+
+  it('portal de proveedores: no aparece en el menú ni en el buscador', () => {
+    const rutas = accesosNavegacion(todas).map((a) => a.to);
+    expect(rutas.some((r) => r.startsWith('/portal-proveedores'))).toBe(false);
   });
 });

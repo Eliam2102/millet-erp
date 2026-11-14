@@ -33,7 +33,9 @@ import { useAplicarDevolucionInterna, useSubAlmacenes } from '@/features/almacen
 import { Field } from '@/features/almacen/components/internal/Field';
 import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
-import { useSalida } from '@/features/almacen/api/useSalidas';
+import { useSalida, useSalidas } from '@/features/almacen/api/useSalidas';
+import { EstadoMovimiento } from '@/features/almacen/api/types';
+import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 
 export interface AplicarDevolucionInternaSheetProps {
   open: boolean;
@@ -105,6 +107,9 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
     control: form.control,
     name: 'subAlmacenDestinoId',
   });
+  // ponytail: las 200 salidas registradas más recientes, filtradas por folio en cliente;
+  // pasar a búsqueda server-side (`q`) si el volumen lo pide.
+  const salidasQuery = useSalidas({ estado: EstadoMovimiento.Registrado, limit: 200 });
   const salidaOrigenQuery = useSalida(
     salidaOrigenId && /^[0-9a-f-]{36}$/i.test(salidaOrigenId) ? salidaOrigenId : undefined,
   );
@@ -178,11 +183,30 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
                   name="salidaOrigenId"
                   control={form.control}
                   render={({ field }) => (
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      placeholder="GUID de la salida"
-                      spellCheck={false}
+                    <CatalogoEagerCombobox
+                      items={salidasQuery.data?.items ?? []}
+                      loading={salidasQuery.isLoading}
+                      error={salidasQuery.error}
+                      value={field.value}
+                      onChange={(id) => {
+                        field.onChange(id ?? '');
+                        // Las partidas elegidas eran de la salida anterior.
+                        form.setValue(
+                          'lineas',
+                          form.getValues('lineas').map((l) => ({ ...l, lineaSalidaOrigenId: '' })),
+                        );
+                      }}
+                      itemToLabel={(s) => s.folio}
+                      renderItem={(s) => (
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-mono text-xs">{s.folio}</p>
+                          <p className="truncate text-xs text-ink-muted">{s.fechaMovimiento}</p>
+                        </div>
+                      )}
+                      placeholder="Buscar salida por folio…"
+                      searchPlaceholder="Folio de la salida…"
+                      emptyListText="No hay salidas registradas."
+                      ariaLabel="Seleccionar salida origen"
                     />
                   )}
                 />
@@ -354,12 +378,25 @@ function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: ()
                             name={`lineas.${index}.lineaSalidaOrigenId` as const}
                             control={form.control}
                             render={({ field }) => (
-                              <Input
-                                {...field}
+                              <select
+                                aria-label={`Partida de salida origen ${index + 1}`}
+                                className="h-9 w-full rounded-md border bg-surface-page px-2 text-sm"
                                 value={field.value ?? ''}
-                                placeholder="GUID de la partida de salida"
-                                spellCheck={false}
-                              />
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                disabled={!salidaOrigenQuery.data}
+                              >
+                                <option value="">
+                                  {salidaOrigenQuery.data
+                                    ? 'Selecciona la partida…'
+                                    : 'Primero elige la salida origen'}
+                                </option>
+                                {salidaOrigenQuery.data?.lineas.map((l) => (
+                                  <option key={l.id} value={l.id}>
+                                    {`#${l.posicion} · ${l.articuloClave ?? ''} ${l.articuloDescripcion ?? 'Artículo sin descripción'} · ${l.cantidad} ${l.unidadMedida}`}
+                                  </option>
+                                ))}
+                              </select>
                             )}
                           />
                         </Field>

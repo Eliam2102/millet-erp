@@ -258,14 +258,6 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenEntradasLeer,
         },
         {
-          label: 'Desperdicio y merma',
-          description:
-            'Desperdicio diario de la mesa de corte y merma por etapa y motivo que informa A+W; la merma se autoriza aquí.',
-          to: '/almacen/mermas',
-          icon: Scale,
-          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
-        },
-        {
           label: 'Consumos en revisión',
           description:
             'Componentes de piezas terminadas en A+W (argón, separador, PVB) que no se descontaron por falta de norma, factor, sucursal o existencia.',
@@ -1719,6 +1711,9 @@ const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissio
   { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
+  // Fuera del menú hasta que Millet defina el desperdicio no incluido (Tema 28; Jorge 11-nov:
+  // la app no manda merma ni desperdicio). La ruta y la pantalla se conservan.
+  { to: '/almacen/mermas', permission: PermisosCanonicos.AlmacenSalidasLeerTodas },
 ];
 
 /**

@@ -53,8 +53,16 @@ export function VariacionBadge({
         {variacionAbsoluta.toLocaleString('es-MX', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 4,
-        })}{' '}
-        ({(variacionPorcentaje ?? 0).toFixed(2)} %)
+        })}
+        {/* Con existencia teórica 0 el backend no manda porcentaje: no se pinta 0.00 %. */}
+        {variacionPorcentaje == null ? (
+          <span>
+            {' '}(<span aria-hidden="true">—</span>
+            <span className="sr-only">sin porcentaje, existencia teórica en cero</span>)
+          </span>
+        ) : (
+          <> ({variacionPorcentaje.toFixed(2)} %)</>
+        )}
       </Badge>
       <span className="text-xs text-ink-muted">
         <MoneyDisplay amount={variacionValorMxn ?? 0} currency="MXN" strong />

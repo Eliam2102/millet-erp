@@ -120,7 +120,7 @@ describe('<EmpleadoAccesoPanel>', () => {
     expect(emailInput).toHaveValue('');
 
     const domainSelect = screen.getByLabelText(/dominio corporativo/i);
-    expect(domainSelect).toHaveValue('uzieltzaboutlook.onmicrosoft.com');
+    expect(domainSelect).toHaveValue('millet.mx');
 
     fireEvent.change(emailInput, { target: { value: 'carlos.m' } });
     fireEvent.change(domainSelect, { target: { value: 'millet.com.mx' } });
