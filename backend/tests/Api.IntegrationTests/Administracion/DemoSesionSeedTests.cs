@@ -250,9 +250,15 @@ public sealed partial class DemoSesionSeedTests
         var activo = await maestros.Proveedores.SingleAsync(p => p.Clave == "DEMO-PROV-ACT");
         Assert.Equal(EstatusCatalogo.EnRevision, revision.Estatus);
         Assert.Equal(EstatusCatalogo.Activo, activo.Estatus);
-        Assert.True(await maestros.CuentasBancariasProveedor.AnyAsync(c => c.ProveedorId == activo.Id && c.Estado == EstadoCuentaBancariaProveedor.Activa));
+        // Dos cuentas activas (heredada + segunda de ensayo validada, una sola predeterminada) para la corrida.
+        var cuentasActivo = await maestros.CuentasBancariasProveedor
+            .Where(c => c.ProveedorId == activo.Id && c.Estado == EstadoCuentaBancariaProveedor.Activa).ToListAsync();
+        Assert.Equal(2, cuentasActivo.Count);
+        Assert.Single(cuentasActivo, c => c.Predeterminada);
+        Assert.Single(cuentasActivo, c => c.ValidadaPorId is not null && c.ValidadaPorId != c.CapturadaPorId && c.DocumentoAdjuntoId is not null);
         Assert.Equal(3, await maestros.Adjuntos.CountAsync(a => a.EntidadId == revision.Id));
-        Assert.Equal(5, await maestros.Adjuntos.CountAsync(a => a.EntidadId == activo.Id));
+        // Cinco del expediente + el estado de cuenta que respalda la segunda cuenta.
+        Assert.Equal(6, await maestros.Adjuntos.CountAsync(a => a.EntidadId == activo.Id));
         Assert.Equal(5, await maestros.AdjuntoTiposDocumento.CountAsync(t => t.TipoEntidad == "proveedor" && t.Activo && t.Obligatorio));
         var oc = await compras.OrdenesCompra.Include(o => o.Adjuntos).Include(o => o.Autorizaciones).Include(o => o.Lineas)
             .SingleAsync(o => o.ReferenciaProveedor == "DEMO-OC-MID");
