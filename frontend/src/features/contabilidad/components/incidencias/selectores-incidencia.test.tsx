@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
-import { etiquetaPoliza, PolizaAutorizadaSelector } from './PolizaAutorizadaSelector';
+import { etiquetaPoliza } from '../../lib/etiquetas-incidencia';
+import { PolizaAutorizadaSelector } from './PolizaAutorizadaSelector';
 import { ReaperturaSelector } from './ReaperturaSelector';
 
 const POLIZAS = '*/api/v1/contabilidad/polizas';

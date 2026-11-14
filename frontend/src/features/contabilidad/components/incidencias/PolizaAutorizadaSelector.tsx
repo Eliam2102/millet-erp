@@ -7,13 +7,7 @@ import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryErro
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { cn } from '@/lib/utils';
 import { usePoliza, usePolizas } from '../../api/polizas';
-import type { PolizaResumen } from '../../api/polizas-types';
-
-/** Etiqueta legible de una póliza: folio, periodo y concepto (nunca el identificador). */
-export function etiquetaPoliza(p: Pick<PolizaResumen, 'folio' | 'periodoAnio' | 'periodoNumero' | 'concepto'>): string {
-  const periodo = `${p.periodoAnio}-${String(p.periodoNumero).padStart(2, '0')}`;
-  return `${p.folio ?? 'Sin folio'} · ${periodo} · ${p.concepto}`;
-}
+import { etiquetaPoliza } from '../../lib/etiquetas-incidencia';
 
 /**
  * H-U29: combobox de pólizas AUTORIZADAS con búsqueda en el servidor por folio o concepto (`q`, debounce 200 ms, páginas de 20).

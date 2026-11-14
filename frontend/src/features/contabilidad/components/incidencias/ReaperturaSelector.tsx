@@ -1,12 +1,6 @@
-import { formatDate } from '@/lib/datetime';
-import { useReaperturasPeriodo, type ReaperturaPeriodo } from '../../api/periodos';
+import { useReaperturasPeriodo } from '../../api/periodos';
 import { SELECT_CLASS } from '../../lib/estilos';
-
-/** Etiqueta legible de una reapertura: cuándo se abrió, hasta cuándo y su evidencia. */
-export function etiquetaReapertura(r: ReaperturaPeriodo): string {
-  const estado = r.vigente ? `vence ${formatDate(r.venceEn)}` : 'concluida';
-  return `${formatDate(r.creadaEn)} · ${estado} · ${r.evidenciaReferencia}`;
-}
+import { etiquetaReapertura } from '../../lib/etiquetas-incidencia';
 
 /** H-U29: lista desplegable de las reaperturas del periodo de la incidencia (sustituye a pegar el identificador). */
 export function ReaperturaSelector({
