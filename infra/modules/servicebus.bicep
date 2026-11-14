@@ -544,7 +544,7 @@ resource facturacionEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.recibo-pago.timbrado.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.factura-anticipo.timbrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.recibo-pago.timbrado.v1\', \'facturacion.cobro-mostrador.registrado.v1\', \'facturacion.cobro-mostrador.cancelado.v1\', \'facturacion.nota-credito.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\', \'facturacion.factura-anticipo.timbrada.v1\', \'facturacion.anticipo.aplicacion-reversada.v1\')'
       compatibilityLevel: 20
     }
   }

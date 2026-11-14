@@ -64,7 +64,11 @@ public sealed record CartaPorteDetalleResponse(
     // Error del último intento de timbrado + folio del PAC (PR-B reintento).
     string? TimbradoErrorCodigo = null,
     string? TimbradoErrorMensaje = null,
-    string? FolioPac = null);
+    string? FolioPac = null,
+    // P51: desglose del servicio facturado (tipo I): subtotal, IVA trasladado y retención de IVA del cliente.
+    decimal Subtotal = 0m,
+    decimal ImpuestosTrasladados = 0m,
+    decimal Retenciones = 0m);
 
 public sealed record CartaPorteVehiculoDetalle(Guid Id, string Placa, string ConfigVehicular, int AnioModelo);
 public sealed record CartaPorteOperadorDetalle(Guid Id, string Rfc, string Nombre, string NumLicencia);
@@ -99,6 +103,7 @@ public sealed class CartaPorteDetalleHandler : IRequestHandler<CartaPorteDetalle
             cp.Id, cp.Folio, cp.Estado.ToString(), cp.Uuid, BandejaCartaPorteHandler.TipoCfdi(cp.Tipo),
             cp.Origen, cp.Destino, cp.DistanciaKm, cp.FechaSalida, cp.FechaLlegadaEstimada,
             cp.CartaPortePreviaId, cp.Total, vehiculo, operador, mercancias,
-            cp.TimbradoErrorCodigo, cp.TimbradoErrorMensaje, cp.FolioPac);
+            cp.TimbradoErrorCodigo, cp.TimbradoErrorMensaje, cp.FolioPac,
+            cp.Subtotal, cp.ImpuestosTrasladados, cp.Retenciones);
     }
 }

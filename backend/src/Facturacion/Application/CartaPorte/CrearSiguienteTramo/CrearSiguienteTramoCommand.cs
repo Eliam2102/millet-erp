@@ -27,4 +27,7 @@ public sealed record CrearSiguienteTramoCommand(
     string? OrigenCodigoPostal = null,
     string? OrigenEstado = null,
     string? DestinoCodigoPostal = null,
-    string? DestinoEstado = null) : IRequest<EmitirCartaPorteResponse>;
+    string? DestinoEstado = null,
+    // P51: retención de IVA del cliente sobre el flete (solo tipo I).
+    string? ConceptoRetencion = null,
+    decimal? TasaRetencionIva = null) : IRequest<EmitirCartaPorteResponse>;

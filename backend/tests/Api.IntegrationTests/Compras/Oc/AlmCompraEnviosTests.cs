@@ -50,8 +50,11 @@ public partial class OrdenesCompraEndpointsTests
         return new(prov.Id, claveAw, refAw);
     }
 
-    private async Task<OcApp> SembrarOcAppAutorizadaAsync(HttpClient client, ModoOc modo = ModoOc.AppRq, bool proveedorSinClaveAw = false)
+    private async Task<OcApp> SembrarOcAppAutorizadaAsync(HttpClient client, ModoOc modo = ModoOc.AppRq, bool proveedorSinClaveAw = false,
+        bool enM2 = false)
     {
+        // enM2: la misma compra de 13 hojas de 3302 × 6100 capturada en m² a 100 por m² (vidrio).
+        var (unidad, cantidad) = enM2 ? ("M2", 13 * 3.302m * 6.1m) : ("PZA", 13m);
         var s = await SembrarProveedorYArticuloMpAsync();
         var response = await client.PostAsJsonAsync(EndpointBase, ValidBody());
         response.EnsureSuccessStatusCode();
@@ -80,7 +83,7 @@ public partial class OrdenesCompraEndpointsTests
         {
             rq = Requisicion.CrearDesdeAlmacenesApp(Guid.NewGuid(), oc.EmpresaId, folio, 2026, oc.SucursalDestinoId, Guid.NewGuid(), null,
                 Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UtcNow, folioRq, s.ProveedorId,
-                [new LineaAppRequisicion(articulo.Id, 13, "PZA", Money.Mxn(100), 13, 3302, 6100)]);
+                [new LineaAppRequisicion(articulo.Id, cantidad, unidad, Money.Mxn(100), 13, 3302, 6100)]);
             lr = rq.Lineas.Single();
         }
         else
@@ -92,8 +95,8 @@ public partial class OrdenesCompraEndpointsTests
             rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
             rq.RegistrarAutorizacion(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow, RequiereNivel.SoloN1);
         }
-        rq.RegistrarCubrimiento([new CubrimientoLinea(lr.Id, 0, 13)], DateTimeOffset.UtcNow);
-        var lo = oc.AgregarLineaDesdeRequisicion(Guid.NewGuid(), articulo.Id, 13, "PZA", 100, rq.DepartamentoId, rq.Id, lr.Id,
+        rq.RegistrarCubrimiento([new CubrimientoLinea(lr.Id, 0, cantidad)], DateTimeOffset.UtcNow);
+        var lo = oc.AgregarLineaDesdeRequisicion(Guid.NewGuid(), articulo.Id, cantidad, unidad, 100, rq.DepartamentoId, rq.Id, lr.Id,
             centroCostoId: CentroCostoSeedId);
         rq.ComprometerEnOc(id);
         oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
@@ -142,6 +145,21 @@ public partial class OrdenesCompraEndpointsTests
     }
 
     [Fact]
+    public async Task AlmCompra_linea_de_vidrio_en_m2_manda_costoMedioM2_con_el_promedio_del_ERP_tras_la_compra()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var oc = await SembrarOcAppAutorizadaAsync(client, enM2: true);
+
+        var r = Assert.Single(await EnviosAsync(oc.OcId));
+        using var doc = JsonDocument.Parse(r.Sobre);
+        var l = Assert.Single(doc.RootElement.GetProperty("datos").GetProperty("lineas").EnumerateArray());
+        Assert.Equal(13, l.GetProperty("piezas").GetInt32());
+        Assert.Equal(100m, l.GetProperty("costoM2").GetDecimal());
+        // Artículo nuevo, sin existencia en la sucursal: el promedio tras la compra es el costo de la compra (v11, M-149).
+        Assert.Equal(100m, l.GetProperty("costoMedioM2").GetDecimal());
+    }
+
+    [Fact]
     public async Task AlmCompra_al_autorizar_la_OC_de_la_app_sale_COMPRA_RECIBIDA_con_el_contrato_v8_y_el_simulado_la_procesa_una_vez()
     {
         var client = await CreateSuperAdminClientAsync();
@@ -159,7 +177,7 @@ public partial class OrdenesCompraEndpointsTests
             Assert.Equal((oc.FolioRq, 1, 3302, 6100, 13), (l.GetProperty("requisicion").GetString(), l.GetProperty("posicion").GetInt32(),
                 l.GetProperty("ancho").GetInt32(), l.GetProperty("alto").GetInt32(), l.GetProperty("piezas").GetInt32()));
             Assert.Equal(100m, l.GetProperty("costoPieza").GetDecimal());
-            Assert.False(l.TryGetProperty("costoMedioM2", out _)); // fórmula pendiente: no se manda
+            Assert.False(l.TryGetProperty("costoMedioM2", out _)); // solo vidrio capturado en m²
             Assert.False(l.TryGetProperty("articuloAlmacenAw", out _));
         }
 
@@ -210,22 +228,29 @@ public partial class OrdenesCompraEndpointsTests
     }
 
     [Fact]
-    public async Task AlmCompra_con_recepcion_en_el_ERP_el_pedimento_ya_no_genera_COMPRA_MODIFICADA_ventana_de_TI()
+    public async Task AlmCompra_con_recepcion_parcial_el_pedimento_si_viaja_y_con_la_compra_completa_ya_no_ventana_v11()
     {
         var client = await CreateSuperAdminClientAsync();
         var oc = await SembrarOcAppAutorizadaAsync(client);
         await ProcesarBandejaAsync();
 
-        using (var scope = _factory.Services.CreateScope())
+        async Task RecibirYCambiarPedimentoAsync(decimal recibido, string pedimento)
         {
+            using var scope = _factory.Services.CreateScope();
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
-            db.Entry(await db.LineasOrdenCompra.SingleAsync(l => l.Id == oc.LineaOcId)).Property(l => l.CantidadRecibida).CurrentValue = 5m;
+            db.Entry(await db.LineasOrdenCompra.SingleAsync(l => l.Id == oc.LineaOcId)).Property(l => l.CantidadRecibida).CurrentValue = recibido;
             await db.SaveChangesAsync();
-            await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new ActualizarNumeroPedimentoCommand(oc.OcId, "26 47 3456 6001234"));
+            await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new ActualizarNumeroPedimentoCommand(oc.OcId, pedimento));
         }
-        // La entrada en el ERP tampoco manda COMPRA_MODIFICADA: la recepción es de Almacenes.
-        Assert.Equal(["COMPRA_RECIBIDA"], (await EnviosAsync(oc.OcId)).Select(f => f.Tipo));
+
+        // Parcial (5 de 13): Almacenes todavía acepta COMPRA_MODIFICADA (v11: mientras la compra no esté CERRADA).
+        await RecibirYCambiarPedimentoAsync(5m, "26 47 3456 6001234");
+        Assert.Equal(["COMPRA_RECIBIDA", "COMPRA_MODIFICADA"], (await EnviosAsync(oc.OcId)).Select(f => f.Tipo));
+
+        // Completa (13 de 13): la compra quedó cerrada del otro lado; ya no se manda.
+        await RecibirYCambiarPedimentoAsync(13m, "26 47 3456 6009999");
+        Assert.Equal(["COMPRA_RECIBIDA", "COMPRA_MODIFICADA"], (await EnviosAsync(oc.OcId)).Select(f => f.Tipo));
     }
 
     [Fact]

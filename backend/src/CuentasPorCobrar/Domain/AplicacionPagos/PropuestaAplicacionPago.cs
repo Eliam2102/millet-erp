@@ -283,6 +283,17 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         ReciboPagoId ??= reciboPagoId;
     }
 
+    /// <summary>
+    /// H-U49: propuesta confirmada cuyas facturas son todas PUE. Fiscalmente no lleva REP (solo PPD): se cierra al aplicarse en
+    /// cartera con la confirmación de Tesorería. Reusa la bandera de cierre (<see cref="ReppTimbrado"/>) sin recibo de pago.
+    /// </summary>
+    public void MarcarAplicadaSinRep()
+    {
+        if (Estado != EstadoPropuestaAplicacion.Confirmada)
+            throw new BusinessRuleException("PAP_NO_CONFIRMADA", "Solo una propuesta confirmada se aplica a cartera.");
+        ReppTimbrado = true;
+    }
+
     private void AsegurarPropuesta()
     {
         if (Estado != EstadoPropuestaAplicacion.Propuesta)

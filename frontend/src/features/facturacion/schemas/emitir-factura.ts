@@ -27,6 +27,8 @@ export const EmitirFacturaLineaSchema = z.object({
   tasaRetencionIsr: z.number().min(0).max(1).nullable(),
   conceptoRetencion: z.string().max(20).nullable().optional(),
   requierePedimento: z.boolean(),
+  // P47: posición de la partida en el pedido (solo se muestra; no viaja al CFDI).
+  posicionPedido: z.number().int().nullable().optional(),
   // Datos de aduana (CCE) — solo se exigen en exportación con CCE; la
   // validación de obligatoriedad la aplica el form según el comportamiento.
   fraccionArancelaria: z.string().max(13).nullable(),

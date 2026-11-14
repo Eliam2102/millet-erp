@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
+using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Application.Pagos;
 using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
@@ -50,6 +51,23 @@ public static class PagosEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // M-326 (b): redondeo de hasta $0.99 al pagar. Solicita quien registra pagos; autoriza/rechaza el Gerente de Área (otro usuario).
+        // Lectura de solicitudes de redondeo: quien las solicita (pagos.aplicar), quien las autoriza o quien ve la bandeja de pasivos.
+        // Alcance por sucursal (ADR-0051): mismo que la bandeja de pasivos (los corporativos ven todo).
+        app.MapGet("/api/v1/tesoreria/pagos/redondeo", async (
+            [FromQuery] string? estado, [FromQuery] Guid? facturaId, [FromQuery] int? offset, [FromQuery] int? limit,
+            IMediator mediator, ICurrentUserPermissions permisos, CancellationToken ct) =>
+        {
+            if (!await permisos.TieneAsync(PermisosCanonicos.TesoreriaPagosAplicar, ct)
+                && !await permisos.TieneAsync(PermisosCanonicos.TesoreriaPagosAutorizarRedondeo, ct)
+                && !await permisos.TieneAsync(PermisosCanonicos.TesoreriaPasivosVer, ct))
+                throw new Millet.SharedKernel.Application.Exceptions.ForbiddenException("PERMISO_INSUFICIENTE",
+                    "Requiere ver pasivos, aplicar pagos o autorizar redondeos.");
+            return Results.Ok(await mediator.Send(new ListarRedondeosPagoQuery(estado, facturaId, offset ?? 0, limit ?? 50), ct));
+        })
+            .WithTags("Tesoreria")
+            .WithName("ListarRedondeosPago")
+            .Produces<PagedResponse<RedondeoPagoListadoItem>>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status403Forbidden);
+
         app.MapPost("/api/v1/tesoreria/pagos/redondeo", async (
             [FromBody] SolicitarRedondeoPagoCommand command, IMediator mediator, CancellationToken ct) =>
             Results.Created($"/api/v1/tesoreria/pagos/redondeo/{command.FacturaProveedorId}", await mediator.Send(command, ct)))
