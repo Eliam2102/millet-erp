@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Millet.Almacen.Application.PublicPorts;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.AlmCompra;
@@ -23,7 +24,8 @@ namespace Millet.Compras.Application.Integration.AlmCompra;
 /// de cancelar deja la OC en espera y encola COMPRA_CANCELADA; el resultado lo aplica el procesador al llegar el acuse.
 /// </para>
 /// </summary>
-public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock, IConfiguration configuration)
+public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext maestros, IClock clock, IConfiguration configuration,
+    ICostoMedioReader costoMedio)
 {
     /// <summary>OC autorizada: COMPRA_RECIBIDA; si ya se mandó una (reautorización tras reabrir), COMPRA_MODIFICADA si cambió algo.</summary>
     public async Task OcAutorizadaAsync(Guid ocId, CancellationToken ct)
@@ -74,14 +76,15 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
         if (datos is not null && e.Tipo == AlmCompraEnvio.TipoModificada)
         {
             if (FueraDeVentana(oc))
-                throw new BusinessRuleException("ALM_COMPRA_MODIFICADA_FUERA_DE_VENTANA", "La compra ya tiene recepción; Almacenes solo acepta COMPRA_MODIFICADA hasta la entrada.");
+                throw new BusinessRuleException("ALM_COMPRA_MODIFICADA_FUERA_DE_VENTANA", "La compra ya se recibió completa; Almacenes no acepta COMPRA_MODIFICADA de una compra cerrada.");
             ValidarCamposFijos(await db.AlmCompraEnvios.AsNoTracking().Where(x => x.OrdenCompraId == oc.Id).ToListAsync(ct), datos);
         }
         return datos is null ? null
             : AlmCompraSobre.Armar(e.MensajeId, e.Tipo, clock.UtcNow, e.Referencia, AlmCompraSobre.DatosCompra(datos));
     }
 
-    private static bool FueraDeVentana(OrdenCompra oc) => oc.Lineas.Any(l => l.CantidadRecibida > 0);
+    // v11: Almacenes acepta COMPRA_MODIFICADA mientras su compra no esté CERRADA (entró todo) ni CANCELADA; con recepción parcial sí.
+    private static bool FueraDeVentana(OrdenCompra oc) => oc.Lineas.All(l => l.CantidadRecibida >= l.Cantidad);
 
     private static void ValidarCamposFijos(List<AlmCompraEnvio> previos, AlmCompraDatos datos)
     {
@@ -112,7 +115,7 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
             if (datos is null) return; // la OC no tiene materia prima
             if (tipo == AlmCompraEnvio.TipoModificada)
             {
-                // Ventana (TI, 5-nov): COMPRA_MODIFICADA solo hasta la entrada. Con recepción en el ERP ya no se manda (Almacenes
+                // Ventana (v11): COMPRA_MODIFICADA mientras la compra no esté cerrada. Recibida completa ya no se manda (Almacenes
                 // acusaría ERROR y detendría la referencia). Lo que Almacenes cerró por su lado lo decide su acuse.
                 if (FueraDeVentana(oc)) return;
                 ValidarCamposFijos(previos, datos);
@@ -179,11 +182,22 @@ public sealed class AlmCompraEncolador(ComprasDbContext db, CompartidoDbContext 
             if (piezas < recibidas)
                 throw new BusinessRuleException("ALM_COMPRA_MODIFICADA_BAJO_RECIBIDO", $"La línea {l.Posicion} quedaría con menos piezas ({piezas}) que las ya recibidas ({recibidas}).");
             var medida = ancho > 0 && alto > 0;
+            // v11: costoMedioM2 = promedio móvil del ERP por m² tras esta compra (M-149), en la moneda de la compra como costoM2.
+            // Al autorizar no se sabe a qué almacén entra: se estima con la existencia de la sucursal de la OC. Solo vidrio en m².
+            decimal? costoMedioM2 = null;
+            if (medida && costoM2 is decimal cm2 && string.Equals(l.UnidadMedida, LineaOrdenCompra.UnidadVidrio, StringComparison.OrdinalIgnoreCase))
+            {
+                var tc = oc.TipoCambio is > 0 ? oc.TipoCambio.Value : 1m;
+                var entranM2 = Math.Max(0m, l.Cantidad - l.CantidadRecibida);
+                var medioMxn = await costoMedio.EstimarTrasCompraAsync(oc.SucursalDestinoId, null, l.ArticuloId, l.ProductoAwVarianteId,
+                    entranM2, cm2, tc, ct);
+                costoMedioM2 = Math.Round(medioMxn / tc, 4);
+            }
             // Jorge 30-oct: artículo A+W + medida; no amarrarse a articuloAlmacenAw (no se manda).
             lineas.Add(new AlmCompraLinea(
                 l.Posicion.ToString(), rq?.FolioExterno, rq?.Posicion, articuloAw, null,
                 medida ? (int)ancho! : null, medida ? (int)alto! : null, piezas,
-                l.LoteProveedor, AlmCompraSobre.FormatoPedimento(oc.InfoImportNumeroPedimento), null, costoM2, costoPieza));
+                l.LoteProveedor, AlmCompraSobre.FormatoPedimento(oc.InfoImportNumeroPedimento), null, costoM2, costoPieza, costoMedioM2));
         }
         return new AlmCompraDatos(oc.Folio.Valor, claveAw, proveedor.RazonSocial,
             // Mismo mapeo ISO → A+W que usa el retorno de pagos (IntegracionesAw:Pedidos:MapeoMonedaAw).
