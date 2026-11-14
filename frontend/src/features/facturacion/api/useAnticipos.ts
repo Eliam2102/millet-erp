@@ -208,3 +208,47 @@ export function useAplicarAnticipoAFactura(facturaVentaId: string) {
     },
   });
 }
+
+/** P45: anticipo timbrado fuera del ERP (SAP/A+W) que se registra solo por su saldo vivo. */
+export interface RegistrarAnticipoExternoCommand {
+  clienteId: string;
+  receptorRfc: string;
+  sucursalId: string;
+  uuid: string;
+  folio: string;
+  fechaTimbrado: string;
+  moneda: 'MXN' | 'USD';
+  tipoCambio: number | null;
+  formaPago: string;
+  total: number;
+  tasaIvaTraslado: number | null;
+  saldoVivo: number;
+  pedidoOrigenRef: string | null;
+}
+
+export interface RegistrarAnticipoExternoResponse {
+  anticipoId: string;
+  facturaAnticipoId: string;
+  folio: string;
+  uuid: string;
+  total: number;
+  saldo: number;
+}
+
+export function useRegistrarAnticipoExterno() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { command: RegistrarAnticipoExternoCommand; idempotencyKey: string }) =>
+      (
+        await apiRequest<RegistrarAnticipoExternoResponse>(`${BASE}/externos`, {
+          method: 'POST',
+          body: args.command,
+          idempotencyKey: args.idempotencyKey,
+        })
+      ).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.anticipos() });
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.facturas() });
+    },
+  });
+}

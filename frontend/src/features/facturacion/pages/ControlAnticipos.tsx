@@ -7,6 +7,7 @@ import { EstadoAnticipo, type ControlAnticipoFila } from '@/features/facturacion
 import { useControlAnticipos } from '@/features/facturacion/api/useAnticipos';
 import { useNuevoAnticipo } from '@/features/facturacion/components/nuevo-anticipo-context';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
+import { RegistrarAnticipoExternoDialog } from '@/features/facturacion/components/RegistrarAnticipoExternoDialog';
 import type { AnticiposSearch } from '@/features/facturacion/lib/anticipos-search-schema';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -30,6 +31,7 @@ export function ControlAnticipos() {
   const navigate = useNavigate();
   const nuevoAnticipo = useNuevoAnticipo();
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionAnticiposEmitir);
+  const [externoAbierto, setExternoAbierto] = useState(false);
 
   const query = useControlAnticipos({
     clienteId: search.clienteId,
@@ -101,6 +103,11 @@ export function ControlAnticipos() {
                 <Link to="/facturacion/anticipos/facturas">Facturas de anticipo</Link>
               </Button>
               {puedeEmitir && (
+                <Button variant="outline" onClick={() => setExternoAbierto(true)}>
+                  Registrar anticipo de SAP
+                </Button>
+              )}
+              {puedeEmitir && (
                 <Button onClick={() => nuevoAnticipo.abrir()}>
                   <Plus className="mr-2 h-4 w-4" />
                   Nuevo anticipo
@@ -110,6 +117,8 @@ export function ControlAnticipos() {
           </>
         }
       />
+
+      {externoAbierto && <RegistrarAnticipoExternoDialog open onOpenChange={setExternoAbierto} />}
 
       <ListadoModulo
         tabs={

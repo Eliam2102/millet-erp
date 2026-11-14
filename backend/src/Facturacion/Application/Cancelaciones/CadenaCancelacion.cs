@@ -21,6 +21,12 @@ internal static class CadenaCancelacion
             .FirstOrDefaultAsync(c => c.Id == comprobanteId, cancellationToken)
             ?? throw new EntityNotFoundException("COMPROBANTE_NO_ENCONTRADO", $"No existe el comprobante {comprobanteId}.");
 
+        // P45: un CFDI timbrado fuera del ERP se cancela donde se emitió; aquí ni se solicita ni se manda al PAC.
+        if (comprobante.EsOrigenExterno)
+            throw new BusinessRuleException(
+                "COMPROBANTE_EXTERNO",
+                $"El comprobante {comprobante.Folio} se timbró fuera del ERP; su cancelación se hace en el sistema que lo emitió.");
+
         if (comprobante.Estado != EstadoTimbrado.Timbrado)
             throw new BusinessRuleException(
                 "COMPROBANTE_NO_CANCELABLE",
