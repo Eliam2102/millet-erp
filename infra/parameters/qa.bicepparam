@@ -139,4 +139,7 @@ param appSettingsExtra = {
   IntegracionesAw__Retorno__Habilitado: 'false'
   Integraciones__CostoPromedio__Habilitado: 'true'
   Integraciones__CostoPromedio__Transporte: 'Sql'
+  // Umbral general de ENSAYO de Compras (ComprasTestSeedHostedService) para que la RQ no quede en
+  // SinPolitica mientras Millet no entrega montos (HMONTOS). No corre en Production.
+  Seed__UmbralEnsayo__Habilitado: 'true'
 }

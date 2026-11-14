@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -75,15 +76,23 @@ public sealed class ComprasTestSeedHostedService : IHostedService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ComprasTestSeedHostedService> _logger;
+
+    /// <summary>
+    /// Vigencia fija del umbral de ensayo (determinista: dos arranques producen la misma fila).
+    /// </summary>
+    public static readonly DateOnly UmbralEnsayoVigenteDesde = new(2026, 11, 1);
 
     public ComprasTestSeedHostedService(
         IServiceScopeFactory scopeFactory,
         IHostEnvironment environment,
+        IConfiguration configuration,
         ILogger<ComprasTestSeedHostedService> logger)
     {
         _scopeFactory = scopeFactory;
         _environment = environment;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -108,8 +117,40 @@ public sealed class ComprasTestSeedHostedService : IHostedService
         await PostgresAdvisoryLock.ExecuteAsync(
             db,
             SeedLockId,
-            ct => AdelantarFolioSecuenciaAsync(db, ct),
+            async ct =>
+            {
+                await AdelantarFolioSecuenciaAsync(db, ct);
+                if (_configuration.GetValue<bool>("Seed:UmbralEnsayo:Habilitado")
+                    && await SembrarUmbralEnsayoAsync(db, EmpresaBootstrapId, ct))
+                    _logger.LogWarning(
+                        "ComprasTestSeed: sembrado el umbral general de ENSAYO (no es política de Millet). " +
+                        "Reemplazarlo desde Configuración de Compras cuando Millet entregue montos y aprobadores.");
+            },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Umbral general de ENSAYO (fila <c>DepartamentoId = Guid.Empty</c>) para que una RQ
+    /// de QA no quede en <c>SinPolitica</c> mientras Millet no entrega montos ni aprobadores
+    /// (plano 02 §6 y §9 Regla 1: se ensaya con valores ficticios). Valores elegidos para no
+    /// decidir nada pendiente: modo <c>SoloDisponibilidad</c> (default del modelo: la RQ pide
+    /// N2 solo si hay que comprar) y monto 0, con lo que toda OC con importe sigue pidiendo
+    /// la segunda firma, igual que sin umbral (Regla 4; definición de la firma 2 abierta).
+    /// Idempotente: si ya existe cualquier fila general de la empresa (sembrada o capturada
+    /// por un administrador, vigente o cerrada) no hace nada. Devuelve si insertó.
+    /// </summary>
+    public static async Task<bool> SembrarUmbralEnsayoAsync(
+        ComprasDbContext db, Guid empresaId, CancellationToken cancellationToken)
+    {
+        if (await db.UmbralesAprobacionDepartamento.AnyAsync(
+                u => u.EmpresaId == empresaId && u.DepartamentoId == Guid.Empty, cancellationToken))
+            return false;
+
+        db.UmbralesAprobacionDepartamento.Add(new UmbralAprobacionDepartamento(
+            empresaId, Guid.Empty, UmbralEnsayoVigenteDesde, umbralMonto: 0m,
+            modoNivel2: ModoNivel2.SoloDisponibilidad));
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
