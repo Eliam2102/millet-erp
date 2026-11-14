@@ -76,7 +76,8 @@ public static class ExpedienteAdjuntos
 
     /// <summary>
     /// 86e3ke2d3 (P8.3): proveedores a los que les falta la opinión de cumplimiento vigente (faltante o vencida), sin excepción.
-    /// Aplica aunque el tipo no sea obligatorio en el expediente; respeta el origen del tipo y que siga activo.
+    /// Respeta la matriz del expediente: solo detiene si el tipo es obligatorio para el tipo de persona del proveedor
+    /// (ADM-PRV-05: con la 32-D no obligatoria el pago no se detiene), su origen y que siga activo.
     /// </summary>
     public static IQueryable<Guid> SinOpinionCumplimiento(CompartidoDbContext db, IClock clock)
     {
@@ -84,6 +85,7 @@ public static class ExpedienteAdjuntos
         return from p in db.Proveedores.AsNoTracking()
         from t in db.AdjuntoTiposDocumento.AsNoTracking()
         where t.TipoEntidad == "proveedor" && t.Activo && t.Codigo == CodigoOpinionCumplimiento
+            && (p.TipoPersona == Millet.Catalogos.Domain.TipoPersonaProveedor.Moral ? t.ObligatorioPersonaMoral : t.ObligatorioPersonaFisica)
             && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloNacional || p.Origen != Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
             && (t.AplicaOrigen != AdjuntoAplicaOrigen.SoloExtranjero || p.Origen == Millet.DatosMaestros.Domain.OrigenProveedor.Extranjero)
             && !db.AdjuntoExcepciones.Any(x => x.TipoEntidad == "proveedor" && x.EntidadId == p.Id && x.TipoDocumentoId == t.Id && x.Estado == EstadoExcepcionAdjunto.Otorgada && x.RevocadaEn == null)

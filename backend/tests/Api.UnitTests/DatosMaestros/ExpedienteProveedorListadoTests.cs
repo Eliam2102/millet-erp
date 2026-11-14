@@ -108,6 +108,11 @@ public sealed class ExpedienteProveedorListadoTests
         Opinion(vigente, new DateOnly(2026, 11, 30));
         await db.SaveChangesAsync();
 
+        // ADM-PRV-05: con la 32-D no obligatoria en la matriz (seed) nadie se detiene, aunque falte o esté vencida.
+        Assert.Empty(await ExpedienteAdjuntos.SinOpinionCumplimiento(db, reloj).ToListAsync());
+
+        tipo.Configurar(tipo.Nombre, true, true, 1, false, AdjuntoAplicaOrigen.SoloNacional, true);   // la matriz la vuelve obligatoria
+        await db.SaveChangesAsync();
         var sin = await ExpedienteAdjuntos.SinOpinionCumplimiento(db, reloj).ToListAsync();
         Assert.Equivalent(new[] { faltante.Id, vencida.Id }, sin);   // el extranjero no aplica y el vigente no se detiene
 
