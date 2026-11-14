@@ -112,16 +112,21 @@ public sealed class AlmCargaInicialLectorTests
     }
 
     [Fact]
-    public async Task Con_otra_carga_ya_aplicada_la_nueva_no_se_aplica()
+    public async Task Con_otra_carga_ya_aplicada_la_nueva_se_acusa_en_ERROR_sin_aplicarse()
     {
         var (origen, proc, lector) = Crear();
         origen.Agregar(Hoja(1, 1));
         await lector.ProcesarAsync(default);
         origen.Agregar(Hoja(2, 1)); // TI regeneró la carga: aplicarla sumaría la existencia dos veces
+        origen.Agregar(Herraje(2, 2));
 
-        Assert.Equal((0, 0), await lector.ProcesarAsync(default));
-        Assert.Single(proc.Sobres);
-        Assert.Equal((null, null), origen.Acuse(2, 1));
+        Assert.Equal((0, 2), await lector.ProcesarAsync(default));
+        Assert.Single(proc.Sobres); // no se aplicó ningún renglón de la carga 2
+        // v11: se acusa ERROR para que Almacenes lo vea, en vez de dejar los renglones sin acuse.
+        var (estado, texto) = origen.Acuse(2, 1);
+        Assert.Equal("ERROR", estado);
+        Assert.Contains("ya aplicó la carga 1", texto);
+        Assert.Equal("ERROR", origen.Acuse(2, 2).Estado);
     }
 
     [Fact]

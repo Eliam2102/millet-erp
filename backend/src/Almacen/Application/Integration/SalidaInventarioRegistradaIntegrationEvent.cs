@@ -39,6 +39,8 @@ public sealed record SalidaInventarioRegistradaIntegrationEvent(
         TipoMovimiento.BajaPorDano => "rotura",
         TipoMovimiento.AjusteNegativo => "salida_manual",
         TipoMovimiento.SalidaNoPlanificada => "salida_no_planificada",
+        // v10-v11: la venta por albarán carga costo de ventas; ningún otro punto del flujo de A+W descarga la materia prima.
+        TipoMovimiento.SalidaPorVenta => "venta",
         _ => "consumo",
     };
 
