@@ -98,9 +98,18 @@ public static partial class NormalizadorEventos
     private static EventoContable FacturaProveedor(Guid eventoId, string payload)
     {
         var f = JsonSerializer.Deserialize<FacturaProveedorRegistradaContrato>(payload, Json) ?? throw new EventoIlegibleException("Payload vacío.");
+        // La base va neta de descuentos (ValorCapitalizable de CxP; Subtotal del CFDI es bruto): con el Subtotal bruto la TT no cuadraba
+        // contra PROVEEDORES, quedaba en la bandeja sin remedio y el pago esperaba esa TT para siempre. La base neta del CFDI es
+        // Total + retenciones − IVA; lo que difiera la suma de las líneas (tolerancia de captura ≤ $0.99 y centavos del prorrateo del
+        // descuento global) va a REDONDEO, igual que el pago (M-326).
+        var baseNeta = f.TotalFactura + (f.RetencionesTotal ?? 0m) - (f.Iva ?? 0m);
+        var lineas = (f.Lineas ?? []).Select(l => new LineaEventoContable(l.LineaOcId,
+            Math.Round(l.ValorCapitalizable ?? l.Importe, 2, MidpointRounding.AwayFromZero), l.CentroCostoId, l.EsServicio ?? false)).ToList();
+        var redondeo = lineas.Count == 0 ? 0m : baseNeta - lineas.Sum(l => l.Importe);
         var importes = new Dictionary<string, decimal?>
         {
-            ["Subtotal"] = f.Subtotal,
+            ["Subtotal"] = baseNeta,
+            ["RedondeoCargo"] = Math.Max(0m, redondeo), ["RedondeoAbono"] = Math.Max(0m, -redondeo),
             ["Iva"] = f.Iva,
             ["RetencionesTotal"] = f.RetencionesTotal,
             ["Total"] = f.TotalFactura,
@@ -108,7 +117,6 @@ public static partial class NormalizadorEventos
             // 86e3zcbjw: la factura se registra por el total; la retención se descuenta al pagar (#2 v3 y #5 v3).
             [RetencionesContables.CampoTotalMas] = f.TotalFactura + (f.RetencionesTotal ?? 0m),
         };
-        var lineas = (f.Lineas ?? []).Select(l => new LineaEventoContable(l.LineaOcId, l.Importe, l.CentroCostoId, l.EsServicio ?? false)).ToList();
         lineas.AddRange(RetencionesContables.Lineas(f.Retenciones, f.ConceptoRetencion));
         // M-209: el IVA por tratamiento (16 %, 8 %…) a su rol {IVA_ACREDITABLE_PENDIENTE}_{tratamiento}; sin detalle, como hoy.
         lineas.AddRange(ImpuestosTrasladados.LineasDocumento(ImpuestosTrasladados.Agrupar(f.Impuestos), f.Iva));
@@ -131,5 +139,6 @@ public static partial class NormalizadorEventos
         IReadOnlyList<RetencionesContables.RetencionContrato>? Retenciones = null, string? ConceptoRetencion = null,
         IReadOnlyList<ImpuestosTrasladados.ImpuestoTrasladoContrato>? Impuestos = null, bool EsServicioComercioExterior = false);
 
-    private sealed record LineaFacturaContrato(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool? EsServicio);
+    private sealed record LineaFacturaContrato(Guid? LineaOcId, decimal Importe, Guid? CentroCostoId, bool? EsServicio,
+        decimal? ValorCapitalizable = null);
 }

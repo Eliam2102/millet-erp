@@ -548,7 +548,7 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 concepto.Nombre,
                 Iva: ivaMonto,
                 SucursalId: sucursalId,
-                CentroCostoId: centroCostoId), cancellationToken);
+                CentroCostoId: centroCostoId) { CuentaContableRef = cuenta.CuentaContableRef }, cancellationToken);
 
             await publisher.PublishAsync(new MovimientoBancarioRegistradoIntegrationEvent(
                 conciliacion.EmpresaId,
@@ -563,7 +563,7 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 conceptoIvaId,
                 "Impuestos",
                 SucursalId: sucursalId,
-                MovimientoBaseId: movBase.Id), cancellationToken);
+                MovimientoBaseId: movBase.Id) { CuentaContableRef = cuenta.CuentaContableRef }, cancellationToken);
         }
         else
         {
@@ -602,7 +602,7 @@ public sealed class AltaAsistidaDesdeExtractoHandler(
                 concepto.Id,
                 concepto.Nombre,
                 SucursalId: sucursalId,
-                CentroCostoId: centroCostoId), cancellationToken);
+                CentroCostoId: centroCostoId) { CuentaContableRef = cuenta.CuentaContableRef }, cancellationToken);
         }
 
         decimal saldoLibros = await ConciliacionCalculos.CalcularSaldoLibrosAsync(

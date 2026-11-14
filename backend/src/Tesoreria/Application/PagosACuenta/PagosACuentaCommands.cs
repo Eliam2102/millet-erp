@@ -294,6 +294,9 @@ public sealed class LigarPagoACuentaHandler
 
         // Mismo contrato congelado que el pago directo (RN-4): CxP no
         // distingue una liga tardía de un pago normal.
+        var cuentaContable = await _db.CuentasBancarias.AsNoTracking()
+            .Where(c => c.Id == movimiento.CuentaBancariaId)
+            .Select(c => c.CuentaContableRef).FirstOrDefaultAsync(cancellationToken);
         await _publisher.PublishAsync(new PagoFacturaProveedorAplicadoIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: ahora,
@@ -307,7 +310,7 @@ public sealed class LigarPagoACuentaHandler
             CuentaBancariaId: movimiento.CuentaBancariaId,
             TipoCambio: pasivo.TipoCambio) { EsAnticipoAgente = pasivo.OrigenTipo == "AnticipoAgente",
                 SucursalId = pasivo.SucursalAnticipoCeId, ProveedorId = pasivo.ProveedorId,
-                TipoCambioPago = movimiento.TipoCambio }, cancellationToken);
+                TipoCambioPago = movimiento.TipoCambio, CuentaContableRef = cuentaContable }, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 
