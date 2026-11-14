@@ -81,7 +81,22 @@ export const periodoKeys = {
   all: ['contabilidad', 'periodos'] as const,
   ejercicios: ['contabilidad', 'periodos', 'ejercicios'] as const,
   bitacora: (periodoId: string) => ['contabilidad', 'periodos', 'bitacora', periodoId] as const,
+  reaperturas: (anio: number, numero: number) => ['contabilidad', 'periodos', 'reaperturas', anio, numero] as const,
 };
+
+/** H-U29: reapertura acotada de un periodo, para elegirla en pantalla (mirror de `ListarReaperturasQuery.cs`). */
+export interface ReaperturaPeriodo {
+  id: string;
+  anio: number;
+  numero: number;
+  periodo: string;
+  evidenciaReferencia: string;
+  creadaEn: string;
+  creadaPor: string;
+  venceEn: string;
+  vigente: boolean;
+  cerradaEn: string | null;
+}
 
 function useInvalidar() {
   const qc = useQueryClient();
@@ -93,6 +108,16 @@ export function useEjercicios(options: { enabled?: boolean; retry?: number; stal
     ...options,
     queryKey: periodoKeys.ejercicios,
     queryFn: async ({ signal }) => (await apiRequest<EjercicioContable[]>(`${BASE}/ejercicios`, { signal })).data,
+  });
+}
+
+/** H-U29: reaperturas del periodo, la más reciente primero. */
+export function useReaperturasPeriodo(anio: number | null, numero: number | null) {
+  return useQuery({
+    queryKey: periodoKeys.reaperturas(anio ?? 0, numero ?? 0),
+    enabled: !!anio && !!numero,
+    queryFn: async ({ signal }) =>
+      (await apiRequest<ReaperturaPeriodo[]>(`${BASE}/reaperturas?anio=${anio}&numero=${numero}`, { signal })).data,
   });
 }
 

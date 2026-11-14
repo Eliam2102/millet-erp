@@ -19,6 +19,7 @@ import { useRegistrarIncidencia, type RegistrarIncidenciaBody } from '../../api/
 import { SELECT_CLASS } from '../../lib/estilos';
 import { mensajePoliza } from '../../lib/polizas';
 import { HALLAZGO_MAXIMO, HALLAZGO_MINIMO, IMPACTO_MAXIMO, IMPACTO_MINIMO } from '../../lib/incidencias';
+import { PolizaAutorizadaSelector } from './PolizaAutorizadaSelector';
 
 interface Props {
   open: boolean;
@@ -63,7 +64,7 @@ function Formulario({
   const registrar = useRegistrarIncidencia();
   const keyFor = useBodyScopedIdempotencyKey();
   const [liga, setLiga] = useState<'poliza' | 'periodo'>('poliza');
-  const [polizaId, setPolizaId] = useState('');
+  const [polizaId, setPolizaId] = useState<string | null>(null);
   const [anio, setAnio] = useState('');
   const [numero, setNumero] = useState('');
   const [hallazgo, setHallazgo] = useState('');
@@ -77,7 +78,7 @@ function Formulario({
   };
 
   const ligaCompleta =
-    liga === 'poliza' ? polizaId.trim().length > 0 : Number(anio) > 0 && Number(numero) >= 1 && Number(numero) <= 13;
+    liga === 'poliza' ? !!polizaId : Number(anio) > 0 && Number(numero) >= 1 && Number(numero) <= 13;
   const textosOk =
     hallazgo.trim().length >= HALLAZGO_MINIMO &&
     hallazgo.trim().length <= HALLAZGO_MAXIMO &&
@@ -88,7 +89,7 @@ function Formulario({
     e.preventDefault();
     setMensaje('');
     const body: RegistrarIncidenciaBody = {
-      polizaId: liga === 'poliza' ? polizaId.trim() : null,
+      polizaId: liga === 'poliza' ? polizaId : null,
       anio: liga === 'periodo' ? Number(anio) : null,
       numero: liga === 'periodo' ? Number(numero) : null,
       hallazgo: hallazgo.trim(),
@@ -119,13 +120,8 @@ function Formulario({
           </FormCampo>
           {liga === 'poliza' ? (
             <FormCampo span={12}>
-              <Label htmlFor="inc-poliza">Identificador de la póliza</Label>
-              <Input
-                id="inc-poliza"
-                value={polizaId}
-                onChange={(e) => cambia(setPolizaId)(e.target.value)}
-                placeholder="Se copia de la dirección del detalle de la póliza"
-              />
+              <Label htmlFor="inc-poliza">Póliza</Label>
+              <PolizaAutorizadaSelector id="inc-poliza" value={polizaId} onChange={cambia(setPolizaId)} />
               <p className="mt-1 text-xs text-ink-muted">
                 El periodo de la incidencia es el de la póliza, que debe estar autorizada.
               </p>
